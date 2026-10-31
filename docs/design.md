@@ -129,6 +129,11 @@ pre-export check says so.
 - **Recovery copies (2026-10-31):** kept per unsaved document in the settings folder's
   `autosave/`; the recovery offer and Settings can delete them (each delete warns first). A
   recovered document keeps its copy's name, so saving it clears the copy.
+- **Collaborators (2026-10-31):** installers that set up conda too (Matthew's choice):
+  `install-mac.command` / `install-windows.bat` install Miniforge if there's no conda, then the
+  environment, a non-editable FigAssemble and the app or shortcuts; re-running updates. Docs:
+  README (install, quick start, feedback) + tutorial + user guide, with screenshots of neutral
+  sample plots (his unpublished figures stay out); feedback through GitHub issue forms.
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.

@@ -1,0 +1,21 @@
+name: Suggest an idea
+description: Something FigAssemble should do, or do differently
+title: "Idea: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like FigAssemble to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What are you trying to make?
+      description: The figure or task behind the idea, e.g. "the journal wants 8.5 cm panels and I keep resizing them by hand".
+  - type: textarea
+    id: now
+    attributes:
+      label: How do you do it now?
+      description: In PowerPoint, Illustrator, Inkscape or elsewhere, if you do.

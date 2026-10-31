@@ -138,17 +138,17 @@ const app = {
     if (!ok.length) { if (errors.length) panels.reportDialog("Couldn't place", errors); return; }
     const page = store.page();
     let [x, y] = pagePoint || [page.width * 0.1, page.height * 0.1];
-    const items = [];
+    // Made first, so the new pictures end up selected
+    const items = ok.map((r) => {
+      const [w, h] = r.asset.page_sizes ? r.asset.page_sizes[0] : r.asset.size_pt;
+      const it = { id: uid("it"), type: "picture", name: r.asset.name, asset: r.asset_id, page_index: 0,
+        frame: [x, y, w, h], crop: [0, 0, 0, 0], rot: 0, flip_h: false, flip_v: false, opacity: 1, source: "auto" };
+      x += 12; y += 12;
+      return it;
+    });
     store.update(`Place ${ok.length === 1 ? ok[0].asset.name : `${ok.length} pictures`}`, (doc) => {
-      for (const r of ok) {
-        doc.assets[r.asset_id] = r.asset;
-        const [w, h] = r.asset.page_sizes ? r.asset.page_sizes[0] : r.asset.size_pt;
-        const it = { id: uid("it"), type: "picture", name: r.asset.name, asset: r.asset_id, page_index: 0,
-          frame: [x, y, w, h], crop: [0, 0, 0, 0], rot: 0, flip_h: false, flip_v: false, opacity: 1, source: "auto" };
-        doc.pages[store.pageIndex].items.push(it);
-        items.push(it);
-        x += 12; y += 12;
-      }
+      for (const r of ok) doc.assets[r.asset_id] = r.asset;
+      doc.pages[store.pageIndex].items.push(...items);
     }, { select: items.map((i) => i.id) });
     const warnings = ok.flatMap((r) => r.warnings || []).concat(errors);
     const copies = ok.map((r) => Object.keys(r.asset.variants).map((k) => k.toUpperCase()).join("+"));
@@ -821,6 +821,7 @@ async function start() {
   document.body.classList.add("ready");
   announce("FigAssemble is ready. Drop figure files onto the page, or press I to insert a picture.");
   if (params.get("selftest")) import("./selftest.js").then((m) => m.run(app, params));
+  if (params.get("docshot")) import("./docshots.js").then((m) => m.run(app, params));   // the docs' screenshots
 }
 
 // Work that wasn't saved last time: recover a document, or delete copies that aren't wanted

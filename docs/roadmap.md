@@ -37,8 +37,12 @@
       with folding sections
 - [x] Align and distribute as in Illustrator (key object, exact gaps, align to page)
 - [x] Connectors: line ends attach to corners, side middles and dashes, and follow their objects
+- [x] Docs for collaborators: README (install, quick start, feedback), step-by-step tutorial and
+      user guide with screenshots from the real editor (`tools/doc_shots.py`), sample plots in
+      `examples/`; one-step installers for Mac and Windows (Miniforge if needed) tested on fresh
+      machines in CI; GitHub issue forms for problems and ideas
 - [ ] Matthew's first real use: feedback round (in progress)
-- [ ] Windows: test the app window on a real machine; no-command-line installer (PyInstaller via CI)
+- [ ] Windows: try the app window and the installer on a real machine (the installer runs in CI)
 
 ## Acceptance test (test slide)
 

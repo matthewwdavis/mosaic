@@ -1,0 +1,55 @@
+# Runs both installers on fresh machines without conda, as a collaborator would, and checks the
+# result. Only when the installers or what they install change (macOS minutes cost more), or by hand.
+name: installers
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - install-mac.command
+      - install-windows.bat
+      - environment.yml
+      - pyproject.toml
+      - packaging/**
+      - .github/workflows/installers.yml
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the Mac installer
+        run: bash install-mac.command
+        env:
+          FIGASSEMBLE_NO_OPEN: "1"
+          FIGASSEMBLE_APP_DIR: ${{ runner.temp }}/Applications
+      - name: Check the app and the installed copy of FigAssemble
+        run: |
+          app="$RUNNER_TEMP/Applications/FigAssemble.app/Contents/MacOS/FigAssemble"
+          test -x "$app"
+          py=$(sed -n 's/^exec "\([^"]*\)".*/\1/p' "$app")
+          cd "$RUNNER_TEMP"   # away from the source folder, so the installed copy is the one tested
+          "$py" -c "import figassemble, os; ui = os.path.join(os.path.dirname(figassemble.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(figassemble.__file__)"
+          "$py" -m figassemble export --help
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the Windows installer
+        shell: cmd
+        run: install-windows.bat
+        env:
+          FIGASSEMBLE_NO_OPEN: "1"
+      - name: Check the shortcuts and the installed copy of FigAssemble
+        shell: pwsh
+        run: |
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\FigAssemble.lnk'
+          if (-not (Test-Path $lnk)) { throw "no Start menu shortcut" }
+          $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath
+          $py = Join-Path (Split-Path $target) 'python.exe'
+          Set-Location $env:RUNNER_TEMP   # away from the source folder, so the installed copy is the one tested
+          & $py -c "import figassemble, os; ui = os.path.join(os.path.dirname(figassemble.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(figassemble.__file__)"
+          & $py -m figassemble export --help
+          if ($LASTEXITCODE -ne 0) { throw "figassemble didn't start" }

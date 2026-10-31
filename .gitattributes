@@ -1,0 +1,3 @@
+# Keep each installer in the line endings its system expects
+*.bat text eol=crlf
+*.command text eol=lf

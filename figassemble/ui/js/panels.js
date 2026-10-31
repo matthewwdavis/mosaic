@@ -674,6 +674,7 @@ export const panels = {
         numField("Panel label size", label.size || 8, "pt", (v) => this.app.savePrefs({ panel_label: { ...label, size: v } }), { step: 0.5 }),
         selectField("Panel labels", label.case || "lower", [["lower", "a, b, c"], ["upper", "A, B, C"]],
           (v) => this.app.savePrefs({ panel_label: { ...label, case: v } }))),
+      h("p", { class: "hint version" }, `FigAssemble ${this.app.info.version}`),
     ));
   },
 

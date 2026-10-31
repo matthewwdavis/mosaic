@@ -1,0 +1,55 @@
+name: Report a problem
+description: Something didn't work, looked wrong, or was confusing
+title: "Problem: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying FigAssemble! Short, specific reports help most, and screenshots help a lot:
+        paste or drag them into any box below.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw. If something looked wrong, a screenshot of FigAssemble (and of the exported file) shows it best.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What were you doing?
+      description: The steps that led to it.
+      placeholder: |
+        1. Placed a PDF saved from R
+        2. Cropped it and added a panel label
+        3. Exported PNG at 600 dpi
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+  - type: dropdown
+    id: computer
+    attributes:
+      label: Computer
+      options:
+        - Mac (Apple silicon, M1 or later)
+        - Mac (Intel)
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: FigAssemble version
+      description: Shown at the bottom of Settings (the gear button, top right).
+  - type: textarea
+    id: files
+    attributes:
+      label: Files (optional)
+      description: >-
+        If it happens with a particular figure, attach the .figasm document or the file you placed (zip it
+        first). Only attach files you're happy for the other collaborators to see.
