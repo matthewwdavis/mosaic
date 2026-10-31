@@ -240,7 +240,8 @@ export function describeItem(it, doc) {
   return `${shapeName(it.geom)}, ${n(it.frame[2])} by ${n(it.frame[3])} ${unit} at ${n(it.frame[0])}, ${n(it.frame[1])}`;
 }
 export const GEOM_NAMES = { rect: "Rectangle", roundRect: "Rounded rectangle", ellipse: "Ellipse", triangle: "Triangle",
-  rtTriangle: "Right triangle", arc: "Arc", rightBracket: "Right bracket", leftBracket: "Left bracket", custom: "Freeform" };
+  rtTriangle: "Right triangle", arc: "Arc", rightBracket: "Right bracket", leftBracket: "Left bracket", custom: "Freeform",
+  region: "Area fill" };
 // Every preset shape the engine draws: the Shapes menu's groups and each shape's name,
 // adjustments and icon (main.js fills this in from the engine at start-up)
 export const shapeCatalog = { groups: [], shapes: {} };

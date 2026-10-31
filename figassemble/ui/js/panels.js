@@ -21,6 +21,7 @@ const ICONS = {
   zoomin: "M10 4a6 6 0 110 12 6 6 0 010-12zM15 15l5 5M10 7v6M7 10h6",
   zoomout: "M10 4a6 6 0 110 12 6 6 0 010-12zM15 15l5 5M7 10h6", fit: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5",
   centre: "M8 8h8v8H8zM12 2.5v3.5M12 18v3.5M2.5 12H6M18 12h3.5",
+  bucket: "M19 11L11 3L3 11a2 2 0 000 2.8l5.2 5.2a2 2 0 002.8 0zM6 3l4 4M3 13h15M21.5 19.5a1.5 1.5 0 01-3 0c0-1.2 1.5-2 1.5-3.5 0 1.5 1.5 2.3 1.5 3.5z",
   gear: "M12 9a3 3 0 110 6 3 3 0 010-6zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1",
   help: "M12 3a9 9 0 110 18 9 9 0 010-18zM9.5 9.5a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4M12 17h.01",
   plus: "M12 5v14M5 12h14", duplicate: "M8 8h11v11H8zM5 5h11v3M5 5v11h3", trash: "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13",
@@ -252,7 +253,7 @@ export const panels = {
       t("toolLine", "line", "line"), t("toolArrow", "arrow", "arrow"), sep(),
       t("toolRect", "rect", "rect"), t("toolRoundRect", "roundrect", "roundrect"), t("toolEllipse", "ellipse", "ellipse"),
       t("toolTriangle", "triangle", "triangle"), t("toolArc", "arc", "arc"), t("toolBracket", "bracket", "bracket"),
-      this.shapeMenuButton(), sep(), t("insertPicture", "picture"));
+      this.shapeMenuButton(), sep(), t("toolFill", "bucket", "fill"), sep(), t("insertPicture", "picture"));
     box.querySelector("button.tool").tabIndex = 0;
     roving(box, "button.tool", true);
     this.renderTools("select");

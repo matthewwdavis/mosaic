@@ -65,6 +65,7 @@ class Resolved:
     bbox: tuple[float, float, float, float] | None = None
     autofit_frame: list[float] | None = None    # frame an auto-fitted text box should take
     warnings: list[str] = field(default_factory=list)
+    region: dict | None = None                  # an area fill's area now: {seed, frame, path}
 
 
 def union_bbox(boxes):
@@ -324,6 +325,17 @@ class Resolver:
     def __init__(self, doc: dict, fonts: FontIndex | None = None):
         self.doc = doc
         self.fonts = fonts
+        self.context: dict = {}   # the page's items by id, for area fills to find their lines
+
+    def use_page(self, items: list[dict]) -> None:
+        """The items area fills look among for the lines and shapes round them (a page's items)."""
+        self.context = {}
+        def add(its):
+            for it in its:
+                self.context[it.get("id")] = it
+                if it.get("type") == "group":
+                    add(it.get("items", []))
+        add(items)
 
     def asset_size(self, asset_id: str, page_index: int = 0) -> tuple[float, float]:
         asset = self.doc.get("assets", {}).get(asset_id) or {}
@@ -336,6 +348,8 @@ class Resolver:
         kind = item.get("type")
         if kind == "picture":
             r = self._picture(item)
+        elif kind == "shape" and item.get("geom") == "region":
+            r = self._region(item)
         elif kind == "shape":
             r = self._shape(item)
         elif kind == "line":
@@ -354,7 +368,28 @@ class Resolver:
         return r
 
     def resolve_page(self, page: dict) -> list[Resolved]:
+        self.use_page(page.get("items", []))
         return [self.resolve(it) for it in page.get("items", []) if not it.get("hidden")]
+
+    def _region(self, item: dict) -> Resolved:
+        """An area fill: the space its lines and shapes enclose now (regions.py), filled."""
+        from . import regions
+        r = Resolved(item.get("id", ""))
+        found = regions.find(item.get("region") or {}, self.context)
+        if found is None:
+            r.warnings.append("an area fill's lines and shapes no longer enclose an area")
+            return r
+        x, y, w, h = found["frame"]
+        fill = make_fill(item.get("fill"))
+        if fill is not None:
+            if (item.get("fill") or {}).get("gradient"):
+                fill.gradient = make_gradient(item["fill"]["gradient"], w, h, Matrix.translate(x, y))
+            fill.even_odd = True   # areas with holes (a shape inside the area) leave them empty
+            r.prims.append(DrawPath(found["path"], fill=fill, meta={"role": "body", "item": item.get("id")}))
+        r.prims = with_outline(r.prims, item.get("outline"))
+        r.region = {"seed": found["seed"], "frame": found["frame"],
+                    "path": regions.custom_path(found["path"], found["frame"])}
+        return r
 
     # Items ------------------------------------------------------------------------
 
@@ -458,6 +493,40 @@ def shape_to_curve(item: dict, assets: dict | None = None) -> dict:
         if key in item:
             out[key] = item[key]
     return out
+
+
+def centre_paths(item: dict) -> list[tuple[Path, float]]:
+    """The paths an item's line and fill follow on the page, each with its line width (0 if it
+    has none): before dashes and arrowheads, so a dashed outline is still one closed path. For
+    finding the areas lines and shapes enclose (regions.py); pictures, text boxes and area fills
+    enclose nothing."""
+    if item.get("hidden"):
+        return []
+    kind = item.get("type")
+    if kind == "group":
+        return [p for child in item.get("items", []) for p in centre_paths(child)]
+    stroke = item.get("stroke") or None
+    width = float(stroke.get("width", 1.0)) if stroke else 0.0
+    if kind == "line":
+        pts = item.get("points") or []
+        if len(pts) < 2 or not stroke:
+            return []
+        if item.get("curve") == "smooth" and len(pts) >= 3:
+            return [(smooth_path(pts), width)]
+        path = Path().move_to(*pts[0])
+        for p in pts[1:]:
+            path.line_to(*p)
+        return [(path, width)]
+    if kind != "shape" or item.get("geom") == "region" or not (stroke or item.get("fill")):
+        return []
+    x, y, w, h = item["frame"]
+    m = frame_matrix(item["frame"], item.get("rot", 0.0), item.get("flip_h", False), item.get("flip_v", False))
+    geom = item.get("geom", "rect")
+    shape_paths = custom_paths(item.get("path") or {}, w, h) if geom == "custom" else presets.shape_paths(geom, w, h, item.get("adj"))
+    if item.get("rounding"):
+        shape_paths = round_shape_paths(shape_paths, item["rounding"])
+    return [(sp.path.transformed(m), width) for sp in shape_paths
+            if (sp.stroke and stroke) or (sp.fill and item.get("fill"))]
 
 
 def custom_paths(spec: dict, w: float, h: float):

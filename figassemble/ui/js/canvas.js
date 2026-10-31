@@ -234,6 +234,14 @@ export const canvas = {
   // Shapes, lines and text come from the engine as SVG (same code as SVG export)
   geomKey(it) {
     const c = JSON.parse(JSON.stringify(it));
+    if (c.geom === "region") {
+      // An area fill follows its lines and shapes: drawn again whenever they change. Its frame
+      // and seed follow from them, so they don't count
+      c.lines = (c.region?.items || []).map((id) => findDeep(store.items(), id) || null);
+      c.region = { items: c.region?.items };
+      delete c.frame; delete c.name; delete c.alt; delete c.locked;
+      return [JSON.stringify(c), [0, 0]];
+    }
     let origin = [0, 0];
     if (c.frame) { origin = [c.frame[0], c.frame[1]]; c.frame = [0, 0, c.frame[2], c.frame[3]]; }
     if (c.points) { origin = c.points[0].slice(); c.points = c.points.map((p) => [p[0] - origin[0], p[1] - origin[1]]); }
@@ -269,19 +277,38 @@ export const canvas = {
   async resolveItems(items) {
     // What each item looked like when sent: if it changes meanwhile, it's drawn again
     const keys = items.map((it) => this.geomKey(it));
+    // Area fills need the lines and shapes round them
+    const sent = new Set(items.map((it) => it.id)), context = [];
+    for (const it of items) {
+      for (const id of it.geom === "region" ? it.region?.items || [] : []) {
+        const b = !sent.has(id) && findDeep(store.items(), id);
+        if (b) { sent.add(id); context.push(b); }
+      }
+    }
     let results;
     try {
-      results = await rpc("resolve", this.assetSizes(), items);
+      results = await rpc("resolve", this.assetSizes(), items, context);
     } catch (err) { console.error(err); return; }
-    const autofit = [];
+    const autofit = [], areas = [];
     results.forEach((r, i) => {
-      if (this.showDrawn(items[i], r, keys[i]) && r.autofit_frame) autofit.push([r.id, r.autofit_frame]);
+      if (!this.showDrawn(items[i], r, keys[i])) return;
+      if (r.autofit_frame) autofit.push([r.id, r.autofit_frame]);
+      if (r.region) areas.push([r.id, r.region]);
     });
-    if (autofit.length) {
+    if (autofit.length || areas.length) {
       store.silent((doc) => {
         for (const [id, f] of autofit) {
           const it = findDeep(doc.pages[store.pageIndex].items, id);
           if (it) it.frame = f;
+        }
+        // An area fill's box and seed as its area is now; its path is kept for copying it
+        for (const [id, a] of areas) {
+          const it = findDeep(doc.pages[store.pageIndex].items, id);
+          if (!it) continue;
+          it.frame = a.frame;
+          it.region = { ...it.region, seed: a.seed };
+          const e = this.els.get(id);
+          if (e) e.regionPath = a.path;
         }
       });
       this.render({});
@@ -375,7 +402,7 @@ export const canvas = {
       const mids = lineMidpoints(it).map((m) => ({ kind: "mid", index: m.index, at: this.toScreen(m.at[0], m.at[1]) }));
       return [...pts, ...mids];
     }
-    if (it.type === "group") return [];
+    if (it.type === "group" || it.geom === "region") return [];   // an area fill takes its shape from its lines
     const m = frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v);
     const [, , w, h] = it.frame;
     const pts = { nw: [0, 0], n: [w / 2, 0], ne: [w, 0], e: [w, h / 2], se: [w, h], s: [w / 2, h], sw: [0, h], w: [0, h / 2] };
@@ -440,8 +467,25 @@ export const canvas = {
   itemAt(p) {
     const tol = 4 / this.k;
     const items = store.items();
-    for (let i = items.length - 1; i >= 0; i--) if (!items[i].locked && hitItem(items[i], p, tol)) return items[i];
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      if (!it.locked && (it.geom === "region" ? this.inArea(it, p) : hitItem(it, p, tol))) return it;
+    }
     return null;
+  },
+  // Inside an area fill's area as last drawn (its rings, even-odd, so holes don't count)
+  inArea(it, p) {
+    const sub = this.els.get(it.id)?.regionPath?.subpaths?.[0];
+    if (!sub || it.hidden) return false;
+    const [x, y] = [p[0] - it.frame[0], p[1] - it.frame[1]];
+    let inside = false, start = null, prev = null;
+    const edge = (a, b) => { if ((a[1] > y) !== (b[1] > y) && x < a[0] + ((y - a[1]) * (b[0] - a[0])) / (b[1] - a[1])) inside = !inside; };
+    for (const [op, ...v] of sub.cmds) {
+      if (op === "M") { if (prev && start) edge(prev, start); start = prev = v; }
+      else if (op === "L") { edge(prev, v); prev = v; }
+      else if (op === "Z" && prev && start) { edge(prev, start); prev = start; }
+    }
+    return inside;
   },
 
   // Pointer interaction ---------------------------------------------------------------
@@ -459,6 +503,7 @@ export const canvas = {
     }
     if (e.button !== 0) return;
     if (isMac && e.ctrlKey && !e.metaKey) return;   // Control-click is a right-click: its menu opens from the contextmenu event
+    if (this.tool === "fill") { this.onFillArea?.(p); return; }
     if (this.tool !== "select") return this.startDraw(p, e);
     const hd = this.handleAt(pt);
     if (hd) return this.startHandle(hd, p, e);
@@ -613,13 +658,14 @@ export const canvas = {
     const sel = store.selected().filter((it) => !it.locked);
     if (!sel.length) return;
     store.beginLive();
+    let items = withRegionLines(sel);
     if (e.altKey) {
-      // Option/Alt-drag duplicates, like PowerPoint
-      const copies = copyItems(sel);
+      // Option/Alt-drag duplicates, like PowerPoint (an area fill with its lines and shapes)
+      const copies = copyItems(items);
       store.silent((doc) => doc.pages[store.pageIndex].items.push(...copies));
-      store.selection = copies.map((c) => c.id);
+      store.selection = copies.slice(0, sel.length).map((c) => c.id);
+      items = copies;
     }
-    const items = store.selected();
     detachMoved(items);
     this.op = { type: "move", start: p, orig: items.map((it) => JSON.parse(JSON.stringify(it))), moved: false,
       label: e.altKey ? "Duplicate" : "Move", bbox: itemsBBox(items), targets: this.snapTargets(items.map((i) => i.id)) };
@@ -631,11 +677,10 @@ export const canvas = {
     if (!op.moved && Math.hypot(dx, dy) * this.k < 2) return;
     op.moved = true;
     [dx, dy] = this.snapMove(op.bbox, dx, dy, op.targets, e);
-    const ids = op.orig.map((o) => o.id);
-    store.selected().forEach((it) => {
-      const o = op.orig[ids.indexOf(it.id)];
-      shiftItem(it, o, dx, dy);
-    });
+    for (const o of op.orig) {
+      const it = findDeep(store.items(), o.id);
+      if (it) shiftItem(it, o, dx, dy);
+    }
     store.live();
   },
 
@@ -1197,6 +1242,7 @@ export const canvas = {
   toolGeom(tool) { return tool === "shape" ? this.shapeGeom : TOOL_GEOMS[tool]; },
   // Enter with a drawing tool: one object in the middle of the view, on the page
   placeDefault() {
+    if (this.tool === "fill") return announce("Click inside an area that lines and shapes enclose to fill it");
     const r = this.stage.getBoundingClientRect(), page = store.page();
     const [x, y] = this.toPage(r.width / 2, r.height / 2);
     const c = [clamp(x, 0, page.width), clamp(y, 0, page.height)];
@@ -1366,7 +1412,7 @@ export const canvas = {
 
   startEdit(id, isNew = false) {
     const it = store.item(id);
-    if (!it || it.type !== "shape") return;
+    if (!it || it.type !== "shape" || it.geom === "region") return;   // an area fill holds no text
     if (!it.text) it.text = { paragraphs: [{ align: "ctr", runs: [{ t: "", font: "Helvetica", size: 6 }] }],
       insets: [7.2, 3.6, 7.2, 3.6], wrap: true, anchor: "ctr", autofit: "none" };
     this.editing = { id, isNew, before: JSON.stringify(it.text) };
@@ -1486,6 +1532,10 @@ export function reid(it, ids = null) {
 // Copies of items with new ids; a copied line stays attached only to objects copied with it
 export function copyItems(items) {
   const ids = new Map();
+  // Area fills' paths as last drawn, by their old ids: one copied without its lines becomes an
+  // ordinary shape of its area as it is
+  const paths = new Map();
+  for (const it of allRegions(items)) paths.set(it.id, canvas.els.get(it.id)?.regionPath);
   const copies = items.map((it) => reid(JSON.parse(JSON.stringify(it)), ids));
   for (const line of allLines(copies)) {
     for (const key of ["start_link", "end_link"]) {
@@ -1494,7 +1544,41 @@ export function copyItems(items) {
       else delete line[key];
     }
   }
+  const oldId = new Map([...ids].map(([o, n]) => [n, o]));
+  for (const it of allRegions(copies)) {
+    const lines = (it.region.items || []).map((id) => ids.get(id));
+    if (lines.every(Boolean)) it.region = { ...it.region, items: lines };
+    else detachRegion(it, paths.get(oldId.get(it.id)));
+  }
   return copies;
+}
+export function allRegions(items, out = []) {
+  for (const it of items) {
+    if (it.type === "group") allRegions(it.items, out);
+    else if (it.geom === "region") out.push(it);
+  }
+  return out;
+}
+// An area fill as an ordinary freeform shape of its area as last drawn, no longer following its
+// lines (stays an area fill if it hasn't been drawn yet)
+export function detachRegion(it, path) {
+  if (!path) return false;
+  it.geom = "custom";
+  it.path = JSON.parse(JSON.stringify(path));
+  it.fill = { ...(it.fill || { color: "#d9d9d9", opacity: 1 }), even_odd: true };
+  delete it.region;
+  return true;
+}
+// The items a move takes along: an area fill's lines and shapes go with it, as it follows them
+export function withRegionLines(items) {
+  const out = [...items], ids = new Set(items.map((it) => it.id));
+  for (const it of allRegions(items)) {
+    for (const id of it.region.items || []) {
+      const b = !ids.has(id) && findDeep(store.items(), id);
+      if (b && !b.locked) { ids.add(id); out.push(b); }
+    }
+  }
+  return out;
 }
 // Lines being moved on their own let go of objects that aren't moving with them
 export function detachMoved(items) {

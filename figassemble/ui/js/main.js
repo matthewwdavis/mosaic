@@ -6,7 +6,7 @@ window.addEventListener("error", (e) => window.__faErrors.push(String(e.message)
 window.addEventListener("unhandledrejection", (e) => window.__faErrors.push(String(e.reason?.message || e.reason)));
 
 import { rpc } from "./api.js";
-import { canvas, copyItems, detachMoved, findDeep, shiftGuides, shiftItem } from "./canvas.js";
+import { canvas, copyItems, detachMoved, detachRegion, findDeep, shiftGuides, shiftItem, withRegionLines } from "./canvas.js";
 import { contextMenu } from "./contextmenu.js";
 import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
@@ -208,8 +208,10 @@ const app = {
   // Arranging -----------------------------------------------------------------------
 
   nudge(dx, dy, resize = false) {
-    const sel = store.selected().filter((it) => !it.locked);
+    let sel = store.selected().filter((it) => !it.locked);
     if (!sel.length) return;
+    if (!resize) sel = withRegionLines(sel);   // an area fill moves with its lines and shapes
+    else sel = sel.filter((it) => it.geom !== "region");
     store.update(resize ? "Resize" : "Move", (doc) => {
       if (!resize) detachMoved(sel.map((x) => findDeep(doc.pages[store.pageIndex].items, x.id)));
       for (const s of sel) {
@@ -444,7 +446,8 @@ const app = {
       one?.type === "picture" && { label: "Crop picture", keys: "Enter", run: () => canvas.startCrop(one.id) },
       one?.type === "picture" && c("replacePicture", { label: "Replace picture…" }),
       asset?.variants[asset.primary]?.src && c("revealPicture"),
-      one?.type === "shape" && { label: "Edit text", keys: "Enter", run: () => canvas.startEdit(one.id) },
+      one?.type === "shape" && one.geom !== "region" && { label: "Edit text", keys: "Enter", run: () => canvas.startEdit(one.id) },
+      one?.geom === "region" && { label: "Make an ordinary shape", run: () => this.detachArea() },
       one?.type === "line" && (one.start_link || one.end_link) && { label: "Detach the ends", run: () => this.detachEnds() },
     ];
   },
@@ -515,11 +518,43 @@ const app = {
   deleteSelection() {
     const ids = new Set(store.selection);
     if (!ids.size) return;
+    const asked = ids.size;
+    // An area fill goes too once none of its lines and shapes are left
+    const left = (id) => !ids.has(id) && findDeep(store.items(), id);
+    for (const it of store.items()) {
+      if (it.geom === "region" && !(it.region?.items || []).some(left)) ids.add(it.id);
+    }
     store.update("Delete", (doc) => {
       const items = doc.pages[store.pageIndex].items;
       items.splice(0, items.length, ...items.filter((it) => !ids.has(it.id)));
     }, { select: [] });
-    announce(`Deleted ${ids.size} object${ids.size === 1 ? "" : "s"}`);
+    announce(`Deleted ${asked} object${asked === 1 ? "" : "s"}${ids.size > asked ? ", and the area fills between them" : ""}`);
+  },
+  // Area fills: click inside a space lines and shapes enclose. The fill goes behind them and
+  // follows them when they move or change shape
+  async fillArea(p) {
+    let found = null;
+    try { found = await rpc("region_at", store.items(), p); } catch (err) { console.error(err); }
+    if (!found) return announce("Nothing encloses that spot: lines and shapes have to close an area round it");
+    const fill = { id: uid("it"), type: "shape", geom: "region", name: "", region: { items: found.items, seed: found.seed },
+      frame: found.frame, rot: 0, stroke: null, fill: { color: "#d9d9d9", opacity: 1 } };
+    store.update("Fill area", (doc) => {
+      const items = doc.pages[store.pageIndex].items;
+      const holds = (it, id) => it.id === id || (it.type === "group" && it.items.some((c) => holds(c, id)));
+      const at = Math.min(...found.items.map((id) => items.findIndex((it) => holds(it, id))).filter((i) => i >= 0));
+      items.splice(Number.isFinite(at) ? at : items.length, 0, fill);
+    }, { select: [fill.id] });
+    canvas.setTool("select");
+    announce("Filled the area. It follows its lines and shapes when they move; choose its colour in the Style tab");
+  },
+  // An area fill as an ordinary shape of its area as it is now, no longer following its lines
+  detachArea() {
+    const it = store.selected()[0];
+    if (it?.geom !== "region") return;
+    const path = canvas.els.get(it.id)?.regionPath;
+    if (!path) return announce("This area fill encloses nothing at the moment");
+    store.update("Make an ordinary shape", (doc) => { detachRegion(findDeep(doc.pages[store.pageIndex].items, it.id), path); });
+    announce("It's an ordinary shape now and stays where it is when the lines move");
   },
   copy(cut = false) {
     const sel = store.selected();
@@ -805,6 +840,7 @@ app.commands = {
   toolTriangle: tool("triangle", "Triangle", null, "Triangle"),
   toolArc: tool("arc", "Arc", null, "Arc"),
   toolBracket: tool("bracket", "Bracket", null, "Bracket"),
+  toolFill: tool("fill", "Fill an area that lines and shapes enclose", "f", "Fill area"),
   shapesMenu: cmd("Shapes", () => panels.toggleShapeMenu(), "S", (e) => plain(e) && !e.shiftKey && e.key.toLowerCase() === "s", "Shapes"),
   addPage: cmd("Add page", () => app.addPage(), `${M}${S}N`, key("n", { shift: true }), "Add page"),
   duplicatePage: cmd("Duplicate page", () => app.addPage(true)),
@@ -1003,6 +1039,7 @@ async function start() {
   canvas.init(document.getElementById("stage"));
   canvas.onKeyClick = (id) => app.toggleKeyObject(id);
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
+  canvas.onFillArea = (p) => app.fillArea(p);
   canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);
   rulers.init(document.querySelector(".stage-wrap"));
   // Dragging a new guide out of a ruler shows the guides if they were hidden

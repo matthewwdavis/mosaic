@@ -31,7 +31,7 @@ Open FigAssemble. Here's the window with a finished figure in it:
 4. **Pages and Objects.** A document can have several pages; Objects lists everything on the
    current page, front to back, with buttons to hide or lock each one.
 5. **Drawing tools:** Select, Text, panel Label, Line, Arrow, shapes, the **Shapes** menu of
-   PowerPoint's shapes, and Picture.
+   PowerPoint's shapes, **Fill area** (fills a space lines enclose) and Picture.
 6. **The page**, with rulers along the top and left.
 7. **Properties** of whatever is selected, in tabs (Arrange, Style, Text, Picture). With nothing
    selected, it shows the page. Click a section's heading to fold it away.

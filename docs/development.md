@@ -65,7 +65,7 @@ the editor starts and that an edit switches on the close confirmation. On a Mac 
 every keyboard shortcut with real key events, through AppKit and pywebview as a key press goes
 (`figassemble/app/keycheck.py`), since the self-test's own key presses never leave the page, and
 pastes text, a PDF, a copied file and a screenshot from the real clipboard (put back afterwards):
-`SMOKE keys: 72 of 72 passed`.
+`SMOKE keys: 73 of 73 passed`.
 
 Paste reads the system clipboard on the Python side (`figassemble/app/clipboard.py`): AppKit on
 a Mac, the Windows clipboard API on Windows. The editor self-test sets

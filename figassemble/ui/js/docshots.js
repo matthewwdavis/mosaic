@@ -50,6 +50,26 @@ export async function run(app, params) {
   canvas.fit();
   await settle();
 
+  if (scene === "areafill") {
+    // A Venn diagram: two circles, and the three areas they make filled with the Fill area tool;
+    // the overlap selected, with its Style tab
+    const ring = (id, x) => ({ id, type: "shape", geom: "ellipse", frame: [x, 90, 130, 130], rot: 0, flip_h: false, flip_v: false,
+      stroke: { color: "#333333", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 }, fill: null });
+    store.update("Venn", (doc) => doc.pages[0].items.push(ring("left", 110, 90), ring("right", 200, 90)), { select: [] });
+    await settle();
+    // Left only, right only, then the overlap (left selected)
+    for (const [x, colour] of [[150, "#56b4e9"], [290, "#e69f00"], [220, "#009e73"]]) {
+      await app.fillArea([x, 155]);
+      store.update("Colour", (doc) => { doc.pages[0].items.find((i) => i.id === store.selection[0]).fill.color = colour; });
+      await settle();
+    }
+    centreOn(220, 155, 2.2);
+    await settle();
+    inspector.render();
+    document.getElementById("itab-style")?.click();
+    return finish();
+  }
+
   // Step 1: a Nature double-column page
   store.select([]);
   await choose("Journal", "Nature");

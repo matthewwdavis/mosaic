@@ -255,6 +255,15 @@ export const inspector = {
       arrange[2].splice(2, 0, this.linkSection(it));
       return [arrange, ["style", "Style", [this.strokeSection(it), this.endsSection(it), this.outlineSection(it)]]];
     }
+    if (it.geom === "region") {
+      // Its shape comes from its lines and shapes: no position or size of its own to type
+      const n = it.region?.items?.length || 0;
+      const fillArrange = ["arrange", "Arrange", [this.objectSection(it), section("Area fill", [
+        h("p", { class: "hint" }, `It fills the space ${n} line${n === 1 ? "" : "s"} and shape${n === 1 ? "" : "s"} enclose, and follows them `
+          + "when they move or change shape. Dragging it moves them all."),
+        button("Make it an ordinary shape that stays put when the lines move", () => this.app.detachArea(), "Make an ordinary shape")])]];
+      return [fillArrange, ["style", "Style", [this.fillSection(it), this.outlineSection(it)]]];
+    }
     if (it.type === "group") {
       arrange[2].push(section("Group", [
         h("p", { class: "hint" }, `${it.items.length} objects. Ungroup (${this.app.mod}Shift+G) to edit them one by one.`),
@@ -630,8 +639,9 @@ export const inspector = {
 };
 
 // Which tab opens first for each kind of object (until another is chosen)
-const DEFAULT_TAB = { shape: "style", textbox: "text", line: "style", picture: "picture", group: "arrange", multi: "arrange" };
-function kindKey(it) { return it.type === "shape" && it.textbox ? "textbox" : it.type; }
+const DEFAULT_TAB = { shape: "style", textbox: "text", line: "style", picture: "picture", group: "arrange", multi: "arrange",
+  region: "style" };
+function kindKey(it) { return it.geom === "region" ? "region" : it.type === "shape" && it.textbox ? "textbox" : it.type; }
 
 // Field builders ---------------------------------------------------------------------------
 
@@ -651,6 +661,7 @@ export function pagePreset(page, info) {
 
 function digits(u) { return u === "in" || u === "cm" ? 3 : 2; }
 function kindName(it) {
+  if (it.geom === "region") return "Area fill";
   if (it.type === "picture") return "Picture";
   if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_start || it.arrow_end ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
   if (it.type === "group") return "Group";

@@ -183,7 +183,7 @@ STEPS = [
     ("cmd+shift+;", {"ran": ["toggleSnap"]}), ("cmd+shift+;", {"ran": ["toggleSnap"]}),
     ("v", {"ran": ["toolSelect"]}), ("t", {"ran": ["toolText"]}), ("p", {"ran": ["toolLabel"]}),
     ("l", {"ran": ["toolLine"]}), ("a", {"ran": ["toolArrow"]}), ("u", {"ran": ["toolRoundRect"]}),
-    ("o", {"ran": ["toolEllipse"]}), ("v", {"ran": ["toolSelect"]}),
+    ("o", {"ran": ["toolEllipse"]}), ("f", {"ran": ["toolFill"]}), ("v", {"ran": ["toolSelect"]}),
     ("t", {"ran": ["toolText"]}),
     ("return", {"check": lambda b, s: s["editing"], "what": "Enter starts typing in a new text box"}),
     ("cmd+s", {"ran": ["save"], "check": lambda b, s: not s["editing"], "what": "⌘S while typing saves, text first"}),

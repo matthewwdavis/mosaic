@@ -10,6 +10,7 @@ dependencies:
   - lxml
   - fonttools      # font metrics and embedding
   - numpy
+  - shapely>=2.1   # areas enclosed by lines and shapes (live area fills)
   - pytest
   - ghostscript    # optional: EPS export, CMYK PDF
   - librsvg        # optional: SVG -> PDF when a plot has no PDF copy

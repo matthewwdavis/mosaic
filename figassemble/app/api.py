@@ -266,15 +266,20 @@ class Api:
 
     # Editor ----------------------------------------------------------------------------
 
-    def resolve(self, assets: dict, items: list[dict]) -> list[dict]:
+    def resolve(self, assets: dict, items: list[dict], context: list[dict] | None = None) -> list[dict]:
+        """Draw items for the editor. `context`: other items on the page that area fills among
+        `items` need (the lines and shapes round them)."""
         from ..export.svgwriter import fragment
         resolver = Resolver({"assets": assets}, get_font_index())
+        resolver.use_page([*(context or []), *items])
         out = []
         for it in items:
             try:
                 r = resolver.resolve(it)
                 res = {"id": it.get("id"), "svg": fragment(r, it.get("id", "x")), "bbox": r.bbox,
                        "autofit_frame": r.autofit_frame, "warnings": r.warnings}
+                if r.region:
+                    res["region"] = r.region
                 if it.get("type") == "shape" and not it.get("textbox") and presets.is_preset(it.get("geom", "")):
                     # Where the shape's adjust handles sit, in frame coordinates
                     res["handles"] = presets.handles(it["geom"], it["frame"][2], it["frame"][3], it.get("adj"))
@@ -287,6 +292,12 @@ class Api:
             except Exception as exc:
                 out.append({"id": it.get("id"), "svg": "", "bbox": None, "warnings": [str(exc)]})
         return out
+
+    def region_at(self, items: list[dict], point: list[float]) -> dict | None:
+        """The area the page's lines and shapes enclose round a point, for a new area fill:
+        {items, seed, frame} (regions.area_at), or None."""
+        from .. import regions
+        return regions.area_at(items, point)
 
     def drag_handle(self, item: dict, index: int, point: list[float]) -> dict:
         """Adjust values that put a shape's handle `index` nearest a frame point."""

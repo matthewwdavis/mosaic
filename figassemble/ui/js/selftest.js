@@ -632,6 +632,64 @@ export async function run(app, params) {
       JSON.stringify(gf.gradient.stops));
     await choose("Fill", "none");
 
+    // Area fills, on a page of their own: the space three separate lines enclose, filled with the
+    // Fill area tool; it follows the lines, takes them along when dragged, and goes with them
+    const fillPageAt = store.pageIndex;
+    await app.run("addPage");
+    await settle();
+    const lineItem = (id, a, b) => ({ id, type: "line", points: [a, b], arrow_start: null, arrow_end: null,
+      stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 } });
+    store.update("Triangle for the test", (doc) => doc.pages[store.pageIndex].items.push(lineItem("tri1", [100, 300], [200, 120]),
+      lineItem("tri2", [200, 120], [300, 300]), lineItem("tri3", [300, 300], [100, 300])), { select: [] });
+    await settle();
+    key("f");
+    check(canvas.tool === "fill", "F chooses the Fill area tool");
+    pointer("pointerdown", screenOf(200, 250));
+    pointer("pointerup", screenOf(200, 250), { buttons: 0 });
+    await until(() => store.items().some((i) => i.geom === "region"), 4000);
+    await settle();
+    const area = () => store.items().find((i) => i.geom === "region");
+    const firstArea = area();
+    check(firstArea && store.items()[0] === firstArea && firstArea.region.items.slice().sort().join() === "tri1,tri2,tri3" && canvas.tool === "select"
+      && store.selection[0] === firstArea.id, "clicking inside three lines fills the area they enclose, behind them", JSON.stringify(firstArea && firstArea.region));
+    await until(() => canvas.els.get(firstArea?.id)?.regionPath, 3000);
+    check(canvas.els.get(firstArea?.id)?.g.querySelector("path") && near(area().frame[0], 100, 0.5) && near(area().frame[1], 120, 0.5),
+      "the engine draws it, sized to the area", JSON.stringify(area()?.frame));
+    store.update("Move a corner", (doc) => {
+      const its = doc.pages[store.pageIndex].items;
+      its.find((i) => i.id === "tri1").points[1] = [240, 90];
+      its.find((i) => i.id === "tri2").points[0] = [240, 90];
+    });
+    await until(() => near(area().frame[1], 90, 0.5), 3000);
+    check(near(area().frame[1], 90, 0.5), "moving a corner reshapes the fill", JSON.stringify(area().frame));
+    await drag([200, 260], [230, 280], { metaKey: true, ctrlKey: true });
+    await until(() => near(area().frame[0], 130, 0.5), 3000);
+    const tri3 = store.items().find((i) => i.id === "tri3");
+    check(near(tri3.points[0][0], 330, 0.01) && near(tri3.points[0][1], 320, 0.01) && near(area().frame[0], 130, 0.5),
+      "dragging the fill moves its lines with it", `${JSON.stringify(tri3.points)} ${JSON.stringify(area().frame)}`);
+    store.select([area().id]);
+    app.detachArea();
+    await settle();
+    const plain = store.items()[0];
+    check(plain.geom === "custom" && plain.path?.subpaths?.length === 1 && !plain.region, "Make an ordinary shape keeps the area as a shape",
+      plain.geom);
+    app.run("undo");
+    await settle();
+    store.select(["tri1", "tri2", "tri3"]);
+    app.run("delete");
+    await settle();
+    check(!store.items().length, "deleting the lines deletes the fill between them", store.items().map((i) => i.geom || i.type).join());
+    key("f");
+    pointer("pointerdown", screenOf(400, 500));
+    pointer("pointerup", screenOf(400, 500), { buttons: 0 });
+    await settle();
+    check(!store.items().length, "clicking where nothing encloses the spot fills nothing");
+    key("Escape");
+    await app.run("deletePage");
+    store.setPage(fillPageAt);
+    store.select([rect.id]);   // as the checks below expect
+    await settle();
+
     // Hex codes next to colour pickers
     inspector.render();
     let hex = document.querySelector('#inspector input[aria-label="Line colour hex code"]');

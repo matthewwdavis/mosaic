@@ -44,6 +44,7 @@ def preflight(doc: dict, options: dict) -> dict:
     text_cache: dict = {}
     for page in sel:
         pw, ph = float(page["width"]), float(page["height"])
+        resolver.use_page(page.get("items", []))
         for item in iter_items(page.get("items", [])):
             if item.get("type") == "group" or item.get("hidden"):
                 continue

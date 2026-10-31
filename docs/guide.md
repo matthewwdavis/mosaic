@@ -9,6 +9,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 - [Text and panel labels](#text-and-panel-labels)
 - [Lines and arrows](#lines-and-arrows)
 - [Shapes](#shapes)
+- [Area fills](#area-fills)
 - [Dashes](#dashes)
 - [Connecting lines to objects](#connecting-lines-to-objects)
 - [Moving, sizing and arranging](#moving-sizing-and-arranging)
@@ -189,6 +190,29 @@ real text in PDF and SVG exports, with the fonts embedded.
   - **Outside, gaps empty**: outside, but nothing in the gaps of a dashed line (Outside runs a
     band through them along the fill's edge).
 - **Make editable curve** (arcs): turns an arc into a curve with points you can drag.
+
+## Area fills
+
+Fill the space that separate lines and shapes enclose, the way Illustrator's Live Paint does:
+the parts of a Venn diagram, a region between curves, a wedge outlined by lines.
+
+![A Venn diagram whose three areas are filled](images/areafill.png)
+
+Choose **Fill area** (F) in the tools on the left and click inside an enclosed space. FigAssemble
+adds a fill that exactly covers it, behind the lines and shapes round it, and selects it so you
+can choose its colour, or a gradient, in the Style tab.
+
+- **It follows its lines.** Move a line, drag a corner or reshape a curve, and the fill reshapes
+  with it. Dragging the fill, or nudging it with the arrow keys, moves its lines and shapes with
+  it.
+- Lines that look joined close an area, even with a hairline gap, as long as the gap is narrower
+  than about the line's width.
+- A shape inside the area leaves a hole.
+- If the lines no longer enclose the space (one is moved away or deleted), the fill disappears
+  until they do again. Deleting all of its lines and shapes deletes it too.
+- **Make an ordinary shape** (Arrange tab or right-click) turns it into a plain shape of the area
+  as it is, which stays put when the lines move. Copied on its own, without its lines, a fill
+  becomes one of these.
 
 ## Dashes
 
@@ -394,6 +418,7 @@ Press **?** in FigAssemble for this list.
 | Line, Arrow | L, A | L, A |
 | Rectangle, Rounded rectangle, Ellipse | R, U, O | R, U, O |
 | Shapes menu | S | S |
+| Fill an enclosed area | F | F |
 | Insert picture | I | I |
 | Add page | ⌘⇧N | Ctrl+Shift+N |
 | Settings, Help | ⌘, (comma), ? | Ctrl+, (comma), ? |

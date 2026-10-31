@@ -97,6 +97,7 @@ of what you can do with it, with the shortcuts alongside.
 | Save, Open, Export | ⌘S, ⌘O, ⌘E | Ctrl+S, Ctrl+O, Ctrl+E |
 | Select, Text, Panel label, Line, Arrow, Rectangle | V, T, P, L, A, R | V, T, P, L, A, R |
 | Insert picture | I | I |
+| Fill an area that lines enclose | F | F |
 | Menu for the selection | Right-click or Control-click | Right-click or Shift+F10 |
 | Every shortcut | ? | ? |
 
