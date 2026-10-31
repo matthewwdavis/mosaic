@@ -15,6 +15,7 @@ const GUIDE_HIT = 4;          // how near (CSS px) the pointer must be to grab a
 const SITE_PX = 8;            // how near (CSS px) a line end must come to attach to a connection point
 const GRID_MIN_PX = 6;        // grid lines closer than this on screen aren't drawn, or snapped to
 const ROT_OFFSET = 24;        // rotation handle distance above the frame, CSS px
+const SEL_GAP = 6;            // the selection box and its handles stand this far outside the object, CSS px
 const SVG_PREVIEW_LIMIT = 8e6; // bigger SVGs preview as rendered PDFs for speed
 const DEFAULT_SIZE = (72 / 2.54) * 2;   // a click (or Enter) with a drawing tool places a 2 cm object
 // The drawing tools that make preset shapes, and which preset each draws
@@ -90,6 +91,7 @@ export const canvas = {
     this.applyView();
   },
   applyView() {
+    this.holdCentred();
     this.view.setAttribute("transform", `translate(${this.panX} ${this.panY}) scale(${this.k})`);
     this.drawGrid();
     this.drawOverlay();
@@ -103,6 +105,22 @@ export const canvas = {
     const r = this.stage.getBoundingClientRect();
     const z = Math.min((r.width - 64) / (p.width * PX_PER_PT), (r.height - 64) / (p.height * PX_PER_PT));
     this.zoom = clamp(z, 0.05, 32);
+    this.panX = (r.width - p.width * this.k) / 2;
+    this.panY = (r.height - p.height * this.k) / 2;
+    this.applyView();
+  },
+  // Wherever the whole page fits across (or down) the view, it's held in the middle that way:
+  // zooming out, resizing the window or a panel centres it, and scrolling can't push it aside
+  holdCentred() {
+    if (!store.doc) return;
+    const p = store.page(), r = this.stage.getBoundingClientRect();
+    if (p.width * this.k <= r.width) this.panX = (r.width - p.width * this.k) / 2;
+    if (p.height * this.k <= r.height) this.panY = (r.height - p.height * this.k) / 2;
+  },
+  // The page in the middle of the view, at the zoom it has
+  centre() {
+    if (!store.doc) return;
+    const p = store.page(), r = this.stage.getBoundingClientRect();
     this.panX = (r.width - p.width * this.k) / 2;
     this.panY = (r.height - p.height * this.k) / 2;
     this.applyView();
@@ -321,14 +339,30 @@ export const canvas = {
     if (sel.length === 1 && !this.cropping) this.drawHandles(sel[0]);
     else if (sel.length > 1) {
       const key = this.keyObject?.();
-      for (const it of sel) o.append(this.outline(itemCorners(it), it.id === key?.id ? "sel-outline key" : "sel-outline thin"));
+      for (const it of sel) {
+        const cls = it.id === key?.id ? "sel-outline key" : "sel-outline thin";
+        o.append(it.type === "line" ? this.outline(itemCorners(it), cls) : this.outlineAround(itemCorners(it), cls));
+      }
       const b = itemsBBox(sel);
-      if (b) o.append(this.outline([[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]], "sel-outline"));
+      if (b) o.append(this.outlineAround([[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]], "sel-outline"));
     }
     if (this.cropping) this.drawCropHandles();
   },
   outline(pts, cls) {
     return s("polygon", { class: cls, points: pts.map(([x, y]) => this.toScreen(x, y).join(",")).join(" ") });
+  },
+  // A box's outline (its four corners in order, on the page) drawn SEL_GAP px outside it along
+  // its own sides, so the object's edges show inside it
+  outlineAround(corners, cls) {
+    const [a, b, c, d] = corners.map(([x, y]) => this.toScreen(x, y));
+    const unit = (p, q, fallback) => {
+      const l = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      return l > 1e-9 ? [(q[0] - p[0]) / l, (q[1] - p[1]) / l] : fallback;
+    };
+    const ex = unit(a, b, [1, 0]), ey = unit(a, d, [-ex[1], ex[0]]);
+    const out = (p, sx, sy) => [p[0] + SEL_GAP * (sx * ex[0] + sy * ey[0]), p[1] + SEL_GAP * (sx * ex[1] + sy * ey[1])];
+    const pts = [out(a, -1, -1), out(b, 1, -1), out(c, 1, 1), out(d, -1, 1)];
+    return s("polygon", { class: cls, points: pts.map((p) => p.join(",")).join(" ") });
   },
   handlesFor(it) {
     if (it.locked) return [];
@@ -349,15 +383,22 @@ export const canvas = {
     // they sit on top of a resize handle
     const adjust = it.type === "shape" ? (this.els.get(it.id)?.handles || []).map(([x, y], index) => ({
       kind: "adjust", index, at: this.toScreen(...apply(m, x, y)) })) : [];
+    // Resize handles stand SEL_GAP px out from the frame, along its own sides, so they don't
+    // cover the object's corners and edges
+    const o0 = this.toScreen(...apply(m, 0, 0)), o1 = this.toScreen(...apply(m, 1, 0)), o2 = this.toScreen(...apply(m, 0, 1));
+    const norm = ([x, y]) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
+    const ex = norm([o1[0] - o0[0], o1[1] - o0[1]]), ey = norm([o2[0] - o0[0], o2[1] - o0[1]]);
     const out = [...adjust, ...Object.entries(pts).map(([dir, [x, y]]) => {
-      const [px, py] = apply(m, x, y);
-      return { kind: "resize", dir, at: this.toScreen(px, py) };
+      const [sx, sy] = [dir.includes("w") ? -1 : dir.includes("e") ? 1 : 0, dir.includes("n") ? -1 : dir.includes("s") ? 1 : 0];
+      const [px, py] = this.toScreen(...apply(m, x, y));
+      return { kind: "resize", dir, at: [px + SEL_GAP * (sx * ex[0] + sy * ey[0]), py + SEL_GAP * (sx * ex[1] + sy * ey[1])] };
     })];
     // Rotation handle: above the top edge along the frame's own "up"
     const r = rotate(it.rot || 0);
     const [ux, uy] = apply(r, 0, -1);
     const [tx, ty] = this.toScreen(...apply(m, w / 2, 0));
-    out.push({ kind: "rotate", at: [tx + ux * ROT_OFFSET * (it.flip_v ? -1 : 1), ty + uy * ROT_OFFSET * (it.flip_v ? -1 : 1)] });
+    const up = (ROT_OFFSET + SEL_GAP) * (it.flip_v ? -1 : 1);
+    out.push({ kind: "rotate", at: [tx + ux * up, ty + uy * up] });
     return out;
   },
   drawHandles(it) {
@@ -366,7 +407,7 @@ export const canvas = {
       o.append(s("polyline", { class: "sel-outline line",
         points: lineSamples(it).map(([x, y]) => this.toScreen(x, y).join(",")).join(" ") }));
     } else {
-      o.append(this.outline(itemCorners(it), "sel-outline"));
+      o.append(this.outlineAround(itemCorners(it), "sel-outline"));
     }
     for (const hd of this.handlesFor(it)) {
       if (hd.kind === "rotate") {
@@ -851,8 +892,15 @@ export const canvas = {
     if (hd.kind === "crop") return this.startCropHandle(hd, p);
     store.beginLive();
     const orig = JSON.parse(JSON.stringify(it));
-    if (hd.kind === "resize") this.op = { type: "resize", dir: hd.dir, orig, moved: false, label: "Resize",
-      targets: this.snapTargets([it.id]) };
+    if (hd.kind === "resize") {
+      // The handle stands outside the frame: the edge keeps its distance from the pointer, so it
+      // doesn't jump out to where the handle was grabbed
+      const local = apply(invert(frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v)), ...p);
+      const [, , w, h] = it.frame, d = hd.dir;
+      const grab = [d.includes("w") ? local[0] : d.includes("e") ? local[0] - w : 0,
+        d.includes("n") ? local[1] : d.includes("s") ? local[1] - h : 0];
+      this.op = { type: "resize", dir: d, orig, grab, moved: false, label: "Resize", targets: this.snapTargets([it.id]) };
+    }
     else if (hd.kind === "rotate") this.op = { type: "rotate", orig, moved: false, label: "Rotate" };
     else if (hd.kind === "adjust") this.op = { type: "adjust", index: hd.index, orig, moved: false, label: "Adjust shape" };
     else if (hd.kind === "end" || hd.kind === "point") {
@@ -892,6 +940,8 @@ export const canvas = {
     const op = this.op, o = op.orig, it = store.selected()[0];
     const m = frameMatrix(o.frame, o.rot || 0, o.flip_h, o.flip_v);
     const local = apply(invert(m), ...p);
+    local[0] -= op.grab?.[0] || 0;
+    local[1] -= op.grab?.[1] || 0;
     const [, , w, h] = o.frame;
     let [x0, y0, x1, y1] = [0, 0, w, h];
     const dir = op.dir;

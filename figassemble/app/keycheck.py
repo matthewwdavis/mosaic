@@ -21,7 +21,7 @@ KEY_CODES = {"a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c"
              "6": 22, "5": 23, "=": 24, "9": 25, "7": 26, "-": 27, "8": 28, "0": 29, "]": 30, "o": 31,
              "u": 32, "[": 33, "i": 34, "p": 35, "l": 37, "j": 38, "'": 39, "k": 40, ";": 41, ",": 43,
              "/": 44, "n": 45, "m": 46, ".": 47}
-SHIFTED = {"]": "}", "[": "{", ";": ":", "/": "?", "'": '"', "=": "+", "-": "_", ",": "<", ".": ">"}
+SHIFTED = {"]": "}", "[": "{", ";": ":", "/": "?", "'": '"', "=": "+", "-": "_", ",": "<", ".": ">", "0": ")"}
 ARROW = 0x200000 | 0x800000   # numeric pad + function: what AppKit sets on arrow keys
 SPECIAL = {"return": ("\r", 36, 0), "tab": ("\t", 48, 0), "escape": ("\x1b", 53, 0),
            "backspace": ("\x7f", 51, 0), "left": ("", 123, ARROW), "right": ("", 124, ARROW),
@@ -176,6 +176,7 @@ STEPS = [
     ("cmd+-", {"ran": ["zoomOut"], "check": lambda b, s: s["zoom"] < b["zoom"]}),
     ("cmd+1", {"ran": ["zoom100"], "check": lambda b, s: abs(s["zoom"] - 1) < 1e-9}),
     ("cmd+0", {"ran": ["zoomFit"]}),
+    ("cmd+shift+0", {"ran": ["centrePage"]}),
     ("cmd+r", {"ran": ["toggleRulers"]}), ("cmd+r", {"ran": ["toggleRulers"]}),
     ("cmd+'", {"ran": ["toggleGrid"]}), ("cmd+'", {"ran": ["toggleGrid"]}),
     ("cmd+;", {"ran": ["toggleGuides"]}), ("cmd+;", {"ran": ["toggleGuides"]}),

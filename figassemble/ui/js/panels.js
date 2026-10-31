@@ -20,6 +20,7 @@ const ICONS = {
   export: "M12 3v12M7 8l5-5 5 5M5 15v5h14v-5", check: "M4 12l5 5L20 6",
   zoomin: "M10 4a6 6 0 110 12 6 6 0 010-12zM15 15l5 5M10 7v6M7 10h6",
   zoomout: "M10 4a6 6 0 110 12 6 6 0 010-12zM15 15l5 5M7 10h6", fit: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5",
+  centre: "M8 8h8v8H8zM12 2.5v3.5M12 18v3.5M2.5 12H6M18 12h3.5",
   gear: "M12 9a3 3 0 110 6 3 3 0 010-6zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1",
   help: "M12 3a9 9 0 110 18 9 9 0 010-18zM9.5 9.5a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4M12 17h.01",
   plus: "M12 5v14M5 12h14", duplicate: "M8 8h11v11H8zM5 5h11v3M5 5v11h3", trash: "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13",
@@ -177,7 +178,7 @@ export const panels = {
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
       ["view", "View", [
         group("Zoom", t("zoomOut", "zoomout"), h("span", { class: "zoom-label", "aria-live": "off" }, "100%"),
-          t("zoomIn", "zoomin"), t("zoomFit", "fit"), t("zoom100", "actual")),
+          t("zoomIn", "zoomin"), t("zoomFit", "fit"), t("zoom100", "actual"), t("centrePage", "centre")),
         group("Show", this.toggleButton("toggleRulers", "ruler", "show_rulers"),
           this.toggleButton("toggleGrid", "grid", "show_grid", ". Things snap to it while it shows"),
           this.toggleButton("toggleGuides", "guides", "show_guides", ". Drag a new one out of a ruler")),
@@ -527,7 +528,8 @@ export const panels = {
     const z = (cmd, ic) => button(`${this.app.commands[cmd].label} (${this.app.commands[cmd].keys})`, () => this.app.run(cmd),
       icon(ic), "icon-btn small");
     const zoom = h("span", { class: "status-zoom", role: "group", "aria-label": "Zoom" }, z("zoomOut", "zoomout"),
-      h("span", { class: "zoom-label", "aria-live": "off" }, "100%"), z("zoomIn", "zoomin"), z("zoomFit", "fit"));
+      h("span", { class: "zoom-label", "aria-live": "off" }, "100%"), z("zoomIn", "zoomin"), z("zoomFit", "fit"),
+      z("centrePage", "centre"));
     bar.append(this.message, h("span", { class: "spacer" }), zoom, this.cursor, this.saveState);
   },
   renderSaveState() {
@@ -834,7 +836,9 @@ export const panels = {
         h("li", {}, "Escape while dragging: cancel the drag"),
         h("li", {}, "Guides: drag one out of a ruler; drag it, or its mark on the ruler, to move it; "
           + "drag it back onto the ruler to remove it. With nothing selected, the Page panel lists them to type positions"),
-        h("li", {}, "Space + drag, or scroll: move around; ⌘/Ctrl + scroll or pinch: zoom"))));
+        h("li", {}, "Space + drag, or scroll: move around; ⌘/Ctrl + scroll or pinch: zoom. While the whole page fits "
+          + "in the view it stays centred"),
+        h("li", {}, "Drag a side panel's inner edge to make it wider or narrower; double-click the edge to put it back"))));
   },
 
   reportDialog(title, lines) {

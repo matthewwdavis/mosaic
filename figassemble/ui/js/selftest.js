@@ -505,6 +505,82 @@ export async function run(app, params) {
     await until(() => panelVar() === themeColors[night ? "dark" : "light"]?.panel, 4000);
     for (const dlg of document.querySelectorAll("dialog[open]")) dlg.close();
 
+    // The selection box stands 6 px outside the object, and so do its handles; dragging a handle
+    // moves the edge just as far as the pointer moves (no jump out to where it was grabbed)
+    store.select([rect.id]);
+    await settle();
+    const boxFrame = store.item(rect.id).frame.slice();
+    const boxPts = document.querySelector(".overlay .sel-outline")?.getAttribute("points")?.split(" ").map((q) => q.split(",").map(Number));
+    const [nwx, nwy] = canvas.toScreen(boxFrame[0], boxFrame[1]);
+    check(boxPts && near(boxPts[0][0], nwx - 6, 0.01) && near(boxPts[0][1], nwy - 6, 0.01),
+      "the selection box stands 6 px outside the object", JSON.stringify(boxPts?.[0]));
+    const seHandle = canvas.handlesFor(store.item(rect.id)).find((hd) => hd.dir === "se");
+    const stageBox = canvas.stage.getBoundingClientRect();
+    const grabAt = [stageBox.left + seHandle.at[0], stageBox.top + seHandle.at[1]];
+    pointer("pointerdown", grabAt);
+    pointer("pointermove", [grabAt[0] + 15, grabAt[1] + 10]);
+    pointer("pointermove", [grabAt[0] + 30, grabAt[1] + 20]);
+    pointer("pointerup", [grabAt[0] + 30, grabAt[1] + 20]);
+    await settle();
+    const boxFrame2 = store.item(rect.id).frame;
+    check(near(boxFrame2[2] - boxFrame[2], 30 / canvas.k, 0.01) && near(boxFrame2[3] - boxFrame[3], 20 / canvas.k, 0.01),
+      "dragging a handle moves the edge as far as the pointer, without a jump", `${boxFrame} -> ${boxFrame2}`);
+    app.run("undo");
+
+    // While the whole page fits, it stays centred and scrolling can't move it; zoomed in,
+    // scrolling moves around, and Centre page (⌘⇧0) brings it back to the middle
+    canvas.fit();
+    const viewBox = canvas.stage.getBoundingClientRect();
+    const pageCentred = () => {
+      const [mx, my] = canvas.toScreen(store.page().width / 2, store.page().height / 2);
+      return near(mx, viewBox.width / 2, 0.5) && near(my, viewBox.height / 2, 0.5);
+    };
+    const scroll = () => canvas.stage.dispatchEvent(new WheelEvent("wheel", { deltaX: 40, deltaY: 60, bubbles: true,
+      cancelable: true, clientX: viewBox.left + 100, clientY: viewBox.top + 100 }));
+    scroll();
+    check(pageCentred(), "while the whole page fits, scrolling leaves it centred");
+    canvas.setZoom(canvas.zoom * 4);
+    const zoomedIn = canvas.zoom;
+    scroll();
+    check(!pageCentred(), "zoomed in, scrolling moves around");
+    key("0", { metaKey: true, ctrlKey: true, shiftKey: true });
+    check(pageCentred() && near(canvas.zoom, zoomedIn, 1e-9), "Centre page (⌘⇧0) centres it, keeping the zoom");
+    canvas.fit();
+
+    // The side panels' inner edges: drag to resize, arrow keys on a focused edge, double-click
+    // to put a panel back; the widths are remembered
+    const leftPanel = document.querySelector(".sidebar.left"), rightPanel = document.getElementById("inspector");
+    const panelEdge = (side) => document.querySelector(`.splitter.${side}`);
+    const lw0 = leftPanel.getBoundingClientRect().width, rw0 = rightPanel.getBoundingClientRect().width;
+    const dragEdge = (side, dx) => {
+      const b = panelEdge(side), r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + 200;
+      const ev = (type, cx) => b.dispatchEvent(new PointerEvent(type, { clientX: cx, clientY: y, bubbles: true, button: 0,
+        buttons: type === "pointerup" ? 0 : 1, pointerId: 7, pointerType: "mouse" }));
+      ev("pointerdown", x);
+      ev("pointermove", x + dx / 2);
+      ev("pointermove", x + dx);
+      ev("pointerup", x + dx);
+    };
+    dragEdge("left", 60);
+    dragEdge("right", -40);
+    await settle();
+    check(near(leftPanel.getBoundingClientRect().width - lw0, 60, 1.5) && near(rightPanel.getBoundingClientRect().width - rw0, 40, 1.5),
+      "dragging the panels' inner edges widens them", `${leftPanel.getBoundingClientRect().width - lw0}, ${rightPanel.getBoundingClientRect().width - rw0}`);
+    check(app.prefs.panel_widths?.left > 15 && app.prefs.panel_widths?.right > 19, "and their widths are remembered",
+      JSON.stringify(app.prefs.panel_widths));
+    for (const side of ["left", "right"]) panelEdge(side).dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    await settle();
+    check(near(leftPanel.getBoundingClientRect().width, lw0, 1) && near(rightPanel.getBoundingClientRect().width, rw0, 1),
+      "double-clicking an edge puts its panel back");
+    panelEdge("left").focus();
+    panelEdge("left").dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+    await settle();
+    const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    check(near(leftPanel.getBoundingClientRect().width - lw0, remPx, 1), "the arrow keys move a focused edge",
+      `${leftPanel.getBoundingClientRect().width - lw0} vs ${remPx}`);
+    panelEdge("left").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    await settle();
+
     // Outline: a contour in a second colour around the shape, with its own transparency
     store.select([rect.id]);
     fieldByLabel("Outline around it")?.click();
@@ -616,15 +692,31 @@ export async function run(app, params) {
     const rulerTop = document.querySelector(".ruler.top"), rulerLeft = document.querySelector(".ruler.left");
     check(rulerTop?.offsetHeight > 10 && rulerLeft?.offsetWidth > 10 && rulerTop.width > 0,
       "rulers run along the top and left of the page", `${rulerTop?.offsetHeight} ${rulerLeft?.offsetWidth}`);
-    const corner0 = screenOf(0, 0);
+    // While the page fits it stays centred in the view the rulers leave; zoomed in, it stays put
+    const midOnScreen = () => {
+      const r = canvas.stage.getBoundingClientRect(), [mx, my] = canvas.toScreen(pg().width / 2, pg().height / 2);
+      return [mx - r.width / 2, my - r.height / 2];
+    };
     key("r", { metaKey: true, ctrlKey: true });
     await until(() => !rulerTop.offsetParent);
-    const corner1 = screenOf(0, 0);
-    check(!rulerTop.offsetParent && near(corner0[0], corner1[0], 0.5) && near(corner0[1], corner1[1], 0.5),
-      "⌘R hides the rulers, and the page stays where it was", `${corner0} -> ${corner1}`);
+    await settle();
+    const off = midOnScreen();
+    check(!rulerTop.offsetParent && near(off[0], 0, 0.5) && near(off[1], 0, 0.5),
+      "⌘R hides the rulers, and a page that fits stays centred", `${off}`);
     key("r", { metaKey: true, ctrlKey: true });
     await until(() => rulerTop.offsetParent);
     check(rulerTop.offsetParent && app.prefs.show_rulers, "⌘R shows them again");
+    canvas.setZoom(canvas.zoom * 4);
+    const corner0 = screenOf(0, 0);
+    key("r", { metaKey: true, ctrlKey: true });
+    await until(() => !rulerTop.offsetParent);
+    await settle();
+    const corner1 = screenOf(0, 0);
+    check(near(corner0[0], corner1[0], 0.5) && near(corner0[1], corner1[1], 0.5),
+      "zoomed in, the page stays where it was as the rulers go", `${corner0} -> ${corner1}`);
+    key("r", { metaKey: true, ctrlKey: true });
+    await until(() => rulerTop.offsetParent);
+    canvas.fit();
 
     // A guide dragged out of the top ruler runs across the page where it's dropped
     const rulerPointer = (type, x, y) => rulerTop.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: y, bubbles: true,

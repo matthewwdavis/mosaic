@@ -34,7 +34,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
      Fit page.
    - **Arrange**: Align, Distribute, Spacing, Align to, Group, Order (see
      [Align and distribute](#align-and-distribute)).
-   - **View**: Zoom; show or hide the Rulers, Grid and Guides; grid Settings.
+   - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings.
 2. Each tab's commands, in labelled groups.
 3. **Always in view:** **Snap** (on when highlighted), **Check**, **Export**, **Settings**, **Help**.
 4. **Pages** of the document, and **Objects** on the current page, front to back. Each object has
@@ -46,6 +46,13 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
    selected, it shows the page, its guides and the document. Click a section heading to fold it;
    folded sections stay folded, and each kind of object opens on the tab you used last.
 8. **Status bar:** messages, zoom, the pointer's position, and whether the document is saved.
+
+**Panel widths:** drag the inner edge of either side panel to make it wider or narrower (or
+focus the edge and use the arrow keys). Double-click the edge to put the panel back. FigAssemble
+remembers the widths.
+
+**Selection:** the box around a selected object, and its handles, stand a few pixels outside the
+object, so you can see the object's own edges while you move and resize it.
 
 The Objects list and properties panel are real form controls, usable from the keyboard and with
 screen readers (see [Accessibility](#accessibility)).
@@ -369,6 +376,7 @@ Press **?** in FigAssemble for this list.
 | Send backward, Send to back | ⌘[, ⌘⇧[ | Ctrl+[, Ctrl+Shift+[ |
 | Menu for the selection | Right-click, Control-click or Shift+F10 | Right-click, Shift+F10 or the menu key |
 | Zoom in, Zoom out, Fit page in window, True size | ⌘+, ⌘−, ⌘0, ⌘1 | Ctrl+Plus, Ctrl+Minus, Ctrl+0, Ctrl+1 |
+| Centre page (keeping the zoom) | ⌘⇧0 | Ctrl+Shift+0 |
 | Rulers, Grid, Guides | ⌘R, ⌘', ⌘; | Ctrl+R, Ctrl+', Ctrl+; |
 | Snap on or off | ⌘⇧; | Ctrl+Shift+; |
 | Select, Text, Panel label | V, T, P | V, T, P |
@@ -390,7 +398,8 @@ Export still work, saving what you've typed.
 - With a drawing tool chosen, Enter places a 2 cm shape in the middle of the view.
 - While dragging: Shift keeps lines straight and shapes square; Option (Alt) duplicates;
   ⌘ ignores snapping (and leaves line ends unattached).
-- Space + drag, or scroll: move around. ⌘ + scroll, or pinch: zoom.
+- Space + drag, or scroll: move around. ⌘ + scroll, or pinch: zoom. While the whole page fits in
+  the view, it stays centred; zoomed in further, ⌘⇧0 brings it back to the middle.
 
 ## Accessibility
 

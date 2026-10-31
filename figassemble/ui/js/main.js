@@ -11,6 +11,7 @@ import { contextMenu } from "./contextmenu.js";
 import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
+import { splitters } from "./splitters.js";
 import { store } from "./store.js";
 import {
   MOD, announce, clone, describeItem, display, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints, shapeCatalog, uid,
@@ -777,7 +778,10 @@ app.commands = {
   distributeV: cmd("Space evenly down", () => app.distribute("v"), null, null, "Down"),
   zoomIn: cmd("Zoom in", () => canvas.setZoom(canvas.zoom * 1.25), `${M}+`, (e) => mod(e) && (e.key === "=" || e.key === "+"), "Zoom in"),
   zoomOut: cmd("Zoom out", () => canvas.setZoom(canvas.zoom / 1.25), `${M}−`, (e) => mod(e) && (e.key === "-" || e.key === "_"), "Zoom out"),
-  zoomFit: cmd("Fit page in window", () => canvas.fit(), `${M}0`, (e) => mod(e) && e.key === "0", "Fit"),
+  zoomFit: cmd("Fit page in window", () => canvas.fit(), `${M}0`,
+    (e) => mod(e) && !e.shiftKey && (e.key === "0" || e.code === "Digit0"), "Fit"),
+  centrePage: cmd("Centre page", () => { canvas.centre(); announce("Page centred"); }, `${M}${S}0`,
+    (e) => mod(e) && e.shiftKey && !e.altKey && (e.key === "0" || e.key === ")" || e.code === "Digit0"), "Centre"),
   zoom100: cmd("True size (100%)", () => canvas.setZoom(1), `${M}1`, (e) => mod(e) && e.key === "1", "100%"),
   gridSettings: cmd("Grid spacing and snapping settings", () => panels.preferencesDialog(), null, null, "Settings"),
   toggleRulers: cmd("Show or hide the rulers", () => app.togglePref("show_rulers", "Rulers shown", "Rulers hidden"),
@@ -1007,6 +1011,7 @@ async function start() {
     app.savePrefs({ show_guides: true }).then(() => announce("Guides shown")).catch(() => {});
   };
   panels.init(app);
+  splitters.init(app);
   inspector.init(document.getElementById("inspector"), app);
   rpc("fonts").then((f) => { app.fonts = f; }).catch(() => {});
   store.on((what) => {
