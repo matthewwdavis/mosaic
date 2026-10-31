@@ -19,9 +19,15 @@ def test_journal_figure_sizes():
     assert journals.journal_size("Nature", "Double column") == pytest.approx((180 * MM, 170 * MM))
     assert journals.journal_size("Science", "2 columns") == pytest.approx((121 * MM, 199 * MM))
     assert journals.journal_size("Cell", "Full width") == pytest.approx((174 * MM, 200 * MM))
+    assert journals.journal_size("PNAS", "1.5 columns") == pytest.approx((114 * MM, 225 * MM))
+    assert journals.journal_size("G3", "Double column") == journals.journal_size("Genetics", "Double column")
+    assert journals.journal_size("PLOS Genetics", "Full width") == pytest.approx((190.5 * MM, 222.3 * MM))
+    names = [j["name"] for j in journals.JOURNALS]
+    assert len(names) == 14 and names == sorted(names, key=str.lower)
     for j in journals.JOURNALS:
-        names = [t["name"] for t in j["types"]]
-        assert len(names) == len(set(names)) and j["depth_mm"] > 0 and j["source"]
+        types = [t["name"] for t in j["types"]]
+        assert len(types) == len(set(types)) and j["depth_mm"] > 0 and j["source"]
+        assert all(0 < t["width_mm"] < 200 for t in j["types"])
 
 
 def test_old_settings_files_switch_to_centimetres(tmp_path, monkeypatch):

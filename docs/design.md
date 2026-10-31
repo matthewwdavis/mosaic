@@ -54,10 +54,14 @@ pre-export check says so.
   2026-10-31); font sizes and line widths always in points; page sizes in millimetres.
   Anyone can switch. Settings files store only real choices, so changed defaults reach everyone.
 - **Page sizes:** new pages are A4. The Page panel has a Standard size dropdown (A4, US Letter,
-  16:9 slide), a Journal dropdown (Nature, Science, Cell) and a Figure type dropdown; a journal
-  type sets the column width and the journal's maximum figure depth (Nature 90/180 mm x 170 mm;
-  Science 5.7/12.1/18.4 cm x 19.9 cm, leaving room for the legend; Cell 85/114/174 mm x 200 mm).
-  On journal pages "Fit to content" keeps the column width. Data and sources: `journals.py`.
+  16:9 slide), a Journal dropdown and a Figure type dropdown; a journal type sets the column
+  width and the journal's maximum figure depth (e.g. Nature 90/180 mm x 170 mm; Science
+  5.7/12.1/18.4 cm x 19.9 cm, leaving room for the legend). 14 journals (2026-10-31): Cell, G3,
+  Genetics, Genome Biology, Genome Research, Heredity, MBE, Molecular Plant, Nature, New
+  Phytologist, Plant Cell, PLOS Genetics, PNAS, Science. Where a journal publishes no sizes
+  (Genetics, G3, Genome Research, Heredity, MBE), they were measured from a published 2025
+  open-access article, as Matthew chose; the app's note says so. On journal pages "Fit to
+  content" keeps the column width. Data and sources: `journals.py`.
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.
