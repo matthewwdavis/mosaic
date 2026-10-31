@@ -128,7 +128,7 @@ export const canvas = {
     const seen = new Set();
     this.syncChildren(this.itemsLayer, page.items, seen);
     for (const id of [...this.els.keys()]) if (!seen.has(id)) { this.els.get(id).g.remove(); this.els.delete(id); }
-    this.flushResolve(detail.live);
+    this.flushResolve();
     this.drawGrid();
     this.drawGuides();
     this.drawOverlay();
@@ -222,34 +222,32 @@ export const canvas = {
     }
     this.pending.set(it.id, it);
   },
-  flushResolve(live) {
-    if (!this.pending.size) return;
-    clearTimeout(this._resolveTimer);
-    this._resolveTimer = setTimeout(() => this.resolveNow(), live ? 30 : 0);
+  // One request to the engine at a time, always with the latest changes: during a drag the
+  // drawing keeps up with the pointer without flooding the engine
+  flushResolve() {
+    if (!this.pending.size || this._resolveQueued) return;
+    this._resolveQueued = true;
+    queueMicrotask(() => { this._resolveQueued = false; this.resolveNow(); });
   },
   async resolveNow() {
+    while (this._inflight) await this._inflight;
     const items = [...this.pending.values()];
     this.pending.clear();
     if (!items.length) return;
-    const assets = {};
-    for (const [id, a] of Object.entries(store.doc.assets)) assets[id] = { size_pt: a.size_pt, page_sizes: a.page_sizes };
+    this._inflight = this.resolveItems(items);
+    try { await this._inflight; } finally { this._inflight = null; }
+    if (this.pending.size) await this.resolveNow();
+  },
+  async resolveItems(items) {
+    // What each item looked like when sent: if it changes meanwhile, it's drawn again
+    const keys = items.map((it) => this.geomKey(it));
     let results;
     try {
-      results = await rpc("resolve", assets, items);
+      results = await rpc("resolve", this.assetSizes(), items);
     } catch (err) { console.error(err); return; }
     const autofit = [];
     results.forEach((r, i) => {
-      const e = this.els.get(r.id);
-      if (!e) return;
-      const it = items[i];
-      const [gk, origin] = this.geomKey(it);
-      e.g.innerHTML = r.svg;
-      e.g.removeAttribute("transform");
-      e.geomKey = gk;
-      e.origin = origin;
-      e.bbox = r.bbox;
-      e.handles = r.handles || null;
-      if (r.autofit_frame) autofit.push([r.id, r.autofit_frame]);
+      if (this.showDrawn(items[i], r, keys[i]) && r.autofit_frame) autofit.push([r.id, r.autofit_frame]);
     });
     if (autofit.length) {
       store.silent((doc) => {
@@ -261,6 +259,27 @@ export const canvas = {
       this.render({});
     }
     this.drawOverlay();
+  },
+
+  assetSizes() {
+    const assets = {};
+    for (const [id, a] of Object.entries(store.doc.assets)) assets[id] = { size_pt: a.size_pt, page_sizes: a.page_sizes };
+    return assets;
+  },
+  // Put what the engine drew for an item on the page; false if it's gone. `key` is the item
+  // as it was drawn (geomKey), when it may have changed since
+  showDrawn(it, r, key = this.geomKey(it)) {
+    const e = this.els.get(r.id);
+    if (!e) return false;
+    const [gk, origin] = key;
+    e.g.innerHTML = r.svg;
+    e.g.removeAttribute("transform");
+    e.geomKey = gk;
+    e.origin = origin;
+    e.bbox = r.bbox;
+    e.handles = r.handles || null;
+    this.pending.delete(it.id);
+    return true;
   },
 
   // Overlay (screen coordinates) ------------------------------------------------------
@@ -889,9 +908,11 @@ export const canvas = {
       const it = store.item(op.orig.id);
       if (!it) break;
       try {
-        const adj = await rpc("drag_handle", { geom: it.geom, frame: it.frame, adj: it.adj }, op.index, target);
+        // The new adjust values and the shape drawn with them come back together
+        const res = await rpc("adjust_shape", this.assetSizes(), it, op.index, target);
         if (op.cancelled) break;
-        it.adj = adj;
+        it.adj = res.adj;
+        this.showDrawn(it, res.drawn, this.geomKey(it));
         op.moved = true;
         store.live();
       } catch (err) { console.error(err); break; }

@@ -191,6 +191,29 @@ export async function run(app, params) {
       check(inner > 0.05 && inner < 0.15, "dragging the handle towards the centre makes the star thinner", String(inner));
       app.run("undo");
       check(store.item(star.id).adj?.adj === undefined, "one undo puts the handle back", JSON.stringify(store.item(star.id).adj));
+      // Each step of a handle drag is one request that brings back the shape already drawn (the
+      // time per step is reported, not checked; it's only real in the app's own window)
+      const h2 = canvas.handlesFor(store.item(star.id)).find((x) => x.kind === "adjust");
+      const from = canvas.toPage(...h2.at), st = store.item(star.id);
+      let t0 = performance.now();
+      for (let k = 1; k <= 10; k++) await rpc("adjust_shape", canvas.assetSizes(), st, 0, [st.frame[2] / 2, k]);
+      info.handleStepMs = Math.round((performance.now() - t0) * 10) / 100;
+      t0 = performance.now();
+      for (let k = 1; k <= 10; k++) {   // the two requests each step used to make
+        const adj = await rpc("drag_handle", st, 0, [st.frame[2] / 2, k]);
+        await rpc("resolve", canvas.assetSizes(), [{ ...st, adj }]);
+      }
+      info.handleStepBeforeMs = Math.round((performance.now() - t0) * 10) / 100;
+      pointer("pointerdown", screenOf(...from), { metaKey: true, ctrlKey: true });
+      for (let k = 1; k <= 10; k++) {
+        pointer("pointermove", screenOf(from[0], from[1] + k * 0.8), { metaKey: true, ctrlKey: true });
+        await until(() => !canvas.op?.busy, 2000);
+      }
+      pointer("pointerup", screenOf(from[0], from[1] + 8), { metaKey: true, ctrlKey: true });
+      await settle();
+      check(store.item(star.id).adj?.adj < 0.15 && canvas.els.get(star.id)?.geomKey === canvas.geomKey(store.item(star.id))[0],
+        "a handle drag draws each step as it goes", `${JSON.stringify(store.item(star.id).adj)} ${info.handleStepMs} ms`);
+      app.run("undo");
     }
 
     // Enter with a drawing tool places a 2 cm shape in the middle of the view, no pointer needed

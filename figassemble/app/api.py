@@ -215,6 +215,12 @@ class Api:
         return presets.drag_handle(item["geom"], item["frame"][2], item["frame"][3], item.get("adj"),
                                    int(index), float(point[0]), float(point[1]))
 
+    def adjust_shape(self, assets: dict, item: dict, index: int, point: list[float]) -> dict:
+        """Drag a yellow handle: the new adjust values and the shape drawn with them, in one round
+        trip so the shape keeps up with the pointer."""
+        adj = self.drag_handle(item, index, point)
+        return {"adj": adj, "drawn": self.resolve(assets, [{**item, "adj": adj}])[0]}
+
     def clamp_adjust(self, item: dict, name: str, value: float) -> float:
         return presets.clamp_adjust(item["geom"], item["frame"][2], item["frame"][3], item.get("adj"),
                                     name, float(value))

@@ -87,7 +87,8 @@ export const panels = {
     this.buildPages();
     this.buildLayers();
     this.buildStatus();
-    store.on((what) => {
+    store.on((what, detail) => {
+      if (what === "doc" && detail?.live) return;   // mid-drag: the lists don't change
       if (["doc", "page", "saved"].includes(what)) { this.renderPages(); this.renderLayers(); this.renderSaveState(); }
       if (what === "selection") this.renderLayers();
     });
