@@ -17,7 +17,7 @@ from lxml import etree
 
 from ..assets import SourceResolver, svg_geometry
 from ..geometry import DrawPath, Matrix, _fmt
-from ..resolve import DrawPicture, DrawText, Resolved
+from ..resolve import DrawGroup, DrawPicture, DrawText, Resolved
 
 SVG_NS = "http://www.w3.org/2000/svg"
 XLINK_NS = "http://www.w3.org/1999/xlink"
@@ -147,12 +147,7 @@ class SvgWriter:
         for r in resolved:
             for prim in r.prims:
                 try:
-                    if isinstance(prim, DrawPath):
-                        self._path(root, prim)
-                    elif isinstance(prim, DrawText):
-                        self._text(root, prim)
-                    elif isinstance(prim, DrawPicture):
-                        self._picture(root, prim)
+                    self._prim(root, prim)
                 except Exception as exc:
                     self.warnings.append(f"item {r.item_id}: {exc}")
         if not len(self._defs):
@@ -160,6 +155,21 @@ class SvgWriter:
         return etree.tostring(root, xml_declaration=True, encoding="UTF-8")
 
     # Primitives -------------------------------------------------------------------------
+
+    def _prim(self, parent, prim, pictures: bool = True) -> None:
+        if isinstance(prim, DrawPath):
+            self._path(parent, prim)
+        elif isinstance(prim, DrawText):
+            self._text(parent, prim)
+        elif isinstance(prim, DrawPicture) and pictures:
+            self._picture(parent, prim)
+        elif isinstance(prim, DrawGroup):
+            # A faded group fades as one, so its parts don't double up where they overlap
+            g = etree.SubElement(parent, _q("g"))
+            if prim.opacity < 1:
+                g.set("opacity", _fmt(prim.opacity, 4))
+            for p in prim.prims:
+                self._prim(g, p, pictures)
 
     def _path(self, parent, prim: DrawPath) -> None:
         if prim.stroke is None and prim.fill is None:
@@ -186,6 +196,8 @@ class SvgWriter:
                       f"stroke-linejoin:{s.join}", f"stroke-miterlimit:{_fmt(s.miter_limit, 2)}"]
             if s.dash:
                 style.append("stroke-dasharray:" + ",".join(_fmt(v, 4) for v in s.dash))
+                if s.dash_phase:
+                    style.append(f"stroke-dashoffset:{_fmt(s.dash_phase, 4)}")
             if s.opacity < 1:
                 style.append(f"stroke-opacity:{_fmt(s.opacity, 4)}")
         else:
@@ -352,10 +364,7 @@ def fragment(resolved: Resolved, id_prefix: str) -> str:
     w._defs = etree.SubElement(g, _q("defs"))
     w._clip = 0
     for prim in resolved.prims:
-        if isinstance(prim, DrawPath):
-            w._path(g, prim)
-        elif isinstance(prim, DrawText):
-            w._text(g, prim)
+        w._prim(g, prim, pictures=False)
     for el in g.iter():
         if isinstance(el.tag, str):
             if el.get("id"):

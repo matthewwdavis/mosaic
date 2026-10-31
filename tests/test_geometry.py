@@ -104,6 +104,34 @@ def test_curved_arrow_keeps_its_tip_on_the_end_point():
     assert (100, 0) in [(round(s[1], 6), round(s[2], 6)) for s in head.path.segs if s[0] in "ML"]
 
 
+def test_outline_sits_under_line_and_head():
+    from figassemble.resolve import DrawGroup, Resolver
+    item = {"id": "o", "type": "line", "points": [[0, 0], [100, 0]],
+            "stroke": {"width": 1, "color": "#000000", "cap": "round"},
+            "arrow_end": {"type": "triangle", "w": "sm", "len": "sm"},
+            "outline": {"color": "#ffffff", "width": 1.5, "opacity": 1.0}}
+    prims = Resolver({"assets": {}}).resolve(item).prims
+    assert [p.meta.get("role") for p in prims] == ["outline", "outline", None, "line-end"]
+    body, head = prims[0], prims[1]
+    assert body.stroke.width == pytest.approx(4.0) and body.stroke.color == "#ffffff"
+    assert head.fill.color == "#ffffff" and head.stroke.width == pytest.approx(3.0)
+    # A transparent outline fades as one piece
+    item["outline"]["opacity"] = 0.4
+    prims = Resolver({"assets": {}}).resolve(item).prims
+    assert isinstance(prims[0], DrawGroup) and prims[0].opacity == 0.4 and len(prims[0].prims) == 2
+
+
+def test_outline_of_flat_dashed_line_wraps_dash_ends():
+    from figassemble.resolve import Resolver
+    item = {"id": "d", "type": "line", "points": [[0, 0], [100, 0]],
+            "stroke": {"width": 1, "color": "#000000", "cap": "flat", "dash": "dash"},
+            "outline": {"color": "#ffffff", "width": 1.0}}
+    outline = Resolver({"assets": {}}).resolve(item).prims[0]
+    assert outline.stroke.dash == [6.0, 1.0]            # dash 4 + 2, gap 3 - 2
+    x0, _, x1, _ = outline.path.bbox()
+    assert (x0, x1) == (pytest.approx(-1.0), pytest.approx(101.0))
+
+
 def test_arc_becomes_editable_curve():
     from figassemble.geometry import DrawPath
     from figassemble.resolve import Resolver, shape_to_curve

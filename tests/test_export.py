@@ -154,6 +154,22 @@ def test_unembedded_fonts_in_placed_pdfs_get_embedded(cache, tmp_path):
         assert widths[ord("C")] == pytest.approx(722, abs=1)  # standard Helvetica metrics
 
 
+def test_faded_outline_exports_as_a_group(cache, tmp_path):
+    doc = model.new_document()
+    doc["pages"][0]["items"].append({"id": "a", "type": "line", "points": [[20, 20], [120, 20]],
+                                     "stroke": {"width": 1, "color": "#000000", "cap": "round"},
+                                     "arrow_end": {"type": "triangle", "w": "sm", "len": "sm"},
+                                     "outline": {"color": "#ffffff", "width": 1, "opacity": 0.5}})
+    out = export_document(doc, str(tmp_path / "o"), ["pdf", "svg"], cache=cache)
+    pdf = pikepdf.open(out["files"][0])
+    page = pdf.pages[0]
+    forms = [x for x in page.Resources.XObject.values() if x.Subtype == "/Form"]
+    assert forms and forms[0].Group.S == "/Transparency"
+    assert any(float(g.get("/ca", 1)) == 0.5 for g in page.Resources.ExtGState.values())
+    svg = open(out["files"][1], encoding="utf-8").read()
+    assert '<g opacity="0.5">' in svg
+
+
 def test_autofit_height_follows_powerpoint_model():
     from figassemble.resolve import Resolver
     face, _ = resolve_face("Helvetica")

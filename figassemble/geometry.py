@@ -292,6 +292,19 @@ class Path:
             p = p.reversed()._trim_end(start).reversed()
         return p
 
+    def extended(self, start: float = 0.0, end: float = 0.0) -> "Path":
+        """An open path continued straight past its ends, along the end directions."""
+        segs = [s for s in self.segs if s[0] != "Z"]
+        st, en = self.start_tangent(), self.end_tangent()
+        out = list(segs)
+        if start > 0 and st is not None:
+            (x, y), (dx, dy) = st
+            out = [("M", x + dx * start, y + dy * start), ("L", x, y)] + out[1:]
+        if end > 0 and en is not None:
+            (x, y), (dx, dy) = en
+            out.append(("L", x + dx * end, y + dy * end))
+        return Path(out)
+
     def reversed(self) -> "Path":
         """Reverse a single open subpath."""
         pts: list[tuple] = []
@@ -706,6 +719,7 @@ class Stroke:
     join: str = "round"   # round | miter | bevel
     opacity: float = 1.0
     miter_limit: float = 8.0
+    dash_phase: float = 0.0
 
 
 @dataclass

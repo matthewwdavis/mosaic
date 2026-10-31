@@ -52,12 +52,6 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         # The page itself allows drops (dragover); this handler receives the full file paths
         window.dom.document.events.drop += DOMEventHandler(on_drop, prevent_default=True, stop_propagation=True)
 
-    def on_closing():
-        if not getattr(api, "_dirty", False):
-            return True
-        return window.create_confirmation_dialog(
-            "Close FigAssemble?", "This document has unsaved changes. Close anyway?")
-
     def smoke_check():
         """Hidden-window check that the editor starts in this platform's web view."""
         ready = False
@@ -77,14 +71,30 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
             print("SELFTEST " + str(window.evaluate_js("JSON.stringify(window.__selftest || null)")), flush=True)
         errors = window.evaluate_js("JSON.stringify(window.__faErrors || [])") if ready is not None else "[]"
         print(f"SMOKE {'ready' if ready else 'NOT READY'} errors={errors}", flush=True)
+        if ready and "selftest" not in (extra or ""):
+            # An edit must switch on the close confirmation (and saving would switch it off)
+            before = window.confirm_close
+            window.evaluate_js("window.FA.app.run('addPage')")
+            for _ in range(50):
+                time.sleep(0.1)
+                if window.confirm_close:
+                    break
+            print(f"SMOKE close confirmation: {before} before an edit, {window.confirm_close} after", flush=True)
+        closing_started[0] = time.time()
         window.destroy()
 
     window.events.loaded += on_loaded
-    window.events.closing += on_closing
+    # Unsaved changes: pywebview's own close confirmation (Api.confirm_close switches it on).
+    # It runs on the main thread itself; asking for a dialog from a closing handler instead
+    # deadlocks, because that handler already holds the main thread.
+    wording = {"global.quitConfirmation": "This figure has unsaved changes. Close without saving?",
+               "global.quit": "Close without saving"}
     if smoke:
-        webview.start(smoke_check)
+        closing_started = [0.0]
+        webview.start(smoke_check, localization=wording)
+        print(f"SMOKE window closed in {time.time() - closing_started[0]:.2f} s", flush=True)
     else:
-        webview.start(debug=bool(os.environ.get("FIGASSEMBLE_DEBUG")))
+        webview.start(debug=bool(os.environ.get("FIGASSEMBLE_DEBUG")), localization=wording)
     return 0
 
 

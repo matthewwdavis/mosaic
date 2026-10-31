@@ -261,7 +261,10 @@ class Api:
         return True
 
     def confirm_close(self, dirty: bool) -> bool:
+        """Ask before closing only while there are unsaved changes."""
         self._dirty = bool(dirty)
+        if self.window is not None:
+            self.window.confirm_close = self._dirty
         return True
 
 

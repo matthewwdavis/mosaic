@@ -51,9 +51,13 @@ activated). A no-command-line installer is planned.
   handles to add more points (S-curves), drag points to reshape, double-click a point to
   remove it. The properties panel lists every point's position and switches between smooth
   curves and straight segments. Arcs imported from PowerPoint have a "Make editable curve" button.
-- **Edit** in the properties panel on the right: exact positions (points), sizes, rotation,
-  line width and dashes, arrowheads, fills, fonts. Double-click text to type; double-click a
-  picture to crop it.
+- **Edit** in the properties panel on the right: exact positions, sizes, rotation, line width
+  and dashes, arrowheads, fills, fonts. Every colour has a picker and an editable hex code;
+  transparency is a percentage (0% = solid), as in PowerPoint. Double-click text to type;
+  double-click a picture to crop it.
+- **Outline** an arrow or shape with a contour in a second colour (e.g. a white edge that keeps a
+  black arrow visible on a photo): tick "Outline around it" and set its colour, thickness and
+  transparency. It wraps the line, the arrowhead and any fill.
 - **Arrange:** drag to move (objects snap to edges, centres and the page; hold ⌘/Ctrl to
   stop snapping), align and distribute several objects, group (⌘G), bring forward (⌘]).
 - **Pages:** one document can hold many pages, e.g. versions of a figure. New pages are A4.

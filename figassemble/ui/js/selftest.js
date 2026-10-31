@@ -21,6 +21,11 @@ async function choose(label, value) {
   return true;
 }
 const pageSize = () => `${(store.page().width / MMPT).toFixed(1)} × ${(store.page().height / MMPT).toFixed(1)} mm`;
+function fieldByLabel(text) {
+  inspector.render();
+  const l = [...document.querySelectorAll("#inspector label")].find((x) => x.textContent === text);
+  return l ? document.getElementById(l.htmlFor) : null;
+}
 
 const results = [];
 const log = (ok, name, detail = "") => {
@@ -192,6 +197,35 @@ export async function run(app, params) {
     check(grp && grp.items.length === toGroup && store.selection[0] === grp.id, "group made", `${grp?.items.length} of ${toGroup}`);
     app.run("ungroup");
     check(!store.items().some((i) => i.type === "group"), "ungroup restores the objects");
+
+    // Outline: a contour in a second colour around the shape, with its own transparency
+    store.select([rect.id]);
+    fieldByLabel("Outline around it")?.click();
+    await settle();
+    const ro = store.item(rect.id).outline;
+    check(ro && ro.color === "#ffffff" && ro.width === 1, "Outline adds a white contour around a black shape", JSON.stringify(ro));
+    const firstPath = canvas.els.get(rect.id)?.g.querySelector("path")?.getAttribute("style") || "";
+    check(firstPath.includes("stroke:#ffffff") && firstPath.includes("stroke-width:3"),
+      "the outline is drawn underneath, 1 pt beyond the line on each side", firstPath);
+    await choose("Outline transparency", "50");
+    await settle();
+    check(store.item(rect.id).outline.opacity === 0.5 && canvas.els.get(rect.id)?.g.innerHTML.includes('opacity="0.5"'),
+      "outline transparency fades the contour as one piece", JSON.stringify(store.item(rect.id).outline));
+
+    // Hex codes next to colour pickers
+    inspector.render();
+    let hex = document.querySelector('#inspector input[aria-label="Line colour hex code"]');
+    hex.value = "d62728";
+    hex.dispatchEvent(new Event("change"));
+    await settle();
+    check(store.item(rect.id).stroke.color === "#d62728", "typing a hex code sets the colour", store.item(rect.id).stroke.color);
+    inspector.render();
+    hex = document.querySelector('#inspector input[aria-label="Line colour hex code"]');
+    check(hex.value === "#D62728" && document.getElementById(hex.id.replace(/-hex$/, ""))?.value === "#d62728",
+      "the hex field and picker show the current colour", hex.value);
+    hex.value = "not a colour";
+    hex.dispatchEvent(new Event("change"));
+    check(store.item(rect.id).stroke.color === "#d62728" && hex.value === "#D62728", "an invalid hex code is refused", hex.value);
 
     // Text: create, type, commit
     canvas.setTool("text");

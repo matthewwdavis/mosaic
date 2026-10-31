@@ -677,6 +677,7 @@ async function start() {
     if (saved.length) offerRecovery(saved);
   }
   canvas.fit();
+  if (params.get("select")) store.select(params.get("select").split(","));   // e.g. for screenshots
   setInterval(() => app.refreshLinks().catch(() => {}), 2000);
   setInterval(() => {
     if (store.dirty && store.doc) rpc("autosave", store.doc, store.autosaveKey).catch(() => {});

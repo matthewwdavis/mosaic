@@ -152,9 +152,14 @@ export const inspector = {
       if (!it.textbox || it.fill || it.stroke) out.push(this.fillSection(it));
       out.push(this.strokeSection(it));
       if (["arc", "rightBracket", "leftBracket", "custom"].includes(it.geom) && it.stroke) out.push(this.endsSection(it));
+      if (!it.textbox || it.fill || it.stroke) out.push(this.outlineSection(it));
       if (it.textbox && !it.text) out.push(this.textSection(it));
     }
-    if (it.type === "line") { out.push(this.strokeSection(it)); out.push(this.endsSection(it)); }
+    if (it.type === "line") {
+      out.push(this.strokeSection(it));
+      out.push(this.endsSection(it));
+      out.push(this.outlineSection(it));
+    }
     if (it.type === "group") out.push(section("Group", [
       h("p", { class: "hint" }, `${it.items.length} objects. Ungroup (${this.app.mod}Shift+G) to edit them one by one.`),
       button("Ungroup", () => this.app.run("ungroup"), "Ungroup"),
@@ -231,7 +236,7 @@ export const inspector = {
     ];
     if (lockAspect) kids.push(h("p", { class: "hint" }, "Width and height keep the picture's proportions."));
     if (it.type === "picture") {
-      kids.push(numField("Opacity", (it.opacity ?? 1) * 100, "%", (v) => this.edit("Opacity", (o) => { o.opacity = Math.min(Math.max(v / 100, 0), 1); }), { min: 0, max: 100, step: 5 }));
+      kids.push(transparencyField("Transparency", it.opacity, (op) => this.edit("Transparency", (o) => { o.opacity = op; })));
     }
     return section("Position and size", kids);
   },
@@ -314,14 +319,14 @@ export const inspector = {
     }))];
     if (mode === "solid") kids.push(row(
       colorField("Fill colour", f.color, (v) => this.edit("Fill colour", (o) => { o.fill = { ...o.fill, color: v }; })),
-      numField("Opacity", (f.opacity ?? 1) * 100, "%", (v) => this.edit("Fill opacity", (o) => { o.fill = { ...o.fill, opacity: Math.min(Math.max(v / 100, 0), 1) }; }), { min: 0, max: 100, step: 5 })));
+      transparencyField("Fill transparency", f.opacity, (op) => this.edit("Fill transparency", (o) => { o.fill = { ...o.fill, opacity: op }; }))));
     return section("Fill", kids);
   },
   strokeSection(it) {
     const st = it.stroke;
     const kids = [];
-    if (it.type !== "line") kids.push(selectField("Outline", st ? "solid" : "none", [["none", "No outline"], ["solid", "Line"]], (v) =>
-      this.edit("Outline", (o) => { o.stroke = v === "none" ? null : { color: "#000000", width: this.app.prefs.stroke_width || 1, dash: "solid", cap: "round", join: "round", opacity: 1 }; })));
+    if (it.type !== "line") kids.push(selectField("Line", st ? "solid" : "none", [["none", "No line"], ["solid", "Line"]], (v) =>
+      this.edit(v === "none" ? "Remove line" : "Add line", (o) => { o.stroke = v === "none" ? null : { color: "#000000", width: this.app.prefs.stroke_width || 1, dash: "solid", cap: "round", join: "round", opacity: 1 }; })));
     if (st) {
       const set = (label, key, conv = (v) => v) => (v) => this.edit(label, (o) => { o.stroke = { ...o.stroke, [key]: conv(v) }; });
       kids.push(row(colorField("Line colour", st.color || "#000000", set("Line colour", "color")),
@@ -329,9 +334,24 @@ export const inspector = {
       kids.push(selectField("Dash", typeof st.dash === "string" ? st.dash : "solid", DASHES, set("Dash", "dash")));
       kids.push(row(selectField("Ends", st.cap || "flat", [["round", "Round"], ["flat", "Flat"], ["square", "Square"]], set("Line ends", "cap")),
         selectField("Corners", st.join || "round", [["round", "Round"], ["miter", "Sharp"], ["bevel", "Bevelled"]], set("Corners", "join"))));
-      kids.push(numField("Line opacity", (st.opacity ?? 1) * 100, "%", set("Line opacity", "opacity", (v) => Math.min(Math.max(v / 100, 0), 1)), { min: 0, max: 100, step: 5 }));
+      kids.push(transparencyField("Line transparency", st.opacity, (op) => this.edit("Line transparency", (o) => { o.stroke = { ...o.stroke, opacity: op }; })));
     }
-    return section(it.type === "line" ? "Line" : "Outline", kids);
+    return section("Line", kids);
+  },
+  // A contour in a second colour around the whole arrow or shape (lines, heads and fill)
+  outlineSection(it) {
+    const o = it.outline;
+    const kids = [checkField("Outline around it", !!o, (on) => this.edit(on ? "Add outline" : "Remove outline", (x) => {
+      x.outline = on ? { color: contrastingOutline(x), width: 1, opacity: 1 } : null;
+    }))];
+    if (o) {
+      const set = (label, key) => (v) => this.edit(label, (x) => { x.outline = { ...x.outline, [key]: v }; });
+      kids.push(row(colorField("Outline colour", o.color, set("Outline colour", "color")),
+        numField("Outline thickness", o.width ?? 1, "pt", (v) => set("Outline thickness", "width")(Math.max(v, 0.05)), { min: 0.05, step: 0.25 })));
+      kids.push(transparencyField("Outline transparency", o.opacity, (op) => set("Outline transparency", "opacity")(op)));
+    }
+    kids.push(h("p", { class: "hint" }, "A band of another colour around everything it draws, e.g. a white edge that keeps a black arrow visible on a photo."));
+    return section("Outline", kids);
   },
   endsSection(it) {
     const end = (key, label) => {
@@ -461,16 +481,48 @@ export function selectField(text, value, options, onChange, opts = {}) {
   sel.addEventListener("change", () => onChange(sel.value));
   return h("div", { class: "field" }, label(text, id), sel);
 }
+// A colour picker with its hex code beside it; either can be edited
 function colorField(text, value, onChange) {
   const id = `f${++fieldId}`;
-  const input = h("input", { id, type: "color", value: normalizeHex(value) });
-  input.addEventListener("change", () => onChange(input.value));
-  return h("div", { class: "field color" }, label(text, id), input);
+  const hex = parseHex(value) || "#000000";
+  const picker = h("input", { id, type: "color", value: hex });
+  const code = h("input", { id: `${id}-hex`, type: "text", class: "hex", value: hex.toUpperCase(), maxlength: 7,
+    spellcheck: "false", autocomplete: "off", "aria-label": `${text} hex code` });
+  picker.addEventListener("change", () => { code.value = picker.value.toUpperCase(); onChange(picker.value); });
+  const commit = () => {
+    const v = parseHex(code.value);
+    if (!v) {
+      announce(`“${code.value}” isn't a hex colour; use 6 digits such as #1A2B3C`);
+      code.value = picker.value.toUpperCase();
+      return;
+    }
+    code.value = v.toUpperCase();
+    if (v !== picker.value) { picker.value = v; onChange(v); }
+  };
+  code.addEventListener("change", commit);
+  code.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { commit(); code.blur(); }
+    e.stopPropagation();
+  });
+  return h("div", { class: "field color" }, label(text, id), h("div", { class: "color-row" }, picker, code));
 }
-function normalizeHex(c) {
-  c = (c || "#000000").trim();
-  if (/^#[0-9a-f]{3}$/i.test(c)) c = "#" + [...c.slice(1)].map((x) => x + x).join("");
-  return /^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : "#000000";
+// "#1a2b3c", "1A2B3C" or "#abc" -> "#1a2b3c"; anything else -> null
+export function parseHex(s) {
+  let c = String(s || "").trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(c)) c = [...c].map((x) => x + x).join("");
+  return /^[0-9a-f]{6}$/i.test(c) ? `#${c.toLowerCase()}` : null;
+}
+// Transparency in percent (0 = solid), as PowerPoint shows it; items store opacity
+function transparencyField(text, opacity, onCommit) {
+  return numField(text, (1 - (opacity ?? 1)) * 100, "%", (v) => onCommit(Math.min(Math.max(1 - v / 100, 0), 1)),
+    { min: 0, max: 100, step: 5 });
+}
+// White around dark things, black around light ones
+function contrastingOutline(it) {
+  const main = parseHex(it.type === "line" ? it.stroke?.color : (it.fill?.color || it.stroke?.color)) || "#000000";
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(main.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? "#000000" : "#ffffff";
 }
 function checkField(text, checked, onChange) {
   const id = `f${++fieldId}`;

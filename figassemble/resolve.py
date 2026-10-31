@@ -75,6 +75,53 @@ def union_bbox(boxes):
             max(b[2] for b in boxes), max(b[3] for b in boxes))
 
 
+@dataclass
+class DrawGroup:
+    """Primitives composited together, then faded as one (so overlaps don't darken)."""
+
+    prims: list
+    opacity: float = 1.0
+    meta: dict = field(default_factory=dict)
+
+    def bbox(self):
+        return union_bbox(p.bbox() for p in self.prims)
+
+
+def outline_prims(prims: list, spec: dict | None) -> list:
+    """A contour of `spec["width"]` points in another colour around everything an item
+    draws (lines, arrowheads, fills), to sit underneath it. Its transparency applies to the
+    contour as a whole, so the outline of a line and of its head don't double up."""
+    if not spec:
+        return []
+    t = float(spec.get("width", 1.0))
+    if t <= 0:
+        return []
+    color = spec.get("color", "#ffffff")
+    out = []
+    for p in prims:
+        if not isinstance(p, DrawPath):
+            continue
+        if p.stroke is not None:
+            s = p.stroke
+            path, dash = p.path, s.dash
+            if s.cap == "flat" and not path.is_closed():
+                # Flat ends don't grow with the width: continue the line by t at each end and
+                # lengthen each dash by t either side (the gaps shrink to match)
+                path = path.extended(t, t)
+                if dash:
+                    dash = [d + 2 * t if i % 2 == 0 else max(d - 2 * t, 0.0) for i, d in enumerate(dash)]
+            out.append(DrawPath(path, stroke=Stroke(color=color, width=s.width + 2 * t, dash=dash, cap=s.cap,
+                                                    join=s.join, miter_limit=s.miter_limit),
+                                meta={"role": "outline"}))
+        if p.fill is not None:
+            out.append(DrawPath(p.path, stroke=Stroke(color=color, width=2 * t, cap="round", join="round"),
+                                fill=Fill(color=color, even_odd=p.fill.even_odd), meta={"role": "outline"}))
+    opacity = float(spec.get("opacity", 1.0))
+    if out and opacity < 1.0:
+        return [DrawGroup(out, opacity, meta={"role": "outline"})]
+    return out
+
+
 def make_stroke(d: dict | None) -> Stroke | None:
     if not d:
         return None
@@ -276,6 +323,8 @@ class Resolver:
                     r.prims += stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))
                 else:
                     r.prims.append(DrawPath(path, stroke=stroke))
+        if item.get("outline"):
+            r.prims = outline_prims(r.prims, item["outline"]) + r.prims
         body = item.get("text")
         if body and body.get("paragraphs"):
             tx0, ty0, tx1, ty1 = preset_text_rect(geom, w, h, item.get("adj"))
@@ -304,7 +353,8 @@ class Resolver:
             path = Path().move_to(*pts[0])
             for p in pts[1:]:
                 path.line_to(*p)
-        r.prims += stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))
+        drawn = stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))
+        r.prims += outline_prims(drawn, item.get("outline")) + drawn
         return r
 
 

@@ -16,7 +16,7 @@ from pikepdf import Array, Dictionary, Name
 
 from ..assets import SourceResolver, display_box
 from ..geometry import DrawPath, Matrix, _fmt
-from ..resolve import DrawPicture, DrawText, Resolved
+from ..resolve import DrawGroup, DrawPicture, DrawText, Resolved
 from .pdffont import FontEmbedder
 
 _CAP = {"flat": 0, "round": 1, "square": 2}
@@ -72,12 +72,7 @@ class PdfWriter:
         for r in resolved:
             for prim in r.prims:
                 try:
-                    if isinstance(prim, DrawPath):
-                        ops += self._path(prim, res)
-                    elif isinstance(prim, DrawText):
-                        ops += self._text(prim, res)
-                    elif isinstance(prim, DrawPicture):
-                        ops += self._picture(prim, res)
+                    ops += self._prim(prim, res)
                 except Exception as exc:   # one bad item shouldn't lose the whole page
                     self.warnings.append(f"item {r.item_id}: {exc}")
         pg.obj.Contents = self.pdf.make_stream("\n".join(ops).encode("latin-1"))
@@ -134,6 +129,34 @@ class PdfWriter:
         return self._name(res, "/ExtGState", "GS", obj)
 
     # Primitives ------------------------------------------------------------------------
+
+    def _prim(self, prim, res: dict) -> list[str]:
+        if isinstance(prim, DrawPath):
+            return self._path(prim, res)
+        if isinstance(prim, DrawText):
+            return self._text(prim, res)
+        if isinstance(prim, DrawPicture):
+            return self._picture(prim, res)
+        if isinstance(prim, DrawGroup):
+            return self._group(prim, res)
+        return []
+
+    def _group(self, prim: DrawGroup, res: dict) -> list[str]:
+        """Draw primitives together; a faded group becomes a transparency group (Form XObject)."""
+        if prim.opacity >= 1.0:
+            return [op for p in prim.prims for op in self._prim(p, res)]
+        inner: dict[str, dict] = {"/XObject": {}, "/Font": {}, "/ExtGState": {}, "/Shading": {}}
+        saved, self._names = self._names, {}
+        ops = [op for p in prim.prims for op in self._prim(p, inner)]
+        self._names = saved
+        form = pikepdf.Stream(self.pdf, "\n".join(ops).encode("latin-1"))
+        form.Type, form.Subtype = Name.XObject, Name.Form
+        form.BBox = Array([-1e5, -1e5, 1e5, 1e5])
+        form.Group = Dictionary(S=Name.Transparency)
+        form.Resources = Dictionary({k: Dictionary(v) for k, v in inner.items() if v})
+        name = self._name(res, "/XObject", "Fm", self.pdf.make_indirect(form))
+        gs = self._gstate(res, prim.opacity, prim.opacity)
+        return ["q", f"/{gs} gs", f"/{name} Do", "Q"]
 
     def _function(self, stops: list[tuple[float, list[float]]]):
         """PDF function interpolating colour stops linearly (stitched Type 2 pieces)."""
@@ -207,7 +230,7 @@ class PdfWriter:
             ops += [f"{_n(s.width)} w", f"{_CAP.get(s.cap, 0)} J", f"{_JOIN.get(s.join, 1)} j",
                     f"{_n(s.miter_limit)} M", f"{_rgb(s.color)} RG"]
             if s.dash:
-                ops.append("[" + " ".join(_n(v) for v in s.dash) + "] 0 d")
+                ops.append("[" + " ".join(_n(v) for v in s.dash) + f"] {_n(s.dash_phase)} d")
         ops.append(prim.path.to_pdf())
         if f is not None and s is not None:
             ops.append("B*" if f.even_odd else "B")
