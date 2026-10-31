@@ -11,7 +11,7 @@ import sys
 import threading
 import zipfile
 
-from .. import __version__, docfile, model, presets
+from .. import __version__, connect, docfile, model, presets
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
 from ..fonts import config_dir, get_font_index
 from ..resolve import Resolver
@@ -231,6 +231,11 @@ class Api:
                 if it.get("type") == "shape" and not it.get("textbox") and presets.is_preset(it.get("geom", "")):
                     # Where the shape's adjust handles sit, in frame coordinates
                     res["handles"] = presets.handles(it["geom"], it["frame"][2], it["frame"][3], it.get("adj"))
+                # Where line ends can attach: shapes as fractions of their frame, lines' dashes on the page
+                if it.get("type") == "shape":
+                    res["sites"] = connect.shape_sites(it)
+                elif it.get("type") == "line":
+                    res["sites"] = connect.line_sites(r.prims)
                 out.append(res)
             except Exception as exc:
                 out.append({"id": it.get("id"), "svg": "", "bbox": None, "warnings": [str(exc)]})

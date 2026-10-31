@@ -9,7 +9,9 @@ Every item has an `id` and a `type`:
             flip_h, flip_v, opacity, source: auto|pdf|svg|png}
 - shape    {geom (DrawingML preset name or "custom"), adj, frame, rot, flip_h, flip_v,
             stroke, fill, arrow_start, arrow_end, path (custom), text, textbox, outline, rounding}
-- line     {points [[x, y], ...], curve: straight|smooth, stroke, arrow_start, arrow_end, outline}
+- line     {points [[x, y], ...], curve: straight|smooth, stroke, arrow_start, arrow_end, outline,
+            start_link, end_link}: a link {item, site} attaches that end to another object's
+            connection point (connect.py), and the editor keeps the end there
 - group    {items: [...]}   children keep page coordinates
 
 adj     {name: value}: a preset's adjust values as fractions, or degrees for angles (presets.py)

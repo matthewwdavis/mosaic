@@ -323,6 +323,20 @@ class DashLayout:
     def __init__(self, parts: list[tuple[_Sub, list[tuple[float, float]]]]):
         self.parts = parts
 
+    def sites(self) -> list[tuple[str, float, float]]:
+        """Both ends and the middle of every dash, for connecting lines to ("d12s", "d12m",
+        "d12e": dash 13's start, middle and end; a dot has only its middle)."""
+        out, j = [], 0
+        for sub, spans in self.parts:
+            at = (lambda a, sub=sub: sub.point(a % sub.length)) if sub.closed else sub.point
+            for a, b in spans:
+                if b - a < EPS:
+                    out.append((f"d{j}m", *at(a)))
+                else:
+                    out += [(f"d{j}s", *at(a)), (f"d{j}m", *at((a + b) / 2)), (f"d{j}e", *at(b))]
+                j += 1
+        return out
+
     def path(self, extend: float = 0.0) -> Path:
         """The dashes as subpaths, each lengthened by `extend` at both ends (square caps drawn
         as flat ones, and outlines around flat-ended dashes)."""

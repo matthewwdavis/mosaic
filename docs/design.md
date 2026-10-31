@@ -115,6 +115,17 @@ pre-export check says so.
   first object); align to selection / key object / page. Clicking (without dragging) one of several
   selected objects makes it the key object and switches to key mode, as in Illustrator; clicking it
   again stops. Controls in the ribbon's Arrange tab and the properties panel stay in step.
+- **Connectors (2026-10-31):** line and arrow ends attach to connection points and follow them
+  (`start_link` / `end_link`: {item, site}). Points come from each shape's own outline (Matthew's
+  choice): corners (sharp ones and rounded corners' middles) and side middles; 8 points round
+  smooth outlines; ends of open ones; frame corners and side middles for pictures, text boxes and
+  groups; a line's ends and middle; and on dashed outlines each dash's start, middle and end (his
+  reading of "connect to either end of the dash, or the middle"). The engine gives shapes' points
+  as fractions of the frame (connect.py), so the editor follows resizes and turns at once and
+  takes the exact points when the engine answers. Links are kept up inside every change's undo
+  step; a link to a deleted object is dropped, one whose dash has gone takes the nearest dash.
+  Holding ⌘/Ctrl drops an end unattached (the same override as snapping); moving a line on its own
+  (drag, arrows, align) lets go; copies keep links only among themselves.
 - **Recovery copies (2026-10-31):** kept per unsaved document in the settings folder's
   `autosave/`; the recovery offer and Settings can delete them (each delete warns first). A
   recovered document keeps its copy's name, so saving it clears the copy.
@@ -137,6 +148,7 @@ figassemble/
   geometry.py     matrices, paths, corner rounding, arrowheads, dashes
   presets.py      PowerPoint's 187 preset shapes from their formulas; handles; the Shapes menu
   dashes.py       even dash spacing: dashes fitted to corners, ends and closed curves
+  connect.py      connection points for attaching line ends (corners, side middles, dashes)
   data/           presets.json (from the standard's presetShapeDefinitions.xml)
   fonts.py        font discovery and fallback; metrics
   textlayout.py   paragraphs/runs -> positioned glyph runs (PowerPoint-compatible)

@@ -262,6 +262,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .handle.point { fill: var(--sel); stroke: #fff; stroke-width: 1.5; }
 .handle.mid { fill: #fff; stroke: var(--sel); stroke-width: 1.5; }
 .handle.adjust { fill: #ffd21f; stroke: #5c4700; stroke-width: 1.2; }
+.handle.end.linked { fill: #1f9d55; stroke: #fff; stroke-width: 1.5; }
+/* Connection points, shown while a line end is placed */
+.site { fill: #fff; stroke: var(--sel); stroke-width: 1.3; }
+.site.dash { fill: var(--sel); stroke: none; opacity: 0.7; }
+.site.active { fill: var(--sel); stroke: #fff; stroke-width: 2; }
+.link-row { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; margin: 0.25rem 0; font-size: 0.9rem; }
 .draw-preview.shape { stroke-dasharray: none; stroke-width: 1.2; }
 .sel-outline.line { stroke-width: 1; stroke-dasharray: 3 2; }
 .point-row { border-left: 2px solid var(--line); padding-left: 0.5rem; margin: 0.2rem 0; }
@@ -334,6 +340,8 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   .sel-outline, .handle, .snap-guide, .marquee, .draw-preview { stroke: Highlight; }
   .handle { fill: Canvas; }
   .handle.adjust { fill: Highlight; stroke: CanvasText; }
+  .site, .site.dash { fill: Canvas; stroke: Highlight; }
+  .site.active, .handle.end.linked { fill: Highlight; stroke: CanvasText; }
   .tool[aria-pressed="true"], .tool.active, .shape-item[aria-current], .page-list li.current,
   .layer-list li.selected { outline: 2px solid Highlight; }
   .shape-item:hover { outline: 1px solid Highlight; }

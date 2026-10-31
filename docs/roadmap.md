@@ -18,7 +18,7 @@
 - [x] Accessibility, first pass: labelled controls, keyboard operation of the page and lists,
       screen-reader announcements, interface text size, light/dark/high-contrast, reduced motion
 - [x] Mac launcher app (`packaging/macos/make_app.py`)
-- [x] Editor self-test in headless Chrome and in the app's WebKit window (now 113 checks)
+- [x] Editor self-test in headless Chrome and in the app's WebKit window (now 137 checks)
 - [x] Curved arrows and lines: smooth curve through draggable points (centripetal Catmull-Rom),
       add/remove points on the page or in the panel, straight-segment mode, PowerPoint arcs
       convertible on demand ("Make editable curve")
@@ -31,6 +31,12 @@
       with a Snap button, ⌘/Ctrl-drag and Escape to override it
 - [x] Even dashes: a dash or dot on every corner, bend and line end, whole repeats between them,
       no seams on curves (PowerPoint's corner crowding fixed); per-object switch back
+- [x] Faster yellow-handle drags (one request per step, no 30 ms wait)
+- [x] Recovery copies can be deleted (recovery offer and Settings, with warnings)
+- [x] Ribbon tabs (Home, Arrange, View), drawing tools beside the page, tabbed properties panel
+      with folding sections
+- [x] Align and distribute as in Illustrator (key object, exact gaps, align to page)
+- [x] Connectors: line ends attach to corners, side middles and dashes, and follow their objects
 - [ ] Matthew's first real use: feedback round (in progress)
 - [ ] Windows: test the app window on a real machine; no-command-line installer (PyInstaller via CI)
 
@@ -45,7 +51,7 @@
 
 ## Later
 
-- Freeform drawing and point editing; curved connectors
+- Freeform drawing and point editing; elbow connectors
 - Importer coverage for every figure deck (vertical text, bullets)
 - Optional raster DPI cap / file-size targets for journal limits
 - Opening .figasm files by double-clicking them in Finder/Explorer

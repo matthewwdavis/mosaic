@@ -6,7 +6,7 @@ window.addEventListener("error", (e) => window.__faErrors.push(String(e.message)
 window.addEventListener("unhandledrejection", (e) => window.__faErrors.push(String(e.reason?.message || e.reason)));
 
 import { rpc } from "./api.js";
-import { canvas, findDeep, reid, shiftGuides, shiftItem } from "./canvas.js";
+import { canvas, copyItems, detachMoved, findDeep, shiftGuides, shiftItem } from "./canvas.js";
 import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
@@ -209,6 +209,7 @@ const app = {
     const sel = store.selected().filter((it) => !it.locked);
     if (!sel.length) return;
     store.update(resize ? "Resize" : "Move", (doc) => {
+      if (!resize) detachMoved(sel.map((x) => findDeep(doc.pages[store.pageIndex].items, x.id)));
       for (const s of sel) {
         const it = findDeep(doc.pages[store.pageIndex].items, s.id);
         if (resize && it.frame) {
@@ -260,6 +261,7 @@ const app = {
     if (!sel.length) return;
     const { box: ref, keep, mode } = this.alignTarget(sel);
     store.update("Align", (doc) => {
+      detachMoved(sel.filter((x) => x.id !== keep).map((x) => findDeep(doc.pages[store.pageIndex].items, x.id)));
       for (const s of sel) {
         if (s.id === keep) continue;
         const it = findDeep(doc.pages[store.pageIndex].items, s.id);
@@ -295,6 +297,7 @@ const app = {
     }
     const step = (last - first) / (boxes.length - 1);
     store.update("Distribute", (doc) => boxes.forEach(({ id, b }, i) => {
+      detachMoved([findDeep(doc.pages[store.pageIndex].items, id)]);
       const it = findDeep(doc.pages[store.pageIndex].items, id), d = first + i * step - at(b);
       shiftItem(it, clone(it), axis ? 0 : d, axis ? d : 0);
     }));
@@ -326,6 +329,7 @@ const app = {
       for (const x of boxes) { starts.set(x.id, pos); pos += size(x.b) + even; }
     }
     store.update("Distribute", (doc) => {
+      detachMoved(boxes.map(({ id }) => findDeep(doc.pages[store.pageIndex].items, id)));
       for (const { id, b } of boxes) {
         const it = findDeep(doc.pages[store.pageIndex].items, id), d = starts.get(id) - b[i0];
         if (starts.has(id)) shiftItem(it, clone(it), i0 ? 0 : d, i0 ? d : 0);
@@ -416,7 +420,7 @@ const app = {
       if (text?.startsWith("figassemble:")) clip = JSON.parse(text.slice(12));
     } catch { /* clipboard not readable; use the internal one */ }
     if (!clip) return;
-    const items = clip.items.map((it) => reid(clone(it)));
+    const items = copyItems(clip.items);
     const offset = clip.page === store.page().id ? 10 : 0;
     store.update("Paste", (doc) => {
       Object.assign(doc.assets, clip.assets);
@@ -431,7 +435,8 @@ const app = {
   duplicate() {
     const sel = store.selected();
     if (!sel.length) return;
-    const items = sel.map((it) => { const c = reid(clone(it)); shiftItem(c, clone(c), 10, 10); return c; });
+    const items = copyItems(sel);
+    for (const c of items) shiftItem(c, clone(c), 10, 10);
     store.update("Duplicate", (doc) => doc.pages[store.pageIndex].items.push(...items), { select: items.map((i) => i.id) });
     announce(`Duplicated ${items.length} object${items.length === 1 ? "" : "s"}`);
   },
@@ -547,7 +552,7 @@ const app = {
 };
 
 function dirOf(p) { return p ? p.replace(/[\\/][^\\/]*$/, "") : ""; }
-function reidPage(p) { p.id = uid("pg"); p.items.forEach(reid); return p; }
+function reidPage(p) { p.id = uid("pg"); p.items = copyItems(p.items); return p; }
 
 // Commands --------------------------------------------------------------------------------
 

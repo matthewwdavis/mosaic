@@ -12,6 +12,7 @@ import {
 const HANDLE = 8;             // handle size, CSS px
 const SNAP_PX = 6;            // snapping distance, CSS px
 const GUIDE_HIT = 4;          // how near (CSS px) the pointer must be to grab a guide
+const SITE_PX = 8;            // how near (CSS px) a line end must come to attach to a connection point
 const GRID_MIN_PX = 6;        // grid lines closer than this on screen aren't drawn, or snapped to
 const ROT_OFFSET = 24;        // rotation handle distance above the frame, CSS px
 const SVG_PREVIEW_LIMIT = 8e6; // bigger SVGs preview as rendered PDFs for speed
@@ -52,6 +53,7 @@ export const canvas = {
     this.svg.append(this.view, this.overlay);
     stage.append(this.svg);
     this.setRulers(this.defaults?.show_rulers !== false);
+    store.afterChange = (doc) => this.followLinks(doc);
     this.editor = h("div", { class: "text-editor", contenteditable: "true", spellcheck: "false", hidden: true,
       role: "textbox", "aria-multiline": "true", "aria-label": "Text being edited" });
     stage.append(this.editor);
@@ -278,7 +280,11 @@ export const canvas = {
     e.origin = origin;
     e.bbox = r.bbox;
     e.handles = r.handles || null;
+    const before = JSON.stringify(e.sites || null);
+    e.sites = r.sites || null;
     this.pending.delete(it.id);
+    // Exact connection points just arrived: attached lines take them up
+    if (JSON.stringify(e.sites) !== before && this.linkedTo(it.id)) queueMicrotask(() => { store.silent(() => {}); store.emit("doc", {}); });
     return true;
   },
 
@@ -289,7 +295,14 @@ export const canvas = {
     const o = this.overlay;
     o.replaceChildren();
     const sel = store.selected();
+    if (this.op?.type === "draw") {
+      this.drawPreview(o);
+      this.drawSnapGuides(o);
+      this.drawSites(o);
+      return;
+    }
     this.drawSnapGuides(o);
+    this.drawSites(o);
     if (this.op?.type === "guide") this.drawGuideLabel(o);
     if (this.op?.type === "marquee") {
       const [ax, ay] = this.op.start, [bx, by] = this.op.cur;
@@ -352,6 +365,9 @@ export const canvas = {
         o.append(s("circle", { class: "handle rot", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 + 1 }));
       } else if (hd.kind === "point") {
         o.append(s("circle", { class: "handle point", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 + 1 }));
+      } else if (hd.kind === "end" && (hd.index === 0 ? it.start_link : it.end_link)) {
+        // An attached end: a green dot, as in PowerPoint
+        o.append(s("circle", { class: "handle end linked", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 + 1 }));
       } else if (hd.kind === "mid") {
         o.append(s("circle", { class: "handle mid", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 - 0.5 }));
       } else if (hd.kind === "adjust") {
@@ -472,8 +488,17 @@ export const canvas = {
       else if (!op.busy) this.finishAdjust(op);
       return;
     }
+    this.sitePointer = this.siteActive = null;
     if (cancelled) { store.cancelLive(); return; }
     if (op.type === "draw") return this.finishDraw(op);
+    if (op.type === "end" && op.moved) {
+      const it = store.item(op.orig.id);
+      if (it && (op.index === 0 || op.index === it.points.length - 1)) {
+        const key = op.index === 0 ? "start_link" : "end_link";
+        if (op.link) it[key] = op.link; else delete it[key];
+        if (op.link) announce(`Attached to ${this.siteLabel(op.link)}`);
+      }
+    }
     if (op.moved) store.endLive(op.label);
     else store.cancelLive();
     if (!op.moved && op.keyCandidate) this.onKeyClick?.(op.keyCandidate);
@@ -481,6 +506,14 @@ export const canvas = {
     this.drawOverlay();
   },
   hover(pt, p) {
+    if (["line", "arrow"].includes(this.tool)) {
+      this.sitePointer = p;
+      this.siteActive = this.siteNear(p);
+      this.drawOverlay();
+    } else if (this.sitePointer) {
+      this.sitePointer = this.siteActive = null;
+      this.drawOverlay();
+    }
     let cursor = this.tool === "select" ? "default" : "crosshair";
     if (this.spaceDown) cursor = "grab";
     else if (this.tool === "select") {
@@ -532,11 +565,12 @@ export const canvas = {
     store.beginLive();
     if (e.altKey) {
       // Option/Alt-drag duplicates, like PowerPoint
-      const copies = sel.map((it) => reid(JSON.parse(JSON.stringify(it))));
+      const copies = copyItems(sel);
       store.silent((doc) => doc.pages[store.pageIndex].items.push(...copies));
       store.selection = copies.map((c) => c.id);
     }
     const items = store.selected();
+    detachMoved(items);
     this.op = { type: "move", start: p, orig: items.map((it) => JSON.parse(JSON.stringify(it))), moved: false,
       label: e.altKey ? "Duplicate" : "Move", bbox: itemsBBox(items), targets: this.snapTargets(items.map((i) => i.id)) };
   },
@@ -812,8 +846,11 @@ export const canvas = {
       targets: this.snapTargets([it.id]) };
     else if (hd.kind === "rotate") this.op = { type: "rotate", orig, moved: false, label: "Rotate" };
     else if (hd.kind === "adjust") this.op = { type: "adjust", index: hd.index, orig, moved: false, label: "Adjust shape" };
-    else if (hd.kind === "end" || hd.kind === "point") this.op = { type: "end", index: hd.index, orig, moved: false,
-      label: hd.kind === "end" ? "Move end" : "Move point", targets: this.snapTargets([it.id]) };
+    else if (hd.kind === "end" || hd.kind === "point") {
+      this.op = { type: "end", index: hd.index, orig, moved: false, label: hd.kind === "end" ? "Move end" : "Move point",
+        targets: this.snapTargets([it.id]) };
+      if (hd.kind === "end") delete it[hd.index === 0 ? "start_link" : "end_link"];   // it attaches again where it's dropped
+    }
     else if (hd.kind === "mid") {
       // A new point appears where the handle was and follows the pointer; nothing is kept
       // unless it actually moves
@@ -886,8 +923,15 @@ export const canvas = {
   },
   endTo(p, e) {
     const op = this.op, it = store.selected()[0];
-    let q = this.snapPoint(p, op.targets, e);
-    if (e.shiftKey) {
+    const isEnd = op.index === 0 || op.index === it.points.length - 1;
+    // An end near a connection point attaches to it (hold ⌘/Ctrl to place it freely)
+    const near = isEnd && !(e.metaKey || e.ctrlKey) ? this.siteNear(p, it.id) : null;
+    op.link = near && { item: near.item, site: near.site };
+    this.sitePointer = isEnd ? p : null;
+    this.siteActive = near;
+    let q = near ? near.at.slice() : this.snapPoint(p, op.targets, e);
+    if (near) this.snapGuides = [];
+    if (e.shiftKey && !near) {
       // Keep the stretch to the previous point at a multiple of 45 degrees
       const other = it.points[op.index === 0 ? 1 : op.index - 1];
       const ang = Math.round(Math.atan2(q[1] - other[1], q[0] - other[0]) / (Math.PI / 4)) * (Math.PI / 4);
@@ -931,6 +975,107 @@ export const canvas = {
     this.drawOverlay();
   },
 
+  // Connections ------------------------------------------------------------------------
+  // Line and arrow ends attach to objects' connection points (corners, side middles, ends,
+  // dashes; connect.py) and follow them. A line keeps {item, site} in start_link / end_link.
+
+  // An object's connection points on the page: [{key, at}]
+  sitesOf(it) {
+    const e = this.els.get(it.id);
+    if (it.type === "line") {
+      const out = [{ key: "e0", at: it.points[0] }, { key: "e1", at: it.points[it.points.length - 1] },
+        { key: "m", at: pointAlong(lineSamples(it), 0.5) }];
+      if (e?.sites && e.origin) {   // its dashes, as drawn (moved along with the line since)
+        const dx = it.points[0][0] - e.origin[0], dy = it.points[0][1] - e.origin[1];
+        for (const [key, x, y] of e.sites) out.push({ key, at: [x + dx, y + dy] });
+      }
+      return out;
+    }
+    if (it.type === "shape" && e?.sites) {
+      const m = frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v);
+      return e.sites.map(([key, u, v]) => ({ key, at: apply(m, u * it.frame[2], v * it.frame[3]) }));
+    }
+    return boxSites(it);
+  },
+  // The connection point nearest p, within reach, on any object but `exceptId`
+  siteNear(p, exceptId = null) {
+    const reach = SITE_PX / this.k;
+    let best = null;
+    const visit = (items) => items.forEach((it) => {
+      if (it.hidden || it.id === exceptId) return;
+      if (it.type === "group") visit(it.items);
+      for (const site of this.sitesOf(it)) {
+        const d = Math.hypot(site.at[0] - p[0], site.at[1] - p[1]);
+        if (d <= reach && (!best || d < best.d)) best = { item: it.id, site: site.key, at: site.at, d };
+      }
+    });
+    visit(store.items());
+    return best;
+  },
+  linkedTo(id) {
+    return allLines(store.items()).some((l) => l.start_link?.item === id || l.end_link?.item === id);
+  },
+  // Attached ends go where their connection points are now (after every change, in its undo step);
+  // a link whose object has gone is dropped, and one whose dash has gone takes the nearest dash
+  followLinks(doc) {
+    const items = doc.pages[store.pageIndex]?.items;
+    if (!items) return;
+    const lines = allLines(items).filter((l) => l.start_link || l.end_link);
+    for (let pass = 0; pass < 3 && lines.length; pass++) {   // a few rounds for lines attached to lines
+      let moved = false;
+      for (const line of lines) {
+        for (const [key, idx] of [["start_link", 0], ["end_link", line.points.length - 1]]) {
+          const link = line[key];
+          if (!link) continue;
+          const target = findDeep(items, link.item);
+          if (!target || target === line) { delete line[key]; continue; }
+          const sites = this.sitesOf(target), p = line.points[idx];
+          let site = sites.find((x) => x.key === link.site);
+          if (!site) {
+            const kind = link.site.replace(/\d.*$/, "");
+            site = sites.filter((x) => x.key.replace(/\d.*$/, "") === kind)
+              .sort((a, b) => Math.hypot(a.at[0] - p[0], a.at[1] - p[1]) - Math.hypot(b.at[0] - p[0], b.at[1] - p[1]))[0];
+            if (!site) { delete line[key]; continue; }
+            link.site = site.key;
+          }
+          if (Math.abs(p[0] - site.at[0]) > 1e-9 || Math.abs(p[1] - site.at[1]) > 1e-9) {
+            line.points[idx] = [site.at[0], site.at[1]];
+            moved = true;
+          }
+        }
+      }
+      if (!moved) break;
+    }
+  },
+  // While a line end is being placed: the connection points of the objects near the pointer
+  drawSites(o) {
+    const p = this.sitePointer;
+    if (!p) return;
+    const pad = 24 / this.k;
+    const visit = (items) => items.forEach((it) => {
+      if (it.hidden || (this.op?.type === "end" && it.id === store.selection[0])) return;
+      if (it.type === "group") visit(it.items);
+      const b = itemBBox(it);
+      if (p[0] < b[0] - pad || p[0] > b[2] + pad || p[1] < b[1] - pad || p[1] > b[3] + pad) return;
+      for (const site of this.sitesOf(it)) {
+        const dash = site.key[0] === "d";
+        if (dash && Math.hypot(site.at[0] - p[0], site.at[1] - p[1]) > 4 * pad) continue;   // dashes only nearby
+        const [x, y] = this.toScreen(...site.at);
+        o.append(s("circle", { class: `site${dash ? " dash" : ""}`, cx: x, cy: y, r: dash ? 2.5 : 3.5 }));
+      }
+    });
+    visit(store.items());
+    if (this.siteActive) {
+      const [x, y] = this.toScreen(...this.siteActive.at);
+      o.append(s("circle", { class: "site active", cx: x, cy: y, r: 5.5 }));
+    }
+  },
+  // "corner 2 of Rectangle", for announcements and the properties panel
+  siteLabel(link) {
+    const target = findDeep(store.items(), link.item);
+    return `${siteName(link.site)} of ${target ? describeItem(target, store.doc).split(",")[0] : "an object"}`;
+  },
+
   // Drawing tools ----------------------------------------------------------------------
 
   setTool(tool, geom = null) {
@@ -942,13 +1087,22 @@ export const canvas = {
   },
   startDraw(p, e) {
     const targets = this.snapTargets([]);
-    const start = this.snapPoint(p, targets, e);
-    this.op = { type: "draw", tool: this.tool, start, cur: start, targets, moved: false };
+    const lineTool = ["line", "arrow"].includes(this.tool);
+    const near = lineTool && !(e.metaKey || e.ctrlKey) ? this.siteNear(p) : null;
+    const start = near ? near.at.slice() : this.snapPoint(p, targets, e);
+    this.op = { type: "draw", tool: this.tool, start, cur: start, targets, moved: false,
+      startLink: near && { item: near.item, site: near.site } };
   },
   drawTo(p, e) {
     const op = this.op;
-    let q = this.snapPoint(p, op.targets, e);
-    if (e.shiftKey) {
+    const lineTool = ["line", "arrow"].includes(op.tool);
+    const near = lineTool && !(e.metaKey || e.ctrlKey) ? this.siteNear(p) : null;
+    op.endLink = near && { item: near.item, site: near.site };
+    this.sitePointer = lineTool ? p : null;
+    this.siteActive = near;
+    let q = near ? near.at.slice() : this.snapPoint(p, op.targets, e);
+    if (near) this.snapGuides = [];
+    if (e.shiftKey && !near) {
       const dx = q[0] - op.start[0], dy = q[1] - op.start[1];
       if (["line", "arrow"].includes(op.tool)) {
         const ang = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
@@ -961,21 +1115,25 @@ export const canvas = {
     }
     op.cur = q;
     op.moved = Math.hypot(q[0] - op.start[0], q[1] - op.start[1]) * this.k > 3;
-    this.overlay.replaceChildren();
-    const [ax, ay] = this.toScreen(...op.start), [bx, by] = this.toScreen(...q);
-    if (["line", "arrow"].includes(op.tool)) this.overlay.append(s("line", { class: "draw-preview", x1: ax, y1: ay, x2: bx, y2: by }));
+    this.drawOverlay();
+  },
+  // What's being drawn: a dashed line, or a box with the shape's outline in it (part of every
+  // redraw of the overlay, so nothing wipes it mid-drag)
+  drawPreview(o) {
+    const op = this.op;
+    const [ax, ay] = this.toScreen(...op.start), [bx, by] = this.toScreen(...op.cur);
+    if (["line", "arrow"].includes(op.tool)) o.append(s("line", { class: "draw-preview", x1: ax, y1: ay, x2: bx, y2: by }));
     else {
       const box = [Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay)];
-      this.overlay.append(s("rect", { class: "draw-preview", x: box[0], y: box[1], width: box[2], height: box[3] }));
+      o.append(s("rect", { class: "draw-preview", x: box[0], y: box[1], width: box[2], height: box[3] }));
       // The shape's outline (its menu icon, stretched over the box) shows what is being drawn
       const shape = shapeCatalog.shapes[this.toolGeom(op.tool)];
       if (shape?.icon && box[2] > 2 && box[3] > 2) {
         const [ix, iy, iw, ih] = shape.box;
-        this.overlay.append(s("path", { class: "draw-preview shape", d: shape.icon,
+        o.append(s("path", { class: "draw-preview shape", d: shape.icon,
           transform: `translate(${box[0]} ${box[1]}) scale(${box[2] / iw} ${box[3] / ih}) translate(${-ix} ${-iy})` }));
       }
     }
-    this.drawSnapGuides(this.overlay);
   },
   toolGeom(tool) { return tool === "shape" ? this.shapeGeom : TOOL_GEOMS[tool]; },
   // Enter with a drawing tool: one object in the middle of the view, on the page
@@ -1017,6 +1175,8 @@ export const canvas = {
     if (tool === "line" || tool === "arrow") {
       item = { id: uid("it"), type: "line", points: [[ax, ay], [bx, by]], stroke,
         arrow_start: null, arrow_end: tool === "arrow" ? { type: "triangle", w: "med", len: "med" } : null };
+      if (op.startLink) item.start_link = op.startLink;
+      if (op.endLink && op.moved) item.end_link = op.endLink;
     } else {
       const geom = this.toolGeom(tool);
       if (!geom) { this.drawOverlay(); return; }
@@ -1257,10 +1417,78 @@ export function shiftItem(it, orig, dx, dy) {
   }
 }
 
-export function reid(it) {
+export function reid(it, ids = null) {
+  const old = it.id;
   it.id = uid("it");
-  if (it.type === "group") it.items.forEach(reid);
+  if (ids) ids.set(old, it.id);
+  if (it.type === "group") it.items.forEach((c) => reid(c, ids));
   return it;
+}
+// Copies of items with new ids; a copied line stays attached only to objects copied with it
+export function copyItems(items) {
+  const ids = new Map();
+  const copies = items.map((it) => reid(JSON.parse(JSON.stringify(it)), ids));
+  for (const line of allLines(copies)) {
+    for (const key of ["start_link", "end_link"]) {
+      if (!line[key]) continue;
+      if (ids.has(line[key].item)) line[key] = { ...line[key], item: ids.get(line[key].item) };
+      else delete line[key];
+    }
+  }
+  return copies;
+}
+// Lines being moved on their own let go of objects that aren't moving with them
+export function detachMoved(items) {
+  const moving = new Set();
+  const collect = (list) => list.forEach((it) => { moving.add(it.id); if (it.type === "group") collect(it.items); });
+  collect(items);
+  for (const line of allLines(items)) {
+    for (const key of ["start_link", "end_link"]) if (line[key] && !moving.has(line[key].item)) delete line[key];
+  }
+}
+export function allLines(items, out = []) {
+  for (const it of items) {
+    if (it.type === "group") allLines(it.items, out);
+    else if (it.type === "line") out.push(it);
+  }
+  return out;
+}
+// The point a fraction f of the way along a polyline
+function pointAlong(pts, f) {
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  let left = total * f;
+  for (let i = 1; i < pts.length; i++) {
+    const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (left <= l && l > 0) return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * (left / l), pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * (left / l)];
+    left -= l;
+  }
+  return pts[pts.length - 1].slice();
+}
+// A frame's (or a group's box's) corners c0-c3 and side middles m0-m3, as for a rectangle
+function boxSites(it) {
+  let corners;
+  if (it.frame) {
+    const m = frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v), [, , w, h] = it.frame;
+    corners = [[0, 0], [w, 0], [w, h], [0, h]].map(([x, y]) => apply(m, x, y));
+  } else {
+    const b = itemBBox(it);
+    corners = [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]];
+  }
+  return [...corners.map((at, k) => ({ key: `c${k}`, at })),
+    ...corners.map((a, k) => ({ key: `m${k}`, at: [(a[0] + corners[(k + 1) % 4][0]) / 2, (a[1] + corners[(k + 1) % 4][1]) / 2] }))];
+}
+// "corner 3", "middle of side 1", "dash 12, start"...
+export function siteName(key) {
+  const m = /^([a-z])(\d*)([sme]?)$/.exec(key || "");
+  if (!m) return "a point";
+  const n = Number(m[2]) + 1;
+  if (m[1] === "c") return `corner ${n}`;
+  if (m[1] === "m") return m[2] === "" ? "the middle" : `the middle of side ${n}`;
+  if (m[1] === "p") return `point ${n}`;
+  if (m[1] === "e") return m[2] === "0" ? "the start" : "the end";
+  if (m[1] === "d") return `dash ${n}, ${{ s: "start", m: "middle", e: "end" }[m[3]] || "middle"}`;
+  return "a point";
 }
 
 export function findDeep(items, id) {

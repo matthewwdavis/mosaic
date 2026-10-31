@@ -15,6 +15,7 @@ export const store = {
   future: [],
   listeners: new Set(),
   autosaveKey: null,
+  afterChange: null,      // set by the canvas: attached line ends follow their objects
 
   on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); },
   emit(what, detail) { for (const fn of this.listeners) fn(what, detail); },
@@ -48,6 +49,7 @@ export const store = {
   update(label, fn, { select } = {}) {
     const snap = this.snapshot();
     const result = fn(this.doc);
+    this.afterChange?.(this.doc);
     this.record(snap, label);
     if (select) this.selection = select;
     this.emit("doc", { label });
@@ -56,7 +58,7 @@ export const store = {
   },
   // Live changes during a drag: one undo step when finished
   beginLive() { this._live = this.snapshot(); },
-  live() { this.emit("doc", { live: true }); },
+  live() { this.afterChange?.(this.doc); this.emit("doc", { live: true }); },
   endLive(label) {
     if (!this._live) return;
     this.record(this._live, label);
@@ -93,7 +95,7 @@ export const store = {
     return f.label;
   },
   // Changes the engine makes on its own (auto-fitted text boxes) don't get an undo step
-  silent(fn) { fn(this.doc); },
+  silent(fn) { fn(this.doc); this.afterChange?.(this.doc); },
 
   select(ids) {
     this.selection = [...new Set(ids)].filter((id) => this.item(id));

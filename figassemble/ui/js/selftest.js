@@ -652,6 +652,85 @@ export async function run(app, params) {
     if (!keepAids) { store.setPage(aidsPage); await app.run("deletePage"); }
     store.setPage(0);
 
+    // Connectors: line ends attach to corners, side middles and dashes, and follow their objects
+    app.run("addPage");
+    await settle();
+    canvas.fit();
+    const cnPage = store.pageIndex;
+    const asset0 = store.doc.assets[pics[0].asset];
+    store.update("Objects for test", (doc) => doc.pages[cnPage].items.push(
+      { id: "cnR", type: "shape", geom: "rect", frame: [100, 100, 80, 50], rot: 0, flip_h: false, flip_v: false, fill: null,
+        stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 } },
+      { id: "cnD", type: "shape", geom: "rect", frame: [100, 300, 100, 60], rot: 0, flip_h: false, flip_v: false, fill: null,
+        stroke: { color: "#000000", width: 2, dash: "sysDot", cap: "round", join: "round", opacity: 1 } },
+      { id: "cnP", type: "picture", name: "pic", asset: pics[0].asset, page_index: 0, frame: [320, 120, ...asset0.size_pt],
+        crop: [0, 0, 0, 0], rot: 0, flip_h: false, flip_v: false, opacity: 1, source: "auto" }));
+    await settle();
+    canvas.setTool("arrow");
+    await drag([181, 126], [250, 210]);
+    const cn = store.items().find((i) => i.type === "line");
+    const cnAt = (k) => store.item(cn.id).points[k === 0 ? 0 : store.item(cn.id).points.length - 1];
+    check(cn?.start_link?.item === "cnR" && cn.start_link.site === "m1" && near(cnAt(0)[0], 180, 1e-6) && near(cnAt(0)[1], 125, 1e-6),
+      "an arrow drawn from a rectangle's side attaches to its middle", JSON.stringify(cn?.start_link) + JSON.stringify(cn?.points));
+    await drag([140, 112], [160, 122], { metaKey: true, ctrlKey: true });   // move the rectangle
+    check(near(cnAt(0)[0], 200, 1e-6) && near(cnAt(0)[1], 135, 1e-6), "the attached end follows when the rectangle moves",
+      JSON.stringify(cnAt(0)));
+    store.select(["cnR"]);
+    await choose("Width", String((120 * 2.54) / 72));
+    await choose("Rotation", "90");
+    await settle();
+    const rr2 = store.item("cnR").frame, cx2 = rr2[0] + rr2[2] / 2, cy2 = rr2[1] + rr2[3] / 2;
+    check(near(cnAt(0)[0], cx2, 1e-3) && near(cnAt(0)[1], cy2 + rr2[2] / 2, 1e-3),
+      "and when it is resized and turned (the side's middle turns with it)", `${JSON.stringify(cnAt(0))} vs ${cx2}, ${cy2 + rr2[2] / 2}`);
+    // The arrow's end onto the picture's top-left corner, with the connection points showing on the way
+    store.select([cn.id]);
+    const pf0 = store.item("cnP").frame;
+    pointer("pointerdown", screenOf(...cnAt(1)));
+    pointer("pointermove", screenOf(pf0[0] + 20, pf0[1] + 20));
+    pointer("pointermove", screenOf(pf0[0] + 1, pf0[1] + 1));
+    const markers = document.querySelectorAll(".overlay .site").length, active = !!document.querySelector(".overlay .site.active");
+    pointer("pointerup", screenOf(pf0[0] + 1, pf0[1] + 1));
+    await settle();
+    check(markers >= 8 && active, "connection points show while an end is dragged", `${markers} ${active}`);
+    check(store.item(cn.id).end_link?.item === "cnP" && store.item(cn.id).end_link.site === "c0" && near(cnAt(1)[0], pf0[0], 1e-6),
+      "dropping the end on a picture's corner attaches it there", JSON.stringify(store.item(cn.id).end_link));
+    await drag([pf0[0] + 30, pf0[1] + 30], [pf0[0] + 60, pf0[1] + 50], { metaKey: true, ctrlKey: true });   // move the picture
+    check(near(cnAt(1)[0], store.item("cnP").frame[0], 1e-6) && near(cnAt(1)[1], store.item("cnP").frame[1], 1e-6),
+      "the end follows the picture", JSON.stringify(cnAt(1)));
+    store.select([cn.id]);
+    inspector.render();
+    check(/Start: attached to the middle of side 2 of Rectangle/.test(document.getElementById("inspector").textContent),
+      "the panel says where each end is attached", document.querySelector("#inspector .link-row")?.textContent);
+    // ⌘ drops an end without attaching; dragging the arrow itself lets go of both objects
+    const pf1 = store.item("cnP").frame;
+    await drag(cnAt(1), [pf1[0] + 1, pf1[1] + 1], { metaKey: true, ctrlKey: true });
+    check(!store.item(cn.id).end_link, "holding ⌘ drops an end without attaching it", JSON.stringify(store.item(cn.id).end_link));
+    app.run("undo");
+    // (a quarter of the way along: the middle is the handle that bends it)
+    const cnMid = [cnAt(0)[0] + (cnAt(1)[0] - cnAt(0)[0]) / 4, cnAt(0)[1] + (cnAt(1)[1] - cnAt(0)[1]) / 4];
+    await drag(cnMid, [cnMid[0] + 15, cnMid[1] + 40], { metaKey: true, ctrlKey: true });
+    check(!store.item(cn.id).start_link && !store.item(cn.id).end_link, "moving the arrow on its own detaches it");
+    app.run("undo");
+    check(store.item(cn.id).start_link && store.item(cn.id).end_link, "undo attaches it again");
+    // Dashed outlines: an end can attach to a dot
+    const dot = canvas.sitesOf(store.item("cnD")).find((x) => x.key.startsWith("d") && x.key !== "d0m");
+    await drag(cnAt(1), [dot.at[0] + 0.5, dot.at[1] + 0.5]);
+    check(store.item(cn.id).end_link?.item === "cnD" && /^d\d+m$/.test(store.item(cn.id).end_link.site)
+      && near(cnAt(1)[0], dot.at[0], 1e-6), "an end attaches to a dot of a dotted outline", JSON.stringify(store.item(cn.id).end_link));
+    // Copies: alone, a copied arrow lets go; copied with its object, it holds the copy
+    app.run("duplicate");
+    const lone = store.selected()[0];
+    check(lone.type === "line" && !lone.start_link && !lone.end_link, "a duplicated arrow on its own isn't attached");
+    app.run("delete");
+    store.select([cn.id, "cnR"]);
+    app.run("duplicate");
+    const copies = store.selected(), cLine = copies.find((i) => i.type === "line"), cRect = copies.find((i) => i.geom === "rect");
+    check(cLine?.start_link?.item === cRect?.id && !cLine.end_link, "duplicated with its rectangle, the copy holds the copy",
+      JSON.stringify(cLine?.start_link));
+    store.setPage(cnPage);
+    await app.run("deletePage");
+    store.setPage(0);
+
     // Unsaved work from earlier sessions: delete one copy, then all, from the recovery offer
     await rpc("autosave", store.doc, "selftest-old-1");
     await rpc("autosave", store.doc, "selftest-old-2");
@@ -710,6 +789,25 @@ export async function run(app, params) {
       document.getElementById("rtab-arrange").click();
     }
     if (params.get("finalSelect") === "prefs") setTimeout(() => app.run("preferences"), 300);
+    if (params.get("finalSelect") === "connect") {
+      // An arrow joining a rectangle to an ellipse, and another on its way to a dotted triangle
+      app.run("addPage");
+      await settle();
+      const sk = { color: "#000000", width: 1.5, dash: "solid", cap: "round", join: "round", opacity: 1 };
+      store.update("Connect shot", (doc) => doc.pages[store.pageIndex].items.push(
+        { id: "shA", type: "shape", geom: "rect", frame: [80, 120, 110, 70], rot: 0, fill: null, stroke: sk },
+        { id: "shB", type: "shape", geom: "ellipse", frame: [300, 100, 100, 100], rot: 0, fill: null, stroke: sk },
+        { id: "shC", type: "shape", geom: "triangle", frame: [180, 290, 130, 110], rot: 0, fill: null,
+          stroke: { ...sk, width: 2, dash: "sysDot" } }));
+      await settle();
+      canvas.setZoom(1.6, ...canvas.toScreen(250, 250));
+      canvas.setTool("arrow");
+      await drag([190.5, 155.5], [300.5, 150.5]);
+      store.select([]);
+      canvas.setTool("arrow");
+      pointer("pointerdown", screenOf(350.4, 200.4));
+      for (const f of [0.3, 0.7, 1]) pointer("pointermove", screenOf(350 + (246 - 350) * f, 200 + (292 - 200) * f));
+    }
     if (params.get("finalSelect") === "recovery") {
       await rpc("autosave", store.doc, "selftest-shot-1");
       await rpc("autosave", store.doc, "selftest-shot-2");

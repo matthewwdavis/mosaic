@@ -66,6 +66,13 @@ activated). A no-command-line installer is planned.
   end, rounded corners included, and space the stretches between them evenly, so corners don't
   crowd the way they do in PowerPoint and curved outlines have no squeezed spot where they close.
   Shapes from PowerPoint decks get it too; untick "Even dashes" on an object for PowerPoint's spacing.
+- **Connect:** drop a line or arrow end on an object's connection point to attach it; it then
+  follows the object when it moves, resizes or turns. Points are the object's own corners and the
+  middles of its sides (triangle tips, star points, rounded corners), 8 points round an ellipse,
+  a picture's or text box's corners and side middles, a line's ends and middle, and on dashed or
+  dotted outlines both ends and the middle of every dash. They show while you draw a line or drag
+  its end; attached ends are green. Hold ⌘ (Ctrl) to drop an end without attaching; moving a line
+  on its own lets go. The properties panel says where each end is attached, with Detach.
 - **Curve an arrow (or line):** select it and drag the hollow handle halfway along it; the
   arrow bends into a smooth curve through that point and the head follows. Drag other hollow
   handles to add more points (S-curves), drag points to reshape, double-click a point to

@@ -224,7 +224,10 @@ export const inspector = {
   itemTabs(it) {
     const arrange = ["arrange", "Arrange", [this.objectSection(it), this.arrangeSection(it), ...this.alignSections(1)]];
     if (it.type === "picture") return [arrange, ["picture", "Picture", [this.pictureSection(it)]]];
-    if (it.type === "line") return [arrange, ["style", "Style", [this.strokeSection(it), this.endsSection(it), this.outlineSection(it)]]];
+    if (it.type === "line") {
+      arrange[2].splice(2, 0, this.linkSection(it));
+      return [arrange, ["style", "Style", [this.strokeSection(it), this.endsSection(it), this.outlineSection(it)]]];
+    }
     if (it.type === "group") {
       arrange[2].push(section("Group", [
         h("p", { class: "hint" }, `${it.items.length} objects. Ungroup (${this.app.mod}Shift+G) to edit them one by one.`),
@@ -240,6 +243,18 @@ export const inspector = {
       boxed ? this.outlineSection(it) : null]];
     const text = it.text || it.textbox ? ["text", "Text", [this.textSection(it)]] : null;
     return [arrange, style, text].filter(Boolean);
+  },
+  // Where a line's ends are attached, and a way to let go
+  linkSection(it) {
+    const row = (key, name) => {
+      const link = it[key];
+      return h("div", { class: "link-row" },
+        h("span", {}, `${name}: ${link ? `attached to ${canvas.siteLabel(link)}` : "not attached"}`),
+        link ? button(`Detach the ${name.toLowerCase()}`, () => this.edit("Detach", (x) => { delete x[key]; }), "Detach", "small") : null);
+    };
+    return section("Connections", [row("start_link", "Start"), row("end_link", "End"),
+      h("p", { class: "hint" }, "Drag an end onto a corner, the middle of a side, or a dash of another object to attach it; "
+        + `it then follows that object. Hold ${this.app.mod.replace("+", "")} to drop an end without attaching.`)]);
   },
   objectSection(it) {
     const kids = [textField("Name", it.name || "", (v) => this.edit("Rename", (x) => { x.name = v; }))];

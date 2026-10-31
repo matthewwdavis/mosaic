@@ -64,7 +64,8 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
             if ready:
                 break
         if ready and "selftest" in (extra or ""):
-            for _ in range(600):
+            # A hidden window's timers run slowly, and the self-test has many short waits
+            for _ in range(1800):
                 time.sleep(0.2)
                 if window.evaluate_js("document.body.dataset.selftest || ''"):
                     break
