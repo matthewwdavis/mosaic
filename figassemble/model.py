@@ -26,6 +26,9 @@ outline {color, width, opacity, type}: a contour of `width` points in another co
         outside_only / outside_only_gaps (outside / outside_gaps kept off the area of an
         unfilled shape too); the editor offers these as Sides and Gaps (resolve.with_outline)
 
+swatches (on the document) [{id, name, color}]: named colours. A colour picked from one (a stroke,
+        fill, outline, gradient stop or text run) carries swatch: id beside its color, and the
+        editor recolours it when the swatch changes; only color is drawn
 stroke {color, width, dash (preset or list of widths), cap: flat|round|square,
         join: round|miter|bevel, opacity, even_dashes: false for PowerPoint's dash spacing
         (absent or true: a dash on every corner and end, evenly spaced; dashes.py)}

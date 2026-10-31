@@ -32,7 +32,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 
 1. **Tabs** across the top, like PowerPoint's ribbon:
    - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; Duplicate, Again, Delete; Add page,
-     Fit page; Fonts.
+     Fit page; Swatches, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group, Order (see
      [Align and distribute](#align-and-distribute)).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
@@ -291,6 +291,29 @@ ends and corners), the fill (gradients included), the outline, arrowheads, corne
 text formatting (font, size, bold, italic, colour, alignment and spacing). "No fill" and "no line"
 are copied too, except that a line never loses its own line. A line's style gives a shape its line
 and outline and leaves the shape's fill alone; a picture's style is its transparency.
+
+## Swatches
+
+**Swatches** (Home tab) are named colours saved in the figure, such as one per genotype or
+treatment, so every panel uses exactly the same colours.
+
+![The Swatches dialog with the Okabe-Ito palette added](images/swatches.png)
+
+- **The swatch button** beside every colour (line, fill, gradient stops, outline, text) lists the
+  figure's swatches. Pick one to use it; the panel says **Swatch:** and its name. **Add this colour
+  as a swatch** saves the colour you have.
+- **A colour picked from a swatch stays linked to it.** Change the swatch's colour in the Swatches
+  dialog and every object using it changes too, in one step (one Undo). Picking or typing a
+  colour by hand unlinks that object.
+- **Ready-made palettes:** Okabe-Ito and Paul Tol's bright, muted and vibrant colours stay
+  distinct for colour-blind readers; viridis steps are for ordered values. Click one to add its
+  colours. Check the figure with **Colour vision** on the View tab.
+- **Add the figure's colours** makes a swatch of every colour the figure uses and links the objects
+  using it, so you can recolour an existing figure.
+- **My library:** **Save as a palette** keeps the figure's swatches on this computer, offered in
+  every figure, e.g. your lab's colours. Swatches you rename or delete in a figure don't change
+  the library.
+- Deleting a swatch keeps the colours; only the links go. Copy style and Paste style carry links.
 
 ## Right-click menus
 

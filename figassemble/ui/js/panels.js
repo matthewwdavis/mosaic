@@ -4,6 +4,7 @@ import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
 import { alignToField, button, colourVisionField, gapField, numField, selectField } from "./inspector.js";
 import { store } from "./store.js";
+import { PALETTES, colourHolders } from "./swatches.js";
 import { contextMenu } from "./contextmenu.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, s, shapeName, toUnit } from "./util.js";
 
@@ -27,6 +28,7 @@ const ICONS = {
   plus: "M12 5v14M5 12h14", duplicate: "M8 8h11v11H8zM5 5h11v3M5 5v11h3", trash: "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13",
   again: "M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3",
   sameWidth: "M5 6h14M5 4v4M19 4v4M5 15h14M5 13v4M19 13v4", sameHeight: "M6 5v14M4 5h4M4 19h4M15 5v14M13 5h4M13 19h4",
+  swatches: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
   fonts: "M4 19l5-14h1l5 14M6 14h7M15 19l3-8h.5l3 8M16 16.5h4",
   brush: "M20 3l-7 7M11 9l4 4M10.5 10.5l3 3-3 3a3 3 0 01-4.2 0l-.3-.3a3 3 0 010-4.2zM6.6 16.6C6 18.6 4.6 20 3 20.5c2 .6 4.4.2 5.8-1.4",
   eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 110 6 3 3 0 010-6z",
@@ -199,7 +201,7 @@ export const panels = {
         group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste"), this.painterButton()),
         group("Objects", t("duplicate", "duplicate"), t("transformAgain", "again"), t("delete", "trash")),
         group("Page", t("addPage", "plus"), t("fitPage", "fit")),
-        group("Text", t("fonts", "fonts")),
+        group("Styles", t("swatches", "swatches"), t("fonts", "fonts")),
       ]],
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
       ["view", "View", [
@@ -913,6 +915,55 @@ export const panels = {
     };
     render();
     this.dialog("Fonts in this figure", body);
+  },
+
+  // Swatches: the figure's named colours (editing one recolours everything linked to it),
+  // ready-made palettes, and palettes kept in your library for every figure
+  swatchesDialog() {
+    const body = h("div", {});
+    const chips = (colours) => h("span", { class: "chips", "aria-hidden": "true" },
+      ...colours.map(([, c]) => h("span", { class: "chip", style: { background: c } })));
+    const render = () => {
+      const all = store.doc.swatches || [], holders = colourHolders(store.doc);
+      const rows = all.map((sw) => {
+        const picker = h("input", { type: "color", value: sw.color, "aria-label": `${sw.name}: colour` });
+        picker.addEventListener("change", () => { this.app.setSwatchColour(sw.id, picker.value); render(); });
+        const name = h("input", { type: "text", value: sw.name, "aria-label": `${sw.name}: name` });
+        name.addEventListener("change", () => { if (name.value.trim()) this.app.renameSwatch(sw.id, name.value.trim()); });
+        const uses = holders.filter((c) => c.swatch === sw.id).length;
+        return h("li", { class: "swatch-row" }, picker, name, h("span", { class: "hint" }, `${uses} use${uses === 1 ? "" : "s"}`),
+          button(`Delete ${sw.name} (objects keep their colour)`, () => { this.app.deleteSwatch(sw.id); render(); }, "Delete"));
+      });
+      const add = (p) => button(`Add the ${p.name} colours to this figure`, () => { this.app.addPalette(p.colours, p.name); render(); },
+        [p.name, " ", chips(p.colours)]);
+      const lib = this.app.prefs.swatch_library || [];
+      const saveName = h("input", { type: "text", placeholder: "Palette name", "aria-label": "Name for a palette in your library" });
+      const save = button("Save this figure's swatches as a palette in your library", async () => {
+        const n = saveName.value.trim();
+        if (!n || !all.length) return;
+        await this.app.savePalette(n);
+        render();
+      }, "Save as a palette");
+      body.replaceChildren(
+        all.length ? h("ul", { class: "swatch-list" }, ...rows) : h("p", {}, "No swatches in this figure yet."),
+        h("div", { class: "button-row" },
+          button("Add a new swatch", () => { this.app.addSwatch("#000000", "New colour"); render(); }, "Add a colour"),
+          button("Add the colours this figure uses as swatches, linking the objects that use them",
+            () => { this.app.addUsedColours(); render(); }, "Add the figure's colours")),
+        h("p", { class: "hint" }, "A colour picked from a swatch stays linked to it: change the swatch here and every "
+          + "object using it changes too. Picking or typing a colour by hand unlinks it."),
+        h("h3", {}, "Ready-made palettes"),
+        h("p", { class: "hint" }, "Okabe-Ito and Paul Tol's colours stay distinct for colour-blind readers; viridis is for "
+          + "ordered values."),
+        h("div", { class: "button-row palettes" }, ...PALETTES.map(add)),
+        h("h3", {}, "My library"),
+        lib.length ? h("ul", { class: "plain" }, ...lib.map((p) => h("li", {}, add(p), " ",
+          button(`Remove ${p.name} from your library`, async () => { await this.app.deletePalette(p.name); render(); }, "Remove"))))
+          : h("p", { class: "hint" }, "Palettes saved here are offered in every figure."),
+        h("div", { class: "button-row inline" }, saveName, save));
+    };
+    render();
+    this.dialog("Swatches", body);
   },
 
   reportDialog(title, lines) {

@@ -54,7 +54,7 @@ Matthew's choices are in brackets.
 - [x] Copy style / Paste style (⌘⇧C / ⌘⇧V) and a Format Painter button [everything that applies]
 - [x] Match sizes: same width / height / size, keeping proportions
 - [x] Find and replace fonts
-- [ ] Document swatches, linked (editing one recolours its objects), saved in the figure plus a
+- [x] Document swatches, linked (editing one recolours its objects), saved in the figure plus a
       personal library; colour-blind-safe palettes (Okabe-Ito, Paul Tol) [linked; figure + library]
 - [ ] Text styles, linked, with changes to one text kept as overrides [linked]
 - [ ] Isolation mode: double-click a group to edit inside it, nested too [Illustrator's way]

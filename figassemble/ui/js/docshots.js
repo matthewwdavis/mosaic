@@ -6,6 +6,7 @@ import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { store } from "./store.js";
+import { PALETTES } from "./swatches.js";
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const settle = async () => { await wait(80); await canvas.resolveNow(); await wait(80); };
@@ -158,6 +159,17 @@ export async function run(app, params) {
     store.select(["arrow"]);
     inspector.render();   // the panel draws on the next frame otherwise, after the tab is clicked
     document.getElementById(scene === "style" ? "itab-style" : "itab-arrange")?.click();
+    return finish();
+  }
+  if (scene === "swatches") {
+    // The Okabe-Ito palette added, the arrow's line linked to its vermillion, and the Swatches dialog
+    app.addPalette(PALETTES[0].colours, PALETTES[0].name);
+    const sw = store.doc.swatches.find((x) => x.name === "Vermillion");
+    store.update("Swatch", (doc) => {
+      const a = doc.pages[0].items.find((i) => i.id === "arrow");
+      a.stroke = { ...a.stroke, color: sw.color, swatch: sw.id };
+    }, { select: ["arrow"] });
+    setTimeout(() => app.run("swatches"), 200);
     return finish();
   }
   if (scene === "export") { setTimeout(() => app.run("export"), 200); return finish(); }

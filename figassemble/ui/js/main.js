@@ -16,6 +16,7 @@ import { rulers } from "./rulers.js";
 import { splitters } from "./splitters.js";
 import { store } from "./store.js";
 import { applyStyle, styleOf } from "./styles.js";
+import { colourHolders, swatchById } from "./swatches.js";
 import {
   MOD, announce, clone, describeItem, display, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints, shapeCatalog, uid,
 } from "./util.js";
@@ -227,6 +228,64 @@ const app = {
     });
     if (!resize) this.noteTransform({ kind: "move", dx, dy });
     if (sel.length === 1) announce(describeItem(store.selected()[0], store.doc));
+  },
+  // Swatches (swatches.js): the figure's named colours, and palettes kept in your library -------
+
+  addSwatch(color, name = null) {
+    const id = uid("sw");
+    store.update("Add swatch", (doc) => { doc.swatches = [...(doc.swatches || []), { id, name: name || color.toUpperCase(), color }]; });
+    announce(`Added the swatch ${name || color.toUpperCase()}`);
+    return id;
+  },
+  addPalette(colours, title) {
+    store.update(`Add ${title} swatches`, (doc) => {
+      doc.swatches = doc.swatches || [];
+      for (const [name, color] of colours) {
+        if (!doc.swatches.some((s) => s.name === name && s.color === color)) doc.swatches.push({ id: uid("sw"), name, color });
+      }
+    });
+    announce(`Added the ${title} swatches`);
+  },
+  // Every colour linked to the swatch changes with it, in one step
+  setSwatchColour(id, color) {
+    store.update("Swatch colour", (doc) => {
+      const sw = swatchById(doc, id);
+      if (!sw) return;
+      sw.color = color;
+      for (const c of colourHolders(doc)) if (c.swatch === id) c.color = color;
+    });
+  },
+  renameSwatch(id, name) {
+    store.update("Rename swatch", (doc) => { const sw = swatchById(doc, id); if (sw) sw.name = name; });
+  },
+  // Objects keep the colour; only the link goes
+  deleteSwatch(id) {
+    store.update("Delete swatch", (doc) => {
+      doc.swatches = (doc.swatches || []).filter((s) => s.id !== id);
+      for (const c of colourHolders(doc)) if (c.swatch === id) delete c.swatch;
+    });
+  },
+  // The colours the figure uses, as swatches, each linked to the objects that use it
+  addUsedColours() {
+    let added = 0;
+    store.update("Swatches from the figure", (doc) => {
+      doc.swatches = doc.swatches || [];
+      const free = colourHolders(doc).filter((c) => c.color && !c.swatch);
+      for (const color of new Set(free.map((c) => c.color.toLowerCase()))) {
+        let sw = doc.swatches.find((x) => x.color.toLowerCase() === color);
+        if (!sw) { sw = { id: uid("sw"), name: color.toUpperCase(), color }; doc.swatches.push(sw); added++; }
+        for (const c of free) if (c.color.toLowerCase() === color) c.swatch = sw.id;
+      }
+    });
+    announce(`Added ${added} swatch${added === 1 ? "" : "es"} from the figure's colours`);
+  },
+  async savePalette(name) {
+    const colours = (store.doc.swatches || []).map((s) => [s.name, s.color]);
+    await this.savePrefs({ swatch_library: [...(this.prefs.swatch_library || []).filter((p) => p.name !== name), { name, colours }] });
+    announce(`Saved ${name} to your library`);
+  },
+  async deletePalette(name) {
+    await this.savePrefs({ swatch_library: (this.prefs.swatch_library || []).filter((p) => p.name !== name) });
   },
   // Fonts: every run in that font, on every page, in another (the Fonts dialog)
   replaceFont(from, to) {
@@ -908,6 +967,7 @@ app.commands = {
   paste: cmd("Paste", () => app.paste(), `${M}V`, key("v"), "Paste"),
   duplicate: cmd("Duplicate", () => app.duplicate(), `${M}D`, key("d"), "Duplicate"),
   fonts: cmd("Fonts in this figure: see and replace them", () => panels.fontsDialog(), null, null, "Fonts"),
+  swatches: cmd("Swatches: the figure's named colours, and palettes", () => panels.swatchesDialog(), null, null, "Swatches"),
   sameWidth: cmd("Same width: make the selected objects as wide as the key object (or the first selected), keeping "
     + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
   sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the first selected), keeping "

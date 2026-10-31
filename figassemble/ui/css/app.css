@@ -377,3 +377,16 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 .fonts .font-name { font-size: 1.05rem; }
 .fonts td.warning { color: var(--warn, inherit); font-weight: 600; }
 .fonts input { width: 9rem; }
+
+/* Swatches: chips in menus and the dialog, the swatch button beside colours, and a linked colour's name */
+.chip { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 0.2rem; border: 1px solid var(--line);
+  vertical-align: -0.12rem; margin-right: 0.4rem; }
+.chips .chip { width: 0.6rem; height: 0.8rem; margin: 0 1px 0 0; border-radius: 0.1rem; }
+.swatch-btn { padding: 0.15rem 0.3rem; }
+.swatch-btn svg { width: 1rem; height: 1rem; }
+.swatch-link { font-size: 0.8rem; color: var(--muted, inherit); margin-top: 0.15rem; }
+.swatch-list { list-style: none; padding: 0; margin: 0.3rem 0; }
+.swatch-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; }
+.swatch-row input[type="text"] { flex: 1; min-width: 6rem; }
+.palettes .btn { display: inline-flex; align-items: center; gap: 0.3rem; }
+.swatch-row .hint { min-width: 4.4rem; text-align: right; }

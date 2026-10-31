@@ -769,6 +769,45 @@ export async function run(app, params) {
     store.select([dupA.id, dupB.id, "fonttest"]);
     await app.run("delete");
 
+    // Swatches: a palette adds named colours; one picked for a line stays linked to it
+    store.select([rect.id]);
+    app.addPalette([["Orange", "#e69f00"], ["Blue", "#0072b2"]], "Test");
+    const orangeSw = (store.doc.swatches || []).find((x) => x.name === "Orange");
+    check(orangeSw && store.doc.swatches.some((x) => x.name === "Blue"), "a palette adds its colours to the figure as swatches",
+      JSON.stringify(store.doc.swatches));
+    inspector.render();
+    document.querySelector('#inspector [aria-label="Swatches for Line colour"]').click();
+    [...document.querySelectorAll(".context-menu .menu-item")].find((b) => b.textContent.includes("Orange"))?.click();
+    await settle();
+    inspector.render();   // a hidden window draws the panel on a late frame
+    check(store.item(rect.id).stroke.color === "#e69f00" && store.item(rect.id).stroke.swatch === orangeSw.id
+      && document.querySelector("#inspector").textContent.includes("Swatch: Orange"),
+    "picking a swatch colours the line and links it, and the panel says which", JSON.stringify(store.item(rect.id).stroke));
+    // Changing the swatch in the Swatches dialog recolours what's linked to it
+    await app.run("swatches");
+    const swatchDlg = [...document.querySelectorAll("dialog[open]")].pop();
+    const orangePicker = swatchDlg.querySelector('input[type="color"][aria-label="Orange: colour"]');
+    orangePicker.value = "#ff0000";
+    orangePicker.dispatchEvent(new Event("change", { bubbles: true }));
+    check(store.item(rect.id).stroke.color === "#ff0000" && (store.doc.swatches.find((x) => x.id === orangeSw.id) || {}).color === "#ff0000",
+      "changing a swatch recolours everything linked to it", store.item(rect.id).stroke.color);
+    // The figure's swatches saved as a palette in your library
+    swatchDlg.querySelector('input[aria-label="Name for a palette in your library"]').value = "Self-test palette";
+    [...swatchDlg.querySelectorAll("button")].find((b) => b.textContent === "Save as a palette").click();
+    await until(() => (app.prefs.swatch_library || []).some((p) => p.name === "Self-test palette"));
+    check((app.prefs.swatch_library || []).some((p) => p.name === "Self-test palette" && p.colours.length === store.doc.swatches.length),
+      "the figure's swatches can be saved as a palette in your library", JSON.stringify(app.prefs.swatch_library));
+    swatchDlg.close();
+    await app.deletePalette("Self-test palette");
+    // A colour typed by hand drops the link
+    inspector.render();
+    const lineHex = document.querySelector('#inspector input[aria-label="Line colour hex code"]');
+    lineHex.value = "#123456";
+    lineHex.dispatchEvent(new Event("change", { bubbles: true }));
+    check(store.item(rect.id).stroke.color === "#123456" && !store.item(rect.id).stroke.swatch, "typing a colour by hand drops the link",
+      JSON.stringify(store.item(rect.id).stroke));
+    store.update("Black line again", (doc) => { findItem(doc, rect.id).stroke.color = "#000000"; });
+
     // Gradient fills: linear, then radial from a corner; stops can be added and reversed
     store.select([rect.id]);
     await choose("Fill", "linear");

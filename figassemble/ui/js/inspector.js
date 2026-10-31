@@ -4,7 +4,9 @@
 import { rpc } from "./api.js";
 import { canvas, findDeep, pageGuides, shiftItem } from "./canvas.js";
 import { icon } from "./panels.js";
+import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
+import { linked, swatchById } from "./swatches.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, shapeCatalog,
   shapeName, toUnit,
@@ -531,7 +533,7 @@ export const inspector = {
       }
     }))];
     if (mode === "solid") kids.push(row(
-      colorField("Fill colour", f.color, (v) => this.edit("Fill colour", (o) => { o.fill = { ...o.fill, color: v }; })),
+      colorField("Fill colour", f.color, (v, sw) => this.edit("Fill colour", (o) => { o.fill = linked({ ...o.fill, color: v }, sw); }), f.swatch),
       transparencyField("Fill transparency", f.opacity, (op) => this.edit("Fill transparency", (o) => { o.fill = { ...o.fill, opacity: op }; }))));
     if (g) kids.push(...this.gradientFields(g));
     return section("Fill", kids);
@@ -558,7 +560,7 @@ export const inspector = {
     g.stops.forEach((st, i) => {
       const n = i + 1;
       out.push(h("div", { class: "grad-stop" },
-        row(colorField(`Stop ${n} colour`, st.color, (v) => setG("Gradient colour", (gr) => { gr.stops[i].color = v; })),
+        row(colorField(`Stop ${n} colour`, st.color, (v, sw) => setG("Gradient colour", (gr) => { linked(gr.stops[i], sw).color = v; }), st.swatch),
           numField(`Stop ${n} position`, st.pos * 100, "%", (v) => setG("Gradient stop position", (gr) => {
             gr.stops[i].pos = Math.min(Math.max(v / 100, 0), 1);
           }), { min: 0, max: 100, step: 5 })),
@@ -579,7 +581,8 @@ export const inspector = {
       this.edit(v === "none" ? "Remove line" : "Add line", (o) => { o.stroke = v === "none" ? null : { color: "#000000", width: this.app.prefs.stroke_width || 1, dash: "solid", cap: "round", join: "round", opacity: 1 }; })));
     if (st) {
       const set = (label, key, conv = (v) => v) => (v) => this.edit(label, (o) => { o.stroke = { ...o.stroke, [key]: conv(v) }; });
-      kids.push(row(colorField("Line colour", st.color || "#000000", set("Line colour", "color")),
+      kids.push(row(colorField("Line colour", st.color || "#000000",
+        (v, sw) => this.edit("Line colour", (o) => { o.stroke = linked({ ...o.stroke, color: v }, sw); }), st.swatch),
         numField("Line width", st.width ?? 1, "pt", set("Line width", "width", (v) => Math.max(v, 0)), { min: 0, step: 0.25 })));
       kids.push(selectField("Dash", typeof st.dash === "string" ? st.dash : "solid", DASHES, set("Dash", "dash")));
       // Dashed lines get a dash (or dot) on every corner and end, evenly spaced between them;
@@ -606,7 +609,8 @@ export const inspector = {
     }))];
     if (o) {
       const set = (label, key) => (v) => this.edit(label, (x) => { x.outline = { ...x.outline, [key]: v }; });
-      kids.push(row(colorField("Outline colour", o.color, set("Outline colour", "color")),
+      kids.push(row(colorField("Outline colour", o.color,
+        (v, sw) => this.edit("Outline colour", (x) => { x.outline = linked({ ...x.outline, color: v }, sw); }), o.swatch),
         numField("Outline thickness", o.width ?? 1, "pt", (v) => set("Outline thickness", "width")(Math.max(v, 0.05)), { min: 0.05, step: 0.25 })));
       kids.push(transparencyField("Outline transparency", o.opacity, (op) => set("Outline transparency", "opacity")(op)));
       // Sides and Gaps each change only their half of the type
@@ -657,7 +661,7 @@ export const inspector = {
       fontList,
       textField("Font", first.font || "Helvetica", (v) => setRuns("Font", (r) => { r.font = v; }), { list: "font-list" }),
       row(numField("Size", first.size || 6, "pt", (v) => setRuns("Text size", (r) => { r.size = Math.max(v, 0.5); }), { min: 0.5, step: 0.5 }),
-        colorField("Text colour", first.color || "#000000", (v) => setRuns("Text colour", (r) => { r.color = v; }))),
+        colorField("Text colour", first.color || "#000000", (v, sw) => setRuns("Text colour", (r) => { linked(r, sw).color = v; }), first.swatch)),
       h("div", { class: "button-row" },
         toggle("Bold", !!first.bold, (on) => setRuns("Bold", (r) => { r.bold = on; }), "B", "bold"),
         toggle("Italic", !!first.italic, (on) => setRuns("Italic", (r) => { r.italic = on; }), "I", "italic"),
@@ -796,13 +800,16 @@ export function selectField(text, value, options, onChange, opts = {}) {
   return h("div", { class: "field" }, label(text, id), sel);
 }
 // A colour picker with its hex code beside it; either can be edited
-function colorField(text, value, onChange) {
+// A colour picker with its hex code beside it; either can be edited, which drops a link to a
+// swatch. The swatch button picks one of the figure's swatches (and links to it), or adds one.
+// onChange(colour, swatch id or null)
+function colorField(text, value, onChange, swatch = null) {
   const id = `f${++fieldId}`;
   const hex = parseHex(value) || "#000000";
   const picker = h("input", { id, type: "color", value: hex });
   const code = h("input", { id: `${id}-hex`, type: "text", class: "hex", value: hex.toUpperCase(), maxlength: 7,
     spellcheck: "false", autocomplete: "off", "aria-label": `${text} hex code` });
-  picker.addEventListener("change", () => { code.value = picker.value.toUpperCase(); onChange(picker.value); });
+  picker.addEventListener("change", () => { code.value = picker.value.toUpperCase(); onChange(picker.value, null); });
   const commit = () => {
     const v = parseHex(code.value);
     if (!v) {
@@ -811,14 +818,27 @@ function colorField(text, value, onChange) {
       return;
     }
     code.value = v.toUpperCase();
-    if (v !== picker.value) { picker.value = v; onChange(v); }
+    if (v !== picker.value) { picker.value = v; onChange(v, null); }
   };
   code.addEventListener("change", commit);
   code.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { commit(); code.blur(); }
     keepFieldKeys(e);
   });
-  return h("div", { class: "field color" }, label(text, id), h("div", { class: "color-row" }, picker, code));
+  const sw = swatchById(store.doc, swatch);
+  const choose = h("button", { type: "button", class: "btn swatch-btn", title: `Swatches for ${text}`,
+    "aria-label": `Swatches for ${text}`, "aria-haspopup": "menu" }, icon("swatches"));
+  choose.addEventListener("click", () => {
+    const r = choose.getBoundingClientRect(), all = store.doc.swatches || [];
+    contextMenu.show([
+      ...all.map((s) => ({ label: s.name, swatch: s.color, checked: s.id === swatch, run: () => onChange(s.color, s.id) })),
+      all.length ? "-" : { label: "No swatches in this figure yet", disabled: true, run: () => {} },
+      { label: "Add this colour as a swatch", run: () => onChange(picker.value, inspector.app.addSwatch(picker.value)) },
+      { label: "Swatches…", run: () => inspector.app.run("swatches") },
+    ], r.left, r.bottom + 2, choose);
+  });
+  return h("div", { class: "field color" }, label(text, id), h("div", { class: "color-row" }, picker, code, choose),
+    sw ? h("div", { class: "swatch-link" }, `Swatch: ${sw.name}`) : null);
 }
 // "#1a2b3c", "1A2B3C" or "#abc" -> "#1a2b3c"; anything else -> null
 export function parseHex(s) {

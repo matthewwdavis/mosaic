@@ -19,7 +19,7 @@ function place() {
 
 export const contextMenu = {
   get open() { return !!menu; },
-  // entries: { label, keys, run, disabled, checked } or "-" for a line between groups; null and
+  // entries: { label, keys, run, disabled, checked, swatch (a colour chip) } or "-" for a line between groups; null and
   // false are left out, and so are lines with nothing on one side
   show(entries, x, y, returnFocus = document.activeElement) {
     this.close(false);
@@ -40,7 +40,8 @@ export const contextMenu = {
         role: checkable ? "menuitemcheckbox" : "menuitem", "aria-checked": checkable ? String(!!e.checked) : null,
         "aria-disabled": e.disabled ? "true" : null },
       h("span", { class: "check", "aria-hidden": "true" }, checkable ? "✓" : ""),
-      h("span", { class: "menu-label" }, e.label),
+      h("span", { class: "menu-label" },
+        e.swatch ? h("span", { class: "chip", style: { background: e.swatch }, "aria-hidden": "true" }) : null, e.label),
       e.keys ? h("kbd", {}, e.keys) : h("span"));
       item.addEventListener("click", () => this.choose(e));
       item.addEventListener("pointermove", () => { if (document.activeElement !== item) item.focus({ preventScroll: true }); });
