@@ -37,6 +37,12 @@ activated). A no-command-line installer is planned.
 
 ## Using it
 
+- **The window:** commands sit in tabs across the top, like PowerPoint's ribbon: **Home**
+  (file, undo, clipboard, pages), **Arrange** (align, distribute, group, order) and **View** (zoom,
+  rulers, grid, guides). Snap, Check, Export, Settings and Help stay in view on the right. The
+  drawing tools run down the side of the page. The properties panel on the right has tabs
+  (Arrange, Style, Text, Picture) whose sections fold away and stay folded; zoom is also in the
+  status bar.
 - **Place figures** by dragging files (PDF, SVG, PNG, JPEG, TIFF) onto the page, or with
   Picture (I). They land at true size, so 6 pt text stays 6 pt.
   - Placed files stay **linked**: re-run your R code and the panel updates by itself.

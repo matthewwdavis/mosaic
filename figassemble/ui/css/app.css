@@ -72,13 +72,25 @@ body {
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 button, input, select, textarea { font: inherit; color: inherit; }
 
-/* Toolbar ------------------------------------------------------------------ */
+/* Ribbon: tabs of labelled groups ------------------------------------------- */
 .topbar { background: var(--panel); border-bottom: 1px solid var(--line); min-width: 0; }
-.toolbar { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.15rem; padding: 0.3rem 0.4rem; }
-.tool-group { display: flex; align-items: stretch; gap: 0.1rem; padding: 0 0.25rem;
-  border-right: 1px solid var(--line); }
-.tool-group:last-child { border-right: none; }
-.toolbar .spacer { flex: 1; }
+.ribbon-bar { display: flex; align-items: flex-end; gap: 0.3rem; padding: 0.25rem 0.5rem 0; }
+.ribbon-bar .spacer { flex: 1; }
+.ribbon-tabs { display: flex; gap: 0.15rem; }
+.rtab { padding: 0.4rem 1rem; border: 1px solid transparent; border-bottom: none; border-radius: 0.45rem 0.45rem 0 0;
+  background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; margin-bottom: -1px; }
+.rtab:hover { color: var(--text); background: var(--hover); }
+.rtab[aria-selected="true"] { background: var(--panel-2); color: var(--text); border-color: var(--line); }
+.quick { display: flex; align-items: center; gap: 0.15rem; padding-bottom: 0.25rem; }
+.quick .tool { flex-direction: row; min-height: 2.2rem; gap: 0.35rem; padding: 0.2rem 0.55rem; }
+.ribbon-panel { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.15rem; padding: 0.25rem 0.4rem 0.15rem;
+  background: var(--panel-2); border-top: 1px solid var(--line); }
+.ribbon-panel[hidden] { display: none; }
+.rgroup { display: flex; flex-direction: column; align-items: center; padding: 0 0.3rem; border-right: 1px solid var(--line); }
+.rgroup:last-child { border-right: none; }
+.rgroup-items { display: flex; align-items: stretch; gap: 0.1rem; flex: 1; }
+.rgroup-label { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; white-space: nowrap; }
+.rgroup .field { margin: 0; justify-content: center; }
 .tool { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
   min-width: 2.65rem; min-height: 2.9rem; padding: 0.25rem 0.22rem; border: 1px solid transparent;
   border-radius: 0.4rem; background: transparent; cursor: pointer; }
@@ -93,8 +105,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .zoom-label { align-self: center; min-width: 3.1rem; text-align: center; font-variant-numeric: tabular-nums;
   color: var(--muted); }
 .tool.active { background: var(--pressed); border-color: var(--sel); }
+/* Drawing tools down the side of the page */
+.toolbox { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.35rem 0.25rem; background: var(--panel);
+  border-right: 1px solid var(--line); overflow-y: auto; min-height: 0; scrollbar-width: thin; }
+.tool-sep { height: 1px; flex: none; background: var(--line); margin: 0.2rem 0.35rem; }
+.status-zoom { display: inline-flex; align-items: center; gap: 0.1rem; }
+.status-zoom .zoom-label { min-width: 2.8rem; }
 
-/* Shapes menu: a grid of shape icons in groups, below its toolbar button */
+/* Shapes menu: a grid of shape icons in groups, beside its button in the tool bar */
 .shape-menu { position: fixed; z-index: 20; width: min(25.6rem, calc(100vw - 16px)); overflow-y: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.3rem 0.6rem 0;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2); }
@@ -120,7 +138,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: var(--panel); border-top: 1px solid var(--line); color: var(--muted); font-size: 0.85rem; }
 
 /* Layout ------------------------------------------------------------------ */
-.workspace { display: grid; grid-template-columns: 15rem 1fr 19rem; min-height: 0; }
+.workspace { display: grid; grid-template-columns: 15rem auto 1fr 19rem; min-height: 0; }
 .sidebar { background: var(--panel); overflow-y: auto; min-height: 0; }
 .sidebar.left { border-right: 1px solid var(--line); display: grid; grid-template-rows: auto 1fr; }
 .sidebar.right { border-left: 1px solid var(--line); padding: 0.5rem 0.75rem 2rem; }
@@ -174,9 +192,25 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .button-row { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.35rem 0; }
 .button-row.inline { margin: 0; align-items: flex-end; }
 
-.section { border: none; border-top: 1px solid var(--line); margin: 0.4rem 0 0; padding: 0.55rem 0 0.2rem; }
-.section > legend { font-weight: 650; font-size: 0.92rem; padding: 0 0.3rem 0 0; }
-.kind { margin: 0 0 0.3rem; color: var(--muted); font-size: 0.85rem; }
+/* Properties panel: tabs over sections that fold away */
+.insp-kind { margin: 0 0 0.35rem; font-weight: 650; font-size: 0.95rem; }
+.insp-tabs { display: flex; gap: 0.15rem; position: sticky; top: -0.5rem; z-index: 2; margin: 0 -0.75rem 0.15rem;
+  padding: 0.3rem 0.75rem 0; background: var(--panel); border-bottom: 1px solid var(--line); }
+.insp-tab { padding: 0.35rem 0.75rem; border: 1px solid transparent; border-bottom: none; border-radius: 0.35rem 0.35rem 0 0;
+  background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; margin-bottom: -1px; }
+.insp-tab:hover { color: var(--text); background: var(--hover); }
+.insp-tab[aria-selected="true"] { color: var(--text); background: var(--panel); border-color: var(--line); }
+.insp-panel[hidden] { display: none; }
+.section { border-top: 1px solid var(--line); margin: 0.25rem 0 0; padding: 0.3rem 0 0.15rem; }
+.insp-panel > .section:first-child, .sidebar.right > .section:first-child { border-top: none; }
+.section > summary { display: flex; align-items: center; gap: 0.45rem; padding: 0.25rem 0.1rem; border-radius: 0.3rem;
+  font-weight: 650; font-size: 0.92rem; cursor: pointer; list-style: none; }
+.section > summary::-webkit-details-marker { display: none; }
+.section > summary::before { content: ""; width: 0.42rem; height: 0.42rem; margin-left: 0.15rem; flex: none;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); }
+.section[open] > summary::before { transform: rotate(45deg); }
+.section > summary:hover { background: var(--hover); }
+.section-body { padding: 0.05rem 0 0.25rem; }
 .field { display: flex; flex-direction: column; gap: 0.15rem; margin: 0.3rem 0; min-width: 0; }
 .field > label { font-size: 0.82rem; color: var(--muted); }
 .field input[type=text], .field input[type=number], .field select, .field textarea {

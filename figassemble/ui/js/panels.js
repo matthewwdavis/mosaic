@@ -27,6 +27,16 @@ const ICONS = {
   lock: "M6 11h12v9H6zM8 11V8a4 4 0 018 0v3", unlock: "M6 11h12v9H6zM8 11V8a4 4 0 017.5-2",
   group: "M3 3h7v7H3zM14 14h7v7h-7zM7 10v4h7", import: "M12 15V3M7 10l5 5 5-5M5 17v3h14v-3",
   shapes: "M7 3l4.5 8h-9zM17 3.5a3.5 3.5 0 110 7 3.5 3.5 0 010-7zM8.5 13.5h7v7h-7z",
+  cut: "M6 4.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM6 14.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM8.2 8.2L20 19M8.2 15.8L20 5",
+  copy: "M9 9h11v11H9zM5 15V4h11", paste: "M9 3h6v3H9zM7 5H5v16h14V5h-2",
+  ungroup: "M3 3h7v7H3zM14 14h7v7h-7zM14 6h4M6 14v4",
+  front: "M12 21V7M6 12l6-6 6 6M5 3h14", forward: "M12 19V6M7 11l5-5 5 5", backward: "M12 5v13M7 13l5 5 5-5",
+  back: "M12 3v14M6 12l6 6 6-6M5 21h14",
+  alignLeft: "M4 3v18M7 6h10v4H7zM7 14h6v4H7z", alignCenter: "M12 3v18M6 6h12v4H6zM8 14h8v4H8z",
+  alignRight: "M20 3v18M7 6h10v4H7zM11 14h6v4h-6z", alignTop: "M3 4h18M6 7h4v10H6zM14 7h4v6h-4z",
+  alignMiddle: "M3 12h18M6 6h4v12H6zM14 8h4v8h-4z", alignBottom: "M3 20h18M6 7h4v10H6zM14 11h4v6h-4z",
+  spaceH: "M3 4v16M21 4v16M7.5 8h3v8h-3zM13.5 8h3v8h-3z", spaceV: "M4 3h16M4 21h16M8 7.5h8v3H8zM8 13.5h8v3H8z",
+  actual: "M5 5h14v14H5zM9 9.5l2-1.5v8M14 9.5l2-1.5v8",
   ruler: "M3 8h18v8H3zM7 8v3M11 8v4.5M15 8v3M19 8v4.5", grid: "M4 4h16v16H4zM9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16",
   guides: "M9 8v13M8 15h13M6.5 3h5L9 6zM3 12.5v5l3-2.5z",
   magnet: "M5 4h4.5v7.5a2.5 2.5 0 005 0V4H19v7.5a7 7 0 01-14 0zM5 8h4.5M14.5 8H19",
@@ -87,7 +97,8 @@ function verticalNeighbour(items, i, down) {
 export const panels = {
   init(app) {
     this.app = app;
-    this.buildToolbar();
+    this.buildRibbon();
+    this.buildToolbox();
     this.buildPages();
     this.buildLayers();
     this.buildStatus();
@@ -98,7 +109,9 @@ export const panels = {
     });
     canvas.onToolChange = (tool) => this.renderTools(tool);
     document.addEventListener("fa-prefs", () => this.renderToggles());
-    document.addEventListener("fa-zoom", (e) => { this.zoomLabel.textContent = `${fmt(e.detail * 100, 0)}%`; });
+    document.addEventListener("fa-zoom", (e) => {
+      for (const z of document.querySelectorAll(".zoom-label")) z.textContent = `${fmt(e.detail * 100, 0)}%`;
+    });
     document.addEventListener("fa-cursor", (e) => {
       const u = app.prefs.units || "cm";
       const d = u === "cm" || u === "in" ? 2 : 1;
@@ -135,91 +148,106 @@ export const panels = {
     }
   },
 
-  // View menu: show or hide the rulers, grid and guides ------------------------------------
+  // Ribbon: tabs of labelled groups, like PowerPoint's; Snap, Check, Export, Settings and Help
+  // stay in view on the right ------------------------------------------------------------------
 
-  viewMenuButton() {
-    const btn = h("button", { type: "button", class: "tool", id: "view-button", title: "Rulers, grid and guides",
-      "aria-label": "View", "aria-haspopup": "menu", "aria-expanded": "false", "aria-controls": "view-menu", tabindex: -1 },
-    icon("ruler"), h("span", { class: "tool-label" }, "View ▾"));
-    const items = [["toggleRulers", "show_rulers"], ["toggleGrid", "show_grid"], ["toggleGuides", "show_guides"]].map(([cmd, pref]) => {
-      const c = this.app.commands[cmd];
-      const item = h("button", { type: "button", class: "menu-item", role: "menuitemcheckbox", tabindex: -1, "data-pref": pref,
-        "aria-checked": this.app.prefs[pref] ? "true" : "false" },
-      h("span", { class: "check", "aria-hidden": "true" }, "✓"), h("span", {}, c.short),
-      h("kbd", { "aria-hidden": "true" }, c.keys));
-      item.addEventListener("click", () => { this.closeViewMenu(); this.app.run(cmd); });
-      return item;
+  buildRibbon() {
+    const root = document.getElementById("ribbon");
+    const t = (cmd, ic) => this.toolButton(cmd, ic);
+    const group = (label, ...items) => {
+      const id = `rgroup-${label.toLowerCase().replace(/\W+/g, "-")}`;
+      return h("div", { class: "rgroup", role: "group", "aria-labelledby": id },
+        h("div", { class: "rgroup-items" }, ...items), h("div", { class: "rgroup-label", id }, label));
+    };
+    const tabs = [
+      ["home", "Home", [
+        group("File", t("new", "new"), t("open", "open"), t("save", "save")),
+        group("Edit", t("undo", "undo"), t("redo", "redo")),
+        group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste")),
+        group("Objects", t("duplicate", "duplicate"), t("delete", "trash")),
+        group("Page", t("addPage", "plus"), t("fitPage", "fit")),
+      ]],
+      ["arrange", "Arrange", this.arrangeGroups(group, t)],
+      ["view", "View", [
+        group("Zoom", t("zoomOut", "zoomout"), h("span", { class: "zoom-label", "aria-live": "off" }, "100%"),
+          t("zoomIn", "zoomin"), t("zoomFit", "fit"), t("zoom100", "actual")),
+        group("Show", this.toggleButton("toggleRulers", "ruler", "show_rulers"),
+          this.toggleButton("toggleGrid", "grid", "show_grid", ". Things snap to it while it shows"),
+          this.toggleButton("toggleGuides", "guides", "show_guides", ". Drag a new one out of a ruler")),
+        group("Grid", t("gridSettings", "gear")),
+      ]],
+    ];
+    const tabRow = h("div", { class: "ribbon-tabs", role: "tablist", "aria-label": "Command tabs" });
+    this.ribbonTabs = {};
+    const panelEls = tabs.map(([key, title, groups]) => {
+      const tab = h("button", { type: "button", role: "tab", class: "rtab", id: `rtab-${key}`, "aria-controls": `rpanel-${key}`,
+        "aria-selected": "false", tabindex: -1 }, title);
+      tab.addEventListener("click", () => this.showTab(key));
+      tabRow.append(tab);
+      const panel = h("div", { class: "ribbon-panel", role: "tabpanel", id: `rpanel-${key}`, "aria-labelledby": `rtab-${key}`,
+        hidden: true }, ...groups);
+      const first = panel.querySelector("button.tool, select");
+      if (first) first.tabIndex = 0;
+      roving(panel, "button.tool, select");
+      this.ribbonTabs[key] = { tab, panel };
+      return panel;
     });
-    const settings = h("button", { type: "button", class: "menu-item", role: "menuitem", tabindex: -1 },
-      h("span", { class: "check", "aria-hidden": "true" }), h("span", {}, "Grid spacing and snapping…"));
-    settings.addEventListener("click", () => { this.closeViewMenu(false); this.preferencesDialog(); });
-    const menu = h("div", { id: "view-menu", class: "popup-menu", role: "menu", "aria-label": "View", hidden: true },
-      ...items, h("div", { class: "menu-sep", role: "separator" }), settings);
-    btn.addEventListener("click", () => (menu.hidden ? this.openViewMenu() : this.closeViewMenu()));
-    btn.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); this.openViewMenu(); }
+    // Left and right move between the tabs (and show them), as in any tab list
+    tabRow.addEventListener("keydown", (e) => {
+      const keys = Object.keys(this.ribbonTabs);
+      const i = keys.indexOf(this.ribbonTab);
+      const j = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: keys.length - 1 }[e.key];
+      if (j === undefined) return;
+      e.preventDefault();
+      this.showTab(keys[(j + keys.length) % keys.length]);
+      this.ribbonTabs[this.ribbonTab].tab.focus();
     });
-    // Up and down move through the items, Enter or Space chooses (they're buttons), Escape closes
-    menu.addEventListener("keydown", (e) => {
-      e.stopPropagation();
-      const list = [...menu.querySelectorAll(".menu-item")];
-      const i = list.indexOf(document.activeElement);
-      const go = (j) => { e.preventDefault(); list[(j + list.length) % list.length].focus(); };
-      if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); this.closeViewMenu(); }
-      else if (e.key === "ArrowDown") go(i + 1);
-      else if (e.key === "ArrowUp") go(i - 1);
-      else if (e.key === "Home") go(0);
-      else if (e.key === "End") go(list.length - 1);
-    });
-    document.body.append(menu);
-    document.addEventListener("pointerdown", (e) => {
-      if (!menu.hidden && !menu.contains(e.target) && !btn.contains(e.target)) this.closeViewMenu(false);
-    }, true);
-    this.viewBtn = btn;
-    this.viewMenu = menu;
-    return btn;
+    const quick = h("div", { class: "quick", role: "toolbar", "aria-label": "Always available" },
+      this.toggleButton("toggleSnap", "magnet", "snap", `. Hold ${this.app.mod.replace("+", "")} while dragging to ignore it once`),
+      t("preflight", "check"), this.toolButton("export", "export", { primary: true }), t("preferences", "gear"),
+      t("shortcuts", "help"));
+    quick.querySelector("button").tabIndex = 0;
+    roving(quick, "button.tool");
+    root.append(h("div", { class: "ribbon-bar" }, tabRow, h("div", { class: "spacer" }), quick), ...panelEls);
+    this.showTab(this.ribbonTabs[this.app.prefs.ribbon_tab] ? this.app.prefs.ribbon_tab : "home", false);
   },
-  openViewMenu() {
-    const r = this.viewBtn.getBoundingClientRect(), m = this.viewMenu;
-    m.hidden = false;
-    this.viewBtn.setAttribute("aria-expanded", "true");
-    m.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - m.offsetWidth - 8))}px`;
-    m.style.top = `${r.bottom + 4}px`;
-    m.querySelector(".menu-item")?.focus();
+  arrangeGroups(group, t) {
+    return [
+      group("Align", t("alignLeft", "alignLeft"), t("alignCenter", "alignCenter"), t("alignRight", "alignRight"),
+        t("alignTop", "alignTop"), t("alignMiddle", "alignMiddle"), t("alignBottom", "alignBottom")),
+      group("Distribute", t("distributeH", "spaceH"), t("distributeV", "spaceV")),
+      group("Group", t("group", "group"), t("ungroup", "ungroup")),
+      group("Order", t("bringToFront", "front"), t("bringForward", "forward"), t("sendBackward", "backward"),
+        t("sendToBack", "back")),
+    ];
   },
-  closeViewMenu(refocus = true) {
-    if (this.viewMenu.hidden) return;
-    this.viewMenu.hidden = true;
-    this.viewBtn.setAttribute("aria-expanded", "false");
-    if (refocus) this.viewBtn.focus();
+  showTab(key, remember = true) {
+    this.ribbonTab = key;
+    for (const [k, { tab, panel }] of Object.entries(this.ribbonTabs)) {
+      tab.setAttribute("aria-selected", k === key ? "true" : "false");
+      tab.tabIndex = k === key ? 0 : -1;
+      panel.hidden = k !== key;
+    }
+    if (remember) this.app.rememberUi({ ribbon_tab: key });
   },
-  buildToolbar() {
-    const bar = document.getElementById("toolbar");
+
+  // Drawing tools, down the side of the page as in Illustrator and Photoshop
+  buildToolbox() {
+    const box = document.getElementById("toolbox");
     const t = (cmd, ic, tool) => this.toolButton(cmd, ic, { tool });
-    const group = (label, ...btns) => h("div", { class: "tool-group", role: "group", "aria-label": label }, ...btns);
-    this.zoomLabel = h("span", { class: "zoom-label", "aria-live": "off" }, "100%");
-    bar.append(
-      group("File", t("new", "new"), t("open", "open"), t("save", "save")),
-      group("Tools", t("toolSelect", "select", "select"), t("toolText", "text", "text"), t("toolLabel", "label", "label"),
-        t("toolLine", "line", "line"), t("toolArrow", "arrow", "arrow"), t("toolRect", "rect", "rect"),
-        t("toolRoundRect", "roundrect", "roundrect"), t("toolEllipse", "ellipse", "ellipse"),
-        t("toolTriangle", "triangle", "triangle"), t("toolArc", "arc", "arc"), t("toolBracket", "bracket", "bracket"),
-        this.shapeMenuButton(), t("insertPicture", "picture")),
-      group("Edit", t("undo", "undo"), t("redo", "redo")),
-      group("Zoom", t("zoomOut", "zoomout"), this.zoomLabel, t("zoomIn", "zoomin"), t("zoomFit", "fit")),
-      group("Layout aids", this.viewMenuButton(),
-        this.toggleButton("toggleSnap", "magnet", "snap", `. Hold ${this.app.mod.replace("+", "")} while dragging to ignore it once`)),
-      h("div", { class: "spacer" }),
-      group("Finish", t("preflight", "check"), this.toolButton("export", "export", { primary: true })),
-      group("App", t("preferences", "gear"), t("shortcuts", "help")),
-    );
-    const first = bar.querySelector("button.tool");
-    if (first) first.tabIndex = 0;
-    roving(bar, "button.tool");
+    const sep = () => h("div", { class: "tool-sep", role: "separator" });
+    box.append(t("toolSelect", "select", "select"), sep(),
+      t("toolText", "text", "text"), t("toolLabel", "label", "label"), sep(),
+      t("toolLine", "line", "line"), t("toolArrow", "arrow", "arrow"), sep(),
+      t("toolRect", "rect", "rect"), t("toolRoundRect", "roundrect", "roundrect"), t("toolEllipse", "ellipse", "ellipse"),
+      t("toolTriangle", "triangle", "triangle"), t("toolArc", "arc", "arc"), t("toolBracket", "bracket", "bracket"),
+      this.shapeMenuButton(), sep(), t("insertPicture", "picture"));
+    box.querySelector("button.tool").tabIndex = 0;
+    roving(box, "button.tool", true);
     this.renderTools("select");
   },
   renderTools(tool) {
-    for (const b of document.querySelectorAll("#toolbar [data-tool]")) {
+    for (const b of document.querySelectorAll("#toolbox [data-tool]")) {
       b.setAttribute("aria-pressed", b.dataset.tool === tool ? "true" : "false");
     }
     if (this.shapeBtn) {
@@ -237,10 +265,10 @@ export const panels = {
     const btn = h("button", { type: "button", class: "tool", id: "shapes-button", title: `${c.label} (${c.keys})`,
       "aria-label": c.label, "aria-haspopup": "menu", "aria-expanded": "false", "aria-controls": "shape-menu",
       "data-cmd": "shapesMenu", tabindex: -1 },
-    icon("shapes"), h("span", { class: "tool-label" }, `${c.short} ▾`));
+    icon("shapes"), h("span", { class: "tool-label" }, `${c.short} ▸`));
     btn.addEventListener("click", () => this.toggleShapeMenu());
     btn.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); this.openShapeMenu(); }
+      if (e.key === "ArrowRight") { e.preventDefault(); e.stopPropagation(); this.openShapeMenu(); }
     });
     // The name of the shape under the pointer or focus, for anyone who doesn't know the icons
     const hint = h("p", { class: "shape-hint", "aria-hidden": "true" }, "Choose a shape, then drag on the page");
@@ -270,9 +298,9 @@ export const panels = {
   },
   placeShapeMenu() {
     const r = this.shapeBtn.getBoundingClientRect(), m = this.shapeMenu;
-    m.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - m.offsetWidth - 8))}px`;
-    m.style.top = `${r.bottom + 4}px`;
-    m.style.maxHeight = `${Math.max(window.innerHeight - r.bottom - 16, 160)}px`;
+    m.style.maxHeight = `${window.innerHeight - 16}px`;
+    m.style.left = `${Math.max(8, Math.min(r.right + 6, window.innerWidth - m.offsetWidth - 8))}px`;
+    m.style.top = `${Math.max(8, Math.min(r.top, window.innerHeight - m.offsetHeight - 8))}px`;
   },
   openShapeMenu() {
     const m = this.shapeMenu;
@@ -462,7 +490,11 @@ export const panels = {
     this.message = h("span", { id: "live", class: "message", role: "status", "aria-live": "polite" });
     this.cursor = h("span", { class: "cursor-pos", "aria-hidden": "true" });
     this.saveState = h("span", { class: "save-state" });
-    bar.append(this.message, h("span", { class: "spacer" }), this.cursor, this.saveState);
+    const z = (cmd, ic) => button(`${this.app.commands[cmd].label} (${this.app.commands[cmd].keys})`, () => this.app.run(cmd),
+      icon(ic), "icon-btn small");
+    const zoom = h("span", { class: "status-zoom", role: "group", "aria-label": "Zoom" }, z("zoomOut", "zoomout"),
+      h("span", { class: "zoom-label", "aria-live": "off" }, "100%"), z("zoomIn", "zoomin"), z("zoomFit", "fit"));
+    bar.append(this.message, h("span", { class: "spacer" }), zoom, this.cursor, this.saveState);
   },
   renderSaveState() {
     if (!store.doc) return;

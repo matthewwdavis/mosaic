@@ -40,11 +40,45 @@ export const inspector = {
       return this.refreshValues();
     }
     const sel = store.selected();
-    const parts = [];
-    if (sel.length === 0) parts.push(...this.pageSections());
-    else if (sel.length === 1) parts.push(...this.itemSections(sel[0]));
-    else parts.push(...this.multiSections(sel));
-    this.root.replaceChildren(...parts);
+    let parts;
+    if (sel.length === 0) parts = this.pageSections();
+    else if (sel.length === 1) parts = this.tabbed(kindKey(sel[0]), kindName(sel[0]), this.itemTabs(sel[0]));
+    else parts = this.tabbed("multi", `${sel.length} objects`, this.multiTabs(sel));
+    this.root.replaceChildren(...parts.filter(Boolean));
+  },
+  // Tabs (Arrange, Style, Text...) over folding sections, like PowerPoint's Format pane; the tab
+  // last used for each kind of object opens next time
+  tabbed(kind, title, tabs) {
+    const remembered = (this.app.prefs.inspector_tabs || {})[kind] || DEFAULT_TAB[kind];
+    let active = tabs.some(([key]) => key === remembered) ? remembered : tabs[0][0];
+    const list = h("div", { class: "insp-tabs", role: "tablist", "aria-label": `${title}: properties` });
+    const entries = tabs.map(([key, label, sections]) => {
+      const tab = h("button", { type: "button", role: "tab", class: "insp-tab", id: `itab-${key}`, "aria-controls": `ipanel-${key}` }, label);
+      const panel = h("div", { class: "insp-panel", role: "tabpanel", id: `ipanel-${key}`, "aria-labelledby": `itab-${key}` },
+        ...sections.filter(Boolean));
+      tab.addEventListener("click", () => { show(key); this.app.rememberUi({ inspector_tabs: { ...(this.app.prefs.inspector_tabs || {}), [kind]: key } }); });
+      list.append(tab);
+      return { key, tab, panel };
+    });
+    const show = (key) => {
+      active = key;
+      for (const e of entries) {
+        e.tab.setAttribute("aria-selected", e.key === key ? "true" : "false");
+        e.tab.tabIndex = e.key === key ? 0 : -1;
+        e.panel.hidden = e.key !== key;
+      }
+    };
+    list.addEventListener("keydown", (e) => {
+      const i = entries.findIndex((x) => x.key === active);
+      const j = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: entries.length - 1 }[e.key];
+      if (j === undefined) return;
+      e.preventDefault();
+      e.stopPropagation();
+      entries[(j + entries.length) % entries.length].tab.click();
+      entries.find((x) => x.key === active).tab.focus();
+    });
+    show(active);
+    return [h("p", { class: "insp-kind" }, title), entries.length > 1 ? list : null, ...entries.map((e) => e.panel)];
   },
   // During drags only the numbers change
   refreshValues() {
@@ -183,39 +217,36 @@ export const inspector = {
 
   // One item -----------------------------------------------------------------------------
 
-  itemSections(it) {
-    const out = [this.headerSection(it), this.arrangeSection(it)];
-    if (it.type === "picture") out.push(this.pictureSection(it));
-    if (it.type === "shape") {
-      if (!it.textbox) out.push(this.geometrySection(it));
-      if (it.text) out.push(this.textSection(it));
-      if (!it.textbox || it.fill || it.stroke) out.push(this.fillSection(it));
-      out.push(this.strokeSection(it));
-      if ((shapeCatalog.shapes[it.geom]?.open || it.geom === "custom") && it.stroke) out.push(this.endsSection(it));
-      if (!it.textbox || it.fill || it.stroke) out.push(this.outlineSection(it));
-      if (it.textbox && !it.text) out.push(this.textSection(it));
+  // [key, tab name, sections] for one object
+  itemTabs(it) {
+    const arrange = ["arrange", "Arrange", [this.objectSection(it), this.arrangeSection(it)]];
+    if (it.type === "picture") return [arrange, ["picture", "Picture", [this.pictureSection(it)]]];
+    if (it.type === "line") return [arrange, ["style", "Style", [this.strokeSection(it), this.endsSection(it), this.outlineSection(it)]]];
+    if (it.type === "group") {
+      arrange[2].push(section("Group", [
+        h("p", { class: "hint" }, `${it.items.length} objects. Ungroup (${this.app.mod}Shift+G) to edit them one by one.`),
+        button("Ungroup", () => this.app.run("ungroup"), "Ungroup")]));
+      return [arrange];
     }
-    if (it.type === "line") {
-      out.push(this.strokeSection(it));
-      out.push(this.endsSection(it));
-      out.push(this.outlineSection(it));
-    }
-    if (it.type === "group") out.push(section("Group", [
-      h("p", { class: "hint" }, `${it.items.length} objects. Ungroup (${this.app.mod}Shift+G) to edit them one by one.`),
-      button("Ungroup", () => this.app.run("ungroup"), "Ungroup"),
-    ]));
-    return out;
+    const boxed = !it.textbox || it.fill || it.stroke;
+    const style = ["style", "Style", [
+      it.textbox ? null : this.geometrySection(it),
+      boxed ? this.fillSection(it) : null,
+      this.strokeSection(it),
+      (shapeCatalog.shapes[it.geom]?.open || it.geom === "custom") && it.stroke ? this.endsSection(it) : null,
+      boxed ? this.outlineSection(it) : null]];
+    const text = it.text || it.textbox ? ["text", "Text", [this.textSection(it)]] : null;
+    return [arrange, style, text].filter(Boolean);
   },
-  headerSection(it) {
-    const kids = [h("p", { class: "kind" }, kindName(it)),
-      textField("Name", it.name || "", (v) => this.edit("Rename", (x) => { x.name = v; }))];
+  objectSection(it) {
+    const kids = [textField("Name", it.name || "", (v) => this.edit("Rename", (x) => { x.name = v; }))];
     if (it.type === "picture" || it.type === "group") {
       kids.push(textArea("Description for screen readers", it.alt || "", (v) => this.edit("Description", (x) => { x.alt = v; })));
     }
     kids.push(h("div", { class: "button-row" },
       toggle("Lock position", !!it.locked, (on) => this.edit(on ? "Lock" : "Unlock", (x) => { x.locked = on; }), "🔒 Lock"),
       toggle("Hide", !!it.hidden, (on) => this.edit(on ? "Hide" : "Show", (x) => { x.hidden = on; }), "Hide")));
-    return section("Selected", kids);
+    return section("Object", kids);
   },
   arrangeSection(it) {
     const u = this.units();
@@ -479,9 +510,9 @@ export const inspector = {
 
   // Several items ------------------------------------------------------------------------
 
-  multiSections(sel) {
+  multiTabs(sel) {
     const a = (cmd, label, icon) => button(label, () => this.app.run(cmd), icon);
-    return [section(`${sel.length} objects selected`, [
+    return [["arrange", "Arrange", [section("Align and distribute", [
       h("p", { class: "hint" }, sel.map((it) => itemLabel(it, store.doc)).slice(0, 6).join(", ") + (sel.length > 6 ? "…" : "")),
       h("div", { class: "button-row" }, a("alignLeft", "Align left edges", "⇤"), a("alignCenter", "Align centres", "↔"),
         a("alignRight", "Align right edges", "⇥")),
@@ -490,9 +521,13 @@ export const inspector = {
       h("div", { class: "button-row" }, a("distributeH", "Distribute horizontally", "Space across"),
         a("distributeV", "Distribute vertically", "Space down")),
       h("div", { class: "button-row" }, a("group", "Group", "Group"), a("delete", "Delete", "Delete")),
-    ])];
+    ])]]];
   },
 };
+
+// Which tab opens first for each kind of object (until another is chosen)
+const DEFAULT_TAB = { shape: "style", textbox: "text", line: "style", picture: "picture", group: "arrange", multi: "arrange" };
+function kindKey(it) { return it.type === "shape" && it.textbox ? "textbox" : it.type; }
 
 // Field builders ---------------------------------------------------------------------------
 
@@ -518,9 +553,18 @@ function kindName(it) {
   if (it.textbox) return "Text box";
   return shapeName(it.geom);
 }
+// Settings under a heading that folds them away; folded sections stay folded next time
 function section(title, children) {
-  const id = `sec-${++fieldId}`;
-  return h("fieldset", { class: "section", "aria-labelledby": id }, h("legend", { id }, title), ...children);
+  const folded = () => new Set(inspector.app?.prefs.inspector_closed || []);
+  const d = h("details", { class: "section", open: !folded().has(title) }, h("summary", {}, title),
+    h("div", { class: "section-body", role: "group", "aria-label": title }, ...children));
+  d.addEventListener("toggle", () => {
+    const set = folded();
+    if (d.open !== set.has(title)) return;   // already as remembered
+    if (d.open) set.delete(title); else set.add(title);
+    inspector.app.rememberUi({ inspector_closed: [...set] });
+  });
+  return d;
 }
 function row(...children) { return h("div", { class: "row" }, ...children); }
 function label(text, id) { return h("label", { for: id }, text); }

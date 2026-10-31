@@ -72,14 +72,22 @@ export async function run(app, params) {
     canvas.fit();
     await settle();
     check(store.items().length === 0, "new document is empty");
-    // In a 1440 px window (the app's own size) the toolbar is one row and nothing spills off the side
-    const bar = document.getElementById("toolbar");
-    const rowTops = new Set([...bar.children].map((g) => Math.round(g.getBoundingClientRect().top)));
-    const used = [...bar.children].reduce((sum, g) => sum + (g.classList.contains("spacer") ? 0 : g.getBoundingClientRect().width), 0);
-    info.toolbarRoom = Math.round(bar.clientWidth - used);    // px left over on the row
-    check(rowTops.size === 1 && document.body.scrollWidth <= window.innerWidth + 1, "the toolbar fits the window on one row",
-      `${rowTops.size} rows; groups ` + [...bar.children].map((g) => `${g.getAttribute("aria-label") || g.className}:`
-        + Math.round(g.getBoundingClientRect().width)).join(" "));
+    // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
+    // down the side without scrolling, and nothing spills off the window
+    const ribbonTabs = [...document.querySelectorAll(".rtab")];
+    const openTab = ribbonTabs.find((t) => t.getAttribute("aria-selected") === "true");
+    const tabRows = ribbonTabs.map((tab) => {
+      tab.click();
+      const groups = [...document.getElementById(tab.getAttribute("aria-controls")).children];
+      info[`room${tab.textContent}`] = Math.round(groups[0].parentElement.clientWidth
+        - groups.reduce((n, g) => n + g.getBoundingClientRect().width, 0));   // px left over
+      return new Set(groups.map((g) => Math.round(g.getBoundingClientRect().top))).size;
+    });
+    openTab.click();
+    const toolbox = document.getElementById("toolbox");
+    check(ribbonTabs.length === 3 && tabRows.every((n) => n === 1) && toolbox.scrollHeight <= toolbox.clientHeight + 1
+      && document.body.scrollWidth <= window.innerWidth + 1, "each ribbon tab fits on one row and the tools fit down the side",
+    `rows ${tabRows}; tools ${toolbox.scrollHeight}/${toolbox.clientHeight}; width ${document.body.scrollWidth}`);
     check(near(store.page().width, 210 * MMPT) && near(store.page().height, 297 * MMPT), "new pages are A4", pageSize());
     canvas.setZoom(1);
     check(document.querySelector(".zoom-label")?.textContent === "100%", "zoom readout shows 100% at true size",
@@ -460,7 +468,7 @@ export async function run(app, params) {
     await drag(grab, [grab[0] + 30, grab[1] + 108], { metaKey: true, ctrlKey: true });
     check(near(boxAt()[1], 148, 0.6), "holding ⌘ while dragging ignores snapping", JSON.stringify(boxAt()));
     app.run("undo");
-    const snapBtn = document.querySelector('#toolbar [data-cmd="toggleSnap"]');
+    const snapBtn = document.querySelector('.quick [data-cmd="toggleSnap"]');
     check(snapBtn?.getAttribute("aria-pressed") === "true", "the Snap button shows snapping is on");
     snapBtn.click();
     await until(() => app.prefs.snap === false);
@@ -590,17 +598,18 @@ export async function run(app, params) {
     pageButton("Remove all")?.click();
     check(pg().guides.x.length + pg().guides.y.length === 0, "Remove all clears the page's guides", JSON.stringify(pg().guides));
 
-    // The View menu shows and hides the rulers, grid and guides
-    const viewBtn = document.getElementById("view-button"), viewMenu = document.getElementById("view-menu");
-    viewBtn.click();
-    check(!viewMenu.hidden && document.activeElement?.getAttribute("role") === "menuitemcheckbox", "the View menu opens with the focus in it");
-    const gridItem = viewMenu.querySelector('[data-pref="show_grid"]');
-    check(gridItem?.getAttribute("aria-checked") === "false", "it shows the grid is off");
-    gridItem.click();
+    // The View tab shows and hides the rulers, grid and guides
+    document.getElementById("rtab-view").click();
+    const gridBtn = document.querySelector('#rpanel-view [data-pref="show_grid"]');
+    check(!document.getElementById("rpanel-view").hidden && gridBtn?.getAttribute("aria-pressed") === "false",
+      "the View tab shows the grid is off");
+    gridBtn.click();
     await until(() => app.prefs.show_grid === true);
-    check(viewMenu.hidden && gridItem.getAttribute("aria-checked") === "true", "choosing Grid shows the grid and closes the menu");
-    key("'", { metaKey: true, ctrlKey: true });
+    await settle();
+    check(gridBtn.getAttribute("aria-pressed") === "true" && document.querySelector(".grid path"), "its Grid button shows the grid");
+    gridBtn.click();
     await until(() => app.prefs.show_grid === false);
+    document.getElementById("rtab-home").click();
     keepAids = ["guides", "guidelist"].includes(params.get("finalSelect"));
     if (!keepAids) { store.setPage(aidsPage); await app.run("deletePage"); }
     store.setPage(0);
@@ -656,7 +665,12 @@ export async function run(app, params) {
       if (params.get("finalSelect") === "shapes") setTimeout(() => document.getElementById("shapes-button").click(), 300);
     }
     // The View menu open, or Preferences (its rulers, grid and guides settings)
-    if (params.get("finalSelect") === "viewmenu") setTimeout(() => document.getElementById("view-button").click(), 300);
+    if (params.get("finalSelect") === "viewmenu") document.getElementById("rtab-view").click();
+    if (params.get("finalSelect") === "arrange") {
+      // Two objects selected, with the Arrange tab open in the ribbon and the panel
+      store.select(store.items().filter((i) => i.type === "shape" && !i.textbox).slice(0, 2).map((i) => i.id));
+      document.getElementById("rtab-arrange").click();
+    }
     if (params.get("finalSelect") === "prefs") setTimeout(() => app.run("preferences"), 300);
     if (params.get("finalSelect") === "recovery") {
       await rpc("autosave", store.doc, "selftest-shot-1");

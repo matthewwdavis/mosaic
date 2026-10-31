@@ -62,7 +62,7 @@ pre-export check says so.
   (Genetics, G3, Genome Research, Heredity, MBE), they were measured from a published 2025
   open-access article, as Matthew chose; the app's note says so. On journal pages "Fit to
   content" keeps the column width. Data and sources: `journals.py`.
-- **Shapes (2026-10-31):** a Shapes menu on the toolbar (S) with PowerPoint's rectangles,
+- **Shapes (2026-10-31):** a Shapes menu (S, now in the drawing tools beside the page) with PowerPoint's rectangles,
   basic shapes, block arrows, stars, brackets and braces, and equation symbols (88 in all),
   as a grid of icons in groups, usable from the keyboard (arrows, type-ahead, Enter). A click
   or Enter with any drawing tool places a 2 cm shape, so no pointer is needed. Shapes keep
@@ -82,7 +82,7 @@ pre-export check says so.
   Objects take precedence over guides under the pointer; a guide covered by objects can be dragged
   by its mark on a ruler or typed in the Page panel. The grid is graph paper (1 cm squares, 1 mm
   lines that appear when zoomed in far enough to see them apart). Neither is ever exported. The
-  View menu holds the three switches; Snap has its own toolbar button.
+  View tab holds the three switches; Snap has its own button, always in view.
 - **Snapping must be easy to override (Matthew's requirement):** the Snap button (⌘⇧;) turns it
   all off and always shows its state; holding ⌘/Ctrl frees a single drag; Escape cancels a drag.
   Nothing snaps to lines that can't be seen: the grid only while it shows (Matthew's choice), and
@@ -102,6 +102,16 @@ pre-export check says so.
   PowerPoint's spacing. Exports carry each dash as its own subpath with a solid stroke (dots are
   0.001 pt round-capped strokes; square caps become flat ones on lengthened dashes, which PDF and
   SVG draw alike); outlines re-cut the same dashes.
+- **Window layout (2026-10-31, as the app grew crowded):** PowerPoint-style ribbon tabs (Home,
+  Arrange, View) with labelled groups, and Snap, Check, Export, Settings and Help always in view at
+  the right of the tab row; the drawing tools in a vertical bar beside the page (between the
+  Pages/Objects panel and the page, as in Illustrator and Photoshop); the properties panel in tabs
+  (Arrange, Style, Text, Picture) over sections that fold away, like PowerPoint's Format pane. The
+  last tab for each kind of object and the folded sections are remembered (prefs). Zoom is also in
+  the status bar, since a different tab is usually open. The earlier View menu is now the View tab.
+- **Recovery copies (2026-10-31):** kept per unsaved document in the settings folder's
+  `autosave/`; the recovery offer and Settings can delete them (each delete warns first). A
+  recovered document keeps its copy's name, so saving it clears the copy.
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.
