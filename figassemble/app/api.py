@@ -9,6 +9,7 @@ import platform
 import subprocess
 import sys
 import threading
+import time
 import zipfile
 
 from .. import __version__, connect, docfile, model, presets, themes
@@ -49,8 +50,19 @@ def _read_prefs_file() -> dict:
 
 
 def _write_prefs_file(stored: dict) -> None:
-    with open(_prefs_path(), "w", encoding="utf-8") as fh:
+    """Written whole to a temporary file that then takes the file's place, so nothing ever reads
+    it half written, and a crash can't leave it empty."""
+    path = _prefs_path()
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(stored, fh, indent=1)
+    for _ in range(25):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:   # Windows: another program has the file open for a moment
+            time.sleep(0.02)
+    os.replace(tmp, path)
 
 
 def _choices_only(stored: dict) -> dict:
@@ -86,7 +98,14 @@ class Api:
     def fonts(self) -> list[str]:
         return get_font_index().families()
 
+    # Settings are read and written under one lock: requests arrive on several threads at once
+    # (a tab remembered while a toggle saves), and a read must never meet a write half done
+
     def prefs_get(self) -> dict:
+        with self._lock:
+            return self._prefs()
+
+    def _prefs(self) -> dict:
         stored = _read_prefs_file()
         if stored and stored.get("prefs_version") != PREFS_VERSION:
             # Version 1 saved every default alongside real choices, which froze positions in
@@ -94,20 +113,19 @@ class Api:
             stored = {k: v for k, v in stored.items() if not (k == "units" and v == "pt")}
             stored = _choices_only(stored)
             stored["prefs_version"] = PREFS_VERSION
-            with self._lock:
-                _write_prefs_file(stored)
+            _write_prefs_file(stored)
         prefs = dict(PREFS_DEFAULTS)
         prefs.update({k: v for k, v in stored.items() if k != "prefs_version"})
         return prefs
 
     def prefs_set(self, prefs: dict) -> dict:
-        self.prefs_get()   # brings an older settings file up to date first
         with self._lock:
+            self._prefs()   # brings an older settings file up to date first
             stored = _read_prefs_file()
             stored.update(prefs or {})
             stored["prefs_version"] = PREFS_VERSION
             _write_prefs_file(_choices_only(stored))
-        return self.prefs_get()
+            return self._prefs()
 
     def _remember(self, path: str) -> None:
         prefs = self.prefs_get()
