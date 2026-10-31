@@ -299,7 +299,8 @@ export const canvas = {
     if (this.editing) return;
     if (sel.length === 1 && !this.cropping) this.drawHandles(sel[0]);
     else if (sel.length > 1) {
-      for (const it of sel) o.append(this.outline(itemCorners(it), "sel-outline thin"));
+      const key = this.keyObject?.();
+      for (const it of sel) o.append(this.outline(itemCorners(it), it.id === key?.id ? "sel-outline key" : "sel-outline thin"));
       const b = itemsBBox(sel);
       if (b) o.append(this.outline([[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]], "sel-outline"));
     }
@@ -407,10 +408,13 @@ export const canvas = {
     if (guide) return this.startGuide(guide.axis, guide.index);
     if (hit) {
       let sel = store.selection;
+      const oneOfSeveral = sel.length > 1 && sel.includes(hit.id);
       if (e.shiftKey) sel = sel.includes(hit.id) ? sel.filter((i) => i !== hit.id) : [...sel, hit.id];
       else if (!sel.includes(hit.id)) sel = [hit.id];
       store.select(sel);
       if (!e.shiftKey || sel.includes(hit.id)) this.startMove(p, e);
+      // A click without a drag on one of several selected objects makes it the key object
+      if (this.op?.type === "move" && oneOfSeveral && !e.shiftKey) this.op.keyCandidate = hit.id;
       announce(describeItem(hit, store.doc));
     } else {
       if (!e.shiftKey) store.select([]);
@@ -472,6 +476,7 @@ export const canvas = {
     if (op.type === "draw") return this.finishDraw(op);
     if (op.moved) store.endLive(op.label);
     else store.cancelLive();
+    if (!op.moved && op.keyCandidate) this.onKeyClick?.(op.keyCandidate);
     if (op.moved && store.selection.length === 1) announce(describeItem(store.selected()[0], store.doc));
     this.drawOverlay();
   },

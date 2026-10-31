@@ -78,7 +78,12 @@ activated). A no-command-line installer is planned.
 - **Outline** an arrow or shape with a contour in a second colour (e.g. a white edge that keeps a
   black arrow visible on a photo): tick "Outline around it" and set its colour, thickness and
   transparency. It wraps the line, the arrowhead and any fill.
-- **Arrange:** drag to move, align and distribute several objects, group (⌘G), bring forward (⌘]).
+- **Arrange:** drag to move; group (⌘G); bring forward (⌘]). **Align and distribute** as in
+  Illustrator, from the Arrange tab or the properties panel: six aligns; distribute by left edges,
+  centres, right edges, tops, middles or bottoms; space evenly across or down, or exactly a set
+  **Gap** apart (e.g. 0.2 cm). **Align to** the selection, the page, or a **key object** that stays
+  put: click one of the selected objects to make it the key (it gets a thick outline). One object
+  on its own aligns to the page.
 - **Line things up:** rulers run along the top and left of the page (⌘R), in your position units
   with 0 at the page's top-left corner. Drag a **guide** out of a ruler and drop it on the page;
   drag it (or its mark on the ruler) to move it, or back onto the ruler to remove it. With nothing

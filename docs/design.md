@@ -109,6 +109,12 @@ pre-export check says so.
   (Arrange, Style, Text, Picture) over sections that fold away, like PowerPoint's Format pane. The
   last tab for each kind of object and the folded sections are remembered (prefs). Zoom is also in
   the status bar, since a different tab is usually open. The earlier View menu is now the View tab.
+- **Align and distribute (2026-10-31), Illustrator's full set (Matthew's choice):** align ×6;
+  distribute by edges or centres ×6 (outer objects stay, or go to the page's edges when aligning
+  to the page); equal spacing across/down, or an exact gap counted out from the key object (or the
+  first object); align to selection / key object / page. Clicking (without dragging) one of several
+  selected objects makes it the key object and switches to key mode, as in Illustrator; clicking it
+  again stops. Controls in the ribbon's Arrange tab and the properties panel stay in step.
 - **Recovery copies (2026-10-31):** kept per unsaved document in the settings folder's
   `autosave/`; the recovery offer and Settings can delete them (each delete warns first). A
   recovered document keeps its copy's name, so saving it clears the copy.

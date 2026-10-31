@@ -2,7 +2,7 @@
 
 import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
-import { button, numField, selectField } from "./inspector.js";
+import { alignToField, button, gapField, numField, selectField } from "./inspector.js";
 import { store } from "./store.js";
 import { UNIT_LABEL, announce, fmt, h, itemLabel, shapeName, toUnit } from "./util.js";
 
@@ -36,6 +36,12 @@ const ICONS = {
   alignRight: "M20 3v18M7 6h10v4H7zM11 14h6v4h-6z", alignTop: "M3 4h18M6 7h4v10H6zM14 7h4v6h-4z",
   alignMiddle: "M3 12h18M6 6h4v12H6zM14 8h4v8h-4z", alignBottom: "M3 20h18M6 7h4v10H6zM14 11h4v6h-4z",
   spaceH: "M3 4v16M21 4v16M7.5 8h3v8h-3zM13.5 8h3v8h-3z", spaceV: "M4 3h16M4 21h16M8 7.5h8v3H8zM8 13.5h8v3H8z",
+  distLeft: "M4 3v18M11 3v18M18 3v18M4 7h5v4H4zM11 13h4v4h-4zM18 9h3v4h-3z",
+  distCenter: "M5 3v18M12 3v18M19 3v18M2.5 7h5v4h-5zM10 13h4v4h-4zM17.5 9h3v4h-3z",
+  distRight: "M6 3v18M13 3v18M20 3v18M1 7h5v4H1zM9 13h4v4H9zM17 9h3v4h-3z",
+  distTop: "M3 4h18M3 11h18M3 18h18M7 4h4v5H7zM13 11h4v4h-4zM9 18h4v3H9z",
+  distMiddle: "M3 5h18M3 12h18M3 19h18M7 2.5h4v5H7zM13 10h4v4h-4zM9 17.5h4v3H9z",
+  distBottom: "M3 6h18M3 13h18M3 20h18M7 1h4v5H7zM13 9h4v4h-4zM9 17h4v3H9z",
   actual: "M5 5h14v14H5zM9 9.5l2-1.5v8M14 9.5l2-1.5v8",
   ruler: "M3 8h18v8H3zM7 8v3M11 8v4.5M15 8v3M19 8v4.5", grid: "M4 4h16v16H4zM9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16",
   guides: "M9 8v13M8 15h13M6.5 3h5L9 6zM3 12.5v5l3-2.5z",
@@ -215,7 +221,10 @@ export const panels = {
     return [
       group("Align", t("alignLeft", "alignLeft"), t("alignCenter", "alignCenter"), t("alignRight", "alignRight"),
         t("alignTop", "alignTop"), t("alignMiddle", "alignMiddle"), t("alignBottom", "alignBottom")),
-      group("Distribute", t("distributeH", "spaceH"), t("distributeV", "spaceV")),
+      group("Distribute", t("distributeLeft", "distLeft"), t("distributeCenter", "distCenter"), t("distributeRight", "distRight"),
+        t("distributeTop", "distTop"), t("distributeMiddle", "distMiddle"), t("distributeBottom", "distBottom")),
+      group("Spacing", t("distributeH", "spaceH"), t("distributeV", "spaceV"), gapField(this.app)),
+      group("Align to", alignToField(this.app)),
       group("Group", t("group", "group"), t("ungroup", "ungroup")),
       group("Order", t("bringToFront", "front"), t("bringForward", "forward"), t("sendBackward", "backward"),
         t("sendToBack", "back")),

@@ -191,6 +191,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .icon-btn .icon { width: 1.1rem; height: 1.1rem; }
 .button-row { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.35rem 0; }
 .button-row.inline { margin: 0; align-items: flex-end; }
+.button-row.icons { gap: 0.2rem; }
+.button-row.icons .icon-btn { min-width: 2.1rem; min-height: 2.1rem; }
+.button-row.icons .icon-btn .icon { width: 1.25rem; height: 1.25rem; }
+.field.gap input[type=text] { width: 4.2rem; flex: none; }
+.rgroup .field.gap, .rgroup .field { justify-content: center; }
+.rgroup .field > label { font-size: 0.72rem; }
+.rgroup .field select { min-height: 1.9rem; padding: 0.15rem 0.3rem; }
 
 /* Properties panel: tabs over sections that fold away */
 .insp-kind { margin: 0 0 0.35rem; font-weight: 650; font-size: 0.95rem; }
@@ -246,6 +253,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .overlay * { vector-effect: non-scaling-stroke; }
 .sel-outline { fill: none; stroke: var(--sel); stroke-width: 1.5; }
 .sel-outline.thin { stroke-width: 1; stroke-dasharray: 3 2; }
+.sel-outline.key { stroke-width: 3; }
 .sel-outline.crop { stroke: #111; stroke-width: 2; }
 .crop-full { fill: none; stroke: #777; stroke-width: 1; stroke-dasharray: 5 3; }
 .handle { fill: #fff; stroke: var(--sel); stroke-width: 1.5; }

@@ -11,7 +11,9 @@ import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
 import { store } from "./store.js";
-import { MOD, announce, clone, describeItem, display, h, isMac, itemBBox, itemsBBox, lineMidpoints, shapeCatalog, uid } from "./util.js";
+import {
+  MOD, announce, clone, describeItem, display, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints, shapeCatalog, uid,
+} from "./util.js";
 
 const app = {
   prefs: {},
@@ -217,13 +219,49 @@ const app = {
     });
     if (sel.length === 1) announce(describeItem(store.selected()[0], store.doc));
   },
+  // Align and distribute, as in Illustrator: to the selection, a key object or the page. One
+  // object on its own always goes to the page. In key mode the key object stays put; it's the one
+  // last clicked among the selected objects, or the first selected.
+  alignMode(sel) {
+    return sel.length === 1 ? "page" : this.prefs.align_to || "selection";
+  },
+  keyObject() {
+    const id = this.keyId && store.selection.includes(this.keyId) ? this.keyId : store.selection[0];
+    return id ? store.item(id) : null;
+  },
+  setAlignTo(mode) {
+    this.rememberUi({ align_to: mode });
+    for (const el of document.querySelectorAll('[data-sync="align_to"]')) el.value = mode;
+    canvas.drawOverlay();
+    const key = this.keyObject();
+    announce(mode === "key" && key ? `Aligning to the key object, ${itemLabel(key, store.doc)}; click another selected object to change it`
+      : `Aligning to the ${mode}`);
+  },
+  // Clicking one of several selected objects (without dragging) makes it the key object, or
+  // stops it being one
+  toggleKeyObject(id) {
+    if (this.keyId === id && this.prefs.align_to === "key") {
+      this.keyId = null;
+      this.setAlignTo("selection");
+      return;
+    }
+    this.keyId = id;
+    this.setAlignTo("key");
+  },
+  alignTarget(sel) {
+    const page = store.page(), mode = this.alignMode(sel);
+    if (mode === "page") return { box: [0, 0, page.width, page.height], keep: null, mode };
+    const key = mode === "key" ? this.keyObject() : null;
+    if (key) return { box: itemBBox(key), keep: key.id, mode };
+    return { box: itemsBBox(sel), keep: null, mode: "selection" };
+  },
   align(how) {
     const sel = store.selected().filter((it) => !it.locked);
     if (!sel.length) return;
-    const page = store.page();
-    const ref = sel.length === 1 ? [0, 0, page.width, page.height] : itemsBBox(sel);
+    const { box: ref, keep, mode } = this.alignTarget(sel);
     store.update("Align", (doc) => {
       for (const s of sel) {
+        if (s.id === keep) continue;
         const it = findDeep(doc.pages[store.pageIndex].items, s.id);
         const b = itemBBox(it);
         let dx = 0, dy = 0;
@@ -236,26 +274,64 @@ const app = {
         shiftItem(it, clone(it), dx, dy);
       }
     });
-    announce(sel.length === 1 ? `Aligned to the page ${how}` : `Aligned ${sel.length} objects: ${how}`);
+    const words = { left: "left edges", center: "centres", right: "right edges", top: "tops", middle: "middles", bottom: "bottoms" }[how];
+    announce(sel.length === 1 ? `Aligned to the page: ${how}` : `Aligned ${sel.length} objects' ${words} to the ${mode === "key" ? "key object" : mode}`);
   },
-  distribute(axis) {
+  // Spread objects so their left edges (centres, right edges, tops...) are evenly spaced; the
+  // outer two stay put, or move to the page's edges when aligning to the page
+  distributeBy(edge) {
     const sel = store.selected().filter((it) => !it.locked);
-    if (sel.length < 3) return announce("Select three or more objects to distribute");
-    const i0 = axis === "h" ? 0 : 1, i1 = axis === "h" ? 2 : 3;
+    const toPage = this.alignMode(sel) === "page";
+    if (sel.length < (toPage ? 2 : 3)) return announce(`Select ${toPage ? "two" : "three"} or more objects to distribute`);
+    const axis = ["left", "center", "right"].includes(edge) ? 0 : 1;
+    const at = (b) => ({ left: b[0], right: b[2], top: b[1], bottom: b[3], center: (b[0] + b[2]) / 2, middle: (b[1] + b[3]) / 2 }[edge]);
+    const boxes = sel.map((it) => ({ id: it.id, b: itemBBox(it) })).sort((p, q) => at(p.b) - at(q.b));
+    const fb = boxes[0].b, lb = boxes[boxes.length - 1].b;
+    let first = at(fb), last = at(lb);
+    if (toPage) {
+      const page = store.page(), size = axis ? page.height : page.width;
+      first -= fb[axis];
+      last += size - lb[axis + 2];
+    }
+    const step = (last - first) / (boxes.length - 1);
+    store.update("Distribute", (doc) => boxes.forEach(({ id, b }, i) => {
+      const it = findDeep(doc.pages[store.pageIndex].items, id), d = first + i * step - at(b);
+      shiftItem(it, clone(it), axis ? 0 : d, axis ? d : 0);
+    }));
+    announce(`Distributed ${sel.length} objects by their ${{ left: "left edges", center: "centres", right: "right edges", top: "tops", middle: "middles", bottom: "bottoms" }[edge]}`);
+  },
+  // Equal gaps between neighbours across (h) or down (v). With a gap set, exactly that gap,
+  // counted out from the key object (or the first object); aligning to the page, the outer
+  // objects go to the page's edges.
+  distribute(axisName) {
+    const sel = store.selected().filter((it) => !it.locked);
+    const gap = this.prefs.spacing_gap, mode = this.alignMode(sel);
+    if (sel.length < (gap != null || mode === "page" ? 2 : 3)) return announce("Select three or more objects to space evenly (two with a gap set)");
+    const i0 = axisName === "h" ? 0 : 1, i1 = i0 + 2;
     const boxes = sel.map((it) => ({ id: it.id, b: itemBBox(it) })).sort((a, b) => a.b[i0] - b.b[i0]);
-    const total = boxes.reduce((s, x) => s + (x.b[i1] - x.b[i0]), 0);
-    const span = boxes[boxes.length - 1].b[i1] - boxes[0].b[i0];
-    const gap = (span - total) / (boxes.length - 1);
+    const size = (b) => b[i1] - b[i0];
+    const starts = new Map();
+    if (gap != null) {
+      const k = Math.max(0, mode === "key" ? boxes.findIndex((x) => x.id === this.keyObject()?.id) : 0);
+      let pos = boxes[k].b[i1];
+      for (let i = k + 1; i < boxes.length; i++) { starts.set(boxes[i].id, pos + gap); pos += gap + size(boxes[i].b); }
+      pos = boxes[k].b[i0];
+      for (let i = k - 1; i >= 0; i--) { pos -= gap + size(boxes[i].b); starts.set(boxes[i].id, pos); }
+    } else {
+      const page = store.page();
+      const lo = mode === "page" ? 0 : boxes[0].b[i0];
+      const hi = mode === "page" ? (i0 ? page.height : page.width) : boxes[boxes.length - 1].b[i1];
+      const even = (hi - lo - boxes.reduce((n, x) => n + size(x.b), 0)) / (boxes.length - 1);
+      let pos = lo;
+      for (const x of boxes) { starts.set(x.id, pos); pos += size(x.b) + even; }
+    }
     store.update("Distribute", (doc) => {
-      let pos = boxes[0].b[i0];
       for (const { id, b } of boxes) {
-        const it = findDeep(doc.pages[store.pageIndex].items, id);
-        const d = pos - b[i0];
-        shiftItem(it, clone(it), axis === "h" ? d : 0, axis === "h" ? 0 : d);
-        pos += b[i1] - b[i0] + gap;
+        const it = findDeep(doc.pages[store.pageIndex].items, id), d = starts.get(id) - b[i0];
+        if (starts.has(id)) shiftItem(it, clone(it), i0 ? 0 : d, i0 ? d : 0);
       }
     });
-    announce(`Distributed ${sel.length} objects evenly`);
+    announce(gap != null ? `Spaced ${sel.length} objects ${lengthText(gap, true)} apart` : `Spaced ${sel.length} objects evenly`);
   },
   reorder(how) {
     const ids = new Set(store.selection);
@@ -513,6 +589,12 @@ app.commands = {
   alignTop: cmd("Align top edges", () => app.align("top"), null, null, "Top"),
   alignMiddle: cmd("Align middles", () => app.align("middle"), null, null, "Middle"),
   alignBottom: cmd("Align bottom edges", () => app.align("bottom"), null, null, "Bottom"),
+  distributeLeft: cmd("Distribute left edges", () => app.distributeBy("left"), null, null, "Left"),
+  distributeCenter: cmd("Distribute centres", () => app.distributeBy("center"), null, null, "Centre"),
+  distributeRight: cmd("Distribute right edges", () => app.distributeBy("right"), null, null, "Right"),
+  distributeTop: cmd("Distribute top edges", () => app.distributeBy("top"), null, null, "Top"),
+  distributeMiddle: cmd("Distribute middles", () => app.distributeBy("middle"), null, null, "Middle"),
+  distributeBottom: cmd("Distribute bottom edges", () => app.distributeBy("bottom"), null, null, "Bottom"),
   distributeH: cmd("Space evenly across", () => app.distribute("h"), null, null, "Across"),
   distributeV: cmd("Space evenly down", () => app.distribute("v"), null, null, "Down"),
   zoomIn: cmd("Zoom in", () => canvas.setZoom(canvas.zoom * 1.25), `${M}+`, (e) => mod(e) && (e.key === "=" || e.key === "+"), "Zoom in"),
@@ -693,6 +775,8 @@ async function start() {
   Object.assign(shapeCatalog, app.info.shapes || {});
   applyPrefs(app.prefs);
   canvas.init(document.getElementById("stage"));
+  canvas.onKeyClick = (id) => app.toggleKeyObject(id);
+  canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);
   rulers.init(document.querySelector(".stage-wrap"));
   // Dragging a new guide out of a ruler shows the guides if they were hidden
   rulers.onNeedGuides = () => {

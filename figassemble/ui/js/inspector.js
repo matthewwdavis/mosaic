@@ -3,8 +3,11 @@
 
 import { rpc } from "./api.js";
 import { canvas, findDeep, pageGuides, shiftItem } from "./canvas.js";
+import { icon } from "./panels.js";
 import { store } from "./store.js";
-import { UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, lineSamples, shapeCatalog, shapeName, toUnit } from "./util.js";
+import {
+  UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, lengthText, lineSamples, shapeCatalog, shapeName, toUnit,
+} from "./util.js";
 
 const DASHES = [["solid", "Solid"], ["sysDot", "Round dot"], ["sysDash", "Short dash"], ["dash", "Dash"],
   ["dashDot", "Dash dot"], ["lgDash", "Long dash"], ["lgDashDot", "Long dash dot"], ["lgDashDotDot", "Long dash dot dot"],
@@ -219,7 +222,7 @@ export const inspector = {
 
   // [key, tab name, sections] for one object
   itemTabs(it) {
-    const arrange = ["arrange", "Arrange", [this.objectSection(it), this.arrangeSection(it)]];
+    const arrange = ["arrange", "Arrange", [this.objectSection(it), this.arrangeSection(it), ...this.alignSections(1)]];
     if (it.type === "picture") return [arrange, ["picture", "Picture", [this.pictureSection(it)]]];
     if (it.type === "line") return [arrange, ["style", "Style", [this.strokeSection(it), this.endsSection(it), this.outlineSection(it)]]];
     if (it.type === "group") {
@@ -511,17 +514,27 @@ export const inspector = {
   // Several items ------------------------------------------------------------------------
 
   multiTabs(sel) {
-    const a = (cmd, label, icon) => button(label, () => this.app.run(cmd), icon);
-    return [["arrange", "Arrange", [section("Align and distribute", [
+    return [["arrange", "Arrange", [...this.alignSections(sel.length), section("Objects", [
       h("p", { class: "hint" }, sel.map((it) => itemLabel(it, store.doc)).slice(0, 6).join(", ") + (sel.length > 6 ? "…" : "")),
-      h("div", { class: "button-row" }, a("alignLeft", "Align left edges", "⇤"), a("alignCenter", "Align centres", "↔"),
-        a("alignRight", "Align right edges", "⇥")),
-      h("div", { class: "button-row" }, a("alignTop", "Align top edges", "⤒"), a("alignMiddle", "Align middles", "↕"),
-        a("alignBottom", "Align bottom edges", "⤓")),
-      h("div", { class: "button-row" }, a("distributeH", "Distribute horizontally", "Space across"),
-        a("distributeV", "Distribute vertically", "Space down")),
-      h("div", { class: "button-row" }, a("group", "Group", "Group"), a("delete", "Delete", "Delete")),
-    ])]]];
+      h("div", { class: "button-row" }, button("Group", () => this.app.run("group"), "Group"),
+        button("Delete", () => this.app.run("delete"), "Delete"))])]]];
+  },
+  // Align, distribute and spacing, as in the ribbon's Arrange tab (one object aligns to the page)
+  alignSections(n) {
+    const b = (cmd, ic) => iconButton(this.app, cmd, ic);
+    const align = section(n === 1 ? "Align to page" : "Align", [h("div", { class: "button-row icons" },
+      b("alignLeft", "alignLeft"), b("alignCenter", "alignCenter"), b("alignRight", "alignRight"),
+      b("alignTop", "alignTop"), b("alignMiddle", "alignMiddle"), b("alignBottom", "alignBottom"))]);
+    if (n === 1) return [align];
+    return [align,
+      section("Distribute", [h("div", { class: "button-row icons" },
+        b("distributeLeft", "distLeft"), b("distributeCenter", "distCenter"), b("distributeRight", "distRight"),
+        b("distributeTop", "distTop"), b("distributeMiddle", "distMiddle"), b("distributeBottom", "distBottom"))]),
+      section("Spacing", [h("div", { class: "row" },
+        h("div", { class: "button-row icons" }, b("distributeH", "spaceH"), b("distributeV", "spaceV")), gapField(this.app)),
+      h("p", { class: "hint" }, "Equal gaps between neighbours; with a gap set, exactly that gap.")]),
+      section("Align to", [alignToField(this.app), h("p", { class: "hint" },
+        "Key object: the one that stays put. Click one of the selected objects to make it the key.")])];
   },
 };
 
@@ -678,6 +691,34 @@ function radioField(text, value, options, onChange) {
       input.addEventListener("change", () => { if (input.checked) onChange(v); });
       return h("label", { for: id, class: "radio" }, input, h("span", {}, l));
     }));
+}
+// A command as a small icon button (its name and shortcut in the tooltip)
+function iconButton(app, cmd, iconName) {
+  const c = app.commands[cmd];
+  return button(`${c.label}${c.keys ? ` (${c.keys})` : ""}`, () => app.run(cmd), icon(iconName), "icon-btn");
+}
+// The gap for spacing objects evenly: blank for "as even as fits", or an exact length
+export function gapField(app) {
+  const u = app.prefs.units || "cm", id = `f${++fieldId}`, gap = app.prefs.spacing_gap;
+  const input = h("input", { id, type: "text", inputmode: "decimal", class: "gap-input", placeholder: "auto",
+    value: gap == null ? "" : fmt(toUnit(gap, u), 3), "data-sync": "spacing_gap", "aria-describedby": `${id}-u` });
+  input.addEventListener("change", () => {
+    const v = parseFloat(input.value);
+    const pt = Number.isFinite(v) && v >= 0 ? fromUnit(v, u) : null;
+    app.rememberUi({ spacing_gap: pt });
+    for (const el of document.querySelectorAll('[data-sync="spacing_gap"]')) el.value = pt == null ? "" : fmt(toUnit(pt, u), 3);
+    announce(pt == null ? "Spacing: as even as fits" : `Spacing: ${lengthText(pt, true)} apart`);
+  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); e.stopPropagation(); });
+  return h("div", { class: "field gap" }, label("Gap", id),
+    h("div", { class: "with-unit" }, input, h("span", { class: "unit", id: `${id}-u`, "aria-label": unitName(u) }, UNIT_LABEL[u])));
+}
+// What aligning and distributing line up with
+export function alignToField(app) {
+  const f = selectField("Align to", app.prefs.align_to || "selection",
+    [["selection", "Selection"], ["key", "Key object"], ["page", "Page"]], (v) => app.setAlignTo(v));
+  f.querySelector("select").dataset.sync = "align_to";
+  return f;
 }
 export function button(labelText, onClick, content, cls = "") {
   return h("button", { type: "button", class: `btn ${cls}`, title: labelText, "aria-label": labelText, onclick: onClick }, content ?? labelText);

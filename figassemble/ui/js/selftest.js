@@ -20,6 +20,7 @@ async function choose(label, value) {
   await new Promise((r) => setTimeout(r, 60));
   return true;
 }
+const findItem = (doc, id) => doc.pages[store.pageIndex].items.find((i) => i.id === id);
 const pageSize = () => `${(store.page().width / MMPT).toFixed(1)} × ${(store.page().height / MMPT).toFixed(1)} mm`;
 function fieldByLabel(text) {
   inspector.render();
@@ -587,6 +588,43 @@ export async function run(app, params) {
     key("'", { metaKey: true, ctrlKey: true });
     await until(() => app.prefs.show_grid === false);
     canvas.fit();
+
+    // Align and distribute as in Illustrator: by centres, to a key object, with an exact gap, to the page
+    const fr = (id) => store.item(id).frame;
+    store.update("Spread for test", (doc) => { findItem(doc, "eqB").frame[0] = 400; findItem(doc, "eqD").frame[0] = 600; });
+    store.select(["eqA", "eqB", "eqC"]);
+    check(document.querySelector('#rpanel-arrange [data-cmd="distributeCenter"]') && document.querySelector('#rpanel-arrange [data-sync="spacing_gap"]')
+      && document.querySelector('#rpanel-arrange [data-sync="align_to"]'), "the Arrange tab has distribute, spacing and align-to controls");
+    app.run("distributeCenter");
+    check(near(fr("eqB")[0], 390, 1e-6) && near(fr("eqA")[0], 330, 1e-6) && near(fr("eqC")[0], 450, 1e-6),
+      "Distribute centres spaces the centres evenly between the outer two", `${fr("eqA")[0]} ${fr("eqB")[0]} ${fr("eqC")[0]}`);
+    const cAt = screenOf(fr("eqC")[0] + 20, fr("eqC")[1] + 20);
+    pointer("pointerdown", cAt);
+    pointer("pointerup", cAt);
+    await settle();
+    check(app.prefs.align_to === "key" && app.keyObject()?.id === "eqC" && store.selection.length === 3,
+      "clicking one of the selected objects makes it the key object", `${app.prefs.align_to} ${app.keyObject()?.id} ${store.selection}`);
+    store.update("Nudge for test", (doc) => { findItem(doc, "eqA").frame[1] = 470; findItem(doc, "eqB").frame[1] = 530; });
+    app.run("alignTop");
+    check(near(fr("eqA")[1], 500, 1e-6) && near(fr("eqB")[1], 500, 1e-6) && near(fr("eqC")[1], 500, 1e-6),
+      "Align tops lines them up with the key object, which stays put", `${fr("eqA")[1]} ${fr("eqB")[1]} ${fr("eqC")[1]}`);
+    const gapIn = document.querySelector('#rpanel-arrange [data-sync="spacing_gap"]');
+    gapIn.value = "0.5";
+    gapIn.dispatchEvent(new Event("change"));
+    app.run("distributeH");
+    const g05 = (0.5 * 72) / 2.54;
+    check(near(fr("eqC")[0], 450, 1e-6) && near(fr("eqB")[0], 450 - g05 - 40, 1e-6) && near(fr("eqA")[0], 450 - 2 * (g05 + 40), 1e-6),
+      "a set gap spaces them exactly that far apart, counted out from the key object", `${fr("eqA")[0]} ${fr("eqB")[0]} ${fr("eqC")[0]}`);
+    gapIn.value = "";
+    gapIn.dispatchEvent(new Event("change"));
+    const toSel = document.querySelector('#rpanel-arrange [data-sync="align_to"]');
+    toSel.value = "page";
+    toSel.dispatchEvent(new Event("change"));
+    store.select(["eqA", "eqB"]);
+    app.run("alignRight");
+    check(near(fr("eqA")[0] + 40, pg().width, 1e-6) && near(fr("eqB")[0] + 40, pg().width, 1e-6) && app.prefs.spacing_gap == null,
+      "aligning to the page puts their right edges on the page's edge", `${fr("eqA")[0]} ${fr("eqB")[0]}`);
+    app.setAlignTo("selection");
 
     // A new page starts with this page's guides; Remove all clears them
     const guidesNow = JSON.stringify(pg().guides);
