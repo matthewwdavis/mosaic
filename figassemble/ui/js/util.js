@@ -256,6 +256,7 @@ export function itemLabel(it, doc) {
     return (generic ? doc.assets[it.asset]?.name : it.name) || "Picture";
   }
   if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_end || it.arrow_start ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
+  if (it.type === "group" && it.clip) return it.name || `Clipping mask (${it.items.length - 1})`;
   if (it.type === "group") return it.name && !/^Group \d+$/.test(it.name) ? it.name : `Group (${it.items.length})`;
   const t = itemText(it);
   return t ? `“${t.slice(0, 40)}”` : shapeName(it.geom);

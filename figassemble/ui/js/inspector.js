@@ -299,9 +299,17 @@ export const inspector = {
         button("Make it an ordinary shape that stays put when the lines move", () => this.app.detachArea(), "Make an ordinary shape")])]];
       return [fillArrange, ["style", "Style", [this.fillSection(it), this.outlineSection(it)]]];
     }
+    if (it.type === "group" && it.clip) {
+      arrange[2].push(section("Clipping mask", [
+        h("p", { class: "hint" }, `Its top shape clips the ${it.items.length - 1} object${it.items.length === 2 ? "" : "s"} under it. `
+          + "Double-click it (or press Enter) to move them within the shape, or to change the shape."),
+        button("Release the clipping mask: separate the shape and what it clips", () => this.app.run("releaseClipMask"), "Release")]));
+      return [arrange];
+    }
     if (it.type === "group") {
       arrange[2].push(section("Group", [
-        h("p", { class: "hint" }, `${it.items.length} objects. Ungroup (${this.app.mod}Shift+G) to edit them one by one.`),
+        h("p", { class: "hint" }, `${it.items.length} objects. Double-click it to edit them inside it, or Ungroup `
+          + `(${this.app.mod}Shift+G) to separate them.`),
         button("Ungroup", () => this.app.run("ungroup"), "Ungroup")]));
       return [arrange];
     }
@@ -451,12 +459,47 @@ export const inspector = {
           o.frame[2] /= sc;
           o.frame[3] /= sc;
         }), "100%")),
+      ...this.cropShapeFields(it),
       selectField("Export from", it.source || "auto", exportKinds, (v) => this.edit("Export source", (o) => { o.source = v; })),
       h("div", { class: "button-row" },
         button("Replace with another file", () => this.app.run("replacePicture"), "Replace…"),
         button("Show the linked file in the Finder", () => this.app.run("revealPicture"), "Show file"),
         button("Stop following the file; keep the stored copy", () => this.app.run("unlinkPicture"), "Unlink")),
     ]);
+  },
+  // Crop to shape (PowerPoint's): the picture shows only inside a shape fitted to its frame,
+  // with the shape's adjustments and corner rounding
+  cropShapeFields(it) {
+    const mk = it.mask, info = mk && shapeCatalog.shapes[mk.geom];
+    const groups = [["No shape", [["", "None (the whole frame)"]]],
+      ...shapeCatalog.groups.map((g) => [g.title, g.shapes.filter((geom) => shapeCatalog.shapes[geom]?.closed)
+        .map((geom) => [geom, shapeName(geom)])]).filter(([, opts]) => opts.length)];
+    const kids = [groupedSelectField("Crop to shape", mk?.geom || "", groups, (v) => this.edit(v ? "Crop to shape" : "No shape crop", (o) => {
+      if (v) o.mask = { geom: v };
+      else delete o.mask;
+    }))];
+    if (!mk) return kids;
+    const fields = (info?.adjust || []).map((a) => numField(`Shape: ${a.label}`, (mk.adj?.[a.name] ?? a.default) * a.factor, a.unit,
+      (v) => this.setMaskAdjust(it.id, a, v), { step: 1, min: a.unit === "deg" || a.min === null ? undefined : a.min * a.factor,
+        max: a.unit === "deg" || a.max === null ? undefined : a.max * a.factor }));
+    if (info?.corners) {
+      fields.push(numField("Shape: corner rounding", (mk.rounding || 0) * 100, "%", (v) => this.edit("Corner rounding", (o) => {
+        o.mask = { ...o.mask, rounding: Math.min(Math.max(v, 0), 100) / 100 };
+        if (!o.mask.rounding) delete o.mask.rounding;
+      }), { min: 0, max: 100, step: 5 }));
+    }
+    for (let i = 0; i < fields.length; i += 2) kids.push(fields[i + 1] ? row(fields[i], fields[i + 1]) : fields[i]);
+    kids.push(h("p", { class: "hint" }, "The picture shows only inside the shape, which fits its frame. Crop moves the picture "
+      + "within it; resizing the picture resizes the shape."));
+    return kids;
+  },
+  async setMaskAdjust(id, a, shown) {
+    let v = shown / a.factor;
+    if (a.unit === "deg") v = ((v % 360) + 360) % 360;
+    const it = store.item(id);
+    if (!it?.mask) return;
+    const stored = await rpc("clamp_adjust", { geom: it.mask.geom, frame: it.frame, adj: it.mask.adj }, a.name, v);
+    this.edit(a.label, (o) => { o.mask = { ...o.mask, adj: { ...(o.mask.adj || {}), [a.name]: stored } }; });
   },
   async updateLinkStatus(asset, assetId, el) {
     try {

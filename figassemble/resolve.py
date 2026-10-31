@@ -283,6 +283,47 @@ def shape_interior(geom: str, shape_paths: list, m: Matrix, fill, stroke) -> lis
     return [(a.transformed(m), even_odd) for a in areas] or None
 
 
+def shape_area(geom: str, frame, rot=0.0, flip_h=False, flip_v=False, adj=None, rounding=0.0, path=None,
+               even_odd=False, local=False) -> list | None:
+    """A shape's area, filled or not, to clip by (a picture's crop shape, a clipping mask): its
+    fill paths, or else its closed lines, on the page or in its own frame (local)."""
+    x, y, w, h = frame
+    sps = custom_paths(path or {}, w, h) if geom == "custom" else presets.shape_paths(geom, w, h, adj)
+    if rounding:
+        sps = round_shape_paths(sps, rounding)
+    areas = [sp.path for sp in sps if sp.fill and not sp.path.is_empty]
+    if not areas:
+        areas = [sub for sp in sps if sp.stroke for sub in sp.path.subpaths() if sub.is_closed()]
+    m = Matrix() if local else frame_matrix(frame, rot, flip_h, flip_v)
+    return [(a.transformed(m), even_odd) for a in areas] or None
+
+
+def item_area(item: dict, local: bool = False) -> list | None:
+    """What clips by an item: a picture's crop shape (mask), or a shape's area."""
+    flips = (float(item.get("rot", 0.0)), bool(item.get("flip_h")), bool(item.get("flip_v")))
+    if item.get("type") == "picture" and item.get("mask"):
+        mk = item["mask"]
+        return shape_area(mk.get("geom", "rect"), item["frame"], *flips, mk.get("adj"), mk.get("rounding", 0.0), local=local)
+    if item.get("type") == "shape" and item.get("geom") != "region" and item.get("frame"):
+        return shape_area(item.get("geom", "rect"), item["frame"], *flips, item.get("adj"), item.get("rounding", 0.0),
+                          item.get("path"), bool((item.get("fill") or {}).get("even_odd")), local=local)
+    return None
+
+
+def clip_path(area: list) -> tuple:
+    """One path to clip by for an area (several paths are joined)."""
+    return _inside_clip(area)[0]
+
+
+def flat_prims(prims: list):
+    """Every primitive, those inside groups (outlines, clipped pictures) included."""
+    for p in prims:
+        if isinstance(p, DrawGroup):
+            yield from flat_prims(p.prims)
+        else:
+            yield p
+
+
 def make_stroke(d: dict | None) -> Stroke | None:
     if not d:
         return None
@@ -486,12 +527,17 @@ class Resolver:
             r = self._line(item)
         elif kind == "group":
             r = Resolved(item.get("id", ""))
-            for child in item.get("items", []):
+            kids = item.get("items", [])
+            # A clipping mask: its top part's shape clips the rest, and isn't drawn itself
+            area = item_area(kids[-1]) if item.get("clip") and len(kids) > 1 else None
+            for child in kids[:-1] if area else kids:
                 if child.get("hidden"):
                     continue
                 cr = self.resolve(child)
                 r.prims += cr.prims
                 r.warnings += cr.warnings
+            if area and r.prims:
+                r.prims = [DrawGroup(r.prims, 1.0, meta={"role": "clipped", "item": item.get("id")}, clip=[clip_path(area)])]
         else:
             r = Resolved(item.get("id", ""), warnings=[f"unknown item type {kind!r}"])
         r.bbox = union_bbox(p.bbox() for p in r.prims)
@@ -538,6 +584,9 @@ class Resolver:
         r.prims.append(DrawPicture(item["asset"], page_index, (sw, sh), (x0, y0, x1, y1), m,
                                    float(item.get("opacity", 1.0)), item.get("source", "auto"),
                                    meta={"item": item.get("id")}))
+        area = item_area(item)   # cropped to a shape
+        if area:
+            r.prims = [DrawGroup(r.prims, 1.0, meta={"role": "clipped", "item": item.get("id")}, clip=[clip_path(area)])]
         return r
 
     def _shape(self, item: dict) -> Resolved:

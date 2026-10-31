@@ -5,7 +5,7 @@ import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
 import { applyTextStyle } from "./textstyles.js";
 import {
-  PX_PER_PT, announce, apply, clamp, describeItem, frameMatrix, h, hitItem, invert, isMac, itemBBox, itemLabel,
+  PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, frameMatrix, h, hitItem, invert, isMac, itemBBox, itemLabel,
   itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s,
   shapeCatalog, svgMatrix, translate, uid,
 } from "./util.js";
@@ -64,10 +64,10 @@ export const canvas = {
     this.overlay = s("g", { class: "overlay" });
     this.cvdMatrix = s("feColorMatrix", { type: "matrix" });
     const cvd = s("filter", { id: "fa-cvd", "color-interpolation-filters": "linearRGB" });
-    const defs = s("defs");
+    this.defs = s("defs");
     cvd.append(this.cvdMatrix);
-    defs.append(cvd);
-    this.svg.append(defs, this.view, this.overlay);
+    this.defs.append(cvd);
+    this.svg.append(this.defs, this.view, this.overlay);
     stage.append(this.svg);
     this.cvdNote = h("div", { class: "cvd-note", role: "status", hidden: true });
     this.scopeNote = h("div", { class: "scope-note", role: "status", hidden: true });
@@ -216,6 +216,10 @@ export const canvas = {
         e.g.removeAttribute("transform");
         this.syncChildren(e.g, it.items, seen);
         while (e.g.children.length > it.items.length) e.g.lastChild.remove();
+        // A clipping mask: the top part's shape clips the rest and isn't drawn itself
+        const mask = it.clip && it.items.length > 1 ? it.items[it.items.length - 1] : null;
+        if (mask) this.els.get(mask.id).g.style.display = "none";
+        this.clipTo(e, it.id, mask, false);
       } else if (it.type === "picture") {
         this.renderPicture(it, e);
       } else {
@@ -228,7 +232,7 @@ export const canvas = {
     const asset = store.doc.assets[it.asset];
     if (!asset) return;
     const key = JSON.stringify([it.frame, it.crop, it.rot, it.flip_h, it.flip_v, it.opacity, it.page_index,
-      asset.variants, this.previewBucket(it)]);
+      asset.variants, this.previewBucket(it), it.mask]);
     if (e.key === key) return;
     e.key = key;
     const [sw, sh] = (asset.page_sizes && asset.page_sizes[it.page_index || 0]) || asset.size_pt;
@@ -243,6 +247,33 @@ export const canvas = {
     e.g.replaceChildren(inner);
     e.g.setAttribute("transform", svgMatrix(m));
     e.g.setAttribute("opacity", it.opacity ?? 1);
+    this.clipTo(e, it.id, it.mask ? it : null, true);   // cropped to a shape, in its own frame
+  },
+  // A clip from the engine (area_path): a picture's crop shape in its frame, or a clipping
+  // mask's shape on the page. Asked for again only when the shape changes
+  clipTo(e, id, source, local) {
+    const key = source ? JSON.stringify([local, source.type, source.geom, source.frame, source.rot, source.flip_h, source.flip_v,
+      source.adj, source.rounding, source.path, source.mask, source.fill?.even_odd]) : null;
+    if (e.clipKey === key) return;
+    e.clipKey = key;
+    const cid = `fa-area-${id}`;
+    if (!key) {
+      e.g.removeAttribute("clip-path");
+      this.defs.querySelector(`[id="${cid}"]`)?.remove();
+      return;
+    }
+    rpc("area_path", source, local).then((res) => {
+      if (e.clipKey !== key) return;   // changed again meanwhile
+      let cp = this.defs.querySelector(`[id="${cid}"]`);
+      if (!cp) {
+        cp = s("clipPath", { id: cid, clipPathUnits: "userSpaceOnUse" });
+        cp.append(s("path"));
+        this.defs.append(cp);
+      }
+      cp.firstChild.setAttribute("d", res?.d || "M0 0");
+      cp.firstChild.setAttribute("clip-rule", res?.even_odd ? "evenodd" : "nonzero");
+      e.g.setAttribute("clip-path", `url(#${cid})`);
+    }).catch((err) => console.error(err));
   },
   previewVariant(asset) {
     const v = asset.variants;
@@ -507,9 +538,18 @@ export const canvas = {
   itemAt(p) {
     const tol = 4 / this.k;
     const items = store.scopeItems();   // inside a group being edited, only its parts
+    // Inside a clipping mask, its (undrawn) shape is picked only by its edge
+    const parent = store.scope.length ? store.item(store.scope[store.scope.length - 1]) : null;
+    const maskId = parent?.clip ? parent.items[parent.items.length - 1]?.id : null;
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];
-      if (!it.locked && (it.geom === "region" ? this.inArea(it, p) : hitItem(it, p, tol))) return it;
+      if (it.locked) continue;
+      if (it.id === maskId) {
+        const poly = itemCorners(it);
+        if (poly.some((q, j) => distToSegment(p, q, poly[(j + 1) % poly.length]) <= tol)) return it;
+        continue;
+      }
+      if (it.geom === "region" ? this.inArea(it, p) : hitItem(it, p, tol)) return it;
     }
     return null;
   },

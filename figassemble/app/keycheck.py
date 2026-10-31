@@ -169,6 +169,7 @@ STEPS = [
     ("shift+right", {"check": lambda b, s: moved(b, s, 10), "what": "⇧→ moves it 10 pt"}),
     ("cmd+shift+d", {"ran": ["transformAgain"], "check": lambda b, s: moved(b, s, 10), "what": "⌘⇧D moves it 10 pt again"}),
     ("cmd+shift+c", {"ran": ["copyStyle"]}), ("cmd+shift+v", {"ran": ["pasteStyle"]}),
+    ("cmd+7", {"ran": ["makeClipMask"], "check": lambda b, s: s["items"] == b["items"], "what": "⌘7 asks for a shape on top first"}),
     ("cmd+shift+]", {"ran": ["bringToFront"]}),
     ("cmd+]", {"ran": ["bringForward"]}),
     ("cmd+[", {"ran": ["sendBackward"]}),

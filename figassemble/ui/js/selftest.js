@@ -86,7 +86,7 @@ export async function run(app, params) {
     });
     openTab.click();
     const toolbox = document.getElementById("toolbox");
-    check(ribbonTabs.length === 3 && tabRows.every((n) => n === 1) && toolbox.scrollHeight <= toolbox.clientHeight + 1
+    check(ribbonTabs.length === 4 && tabRows.every((n) => n === 1) && toolbox.scrollHeight <= toolbox.clientHeight + 1
       && document.body.scrollWidth <= window.innerWidth + 1, "each ribbon tab fits on one row and the tools fit down the side",
     `rows ${tabRows}; tools ${toolbox.scrollHeight}/${toolbox.clientHeight}; width ${document.body.scrollWidth}`);
     check(near(store.page().width, 210 * MMPT) && near(store.page().height, 297 * MMPT), "new pages are A4", pageSize());
@@ -885,6 +885,44 @@ export async function run(app, params) {
     document.querySelector(".scope-note button").click();
     check(!store.scope.length && document.querySelector(".scope-note").hidden, "the note's Leave group button leaves it", store.scope.join());
     store.select([isoGroup.id]);
+    await app.run("delete");
+
+    // Crop to shape: a picture shown only inside a shape fitted to its frame
+    store.select([pics[0].id]);
+    await choose("Crop to shape", "ellipse");
+    await until(() => canvas.els.get(pics[0].id)?.g.getAttribute("clip-path"), 4000);
+    const picClip = canvas.els.get(pics[0].id)?.g.getAttribute("clip-path") || "";
+    const picClipPath = document.querySelector(`[id="${picClip.slice(5, -1)}"] path`)?.getAttribute("d") || "";
+    check(store.item(pics[0].id).mask?.geom === "ellipse" && picClip && picClipPath.includes("C"),
+      "Crop to shape crops the picture to an ellipse, on the page too",
+      `geom=${store.item(pics[0].id).mask?.geom} clip=${picClip} d=${picClipPath.slice(0, 30)} sel=${store.selection.join()}`);
+    await choose("Crop to shape", "");
+    check(!store.item(pics[0].id).mask && !canvas.els.get(pics[0].id)?.g.getAttribute("clip-path"), "and None takes the shape away");
+    // Clipping masks: the top shape clips what's under it (⌘7), and isn't drawn itself
+    const maskPart = (id, geom, frame) => ({ id, type: "shape", geom, frame, rot: 0, flip_h: false, flip_v: false,
+      stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 }, fill: { color: "#ffd166", opacity: 1 } });
+    store.update("Mask parts", (doc) => doc.pages[store.pageIndex].items.push(maskPart("mkRect", "rect", [60, 480, 120, 60]),
+      maskPart("mkOval", "ellipse", [80, 485, 80, 50])));
+    store.select(["mkRect", "mkOval"]);
+    key("7", { metaKey: true, ctrlKey: true });
+    await settle();
+    const clipGroup = store.selected()[0];
+    await until(() => canvas.els.get(clipGroup?.id)?.g.getAttribute("clip-path"), 4000);
+    check(clipGroup?.clip && clipGroup.items.map((c) => c.id).join() === "mkRect,mkOval"
+      && canvas.els.get(clipGroup.id)?.g.getAttribute("clip-path") && canvas.els.get("mkOval")?.g.style.display === "none",
+    "⌘7 makes a clipping mask: the top shape clips the rest, and isn't drawn", JSON.stringify(clipGroup));
+    // Inside it, a click where the rectangle shows picks the rectangle, not the clipping shape over it
+    canvas.enterGroup(clipGroup.id);
+    await drag([120, 510], [120, 510]);
+    check(store.selection.join() === "mkRect", "inside a clipping mask, a click picks what's clipped; the shape only by its edge",
+      store.selection.join());
+    key("Escape");
+    key("Escape");
+    store.select([clipGroup.id]);
+    await app.run("releaseClipMask");
+    check(store.items().some((it) => it.id === "mkOval") && !store.items().some((it) => it.id === clipGroup.id)
+      && canvas.els.get("mkOval")?.g.style.display !== "none", "Release separates the shape and what it clipped", store.selection.join());
+    store.select(["mkRect", "mkOval"]);
     await app.run("delete");
 
     // Gradient fills: linear, then radial from a corner; stops can be added and reversed

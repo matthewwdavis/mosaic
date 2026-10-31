@@ -29,6 +29,7 @@ const ICONS = {
   plus: "M12 5v14M5 12h14", duplicate: "M8 8h11v11H8zM5 5h11v3M5 5v11h3", trash: "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13",
   again: "M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3",
   sameWidth: "M5 6h14M5 4v4M19 4v4M5 15h14M5 13v4M19 13v4", sameHeight: "M6 5v14M4 5h4M4 19h4M15 5v14M13 5h4M13 19h4",
+  clip: "M4 4h16v16H4zM12 7a5 5 0 110 10 5 5 0 010-10z", unclip: "M4 4h9M4 4v9M20 20h-9M20 20v-9M14 4h6v6M4 14v6h6",
   swatches: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
   textStyles: "M5 5h14M12 5v14M8 19h8M4 12h3M17 12h3",
   fonts: "M4 19l5-14h1l5 14M6 14h7M15 19l3-8h.5l3 8M16 16.5h4",
@@ -206,6 +207,9 @@ export const panels = {
         group("Styles", t("swatches", "swatches"), t("textStyles", "textStyles"), t("fonts", "fonts")),
       ]],
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
+      ["combine", "Combine", [
+        group("Clipping mask", t("makeClipMask", "clip"), t("releaseClipMask", "unclip")),
+      ]],
       ["view", "View", [
         group("Zoom", t("zoomOut", "zoomout"), h("span", { class: "zoom-label", "aria-live": "off" }, "100%"),
           t("zoomIn", "zoomin"), t("zoomFit", "fit"), t("zoom100", "actual"), t("centrePage", "centre")),

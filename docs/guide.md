@@ -35,6 +35,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
      Fit page; Swatches, Text styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group, Order (see
      [Align and distribute](#align-and-distribute)).
+   - **Combine**: clipping masks (Make mask, Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
      a colour vision preview (Check colours).
 2. Each tab's commands, in labelled groups.
@@ -120,6 +121,12 @@ or grown. Its buttons:
 - **Crop**, or double-click the picture, or press Enter: drag the edges to crop, or drag the
   picture to move it inside its frame. Press Enter or Escape when done. **Reset crop** undoes it.
 - **100%** puts it back to true size.
+- **Crop to shape**, as in PowerPoint: the picture shows only inside a shape fitted to its frame
+  (a circle, a rounded rectangle, a star…), with the shape's adjustments (a rounded rectangle's
+  corner radius, say). Crop moves the picture within the shape; **None** takes it away. The
+  shape clips the picture in every export, which still uses the picture's own PDF or SVG.
+
+  ![A plot cropped to a rounded rectangle, with its Picture tab](images/cropshape.png)
 - **Export from** forces one copy (always the PDF, say) instead of the best copy for each format.
 - **Replace…** swaps in another file, keeping the position and scale. Shift-drop a file onto a
   picture does the same.
@@ -283,6 +290,11 @@ the object when it moves, resizes or rotates.
   the unit in Settings), plus flips.
 - **Group (⌘G), Ungroup (⌘⇧G)**; **Order**: bring to front (⌘⇧]), forward (⌘]), backward
   (⌘[), to back (⌘⇧[).
+- **Clipping mask (⌘7)**, as in Illustrator (Combine tab): put a shape on top of the objects it
+  should clip, select them all and click **Make mask**. Only what's inside the shape shows, and
+  the shape itself isn't drawn. They stay together as a clipping mask: double-click it to move
+  things within the shape, or to change the shape (pick it by its edge). **Release** separates
+  them again, the shape as it was.
 - **Editing inside a group**, as in Illustrator: double-click a group (or select it and press
   Enter) to work on its parts without ungrouping it. The rest of the page fades and can't be
   picked, and a note over the page names the group. Click a part to select it on its own; move,
@@ -489,6 +501,7 @@ Press **?** in FigAssemble for this list.
 | Cut, Copy, Paste, Duplicate | ⌘X, ⌘C, ⌘V, ⌘D | Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+D |
 | Transform again (repeat the last move, resize or turn) | ⌘⇧D | Ctrl+Shift+D |
 | Copy style, Paste style | ⌘⇧C, ⌘⇧V | Ctrl+Shift+C, Ctrl+Shift+V |
+| Make clipping mask | ⌘7 | Ctrl+7 |
 | Delete | Delete | Delete or Backspace |
 | Select all | ⌘A | Ctrl+A |
 | Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |

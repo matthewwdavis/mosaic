@@ -6,7 +6,7 @@ import math
 
 from ..assets import get_cache, resolve_link
 from ..model import iter_items
-from ..resolve import DrawPicture, DrawText, Resolver
+from ..resolve import DrawPicture, DrawText, Resolver, flat_prims
 
 MIN_PHOTO_DPI = 300.0
 
@@ -55,7 +55,7 @@ def preflight(doc: dict, options: dict) -> dict:
                     and bb[2] > 0 and bb[3] > 0 and bb[0] < pw and bb[1] < ph:
                 found.append({"level": "info", "item": item.get("id"), "page": page["id"],
                               "message": f"{name} runs past the page edge and will be cut off there"})
-            for prim in r.prims:
+            for prim in flat_prims(r.prims):   # pictures cropped to a shape are inside a group
                 if isinstance(prim, DrawText):
                     for run in prim.runs:
                         if run.text.strip():

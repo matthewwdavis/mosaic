@@ -132,6 +132,16 @@ export async function run(app, params) {
     return finish();
   }
 
+  if (scene === "cropshape") {
+    // The bar chart cropped to a rounded rectangle, with its Picture tab
+    store.update("Crop to shape", (doc) => { doc.pages[0].items.find((i) => i.id === b).mask = { geom: "roundRect", adj: { adj: 0.3 } }; },
+      { select: [b] });
+    inspector.render();
+    document.getElementById("itab-picture")?.click();
+    await settle();
+    await new Promise((r) => setTimeout(r, 400));   // the clip comes from the engine
+    return finish();
+  }
   if (scene === "isolation") {
     // The top two plots grouped, then edited inside: the bar chart picked on its own, the rest faded
     store.select([a, b]);

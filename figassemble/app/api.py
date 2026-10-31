@@ -317,6 +317,16 @@ class Api:
         from .. import regions
         return regions.area_at(items, point)
 
+    def area_path(self, item: dict, local: bool = False) -> dict | None:
+        """What clips by an item (a picture's crop shape, a clipping mask's shape) as SVG path
+        data, on the page or in the item's own frame (local), for the editor: {d, even_odd}."""
+        from ..resolve import clip_path, item_area
+        area = item_area(item, local=bool(local))
+        if not area:
+            return None
+        path, even_odd = clip_path(area)
+        return {"d": path.to_svg(3), "even_odd": bool(even_odd)}
+
     def drag_handle(self, item: dict, index: int, point: list[float]) -> dict:
         """Adjust values that put a shape's handle `index` nearest a frame point."""
         return presets.drag_handle(item["geom"], item["frame"][2], item["frame"][3], item.get("adj"),

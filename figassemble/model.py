@@ -6,13 +6,15 @@ of its vertical and horizontal guides, which help with lining things up and are 
 Every item has an `id` and a `type`:
 
 - picture  {asset, page_index, frame [x, y, w, h], crop [l, t, r, b] (fractions), rot,
-            flip_h, flip_v, opacity, source: auto|pdf|svg|png}
+            flip_h, flip_v, opacity, source: auto|pdf|svg|png, mask {geom, adj, rounding}: cropped to
+            that shape, fitted to the frame}
 - shape    {geom (DrawingML preset name or "custom"), adj, frame, rot, flip_h, flip_v,
             stroke, fill, arrow_start, arrow_end, path (custom), text, textbox, outline, rounding}
 - line     {points [[x, y], ...], curve: straight|smooth, stroke, arrow_start, arrow_end, outline,
             start_link, end_link}: a link {item, site} attaches that end to another object's
             connection point (connect.py), and the editor keeps the end there
-- group    {items: [...]}   children keep page coordinates
+- group    {items: [...], clip}   children keep page coordinates; with clip true it's a clipping
+            mask: its last item, a shape, clips the others and isn't drawn
 
 adj     {name: value}: a preset's adjust values as fractions, or degrees for angles (presets.py)
 rounding 0..1: corner rounding of a shape's straight-edged corners (1 = as round as fits)

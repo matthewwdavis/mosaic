@@ -370,6 +370,39 @@ const app = {
     });
     announce(`Replaced ${from} with ${to}${n ? "" : " (nothing used it)"}`);
   },
+  // Clipping masks, as in Illustrator: the top selected shape clips the others, kept together as
+  // a group whose last part is that shape (drawn only as the clip); Release separates them again
+  makeClipMask() {
+    const ids = new Set(store.selection);
+    const sel = store.scopeItems().filter((it) => ids.has(it.id));
+    if (sel.length < 2) { announce("Select the objects and, on top of them, the shape to clip them with"); return; }
+    const top = sel[sel.length - 1];
+    if (top.type !== "shape" || top.geom === "region") { announce("The top object has to be a shape: it's the one that clips"); return; }
+    const g = { id: uid("it"), type: "group", name: "", clip: true, items: [] };
+    store.update("Make clipping mask", (doc) => {
+      const items = store.container(doc);
+      const at = Math.max(...items.map((it, i) => (ids.has(it.id) ? i : -1)));
+      g.items = items.filter((it) => ids.has(it.id));
+      const rest = items.filter((it) => !ids.has(it.id) || it === items[at]);
+      rest.splice(rest.indexOf(items[at]), 1, g);
+      items.splice(0, items.length, ...rest);
+    }, { select: [g.id] });
+    announce(`${itemLabel(top, store.doc)} now clips ${sel.length - 1} object${sel.length === 2 ? "" : "s"}. Double-click it to move them within it`);
+  },
+  releaseClipMask() {
+    const masks = store.selected().filter((it) => it.type === "group" && it.clip);
+    if (!masks.length) { announce("Select a clipping mask to release"); return; }
+    const kids = [];
+    store.update("Release clipping mask", (doc) => {
+      const items = store.container(doc);
+      for (const m of masks) {
+        const i = items.findIndex((it) => it.id === m.id);
+        kids.push(...items[i].items.map((c) => c.id));
+        items.splice(i, 1, ...items[i].items);
+      }
+    }, { select: kids });
+    announce("Released: the shape and what it clipped are separate again");
+  },
   // Match sizes: the other selected objects take the key object's width (or height), keeping
   // their proportions and their top-left corners. Line widths don't scale, so the box grows in a
   // straight line with the factor: one trial scale gives the exact one
@@ -1047,6 +1080,9 @@ app.commands = {
     + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
   sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the first selected), keeping "
     + "their proportions", () => app.matchSize("h"), null, null, "Same height"),
+  makeClipMask: cmd("Make clipping mask: the top selected shape clips the objects under it", () => app.makeClipMask(),
+    `${M}7`, key("7"), "Make mask"),
+  releaseClipMask: cmd("Release clipping mask: separate the shape and what it clips", () => app.releaseClipMask(), null, null, "Release"),
   copyStyle: cmd("Copy style", () => app.copyStyle(), `${M}${S}C`, key("c", { shift: true }), "Copy style"),
   pasteStyle: cmd("Paste style", () => app.pasteStyle(), `${M}${S}V`, key("v", { shift: true }), "Paste style"),
   formatPainter: cmd("Format painter: click it, then click an object to give it the selected object's style "
