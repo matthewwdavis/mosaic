@@ -7,11 +7,11 @@ window.addEventListener("unhandledrejection", (e) => window.__faErrors.push(Stri
 
 import { rpc } from "./api.js";
 import { canvas, findDeep, reid, shiftGuides, shiftItem } from "./canvas.js";
-import { inspector } from "./inspector.js";
+import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
 import { store } from "./store.js";
-import { MOD, announce, clone, describeItem, display, isMac, itemBBox, itemsBBox, lineMidpoints, shapeCatalog, uid } from "./util.js";
+import { MOD, announce, clone, describeItem, display, h, isMac, itemBBox, itemsBBox, lineMidpoints, shapeCatalog, uid } from "./util.js";
 
 const app = {
   prefs: {},
@@ -711,7 +711,7 @@ async function start() {
   if (params.get("open")) await app.open(params.get("open"));
   else {
     store.setDoc(await rpc("new_document"));
-    const saved = await rpc("autosaved").catch(() => []);
+    const saved = await rpc("autosaved", store.autosaveKey).catch(() => []);
     if (saved.length) offerRecovery(saved);
   }
   canvas.fit();
@@ -722,34 +722,51 @@ async function start() {
   }, 60000);
   window.addEventListener("beforeunload", (e) => { if (store.dirty && !app.info.native) { e.preventDefault(); e.returnValue = ""; } });
   window.FA.app = app;
+  app.offerRecovery = offerRecovery;
   document.body.classList.add("ready");
   announce("FigAssemble is ready. Drop figure files onto the page, or press I to insert a picture.");
   if (params.get("selftest")) import("./selftest.js").then((m) => m.run(app, params));
 }
 
+// Work that wasn't saved last time: recover a document, or delete copies that aren't wanted
 function offerRecovery(saved) {
-  const list = saved.map((s) => {
-    const when = new Date(s.modified * 1000).toLocaleString();
-    const li = document.createElement("li");
-    const open = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: `Recover (${when})` });
-    open.addEventListener("click", async () => {
-      document.querySelector("dialog[open]")?.close();
-      const res = await rpc("open_document", s.path);
-      store.setDoc(res.doc, null);
-      store.dirty = true;
-      canvas.fit();
-    });
-    li.append(open);
-    return li;
+  const list = h("ul", { class: "recovery-list" });
+  const deleteAll = h("button", { type: "button", class: "btn" }, "Delete all");
+  let items = saved, dlg = null;
+  const show = (left) => {
+    items = left;
+    if (!items.length) { dlg?.close(); return; }
+    list.replaceChildren(...items.map((s) => {
+      const when = new Date(s.modified * 1000).toLocaleString();
+      const what = `${s.pages} page${s.pages === 1 ? "" : "s"}, ${s.objects} object${s.objects === 1 ? "" : "s"} · ${when}`;
+      return h("li", {},
+        h("div", { class: "recovery-name" }, s.title), h("div", { class: "hint" }, what),
+        h("div", { class: "button-row" },
+          button(`Recover ${s.title}, ${when}`, async () => {
+            dlg.close();
+            const res = await rpc("open_document", s.path);
+            store.setDoc(res.doc, null);
+            // Keep writing to this copy, so saving the document clears it
+            store.autosaveKey = s.path.split(/[\\/]/).pop().replace(/\.figasm$/i, "");
+            store.dirty = true;
+            canvas.fit();
+            announce(`Recovered ${s.title}`);
+          }, "Recover", "primary"),
+          button(`Delete ${s.title}, ${when}`, async () => {
+            if (!(await panels.confirmDeleteRecovery(1))) return;
+            show(await rpc("delete_autosaves", [s.path], store.autosaveKey));
+            announce(`Deleted the unsaved copy of ${s.title}`);
+          }, "Delete")));
+    }));
+  };
+  deleteAll.addEventListener("click", async () => {
+    if (!(await panels.confirmDeleteRecovery(items.length))) return;
+    show(await rpc("delete_autosaves", items.map((s) => s.path), store.autosaveKey));
+    announce("Deleted all unsaved work from earlier sessions");
   });
-  const ul = document.createElement("ul");
-  ul.className = "plain";
-  ul.append(...list);
-  const p = document.createElement("p");
-  p.textContent = "FigAssemble found work that wasn't saved last time.";
-  const body = document.createElement("div");
-  body.append(p, ul);
-  panels.dialog("Recover unsaved work?", body);
+  show(saved);
+  dlg = panels.dialog("Recover unsaved work?", h("div", {},
+    h("p", {}, "FigAssemble kept copies of documents that weren't saved:"), list), [deleteAll], "Not now");
 }
 
 start().catch((err) => {

@@ -9,6 +9,7 @@ import platform
 import subprocess
 import sys
 import threading
+import zipfile
 
 from .. import __version__, docfile, model, presets
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
@@ -131,16 +132,38 @@ class Api:
         docfile.save(doc, path, prune=False)
         return {"path": path}
 
-    def autosaved(self) -> list[dict]:
+    def autosaved(self, exclude_key: str | None = None) -> list[dict]:
+        """Recovery copies of unsaved documents, newest first (the current session's left out),
+        with what's in each so they can be told apart."""
         d = os.path.join(config_dir(), "autosave")
         if not os.path.isdir(d):
             return []
         out = []
-        for n in sorted(os.listdir(d)):
-            if n.endswith(docfile.EXTENSION):
-                p = os.path.join(d, n)
-                out.append({"path": p, "modified": os.path.getmtime(p)})
-        return out
+        for n in os.listdir(d):
+            if not n.endswith(docfile.EXTENSION) or (exclude_key and n == f"{exclude_key}{docfile.EXTENSION}"):
+                continue
+            p = os.path.join(d, n)
+            entry = {"path": p, "modified": os.path.getmtime(p), "bytes": os.path.getsize(p)}
+            try:
+                with zipfile.ZipFile(p) as z:
+                    doc = json.loads(z.read(docfile.DOC_NAME))
+                pages = doc.get("pages", [])
+                entry.update(title=(doc.get("meta") or {}).get("title") or "Untitled figure", pages=len(pages),
+                             objects=sum(len(pg.get("items", [])) for pg in pages))
+            except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+                entry.update(title="Unreadable copy", pages=0, objects=0)
+            out.append(entry)
+        return sorted(out, key=lambda e: -e["modified"])
+
+    def delete_autosaves(self, paths: list[str], exclude_key: str | None = None) -> list[dict]:
+        """Delete recovery copies (only ever files in FigAssemble's own autosave folder); returns
+        the ones left."""
+        d = os.path.realpath(os.path.join(config_dir(), "autosave"))
+        for p in paths or []:
+            real = os.path.realpath(p)
+            if os.path.dirname(real) == d and real.endswith(docfile.EXTENSION) and os.path.isfile(real):
+                os.remove(real)   # FigAssemble's own autosave file
+        return self.autosaved(exclude_key)
 
     def discard_autosave(self, key: str) -> bool:
         p = os.path.join(config_dir(), "autosave", f"{key}{docfile.EXTENSION}")

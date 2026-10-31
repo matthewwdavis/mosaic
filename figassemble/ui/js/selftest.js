@@ -605,6 +605,31 @@ export async function run(app, params) {
     if (!keepAids) { store.setPage(aidsPage); await app.run("deletePage"); }
     store.setPage(0);
 
+    // Unsaved work from earlier sessions: delete one copy, then all, from the recovery offer
+    await rpc("autosave", store.doc, "selftest-old-1");
+    await rpc("autosave", store.doc, "selftest-old-2");
+    app.offerRecovery(await rpc("autosaved", store.autosaveKey));
+    const recDlg = [...document.querySelectorAll("dialog[open]")].pop();
+    const recCount = () => recDlg?.querySelectorAll(".recovery-list li").length;
+    check(recCount() === 2 && /2 pages|1 page/.test(recDlg.textContent), "the recovery offer lists unsaved documents and what's in them",
+      recDlg?.textContent.slice(0, 200));
+    recDlg.querySelector('.recovery-list button[aria-label^="Delete"]').click();
+    await until(() => recCount() === 1);
+    check(recCount() === 1, "Delete removes one copy (after a warning)");
+    [...recDlg.querySelectorAll("button")].find((b) => b.textContent === "Delete all").click();
+    await until(() => !recDlg.open);
+    check(!recDlg.open && (await rpc("autosaved", store.autosaveKey)).length === 0, "Delete all removes the rest and closes the offer");
+    await rpc("autosave", store.doc, "selftest-old-3");
+    await app.run("preferences");
+    const prefDlg = [...document.querySelectorAll("dialog[open]")].pop();
+    await until(() => /1 unsaved document/.test(prefDlg.textContent));
+    check(/1 unsaved document from earlier sessions/.test(prefDlg.textContent), "Settings says how much unsaved work is kept");
+    [...prefDlg.querySelectorAll("button")].find((b) => b.textContent === "Delete all…").click();
+    await until(() => /No unsaved work/.test(prefDlg.textContent));
+    check(/No unsaved work/.test(prefDlg.textContent) && (await rpc("autosaved", store.autosaveKey)).length === 0,
+      "and Delete all there clears it");
+    prefDlg.close();
+
     // Export, save and reopen
     if (out) {
       const res = await rpc("export", store.doc, { base: `${out}/selftest`, formats: ["pdf", "svg", "png"], dpi: 150,
@@ -633,6 +658,11 @@ export async function run(app, params) {
     // The View menu open, or Preferences (its rulers, grid and guides settings)
     if (params.get("finalSelect") === "viewmenu") setTimeout(() => document.getElementById("view-button").click(), 300);
     if (params.get("finalSelect") === "prefs") setTimeout(() => app.run("preferences"), 300);
+    if (params.get("finalSelect") === "recovery") {
+      await rpc("autosave", store.doc, "selftest-shot-1");
+      await rpc("autosave", store.doc, "selftest-shot-2");
+      app.offerRecovery(await rpc("autosaved", store.autosaveKey));
+    }
     if (keepAids) {
       // Leave the layout-aids page with the grid and guides showing: "guides" mid-way through
       // dragging a box into an equal gap, "guidelist" with the Page panel's list of guides

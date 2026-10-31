@@ -47,6 +47,10 @@ function pathIcon(d) {
   return svgEl;
 }
 
+export function sizeText(bytes) {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 // Roving focus for toolbars and lists: arrow keys move between items, Tab leaves
 function roving(container, selector, vertical = false) {
   container.addEventListener("keydown", (e) => {
@@ -468,14 +472,14 @@ export const panels = {
 
   // Dialogs ------------------------------------------------------------------------------
 
-  dialog(title, body, actions = []) {
+  dialog(title, body, actions = [], closeLabel = null) {
     const id = `dlg-${Date.now()}`;
     const dlg = h("dialog", { class: "dialog", "aria-labelledby": id },
       h("form", { method: "dialog" },
         h("h2", { id }, title),
         h("div", { class: "dialog-body" }, body),
         h("div", { class: "dialog-actions" }, ...actions,
-          h("button", { type: "submit", class: "btn", value: "close" }, actions.length ? "Cancel" : "Close"))));
+          h("button", { type: "submit", class: "btn", value: "close" }, closeLabel || (actions.length ? "Cancel" : "Close")))));
     dlg.addEventListener("close", () => dlg.remove());
     dlg.addEventListener("keydown", (e) => e.stopPropagation());
     document.body.append(dlg);
@@ -622,6 +626,7 @@ export const panels = {
           { min: 1, step: 1 }),
         h("p", { class: "hint" }, "The finer lines appear once you zoom in far enough to see them apart. "
           + "Things snap only to lines you can see.")),
+      this.recoveryFieldset(),
       h("fieldset", {}, h("legend", {}, "New objects"),
         numField("Default text size", p.text?.size || 6, "pt", (v) => this.app.savePrefs({ text: { ...(p.text || {}), size: v } }), { step: 0.5 }),
         numField("Default line width", p.stroke_width || 1, "pt", set("stroke_width"), { step: 0.25 }),
@@ -629,6 +634,34 @@ export const panels = {
         selectField("Panel labels", label.case || "lower", [["lower", "a, b, c"], ["upper", "A, B, C"]],
           (v) => this.app.savePrefs({ panel_label: { ...label, case: v } }))),
     ));
+  },
+
+  // Copies of unsaved documents from earlier sessions, kept to offer back after a crash
+  recoveryFieldset() {
+    const info = h("p", { class: "hint" }, "Checking for unsaved work…");
+    const clear = h("button", { type: "button", class: "btn", disabled: true }, "Delete all…");
+    let kept = [];
+    const show = (items) => {
+      kept = items;
+      const size = items.reduce((n, s) => n + s.bytes, 0);
+      info.textContent = items.length
+        ? `${items.length} unsaved document${items.length === 1 ? "" : "s"} from earlier sessions (${sizeText(size)}).`
+        : "No unsaved work from earlier sessions is kept.";
+      clear.disabled = !items.length;
+    };
+    clear.addEventListener("click", async () => {
+      if (!kept.length || !(await this.confirmDeleteRecovery(kept.length))) return;
+      show(await rpc("delete_autosaves", kept.map((s) => s.path), store.autosaveKey));
+      announce("Deleted the unsaved work from earlier sessions");
+    });
+    rpc("autosaved", store.autosaveKey).then(show).catch(() => { info.textContent = ""; });
+    return h("fieldset", {}, h("legend", {}, "Unsaved work"),
+      h("p", { class: "hint" }, "If FigAssemble closes before you save, it offers your work back next time."),
+      info, clear);
+  },
+  confirmDeleteRecovery(n) {
+    return this.confirm(n === 1 ? "Delete this unsaved document?" : `Delete ${n} unsaved documents?`,
+      `${n === 1 ? "It is" : "They are"} the only copy of work that was never saved. Deleting can't be undone.`, "Delete");
   },
 
   shortcutsDialog() {

@@ -75,3 +75,21 @@ def test_layout_aid_settings(tmp_path, monkeypatch):
     api.prefs_set({"show_grid": True, "snap": False})
     stored = json.loads((tmp_path / "prefs.json").read_text())
     assert stored["show_grid"] is True and stored["snap"] is False and "show_rulers" not in stored
+
+
+def test_recovery_copies_can_be_listed_and_deleted(tmp_path, monkeypatch):
+    from figassemble.app.api import Api
+    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))
+    api = Api()
+    doc = model.new_document("Figure 3 draft")
+    doc["pages"][0]["items"].append(model.text_item("a", 2, 2))
+    api.autosave(doc, "doc-old")
+    api.autosave(model.new_document("Other"), "doc-now")
+    kept = api.autosaved(exclude_key="doc-now")     # this session's own copy is left out
+    assert [(k["title"], k["pages"], k["objects"]) for k in kept] == [("Figure 3 draft", 1, 1)]
+    assert kept[0]["bytes"] > 0
+    outside = tmp_path / "not-an-autosave.figasm"
+    outside.write_text("keep me")
+    left = api.delete_autosaves([kept[0]["path"], str(outside)], exclude_key="doc-now")
+    assert left == [] and outside.exists()               # only FigAssemble's own copies go
+    assert [k["title"] for k in api.autosaved()] == ["Other"]
