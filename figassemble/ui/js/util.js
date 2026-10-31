@@ -208,6 +208,12 @@ export function announce(msg) {
 export const display = { units: "cm" };
 const UNIT_WORDS = { pt: "points", mm: "millimetres", cm: "centimetres", in: "inches", px: "pixels" };
 
+// A length in that unit, e.g. "3.25 cm", or "3.25 centimetres" for announcements
+export function lengthText(pt, words = false) {
+  const u = display.units;
+  return `${fmt(toUnit(pt, u), u === "cm" || u === "in" ? 2 : 1)} ${words ? UNIT_WORDS[u] || u : UNIT_LABEL[u] || u}`;
+}
+
 export function describeItem(it, doc) {
   const u = display.units;
   const n = (v) => fmt(toUnit(v, u), u === "cm" || u === "in" ? 2 : 1);

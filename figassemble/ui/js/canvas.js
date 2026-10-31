@@ -1,16 +1,18 @@
-// The page canvas: rendering, selection, direct manipulation, drawing tools, cropping and
-// in-place text editing. Page coordinates are points; 100% zoom is true size.
+// The page canvas: rendering, selection, direct manipulation, drawing tools, cropping, in-place
+// text editing, the grid, guides and snapping. Page coordinates are points; 100% zoom is true size.
 
 import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
 import {
-  PX_PER_PT, announce, apply, clamp, describeItem, fmt, frameMatrix, h, hitItem, invert, itemBBox,
-  itemCorners, itemsBBox, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s, shapeCatalog, svgMatrix,
-  translate, uid,
+  PX_PER_PT, announce, apply, clamp, describeItem, frameMatrix, h, hitItem, invert, itemBBox,
+  itemCorners, itemsBBox, lengthText, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s, shapeCatalog,
+  svgMatrix, translate, uid,
 } from "./util.js";
 
 const HANDLE = 8;             // handle size, CSS px
 const SNAP_PX = 6;            // snapping distance, CSS px
+const GUIDE_HIT = 4;          // how near (CSS px) the pointer must be to grab a guide
+const GRID_MIN_PX = 6;        // grid lines closer than this on screen aren't drawn, or snapped to
 const ROT_OFFSET = 24;        // rotation handle distance above the frame, CSS px
 const SVG_PREVIEW_LIMIT = 8e6; // bigger SVGs preview as rendered PDFs for speed
 const DEFAULT_SIZE = (72 / 2.54) * 2;   // a click (or Enter) with a drawing tool places a 2 cm object
@@ -42,10 +44,14 @@ export const canvas = {
     this.pageRect = s("rect", { class: "page" });
     this.itemsLayer = s("g", { class: "items" });
     this.ghostLayer = s("g", { class: "ghost" });
-    this.view.append(this.pageShadow, this.pageRect, this.ghostLayer, this.itemsLayer);
+    // The grid and guides lie over the objects (pictures would hide them) and under the handles
+    this.gridLayer = s("g", { class: "grid" });
+    this.guidesLayer = s("g", { class: "guides" });
+    this.view.append(this.pageShadow, this.pageRect, this.ghostLayer, this.itemsLayer, this.gridLayer, this.guidesLayer);
     this.overlay = s("g", { class: "overlay" });
     this.svg.append(this.view, this.overlay);
     stage.append(this.svg);
+    this.setRulers(this.defaults?.show_rulers !== false);
     this.editor = h("div", { class: "text-editor", contenteditable: "true", spellcheck: "false", hidden: true,
       role: "textbox", "aria-multiline": "true", "aria-label": "Text being edited" });
     stage.append(this.editor);
@@ -75,6 +81,7 @@ export const canvas = {
   },
   applyView() {
     this.view.setAttribute("transform", `translate(${this.panX} ${this.panY}) scale(${this.k})`);
+    this.drawGrid();
     this.drawOverlay();
     this.updatePreviews();
     this.positionEditor();
@@ -122,6 +129,8 @@ export const canvas = {
     this.syncChildren(this.itemsLayer, page.items, seen);
     for (const id of [...this.els.keys()]) if (!seen.has(id)) { this.els.get(id).g.remove(); this.els.delete(id); }
     this.flushResolve(detail.live);
+    this.drawGrid();
+    this.drawGuides();
     this.drawOverlay();
     if (this.cropping) this.drawGhost();
   },
@@ -261,13 +270,8 @@ export const canvas = {
     const o = this.overlay;
     o.replaceChildren();
     const sel = store.selected();
-    for (const g of this.snapGuides) {
-      const [x0, y0] = this.toScreen(g.x ?? -1e4, g.y ?? -1e4);
-      const [x1, y1] = this.toScreen(g.x ?? 1e4, g.y ?? 1e4);
-      o.append(s("line", { class: "snap-guide", x1: g.x !== undefined ? x0 : -1e4, x2: g.x !== undefined ? x0 : 1e5,
-        y1: g.y !== undefined ? y0 : -1e4, y2: g.y !== undefined ? y0 : 1e5 }));
-      void x1; void y1;
-    }
+    this.drawSnapGuides(o);
+    if (this.op?.type === "guide") this.drawGuideLabel(o);
     if (this.op?.type === "marquee") {
       const [ax, ay] = this.op.start, [bx, by] = this.op.cur;
       o.append(s("rect", { class: "marquee", x: Math.min(ax, bx), y: Math.min(ay, by),
@@ -379,6 +383,9 @@ export const canvas = {
       this.cropping = null;
       this.ghostLayer.replaceChildren();
     }
+    // Objects come first; a guide can be dragged where nothing covers it, or by its mark on a ruler
+    const guide = hit ? null : this.guideAt(pt);
+    if (guide) return this.startGuide(guide.axis, guide.index);
     if (hit) {
       let sel = store.selection;
       if (e.shiftKey) sel = sel.includes(hit.id) ? sel.filter((i) => i !== hit.id) : [...sel, hit.id];
@@ -408,6 +415,7 @@ export const canvas = {
     if (op.type === "rotate") return this.rotateTo(p, e);
     if (op.type === "end") return this.endTo(p, e);
     if (op.type === "adjust") return this.adjustTo(p);
+    if (op.type === "guide") return this.guideTo(pt, e);
     if (op.type === "draw") return this.drawTo(p, e);
     if (op.type === "crop") return this.cropTo(p, e);
     if (op.type === "cropmove") return this.cropMoveTo(p, e);
@@ -418,6 +426,7 @@ export const canvas = {
     try { this.stage.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
     this.snapGuides = [];
     if (!op) return;
+    if (op.type === "guide") return this.finishGuide(op, cancelled);
     if (op.type === "marquee") {
       const [ax, ay] = this.toPage(...op.start), [bx, by] = this.toPage(...op.cur);
       const box = [Math.min(ax, bx), Math.min(ay, by), Math.max(ax, bx), Math.max(ay, by)];
@@ -457,6 +466,10 @@ export const canvas = {
           : (hd.kind === "end" || hd.kind === "point") ? "move" : resizeCursor(hd.dir, store.selected()[0]);
       }
       else if (this.itemAt(p)) cursor = "move";
+      else {
+        const guide = this.guideAt(pt);
+        if (guide) cursor = guide.axis === "x" ? "col-resize" : "row-resize";
+      }
     }
     this.stage.style.cursor = cursor;
   },
@@ -519,48 +532,249 @@ export const canvas = {
   },
 
   // Snapping -------------------------------------------------------------------------
+  // While snapping is on, things snap to the page's edges and centre, to other objects' edges and
+  // centres, to equal gaps between objects, and to guides and the grid while they're shown (never
+  // to lines that can't be seen); the grid only when nothing else is near. The Snap button turns it
+  // off; holding ⌘/Ctrl ignores it for one drag. Lines to snap to are {v, span}: span is the
+  // stretch across that they belong to (null for guides, which cross everything).
 
-  snapTargets(excludeIds) {
-    const page = store.page();
-    const xs = [0, page.width / 2, page.width, ...(page.guides?.x || [])];
-    const ys = [0, page.height / 2, page.height, ...(page.guides?.y || [])];
+  snapTargets(excludeIds, { guides = true } = {}) {
+    const page = store.page(), d = this.defaults || {};
+    const xs = [], ys = [], boxes = [];
+    for (const v of [0, page.width / 2, page.width]) xs.push({ v, span: [0, page.height] });
+    for (const v of [0, page.height / 2, page.height]) ys.push({ v, span: [0, page.width] });
+    if (guides && d.show_guides !== false) {
+      for (const v of page.guides?.x || []) xs.push({ v, span: null });
+      for (const v of page.guides?.y || []) ys.push({ v, span: null });
+    }
     for (const it of store.items()) {
       if (excludeIds.includes(it.id) || it.hidden) continue;
       const b = itemBBox(it);
-      xs.push(b[0], (b[0] + b[2]) / 2, b[2]);
-      ys.push(b[1], (b[1] + b[3]) / 2, b[3]);
+      boxes.push(b);
+      for (const v of [b[0], (b[0] + b[2]) / 2, b[2]]) xs.push({ v, span: [b[1], b[3]] });
+      for (const v of [b[1], (b[1] + b[3]) / 2, b[3]]) ys.push({ v, span: [b[0], b[2]] });
     }
-    return { xs, ys };
+    return { xs, ys, boxes, grid: d.show_grid ? this.gridSteps().snap : null, size: [page.width, page.height] };
   },
   snapEnabled(e) { return (this.defaults?.snap ?? true) && !(e.metaKey || e.ctrlKey); },
+  // Moving: the box's edges and centre snap to lines, or the box to equal gaps beside it
   snapMove(b, dx, dy, targets, e) {
     this.snapGuides = [];
     if (!this.snapEnabled(e) || !b) return [dx, dy];
     const tol = SNAP_PX / this.k;
-    const pick = (vals, cands) => {
-      let best = null;
-      for (const v of vals) for (const c of cands) {
-        const d = c - v;
-        if (Math.abs(d) <= tol && (best === null || Math.abs(d) < Math.abs(best.d))) best = { d, c };
-      }
-      return best;
-    };
-    const sx = pick([b[0] + dx, (b[0] + b[2]) / 2 + dx, b[2] + dx], targets.xs);
-    const sy = pick([b[1] + dy, (b[1] + b[3]) / 2 + dy, b[3] + dy], targets.ys);
-    if (sx) { dx += sx.d; this.snapGuides.push({ x: sx.c }); }
-    if (sy) { dy += sy.d; this.snapGuides.push({ y: sy.c }); }
+    const box = [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy];
+    const shifts = [0, 1].map((i) => {
+      const line = nearestSnap(edges(box, i), lines(targets, i), null, 0, tol);
+      const gap = equalSpacing(box, i, targets.boxes, tol);
+      let d = gap && (line === null || Math.abs(gap.d) < Math.abs(line)) ? gap.d : line;
+      if (d === null) d = nearestSnap(edges(box, i), [], targets.grid, targets.size[i], tol);
+      return { d, gap: gap && d !== null && Math.abs(gap.d - d) < 1e-9 ? gap : null };
+    });
+    if (shifts[0].d !== null) dx += shifts[0].d;
+    if (shifts[1].d !== null) dy += shifts[1].d;
+    const fin = [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy];
+    shifts.forEach(({ d, gap }, i) => {
+      if (d === null) return;
+      this.snapGuides.push(...snapLines(i, edges(fin, i), targets, fin[1 - i], fin[3 - i]));
+      if (gap) this.snapGuides.push(...gapMarks(i, gap.pairs, fin));
+    });
     return [dx, dy];
   },
+  // Line ends and drawing: the point snaps to lines
   snapPoint(p, targets, e) {
     this.snapGuides = [];
     if (!this.snapEnabled(e)) return p;
     const tol = SNAP_PX / this.k;
-    let [x, y] = p;
-    const nx = targets.xs.reduce((best, c) => (Math.abs(c - x) < Math.abs(best - x) ? c : best), Infinity);
-    const ny = targets.ys.reduce((best, c) => (Math.abs(c - y) < Math.abs(best - y) ? c : best), Infinity);
-    if (Math.abs(nx - x) <= tol) { x = nx; this.snapGuides.push({ x }); }
-    if (Math.abs(ny - y) <= tol) { y = ny; this.snapGuides.push({ y }); }
-    return [x, y];
+    const q = [p[0], p[1]];
+    const snapped = [0, 1].map((i) => {
+      const d = nearestSnap([q[i]], lines(targets, i), targets.grid, targets.size[i], tol);
+      if (d !== null) q[i] += d;
+      return d !== null;
+    });
+    snapped.forEach((on, i) => { if (on) this.snapGuides.push(...snapLines(i, [q[i]], targets, q[1 - i], q[1 - i])); });
+    return q;
+  },
+  // A guide being dragged snaps to the page, objects' edges and centres and the grid
+  snapGuide(v, i, targets, e) {
+    this.snapGuides = [];
+    if (!this.snapEnabled(e)) return v;
+    const d = nearestSnap([v], lines(targets, i), targets.grid, targets.size[i], SNAP_PX / this.k);
+    if (d === null) return v;
+    this.snapGuides.push(...snapLines(i, [v + d], targets, Infinity, -Infinity));
+    return v + d;
+  },
+  // What was snapped to: magenta lines along what lines up, and the equal gaps with their size
+  drawSnapGuides(o) {
+    for (const g of this.snapGuides) {
+      if (g.gap) {
+        const ends = [g.a, g.b].map((v) => this.toScreen(...(g.axis ? [g.at, v] : [v, g.at])));
+        const [[ax, ay], [bx, by]] = ends, t = 4;
+        o.append(s("path", { class: "snap-gap", d: g.axis ? `M${ax} ${ay}V${by}M${ax - t} ${ay}h${2 * t}M${bx - t} ${by}h${2 * t}`
+          : `M${ax} ${ay}H${bx}M${ax} ${ay - t}v${2 * t}M${bx} ${by - t}v${2 * t}` }));
+        const label = s("text", { class: "snap-label", x: g.axis ? ax + 7 : (ax + bx) / 2, y: g.axis ? (ay + by) / 2 : ay - 7,
+          "text-anchor": g.axis ? "start" : "middle", "dominant-baseline": g.axis ? "middle" : "auto" });
+        label.textContent = lengthText(g.b - g.a);
+        o.append(label);
+        continue;
+      }
+      // A line from the page's view of it, a little past what lines up (guides run right across)
+      const [sx, sy] = this.toScreen(g.v, g.v);
+      const lo = g.from === null ? -1e4 : this.toScreen(g.from, g.from)[1 - g.axis] - 8;
+      const hi = g.to === null ? 1e5 : this.toScreen(g.to, g.to)[1 - g.axis] + 8;
+      o.append(s("line", { class: "snap-guide", ...(g.axis ? { x1: lo, x2: hi, y1: sy, y2: sy } : { x1: sx, x2: sx, y1: lo, y2: hi }) }));
+    }
+  },
+
+  // The grid -------------------------------------------------------------------------
+  // Like graph paper over the page: squares of `spacing` divided into finer lines, which appear
+  // only once zooming in leaves them GRID_MIN_PX apart; zoomed far out, every 2nd, 5th, 10th...
+  // line is drawn instead. Only lines that are drawn are snapped to (`snap`, the finest).
+
+  gridSteps() {
+    const g = this.defaults?.grid || {};
+    const spacing = g.spacing > 0 ? g.spacing : 72 / 2.54;
+    const parts = Math.max(1, Math.round(g.subdivisions || 1));
+    let major = spacing;
+    for (const f of [2, 5, 10, 20, 50, 100, 200, 500, 1000]) {
+      if (major * this.k >= GRID_MIN_PX) break;
+      major = spacing * f;
+    }
+    const minor = parts > 1 && (spacing / parts) * this.k >= GRID_MIN_PX ? spacing / parts : null;
+    return { major, minor, parts, snap: minor || major };
+  },
+  drawGrid() {
+    if (!this.gridLayer || !store.doc) return;
+    const page = store.page();
+    const st = this.defaults?.show_grid ? this.gridSteps() : null;
+    const key = st ? JSON.stringify([st, page.width, page.height]) : "";
+    if (key === this._gridKey) return;
+    this._gridKey = key;
+    this.gridLayer.replaceChildren();
+    if (!st) return;
+    const path = (step, skip) => {
+      let d = "";
+      for (let i = 1; i * step < page.width - 1e-6; i++) if (!skip || i % skip) d += `M${+(i * step).toFixed(4)} 0V${page.height}`;
+      for (let i = 1; i * step < page.height - 1e-6; i++) if (!skip || i % skip) d += `M0 ${+(i * step).toFixed(4)}H${page.width}`;
+      return d;
+    };
+    if (st.minor) this.gridLayer.append(s("path", { class: "minor", d: path(st.minor, st.parts) }));
+    this.gridLayer.append(s("path", { class: "major", d: path(st.major, 0) }));
+  },
+
+  // Guides and rulers ------------------------------------------------------------------
+  // Each page keeps its own guides: {x: [vertical guides' x], y: [horizontal guides' y]}. They're
+  // drawn across the whole view, dragged out of the rulers, moved by dragging (where no object
+  // covers them, or by their marks on the rulers) and removed by dragging them onto a ruler.
+
+  // Rulers take room along the top and left; the page stays where it was on screen
+  setRulers(on) {
+    const wrap = this.stage.parentElement;
+    if (wrap.classList.contains("rulers") === on) return;
+    const before = this.stage.getBoundingClientRect();
+    wrap.classList.toggle("rulers", on);
+    const after = this.stage.getBoundingClientRect();
+    this.panX += before.left - after.left;
+    this.panY += before.top - after.top;
+    this.layout();
+  },
+  // The page's guides, with the one being dragged where the pointer has it
+  guideLines() {
+    const g = store.page()?.guides || {};
+    const out = { x: [...(g.x || [])], y: [...(g.y || [])], active: null, removing: false };
+    const op = this.op;
+    if (op?.type === "guide" && op.value !== null && !(op.index === null && op.remove)) {
+      const i = op.index === null ? out[op.axis].push(op.value) - 1 : op.index;
+      out[op.axis][i] = op.value;
+      out.active = [op.axis, i];
+      out.removing = op.remove;
+    }
+    return out;
+  },
+  drawGuides() {
+    if (!this.guidesLayer || !store.doc) return;
+    this.guidesLayer.replaceChildren();
+    if (this.defaults?.show_guides === false) return;
+    const g = this.guideLines();
+    for (const axis of ["x", "y"]) {
+      g[axis].forEach((v, i) => {
+        const active = g.active?.[0] === axis && g.active[1] === i;
+        const cls = `guide${active ? " active" : ""}${active && g.removing ? " removing" : ""}`;
+        this.guidesLayer.append(s("line", { class: cls, ...(axis === "x" ? { x1: v, x2: v, y1: -1e5, y2: 1e5 }
+          : { x1: -1e5, x2: 1e5, y1: v, y2: v }) }));
+      });
+    }
+  },
+  guideAt(pt) {
+    if (this.defaults?.show_guides === false || !store.doc) return null;
+    const g = store.page().guides || {};
+    let best = null;
+    ["x", "y"].forEach((axis, i) => (g[axis] || []).forEach((v, index) => {
+      const d = Math.abs(this.toScreen(v, v)[i] - pt[i]);
+      if (d <= GUIDE_HIT && (!best || d < best.d)) best = { axis, index, d };
+    }));
+    return best;
+  },
+  // axis "x" is a vertical guide (its x position), "y" a horizontal one; index null for a new guide
+  startGuide(axis, index) {
+    this.op = { type: "guide", axis, index, value: index === null ? null : store.page().guides[axis][index],
+      pt: null, moved: false, remove: false, targets: this.snapTargets([], { guides: false }) };
+  },
+  // pt is in stage coordinates. Past the stage's edge (over a ruler) a new guide isn't placed yet
+  // and an existing one would be removed.
+  guideTo(pt, e) {
+    const op = this.op, i = op.axis === "x" ? 0 : 1;
+    const r = this.stage.getBoundingClientRect();
+    op.moved = true;
+    op.pt = pt;
+    op.remove = pt[i] < 0 || pt[i] > (i ? r.height : r.width);
+    const v = this.toPage(...pt)[i];
+    op.value = op.remove ? v : this.snapGuide(v, i, op.targets, e);
+    if (op.remove) this.snapGuides = [];
+    this.drawGuides();
+    this.drawOverlay();
+  },
+  finishGuide(op, cancelled) {
+    this.snapGuides = [];
+    const pi = store.pageIndex, axis = op.axis;
+    const kind = axis === "x" ? "vertical" : "horizontal";
+    if (!cancelled && op.moved && op.value !== null) {
+      if (op.remove && op.index !== null) {
+        store.update("Remove guide", (doc) => { doc.pages[pi].guides[axis].splice(op.index, 1); });
+        announce(`Removed the ${kind} guide`);
+      } else if (!op.remove) {
+        store.update(op.index === null ? "Add guide" : "Move guide", (doc) => {
+          const g = pageGuides(doc.pages[pi]);
+          if (op.index === null) g[axis].push(op.value);
+          else g[axis][op.index] = op.value;
+        });
+        announce(`${op.index === null ? "Added a" : "Moved the"} ${kind} guide, ${lengthText(op.value, true)} from the `
+          + `${axis === "x" ? "left" : "top"} edge`);
+      }
+    }
+    this.drawGuides();
+    this.drawOverlay();
+  },
+  // The guide's position beside the pointer while it's dragged
+  drawGuideLabel(o) {
+    const op = this.op;
+    if (!op.pt || op.value === null || (op.remove && op.index === null)) return;
+    const r = this.stage.getBoundingClientRect();
+    const label = s("text", { class: `guide-label${op.remove ? " removing" : ""}`,
+      x: clamp(op.pt[0] + 14, 4, r.width - 130), y: clamp(op.pt[1] - 12, 16, r.height - 6) });
+    label.textContent = op.remove ? "Release to remove" : lengthText(op.value);
+    o.append(label);
+  },
+  // Escape during a drag puts everything back as it was
+  cancelDrag() {
+    const op = this.op;
+    if (!op) return false;
+    this.op = null;
+    this.snapGuides = [];
+    if (op.type === "adjust") op.cancelled = true;
+    if (!["pan", "marquee", "draw", "guide"].includes(op.type)) store.cancelLive();
+    this.drawGuides();
+    this.drawOverlay();
+    return true;
   },
 
   // Resizing and rotating --------------------------------------------------------------
@@ -735,11 +949,7 @@ export const canvas = {
           transform: `translate(${box[0]} ${box[1]}) scale(${box[2] / iw} ${box[3] / ih}) translate(${-ix} ${-iy})` }));
       }
     }
-    for (const g of this.snapGuides) {
-      const [sx, sy] = this.toScreen(g.x ?? 0, g.y ?? 0);
-      this.overlay.append(s("line", { class: "snap-guide", x1: g.x !== undefined ? sx : -1e4, x2: g.x !== undefined ? sx : 1e5,
-        y1: g.y !== undefined ? sy : -1e4, y2: g.y !== undefined ? sy : 1e5 }));
-    }
+    this.drawSnapGuides(this.overlay);
   },
   toolGeom(tool) { return tool === "shape" ? this.shapeGeom : TOOL_GEOMS[tool]; },
   // Enter with a drawing tool: one object in the middle of the view, on the page
@@ -1033,6 +1243,97 @@ export function findDeep(items, id) {
     if (it.type === "group") { const f = findDeep(it.items, id); if (f) return f; }
   }
   return null;
+}
+
+// A page's guides, made if it has none yet (pages from older files and imports)
+export function pageGuides(page) {
+  page.guides = { x: [...(page.guides?.x || [])], y: [...(page.guides?.y || [])] };
+  return page.guides;
+}
+// Guides move with the page's objects when the page is fitted to them
+export function shiftGuides(page, dx, dy) {
+  if (!page.guides) return;
+  page.guides = { x: (page.guides.x || []).map((v) => v + dx), y: (page.guides.y || []).map((v) => v + dy) };
+}
+
+// Snapping helpers. Axis i is 0 across (x) or 1 down (y); boxes are [x0, y0, x1, y1].
+const edges = (r, i) => [r[i], (r[i] + r[i + 2]) / 2, r[i + 2]];
+const lines = (targets, i) => (i ? targets.ys : targets.xs);
+
+// The smallest shift (within tol) that puts one of `vals` on a line; failing that, on a grid line
+// inside the page (`len` long on this axis). Lines placed on purpose (the page, guides, objects)
+// win over the grid, whose lines are everywhere. Null if nothing is that near.
+function nearestSnap(vals, list, grid, len, tol) {
+  let best = null;
+  const near = (d) => { if (Math.abs(d) <= tol && (best === null || Math.abs(d) < Math.abs(best))) best = d; };
+  for (const v of vals) for (const t of list) near(t.v - v);
+  if (best !== null || !grid) return best;
+  for (const v of vals) {
+    const c = Math.round(v / grid) * grid;
+    if (c >= -1e-9 && c <= len + 1e-9) near(c - v);
+  }
+  return best;
+}
+
+// The lines `vals` now sit on, for drawing: each runs along what it belongs to and lo-hi across
+function snapLines(i, vals, targets, lo, hi) {
+  const found = new Map();
+  const add = (v, span) => {
+    const from = span ? Math.min(span[0], lo) : null, to = span ? Math.max(span[1], hi) : null;
+    const had = found.get(v.toFixed(6));
+    if (!had) found.set(v.toFixed(6), { axis: i, v, from, to });
+    else if (had.from !== null && from === null) { had.from = null; had.to = null; }
+    else if (had.from !== null) { had.from = Math.min(had.from, from); had.to = Math.max(had.to, to); }
+  };
+  for (const v of vals) {
+    for (const t of lines(targets, i)) if (Math.abs(t.v - v) < 1e-6) add(t.v, t.span);
+    if (targets.grid) {
+      const c = Math.round(v / targets.grid) * targets.grid;
+      if (Math.abs(c - v) < 1e-6 && c >= -1e-9 && c <= targets.size[i] + 1e-9) add(c, [0, targets.size[1 - i]]);
+    }
+  }
+  return [...found.values()];
+}
+
+// Equal spacing along axis i among the boxes level with the moving box b: the shift that leaves
+// equal gaps on both sides of it, or that repeats a gap already between two neighbouring boxes.
+// Returns {d, pairs} (the boxes either side of each equal gap; null is the moving box) or null.
+function equalSpacing(b, i, boxes, tol) {
+  const a0 = i, a1 = i + 2, c0 = 1 - i, c1 = 3 - i;
+  const level = boxes.filter((r) => r[c0] < b[c1] && r[c1] > b[c0]);
+  const size = b[a1] - b[a0];
+  let before = null, after = null;
+  for (const r of level) {
+    if (r[a1] <= b[a0] + tol && (!before || r[a1] > before[a1])) before = r;
+    if (r[a0] >= b[a1] - tol && (!after || r[a0] < after[a0])) after = r;
+  }
+  const cands = [];
+  if (before && after) {
+    const start = (before[a1] + after[a0] - size) / 2;
+    if (start >= before[a1]) cands.push({ d: start - b[a0], pairs: [[before, null], [null, after]] });
+  }
+  for (const p of level) {
+    let q = null;
+    for (const r of level) if (r[a0] >= p[a1] && (!q || r[a0] < q[a0])) q = r;
+    const gap = q ? q[a0] - p[a1] : 0;
+    if (gap < 0.01) continue;
+    // (the gap from `before` to `after` is the one the moving box sits in, not one to repeat)
+    if (before && before !== p) cands.push({ d: before[a1] + gap - b[a0], pairs: [[before, null], [p, q]] });
+    if (after && after !== q) cands.push({ d: after[a0] - gap - size - b[a0], pairs: [[null, after], [p, q]] });
+  }
+  let best = null;
+  for (const c of cands) if (Math.abs(c.d) <= tol && (!best || Math.abs(c.d) < Math.abs(best.d))) best = c;
+  return best;
+}
+
+// Where to draw each equal gap: between the boxes either side, halfway along where they overlap
+function gapMarks(i, pairs, fin) {
+  const a1 = i + 2, c0 = 1 - i, c1 = 3 - i;
+  return pairs.map(([u, v]) => {
+    const p = u || fin, q = v || fin;
+    const lo = Math.max(p[c0], q[c0]), hi = Math.min(p[c1], q[c1]);
+    return { gap: true, axis: i, a: p[a1], b: q[i], at: lo <= hi ? (lo + hi) / 2 : (p[c0] + p[c1]) / 2 };
+  });
 }
 
 function runCss(r) {

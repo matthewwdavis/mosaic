@@ -6,9 +6,10 @@ window.addEventListener("error", (e) => window.__faErrors.push(String(e.message)
 window.addEventListener("unhandledrejection", (e) => window.__faErrors.push(String(e.reason?.message || e.reason)));
 
 import { rpc } from "./api.js";
-import { canvas, findDeep, reid, shiftItem } from "./canvas.js";
+import { canvas, findDeep, reid, shiftGuides, shiftItem } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { panels } from "./panels.js";
+import { rulers } from "./rulers.js";
 import { store } from "./store.js";
 import { MOD, announce, clone, describeItem, display, isMac, itemBBox, itemsBBox, lineMidpoints, shapeCatalog, uid } from "./util.js";
 
@@ -35,6 +36,12 @@ const app = {
     this.prefs = await rpc("prefs_set", p);
     applyPrefs(this.prefs);
     store.emit("doc", {});
+  },
+  // Rulers, grid, guides and snapping are switched from the toolbar, the keyboard and Preferences
+  async togglePref(key, onMessage, offMessage) {
+    const on = !this.prefs[key];
+    await this.savePrefs({ [key]: on });
+    announce(on ? onMessage : offMessage);
   },
 
   // Files ---------------------------------------------------------------------------
@@ -400,8 +407,10 @@ const app = {
 
   addPage(copy = false) {
     const cur = store.page();
+    // A new page starts with this page's size, background and guides
     const page = copy ? reidPage(clone(cur)) : { id: uid("pg"), name: `Page ${store.doc.pages.length + 1}`,
-      width: cur.width, height: cur.height, background: cur.background, guides: { x: [], y: [] }, items: [] };
+      width: cur.width, height: cur.height, background: cur.background,
+      guides: { x: [...(cur.guides?.x || [])], y: [...(cur.guides?.y || [])] }, items: [] };
     if (copy) page.name = `${cur.name} copy`;
     store.update(copy ? "Duplicate page" : "Add page", (doc) => doc.pages.splice(store.pageIndex + 1, 0, page));
     store.setPage(store.pageIndex + 1);
@@ -440,9 +449,11 @@ const app = {
       const p = doc.pages[store.pageIndex];
       if (journalPage) {
         for (const it of p.items) shiftItem(it, clone(it), 0, -b[1]);
+        shiftGuides(p, 0, -b[1]);
         p.height = b[3] - b[1];
       } else {
         for (const it of p.items) shiftItem(it, clone(it), -b[0], -b[1]);
+        shiftGuides(p, -b[0], -b[1]);
         p.width = b[2] - b[0];
         p.height = b[3] - b[1];
         delete p.preset;
@@ -503,6 +514,16 @@ app.commands = {
   zoomOut: cmd("Zoom out", () => canvas.setZoom(canvas.zoom / 1.25), `${M}−`, (e) => mod(e) && (e.key === "-" || e.key === "_"), "Zoom out"),
   zoomFit: cmd("Fit page in window", () => canvas.fit(), `${M}0`, (e) => mod(e) && e.key === "0", "Fit"),
   zoom100: cmd("True size (100%)", () => canvas.setZoom(1), `${M}1`, (e) => mod(e) && e.key === "1"),
+  toggleRulers: cmd("Show or hide the rulers", () => app.togglePref("show_rulers", "Rulers shown", "Rulers hidden"),
+    `${M}R`, key("r"), "Rulers"),
+  toggleGrid: cmd("Show or hide the grid", () => app.togglePref("show_grid", "Grid shown; things snap to it while it shows",
+    "Grid hidden"), `${M}'`, (e) => mod(e) && !e.shiftKey && !e.altKey && (e.key === "'" || e.code === "Quote"), "Grid"),
+  toggleGuides: cmd("Show or hide guides", () => app.togglePref("show_guides", "Guides shown",
+    "Guides hidden; they don't snap until they're shown again"), `${M};`,
+  (e) => mod(e) && !e.shiftKey && !e.altKey && (e.key === ";" || e.code === "Semicolon"), "Guides"),
+  toggleSnap: cmd("Snap to guides, the grid, the page and other objects", () => app.togglePref("snap", "Snapping on",
+    `Snapping off; things move freely. ${M}${S}; turns it back on`), `${M}${S};`,
+  (e) => mod(e) && e.shiftKey && !e.altKey && (e.key === ";" || e.key === ":" || e.code === "Semicolon"), "Snap"),
   toolSelect: tool("select", "Select and move", "v", "Select"),
   toolText: tool("text", "Text", "t", "Text"),
   toolLabel: tool("label", "Panel label (a, b, c…)", "p", "Label"),
@@ -563,7 +584,8 @@ document.addEventListener("keydown", (e) => {
   if (inField) return;
   const onCanvas = e.target === canvas.stage || e.target === document.body;
   if (e.key === "Escape") {
-    if (canvas.cropping) canvas.endCrop();
+    if (canvas.cancelDrag()) announce("Cancelled the drag");
+    else if (canvas.cropping) canvas.endCrop();
     else if (canvas.tool !== "select") canvas.setTool("select");
     else if (store.selection.length) { store.select([]); announce("Nothing selected"); }
     return;
@@ -653,6 +675,8 @@ function applyPrefs(p) {
   document.body.classList.toggle("no-tool-labels", p.show_tool_labels === false);
   document.body.classList.toggle("reduce-motion", !!p.reduced_motion);
   canvas.defaults = p;
+  if (canvas.stage) canvas.setRulers(p.show_rulers !== false);
+  document.dispatchEvent(new CustomEvent("fa-prefs", { detail: p }));
 }
 
 // Start-up ------------------------------------------------------------------------------------
@@ -663,6 +687,12 @@ async function start() {
   Object.assign(shapeCatalog, app.info.shapes || {});
   applyPrefs(app.prefs);
   canvas.init(document.getElementById("stage"));
+  rulers.init(document.querySelector(".stage-wrap"));
+  // Dragging a new guide out of a ruler shows the guides if they were hidden
+  rulers.onNeedGuides = () => {
+    app.prefs.show_guides = true;
+    app.savePrefs({ show_guides: true }).then(() => announce("Guides shown")).catch(() => {});
+  };
   panels.init(app);
   inspector.init(document.getElementById("inspector"), app);
   rpc("fonts").then((f) => { app.fonts = f; }).catch(() => {});

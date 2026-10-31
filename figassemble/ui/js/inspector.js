@@ -2,7 +2,7 @@
 // labelled form fields grouped in fieldsets, so they work with the keyboard and screen readers.
 
 import { rpc } from "./api.js";
-import { canvas, findDeep, shiftItem } from "./canvas.js";
+import { canvas, findDeep, pageGuides, shiftItem } from "./canvas.js";
 import { store } from "./store.js";
 import { UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, lineSamples, shapeCatalog, shapeName, toUnit } from "./util.js";
 
@@ -131,6 +131,7 @@ export const inspector = {
         radioField("Background", page.background ? "white" : "none", [["none", "Transparent"], ["white", "White"]],
           (v) => this.editPage("Background", (p) => { p.background = v === "white" ? "#ffffff" : null; })),
       ]),
+      this.guidesSection(),
       section("Document", [
         textField("Title", store.doc.meta?.title || "", (v) => store.update("Rename document", (d) => { d.meta.title = v; })),
         h("p", { class: "hint" }, `${store.doc.pages.length} page${store.doc.pages.length === 1 ? "" : "s"} · `
@@ -139,6 +140,45 @@ export const inspector = {
       h("p", { class: "hint" }, "Drop figure files (PDF, SVG, PNG, JPEG, TIFF) onto the page to place them at true size. "
         + "Hold Option (Alt) while dropping to store a copy without linking to the file."),
     ];
+  },
+
+  // This page's guides, to add, place exactly and remove without a pointer
+  guidesSection() {
+    const page = store.page(), u = this.units();
+    const g = { x: page.guides?.x || [], y: page.guides?.y || [] };
+    // Listed in order of position; each keeps its place in the page's list for editing
+    const sorted = (axis) => g[axis].map((v, i) => ({ v, i })).sort((a, b) => a.v - b.v);
+    const rows = (axis, name) => sorted(axis).map(({ v, i }, n) => h("div", { class: "guide-row" },
+      numField(`${name} ${n + 1}`, v, u, (nv) => this.editPage("Move guide", (p) => { pageGuides(p)[axis][i] = nv; })),
+      button(`Remove ${name.toLowerCase()} ${n + 1}`, () => this.editPage("Remove guide", (p) => { pageGuides(p)[axis].splice(i, 1); }),
+        "Remove", "small")));
+    // A new guide goes through the middle of the page, ready for its position to be typed
+    const add = (axis, name) => () => {
+      this.editPage("Add guide", (p) => { pageGuides(p)[axis].push(axis === "x" ? p.width / 2 : p.height / 2); });
+      const list = store.page().guides[axis];
+      const n = list.map((v, i) => ({ v, i })).sort((a, b) => a.v - b.v).findIndex((o) => o.i === list.length - 1) + 1;
+      this.render();
+      const l = [...this.root.querySelectorAll("label")].find((x) => x.textContent === `${name} ${n}`);
+      const input = l && document.getElementById(l.htmlFor);
+      if (input) { input.focus(); input.select(); }
+      announce(`Added ${name.toLowerCase()} ${n} through the middle of the page; type its position`);
+    };
+    const total = g.x.length + g.y.length;
+    const hidden = this.app.prefs.show_guides === false;
+    return section("Guides", [
+      g.x.length ? h("p", { class: "hint" }, "Vertical guides, from the left edge of the page:") : null,
+      ...rows("x", "Vertical guide"),
+      g.y.length ? h("p", { class: "hint" }, "Horizontal guides, from the top edge:") : null,
+      ...rows("y", "Horizontal guide"),
+      h("div", { class: "button-row" },
+        button("Add a vertical guide down the middle of the page", add("x", "Vertical guide"), "Add vertical"),
+        button("Add a horizontal guide across the middle of the page", add("y", "Horizontal guide"), "Add horizontal"),
+        total ? button("Remove every guide from this page", () => this.editPage("Remove guides", (p) => { p.guides = { x: [], y: [] }; }),
+          "Remove all") : null),
+      h("p", { class: "hint" }, hidden
+        ? `Guides are hidden (${this.app.commands.toggleGuides.keys} shows them), and hidden guides don't snap.`
+        : "Or drag a guide out of a ruler on the page; drag it back onto the ruler to remove it."),
+    ]);
   },
 
   // One item -----------------------------------------------------------------------------

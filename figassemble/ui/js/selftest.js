@@ -5,7 +5,7 @@ import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { store } from "./store.js";
-import { lineMidpoints } from "./util.js";
+import { lengthText, lineMidpoints } from "./util.js";
 
 const MMPT = 72 / 25.4;
 const near = (a, b, tol = 0.05) => Math.abs(a - b) < tol;
@@ -28,12 +28,14 @@ function fieldByLabel(text) {
 }
 
 const results = [];
+const info = {};
 const log = (ok, name, detail = "") => {
-  results.push({ ok, name });
+  results.push(ok ? { ok, name } : { ok, name, detail });
   console.log(`SELFTEST ${ok ? "PASS" : "FAIL"} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 const check = (cond, name, detail) => log(!!cond, name, cond ? "" : detail);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (cond, ms = 2000) => { for (let t = 0; t < ms && !cond(); t += 20) await wait(20); return cond(); };
 const settle = async () => { await wait(60); await canvas.resolveNow(); await wait(60); };
 
 function screenOf(px, py) {
@@ -58,15 +60,26 @@ function key(k, opts = {}) {
 }
 
 export async function run(app, params) {
+  let keepAids = false;
   const files = (params.get("files") || "").split(",").filter(Boolean);
   const out = params.get("out");
   app.autoConfirm = true;
   for (const dlg of document.querySelectorAll("dialog[open]")) dlg.close();   // e.g. a recovery offer
   try {
+    // Start from the default layout aids, whatever an earlier run left switched on
+    await app.savePrefs({ show_rulers: true, show_grid: false, show_guides: true, snap: true });
     store.setDoc(await rpc("new_document"));
     canvas.fit();
     await settle();
     check(store.items().length === 0, "new document is empty");
+    // In a 1440 px window (the app's own size) the toolbar is one row and nothing spills off the side
+    const bar = document.getElementById("toolbar");
+    const rowTops = new Set([...bar.children].map((g) => Math.round(g.getBoundingClientRect().top)));
+    const used = [...bar.children].reduce((sum, g) => sum + (g.classList.contains("spacer") ? 0 : g.getBoundingClientRect().width), 0);
+    info.toolbarRoom = Math.round(bar.clientWidth - used);    // px left over on the row
+    check(rowTops.size === 1 && document.body.scrollWidth <= window.innerWidth + 1, "the toolbar fits the window on one row",
+      `${rowTops.size} rows; groups ` + [...bar.children].map((g) => `${g.getAttribute("aria-label") || g.className}:`
+        + Math.round(g.getBoundingClientRect().width)).join(" "));
     check(near(store.page().width, 210 * MMPT) && near(store.page().height, 297 * MMPT), "new pages are A4", pageSize());
     canvas.setZoom(1);
     check(document.querySelector(".zoom-label")?.textContent === "100%", "zoom readout shows 100% at true size",
@@ -350,6 +363,204 @@ export async function run(app, params) {
     await choose("Standard size", "A4");
     check(near(store.page().width, 210 * MMPT) && near(store.page().height, 297 * MMPT), "Standard size goes back to A4", pageSize());
 
+    // Rulers, guides, the grid and snapping, on a page of their own
+    app.run("addPage");
+    await settle();
+    canvas.fit();
+    const aidsPage = store.pageIndex;
+    const pg = () => store.page();
+    const rulerTop = document.querySelector(".ruler.top"), rulerLeft = document.querySelector(".ruler.left");
+    check(rulerTop?.offsetHeight > 10 && rulerLeft?.offsetWidth > 10 && rulerTop.width > 0,
+      "rulers run along the top and left of the page", `${rulerTop?.offsetHeight} ${rulerLeft?.offsetWidth}`);
+    const corner0 = screenOf(0, 0);
+    key("r", { metaKey: true, ctrlKey: true });
+    await until(() => !rulerTop.offsetParent);
+    const corner1 = screenOf(0, 0);
+    check(!rulerTop.offsetParent && near(corner0[0], corner1[0], 0.5) && near(corner0[1], corner1[1], 0.5),
+      "⌘R hides the rulers, and the page stays where it was", `${corner0} -> ${corner1}`);
+    key("r", { metaKey: true, ctrlKey: true });
+    await until(() => rulerTop.offsetParent);
+    check(rulerTop.offsetParent && app.prefs.show_rulers, "⌘R shows them again");
+
+    // A guide dragged out of the top ruler runs across the page where it's dropped
+    const rulerPointer = (type, x, y) => rulerTop.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: y, bubbles: true,
+      button: 0, buttons: 1, pointerId: 2, pointerType: "mouse", metaKey: true, ctrlKey: true }));
+    let rr = rulerTop.getBoundingClientRect();
+    const drop = screenOf(100, 150);
+    rulerPointer("pointerdown", drop[0], rr.top + rr.height / 2);
+    rulerPointer("pointermove", drop[0], rr.top + rr.height / 2 + 2);
+    check(!document.querySelector(".guides line"), "a new guide doesn't appear while it's still over its ruler");
+    rulerPointer("pointermove", drop[0], (rr.bottom + drop[1]) / 2);
+    rulerPointer("pointermove", drop[0], drop[1]);
+    check(document.querySelector(".guide-label")?.textContent === lengthText(150), "the guide's position shows beside the pointer",
+      document.querySelector(".guide-label")?.textContent);
+    rulerPointer("pointerup", drop[0], drop[1]);
+    await settle();
+    check(pg().guides.y.length === 1 && near(pg().guides.y[0], 150, 0.6), "dragging out of the top ruler adds a horizontal guide",
+      JSON.stringify(pg().guides));
+    app.run("undo");
+    check(pg().guides.y.length === 0, "undo takes the new guide away");
+    app.run("redo");
+    check(pg().guides.y.length === 1, "redo puts it back");
+    store.update("Guide for test", (doc) => { doc.pages[store.pageIndex].guides.y = [150]; });
+
+    // An object dragged near the guide snaps onto it; ⌘ while dragging, Snap off or hidden guides leave it free
+    canvas.setTool("rect");
+    await drag([40, 40], [80, 80], { metaKey: true, ctrlKey: true });
+    const box = store.items().find((i) => i.geom === "rect");
+    const boxAt = () => store.item(box.id).frame;
+    const grab = [60, 60];
+    await drag(grab, [grab[0] + 30, grab[1] + 108]);      // its top edge 2 pt short of the guide
+    check(near(boxAt()[1], 150, 1e-6), "a dragged object snaps to a guide", JSON.stringify(boxAt()));
+    app.run("undo");
+    await drag(grab, [grab[0] + 30, grab[1] + 108], { metaKey: true, ctrlKey: true });
+    check(near(boxAt()[1], 148, 0.6), "holding ⌘ while dragging ignores snapping", JSON.stringify(boxAt()));
+    app.run("undo");
+    const snapBtn = document.querySelector('#toolbar [data-cmd="toggleSnap"]');
+    check(snapBtn?.getAttribute("aria-pressed") === "true", "the Snap button shows snapping is on");
+    snapBtn.click();
+    await until(() => app.prefs.snap === false);
+    check(snapBtn.getAttribute("aria-pressed") === "false", "the Snap button turns snapping off and shows it",
+      snapBtn.getAttribute("aria-pressed"));
+    await drag(grab, [grab[0] + 30, grab[1] + 108]);
+    check(near(boxAt()[1], 148, 0.6), "with Snap off, nothing snaps", JSON.stringify(boxAt()));
+    app.run("undo");
+    key(";", { metaKey: true, ctrlKey: true, shiftKey: true });
+    await until(() => app.prefs.snap === true);
+    check(snapBtn.getAttribute("aria-pressed") === "true", "⇧⌘; turns snapping back on");
+    key(";", { metaKey: true, ctrlKey: true });
+    await until(() => app.prefs.show_guides === false);
+    check(!document.querySelector(".guides line"), "⌘; hides the guides");
+    await drag(grab, [grab[0] + 30, grab[1] + 108]);
+    check(near(boxAt()[1], 148, 0.6), "hidden guides don't snap", JSON.stringify(boxAt()));
+    app.run("undo");
+    key(";", { metaKey: true, ctrlKey: true });
+    await until(() => app.prefs.show_guides === true);
+
+    // Dragging the guide itself: it snaps to the object's bottom edge; Escape cancels; the ruler removes it
+    await drag([300, 150], [300, 82]);
+    check(near(pg().guides.y[0], 80, 1e-6), "a dragged guide snaps to an object's edge", JSON.stringify(pg().guides));
+    const g0 = screenOf(300, 80);
+    pointer("pointerdown", g0);
+    pointer("pointermove", [g0[0], g0[1] + 40]);
+    key("Escape");
+    pointer("pointerup", [g0[0], g0[1] + 40]);
+    await settle();
+    check(near(pg().guides.y[0], 80, 1e-6) && !canvas.op, "Escape cancels dragging a guide", JSON.stringify(pg().guides));
+    rr = rulerTop.getBoundingClientRect();
+    pointer("pointerdown", g0);
+    pointer("pointermove", [g0[0], (g0[1] + rr.top) / 2]);
+    pointer("pointermove", [g0[0], rr.top + 4]);
+    check(document.querySelector(".guide-label")?.textContent === "Release to remove", "over the ruler, a guide says it will go",
+      document.querySelector(".guide-label")?.textContent);
+    pointer("pointerup", [g0[0], rr.top + 4]);
+    await settle();
+    check(pg().guides.y.length === 0, "dropping a guide onto a ruler removes it", JSON.stringify(pg().guides));
+    app.run("undo");
+    check(pg().guides.y.length === 1, "undo brings it back");
+
+    // The Page panel lists the guides, to add, place exactly and remove without a pointer
+    store.select([]);
+    inspector.render();
+    const pageButton = (text) => [...document.querySelectorAll("#inspector button")].find((b) => b.textContent === text);
+    pageButton("Add vertical")?.click();
+    await settle();
+    check(pg().guides.x.length === 1 && near(pg().guides.x[0], pg().width / 2, 1e-6), "Add vertical puts a guide down the middle",
+      JSON.stringify(pg().guides));
+    const vf = fieldByLabel("Vertical guide 1");
+    check(vf && document.activeElement === vf, "its position field takes the focus, ready to type", document.activeElement?.outerHTML?.slice(0, 80));
+    vf.value = "3";
+    vf.dispatchEvent(new Event("change"));
+    vf.blur();
+    check(near(pg().guides.x[0], (3 * 72) / 2.54, 1e-6), "typing a position moves the guide (3 cm from the left)", JSON.stringify(pg().guides));
+    // Its mark on the top ruler drags it too (for guides that objects cover)
+    rr = rulerTop.getBoundingClientRect();
+    const markX = screenOf((3 * 72) / 2.54, 0)[0], toX = screenOf(200, 0)[0], onRuler = rr.bottom - 3;
+    rulerPointer("pointerdown", markX, onRuler);
+    rulerPointer("pointermove", (markX + toX) / 2, onRuler);
+    rulerPointer("pointermove", toX, onRuler);
+    rulerPointer("pointerup", toX, onRuler);
+    await settle();
+    check(near(pg().guides.x[0], 200, 0.6), "dragging a guide's mark along the ruler moves the guide", JSON.stringify(pg().guides));
+
+    // The grid: while it shows, things snap to it; hidden, they don't
+    key("'", { metaKey: true, ctrlKey: true });
+    await until(() => app.prefs.show_grid === true);
+    await settle();
+    check(document.querySelector(".grid path.major"), "⌘' shows the grid over the page");
+    const step = canvas.gridSteps().snap, gridX = Math.round(70 / step) * step;
+    const along = [grab[0] + gridX + 1 - boxAt()[0], grab[1]];
+    await drag(grab, along);
+    check(near(boxAt()[0], gridX, 1e-6), "a dragged object snaps to the grid", `${boxAt()[0]} vs ${gridX}`);
+    app.run("undo");
+    key("'", { metaKey: true, ctrlKey: true });
+    await until(() => app.prefs.show_grid === false);
+    await drag(grab, along);
+    check(near(boxAt()[0], gridX + 1, 0.6) && !document.querySelector(".grid path"), "with the grid hidden, nothing snaps to it",
+      String(boxAt()[0]));
+    app.run("undo");
+
+    // Equal gaps: a box between two others snaps halfway and shows both gaps; one beyond repeats the gap
+    const mk = (id, x, y) => ({ id, type: "shape", geom: "rect", frame: [x, y, 40, 40], rot: 0, flip_h: false, flip_v: false,
+      stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 }, fill: null });
+    store.update("Boxes for test", (doc) => doc.pages[store.pageIndex].items.push(mk("eqA", 330, 500), mk("eqC", 450, 500),
+      mk("eqB", 392, 600), mk("eqD", 560, 600)));
+    await settle();
+    const dragShowing = async (from, to) => {
+      pointer("pointerdown", screenOf(...from));
+      for (const f of [0.4, 0.8, 1]) pointer("pointermove", screenOf(from[0] + (to[0] - from[0]) * f, from[1] + (to[1] - from[1]) * f));
+      const shown = { gaps: document.querySelectorAll(".snap-gap").length,
+        labels: [...document.querySelectorAll(".snap-label")].map((t) => t.textContent) };
+      pointer("pointerup", screenOf(...to));
+      await settle();
+      return shown;
+    };
+    let shown = await dragShowing([412, 620], [412, 521]);
+    check(near(store.item("eqB").frame[0], 390, 1e-6) && near(store.item("eqB").frame[1], 500, 1e-6),
+      "a box between two others snaps to equal gaps", JSON.stringify(store.item("eqB").frame));
+    check(shown.gaps === 2 && shown.labels.length === 2 && shown.labels.every((t) => t === lengthText(20)),
+      "both gaps show while dragging, with their size", JSON.stringify(shown));
+    shown = await dragShowing([580, 620], [531, 521]);
+    check(near(store.item("eqD").frame[0], 510, 1e-6), "a box beyond a row snaps to repeat the row's gap", JSON.stringify(store.item("eqD").frame));
+    check(shown.gaps === 2, "the matching gaps show", JSON.stringify(shown));
+    // With the grid showing, zoomed in so its millimetre lines are in play, lining up with other
+    // objects and equal gaps still wins over the nearest grid line
+    key("'", { metaKey: true, ctrlKey: true });
+    await until(() => app.prefs.show_grid === true);
+    canvas.setZoom(2.2, ...canvas.toScreen(420, 520));
+    const fine = canvas.gridSteps();
+    await drag([410, 520], [411.5, 521.2]);
+    check(fine.minor && near(store.item("eqB").frame[0], 390, 1e-6) && near(store.item("eqB").frame[1], 500, 1e-6),
+      "objects and equal gaps win over the grid", `${JSON.stringify(store.item("eqB").frame)} minor=${fine.minor}`);
+    key("'", { metaKey: true, ctrlKey: true });
+    await until(() => app.prefs.show_grid === false);
+    canvas.fit();
+
+    // A new page starts with this page's guides; Remove all clears them
+    const guidesNow = JSON.stringify(pg().guides);
+    app.run("addPage");
+    check(JSON.stringify(pg().guides) === guidesNow, "a new page starts with the same guides", `${JSON.stringify(pg().guides)} vs ${guidesNow}`);
+    await app.run("deletePage");
+    store.setPage(aidsPage);
+    inspector.render();
+    pageButton("Remove all")?.click();
+    check(pg().guides.x.length + pg().guides.y.length === 0, "Remove all clears the page's guides", JSON.stringify(pg().guides));
+
+    // The View menu shows and hides the rulers, grid and guides
+    const viewBtn = document.getElementById("view-button"), viewMenu = document.getElementById("view-menu");
+    viewBtn.click();
+    check(!viewMenu.hidden && document.activeElement?.getAttribute("role") === "menuitemcheckbox", "the View menu opens with the focus in it");
+    const gridItem = viewMenu.querySelector('[data-pref="show_grid"]');
+    check(gridItem?.getAttribute("aria-checked") === "false", "it shows the grid is off");
+    gridItem.click();
+    await until(() => app.prefs.show_grid === true);
+    check(viewMenu.hidden && gridItem.getAttribute("aria-checked") === "true", "choosing Grid shows the grid and closes the menu");
+    key("'", { metaKey: true, ctrlKey: true });
+    await until(() => app.prefs.show_grid === false);
+    keepAids = ["guides", "guidelist"].includes(params.get("finalSelect"));
+    if (!keepAids) { store.setPage(aidsPage); await app.run("deletePage"); }
+    store.setPage(0);
+
     // Export, save and reopen
     if (out) {
       const res = await rpc("export", store.doc, { base: `${out}/selftest`, formats: ["pdf", "svg", "png"], dpi: 150,
@@ -375,12 +586,30 @@ export async function run(app, params) {
       if (s) { store.select([s.id]); canvas.setZoom(4, ...canvas.toScreen(s.frame[0] + 30, s.frame[1] + 30)); }
       if (params.get("finalSelect") === "shapes") setTimeout(() => document.getElementById("shapes-button").click(), 300);
     }
+    // The View menu open, or Preferences (its rulers, grid and guides settings)
+    if (params.get("finalSelect") === "viewmenu") setTimeout(() => document.getElementById("view-button").click(), 300);
+    if (params.get("finalSelect") === "prefs") setTimeout(() => app.run("preferences"), 300);
+    if (keepAids) {
+      // Leave the layout-aids page with the grid and guides showing: "guides" mid-way through
+      // dragging a box into an equal gap, "guidelist" with the Page panel's list of guides
+      store.setPage(aidsPage);
+      await app.savePrefs({ show_grid: true });
+      store.update("Guides for screenshot", (doc) => { doc.pages[aidsPage].guides = { x: [330, 490], y: [500, 540] }; });
+      await settle();
+      if (params.get("finalSelect") === "guides") {
+        canvas.setZoom(2.2, ...canvas.toScreen(420, 520));
+        const from = [410, 520];
+        pointer("pointerdown", screenOf(...from));
+        for (const f of [0.3, 0.6, 1]) pointer("pointermove", screenOf(from[0] + 2.5 * f, from[1] + 30 + 2 * f));
+        pointer("pointermove", screenOf(from[0] + 1.5, from[1] + 1.2));
+      } else canvas.fit();
+    }
     await settle();
   } catch (err) {
     log(false, "self-test crashed", `${err.message} ${err.stack}`);
   }
   const failed = results.filter((r) => !r.ok).length;
   console.log(`SELFTEST DONE ${results.length - failed}/${results.length} passed`);
-  window.__selftest = { results, failed };
+  window.__selftest = { results, failed, info };
   document.body.dataset.selftest = failed ? "fail" : "pass";
 }

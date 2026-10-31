@@ -27,6 +27,9 @@ const ICONS = {
   lock: "M6 11h12v9H6zM8 11V8a4 4 0 018 0v3", unlock: "M6 11h12v9H6zM8 11V8a4 4 0 017.5-2",
   group: "M3 3h7v7H3zM14 14h7v7h-7zM7 10v4h7", import: "M12 15V3M7 10l5 5 5-5M5 17v3h14v-3",
   shapes: "M7 3l4.5 8h-9zM17 3.5a3.5 3.5 0 110 7 3.5 3.5 0 010-7zM8.5 13.5h7v7h-7z",
+  ruler: "M3 8h18v8H3zM7 8v3M11 8v4.5M15 8v3M19 8v4.5", grid: "M4 4h16v16H4zM9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16",
+  guides: "M9 8v13M8 15h13M6.5 3h5L9 6zM3 12.5v5l3-2.5z",
+  magnet: "M5 4h4.5v7.5a2.5 2.5 0 005 0V4H19v7.5a7 7 0 01-14 0zM5 8h4.5M14.5 8H19",
 };
 
 export function icon(name) {
@@ -89,6 +92,7 @@ export const panels = {
       if (what === "selection") this.renderLayers();
     });
     canvas.onToolChange = (tool) => this.renderTools(tool);
+    document.addEventListener("fa-prefs", () => this.renderToggles());
     document.addEventListener("fa-zoom", (e) => { this.zoomLabel.textContent = `${fmt(e.detail * 100, 0)}%`; });
     document.addEventListener("fa-cursor", (e) => {
       const u = app.prefs.units || "cm";
@@ -109,6 +113,81 @@ export const panels = {
     b.addEventListener("click", () => this.app.run(cmd));
     return b;
   },
+  // A button that switches a setting on and off and shows which (Rulers, Grid, Guides, Snap)
+  toggleButton(cmd, iconName, pref, hint = "") {
+    const b = this.toolButton(cmd, iconName);
+    const c = this.app.commands[cmd];
+    b.dataset.pref = pref;
+    b.setAttribute("aria-label", c.short);
+    b.title = `${c.label} (${c.keys})${hint}`;
+    b.setAttribute("aria-pressed", this.app.prefs[pref] ? "true" : "false");
+    return b;
+  },
+  renderToggles() {
+    for (const b of document.querySelectorAll("[data-pref]")) {
+      b.setAttribute(b.getAttribute("role") === "menuitemcheckbox" ? "aria-checked" : "aria-pressed",
+        this.app.prefs[b.dataset.pref] ? "true" : "false");
+    }
+  },
+
+  // View menu: show or hide the rulers, grid and guides ------------------------------------
+
+  viewMenuButton() {
+    const btn = h("button", { type: "button", class: "tool", id: "view-button", title: "Rulers, grid and guides",
+      "aria-label": "View", "aria-haspopup": "menu", "aria-expanded": "false", "aria-controls": "view-menu", tabindex: -1 },
+    icon("ruler"), h("span", { class: "tool-label" }, "View ▾"));
+    const items = [["toggleRulers", "show_rulers"], ["toggleGrid", "show_grid"], ["toggleGuides", "show_guides"]].map(([cmd, pref]) => {
+      const c = this.app.commands[cmd];
+      const item = h("button", { type: "button", class: "menu-item", role: "menuitemcheckbox", tabindex: -1, "data-pref": pref,
+        "aria-checked": this.app.prefs[pref] ? "true" : "false" },
+      h("span", { class: "check", "aria-hidden": "true" }, "✓"), h("span", {}, c.short),
+      h("kbd", { "aria-hidden": "true" }, c.keys));
+      item.addEventListener("click", () => { this.closeViewMenu(); this.app.run(cmd); });
+      return item;
+    });
+    const settings = h("button", { type: "button", class: "menu-item", role: "menuitem", tabindex: -1 },
+      h("span", { class: "check", "aria-hidden": "true" }), h("span", {}, "Grid spacing and snapping…"));
+    settings.addEventListener("click", () => { this.closeViewMenu(false); this.preferencesDialog(); });
+    const menu = h("div", { id: "view-menu", class: "popup-menu", role: "menu", "aria-label": "View", hidden: true },
+      ...items, h("div", { class: "menu-sep", role: "separator" }), settings);
+    btn.addEventListener("click", () => (menu.hidden ? this.openViewMenu() : this.closeViewMenu()));
+    btn.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); this.openViewMenu(); }
+    });
+    // Up and down move through the items, Enter or Space chooses (they're buttons), Escape closes
+    menu.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      const list = [...menu.querySelectorAll(".menu-item")];
+      const i = list.indexOf(document.activeElement);
+      const go = (j) => { e.preventDefault(); list[(j + list.length) % list.length].focus(); };
+      if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); this.closeViewMenu(); }
+      else if (e.key === "ArrowDown") go(i + 1);
+      else if (e.key === "ArrowUp") go(i - 1);
+      else if (e.key === "Home") go(0);
+      else if (e.key === "End") go(list.length - 1);
+    });
+    document.body.append(menu);
+    document.addEventListener("pointerdown", (e) => {
+      if (!menu.hidden && !menu.contains(e.target) && !btn.contains(e.target)) this.closeViewMenu(false);
+    }, true);
+    this.viewBtn = btn;
+    this.viewMenu = menu;
+    return btn;
+  },
+  openViewMenu() {
+    const r = this.viewBtn.getBoundingClientRect(), m = this.viewMenu;
+    m.hidden = false;
+    this.viewBtn.setAttribute("aria-expanded", "true");
+    m.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - m.offsetWidth - 8))}px`;
+    m.style.top = `${r.bottom + 4}px`;
+    m.querySelector(".menu-item")?.focus();
+  },
+  closeViewMenu(refocus = true) {
+    if (this.viewMenu.hidden) return;
+    this.viewMenu.hidden = true;
+    this.viewBtn.setAttribute("aria-expanded", "false");
+    if (refocus) this.viewBtn.focus();
+  },
   buildToolbar() {
     const bar = document.getElementById("toolbar");
     const t = (cmd, ic, tool) => this.toolButton(cmd, ic, { tool });
@@ -123,6 +202,8 @@ export const panels = {
         this.shapeMenuButton(), t("insertPicture", "picture")),
       group("Edit", t("undo", "undo"), t("redo", "redo")),
       group("Zoom", t("zoomOut", "zoomout"), this.zoomLabel, t("zoomIn", "zoomin"), t("zoomFit", "fit")),
+      group("Layout aids", this.viewMenuButton(),
+        this.toggleButton("toggleSnap", "magnet", "snap", `. Hold ${this.app.mod.replace("+", "")} while dragging to ignore it once`)),
       h("div", { class: "spacer" }),
       group("Finish", t("preflight", "check"), this.toolButton("export", "export", { primary: true })),
       group("App", t("preferences", "gear"), t("shortcuts", "help")),
@@ -398,6 +479,9 @@ export const panels = {
     dlg.addEventListener("keydown", (e) => e.stopPropagation());
     document.body.append(dlg);
     dlg.showModal();
+    // Start on the first control (Chrome and Edge would otherwise focus a body that scrolls)
+    (dlg.querySelector(".dialog-body :is(input, select, textarea, button, summary)")
+      || dlg.querySelector(".dialog-actions button"))?.focus();
     return dlg;
   },
 
@@ -512,6 +596,8 @@ export const panels = {
       return h("label", { class: "check-line", for: id }, input, h("span", {}, label));
     };
     const label = p.panel_label || {};
+    const grid = p.grid || {};
+    const keys = (cmd) => this.app.commands[cmd].keys;
     this.dialog("Preferences", h("div", {},
       h("fieldset", {}, h("legend", {}, "Measurements"),
         selectField("Positions and sizes in", p.units || "cm", unitOpts, set("units")),
@@ -521,8 +607,20 @@ export const panels = {
         selectField("Appearance", p.theme || "system", [["system", "Match the system"], ["light", "Light"], ["dark", "Dark"],
           ["contrast", "High contrast"]], set("theme")),
         chk("show_tool_labels", "Show labels under toolbar buttons"),
-        chk("reduced_motion", "Reduce motion"),
-        chk("snap", "Snap to edges, centres and other objects (hold ⌘ or Ctrl to override)")),
+        chk("reduced_motion", "Reduce motion")),
+      h("fieldset", {}, h("legend", {}, "Rulers, grid and guides"),
+        chk("show_rulers", `Show rulers (${keys("toggleRulers")})`),
+        chk("show_grid", `Show the grid (${keys("toggleGrid")}); things snap to it while it shows`),
+        chk("show_guides", `Show guides (${keys("toggleGuides")}); hidden guides don't snap`),
+        chk("snap", `Snap to guides, the grid, the page and other objects (${keys("toggleSnap")}); `
+          + `hold ${this.app.mod.replace("+", "")} while dragging to ignore it once`),
+        numField("Grid spacing", grid.spacing || 72 / 2.54, p.units || "cm",
+          (v) => this.app.savePrefs({ grid: { ...(this.app.prefs.grid || {}), spacing: Math.max(v, 0.5) } }), { min: 0 }),
+        numField("Divide each grid square into", grid.subdivisions || 10, "parts",
+          (v) => this.app.savePrefs({ grid: { ...(this.app.prefs.grid || {}), subdivisions: Math.max(1, Math.round(v)) } }),
+          { min: 1, step: 1 }),
+        h("p", { class: "hint" }, "The finer lines appear once you zoom in far enough to see them apart. "
+          + "Things snap only to lines you can see.")),
       h("fieldset", {}, h("legend", {}, "New objects"),
         numField("Default text size", p.text?.size || 6, "pt", (v) => this.app.savePrefs({ text: { ...(p.text || {}), size: v } }), { step: 0.5 }),
         numField("Default line width", p.stroke_width || 1, "pt", set("stroke_width"), { step: 0.25 }),
@@ -546,7 +644,12 @@ export const panels = {
         h("li", {}, "With a drawing tool chosen, Enter places a 2 cm shape in the middle of the view"),
         h("li", {}, "Shapes menu (S): arrow keys move, typing a name jumps to it, Enter chooses, Escape closes"),
         h("li", {}, "Shift while dragging: keep straight lines, squares and proportions"),
-        h("li", {}, "Option/Alt while dragging: duplicate; ⌘/Ctrl: don't snap"),
+        h("li", {}, "Option/Alt while dragging: duplicate; ⌘/Ctrl: don't snap, just this once"),
+        h("li", {}, "Things snap to the page, other objects' edges and centres, equal gaps between objects, "
+          + "and guides and the grid while they show. The Snap button turns snapping off"),
+        h("li", {}, "Escape while dragging: cancel the drag"),
+        h("li", {}, "Guides: drag one out of a ruler; drag it, or its mark on the ruler, to move it; "
+          + "drag it back onto the ruler to remove it. With nothing selected, the Page panel lists them to type positions"),
         h("li", {}, "Space + drag, or scroll: move around; ⌘/Ctrl + scroll or pinch: zoom"))));
   },
 

@@ -68,8 +68,19 @@ activated). A no-command-line installer is planned.
 - **Outline** an arrow or shape with a contour in a second colour (e.g. a white edge that keeps a
   black arrow visible on a photo): tick "Outline around it" and set its colour, thickness and
   transparency. It wraps the line, the arrowhead and any fill.
-- **Arrange:** drag to move (objects snap to edges, centres and the page; hold ⌘/Ctrl to
-  stop snapping), align and distribute several objects, group (⌘G), bring forward (⌘]).
+- **Arrange:** drag to move, align and distribute several objects, group (⌘G), bring forward (⌘]).
+- **Line things up:** rulers run along the top and left of the page (⌘R), in your position units
+  with 0 at the page's top-left corner. Drag a **guide** out of a ruler and drop it on the page;
+  drag it (or its mark on the ruler) to move it, or back onto the ruler to remove it. With nothing
+  selected, the Page panel lists the page's guides to add, type exact positions and remove. Each
+  page has its own guides; a new page starts with the current page's. The **grid** (⌘') is graph
+  paper over the page: 1 cm squares whose 1 mm lines appear as you zoom in (spacing in Settings).
+  Guides and the grid are never exported. The **View** menu shows and hides all three.
+- **Snapping:** dragged objects snap to the page's edges and centre, other objects' edges and
+  centres, equal gaps between objects (the gaps show with their size), and guides and the grid
+  while they're shown; hidden guides and a hidden grid never pull. Grid lines give way to
+  everything else. To place something freely, hold ⌘ (Ctrl on Windows) while dragging, or turn
+  the **Snap** button off (⌘⇧;); Escape cancels a drag.
 - **Pages:** one document can hold many pages, e.g. versions of a figure. New pages are A4.
   In the Page panel, pick a **Journal** (Cell, G3, Genetics, Genome Biology, Genome Research,
   Heredity, Molecular Biology and Evolution, Molecular Plant, Nature, New Phytologist, Plant Cell,

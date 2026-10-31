@@ -1,7 +1,9 @@
 """The document model: plain JSON shared by the editor, the engine and .figasm files.
 
-Coordinates are points (1/72 in) on the page, origin top-left, y down. Every item has an
-`id` and a `type`:
+Coordinates are points (1/72 in) on the page, origin top-left, y down. A page is {id, name,
+width, height, background, preset, guides, items}; guides {x: [...], y: [...]} are the positions
+of its vertical and horizontal guides, which help with lining things up and are never exported.
+Every item has an `id` and a `type`:
 
 - picture  {asset, page_index, frame [x, y, w, h], crop [l, t, r, b] (fractions), rot,
             flip_h, flip_v, opacity, source: auto|pdf|svg|png}

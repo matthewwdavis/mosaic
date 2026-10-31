@@ -75,6 +75,21 @@ pre-export check says so.
 - **Rounded arrowheads:** each triangle, stealth, open or diamond head has its own rounding
   0-100% on the same scale. A pointed head slides forward so its rounded tip still ends on
   the line's end point, and the line's end moves with it, kept hidden inside the head.
+- **Rulers, grid and guides (2026-10-31):** rulers along the top and left (⌘R), in the units
+  positions are shown in, 0 at the page's top-left corner like the X and Y fields. Guides are
+  dragged out of the rulers and belong to each page (pages can differ in size); new and duplicated
+  pages start with the current page's guides, and "Fit to content" moves them with the objects.
+  Objects take precedence over guides under the pointer; a guide covered by objects can be dragged
+  by its mark on a ruler or typed in the Page panel. The grid is graph paper (1 cm squares, 1 mm
+  lines that appear when zoomed in far enough to see them apart). Neither is ever exported. The
+  View menu holds the three switches; Snap has its own toolbar button.
+- **Snapping must be easy to override (Matthew's requirement):** the Snap button (⌘⇧;) turns it
+  all off and always shows its state; holding ⌘/Ctrl frees a single drag; Escape cancels a drag.
+  Nothing snaps to lines that can't be seen: the grid only while it shows (Matthew's choice), and
+  hidden guides don't snap either. Targets: page edges and centre, other objects' edges and
+  centres, equal gaps between objects (PowerPoint-style smart guides, with the gap's size shown),
+  guides, then the grid, which only counts when nothing chosen on purpose is near. Resizing doesn't
+  snap (not chosen). Keyboard nudges and typed values never snap.
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.
@@ -100,7 +115,8 @@ figassemble/
   export/         pdfwriter (+ font embedding), svgwriter, raster, conversions, preflight
   importers/      PowerPoint (.pptx) slides -> pages; relinking media to originals
   app/            local HTTP server + JSON-RPC, pywebview window, native drag and drop
-  ui/             HTML/CSS/JS editor (no build step, no framework)
+  ui/             HTML/CSS/JS editor (no build step, no framework); canvas.js draws the page,
+                  grid and guides and does the snapping, rulers.js the rulers
   cli.py          `figassemble` (GUI), `figassemble export|import-pptx|preflight`
 ```
 

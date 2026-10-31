@@ -44,3 +44,34 @@ def test_old_settings_files_switch_to_centimetres(tmp_path, monkeypatch):
     assert api.prefs_set({"units": "pt"})["units"] == "pt"
     assert api.prefs_set({"units": "cm"})["units"] == "cm"
     assert "units" not in json.loads((tmp_path / "prefs.json").read_text())
+
+
+def test_guides_are_never_exported(cache, tmp_path):
+    import pikepdf
+    from figassemble.export.run import export_document
+    outputs = []
+    for guides in ({"x": [], "y": []}, {"x": [36.0, 100.0], "y": [50.0]}):
+        doc = model.new_document("guides")
+        page = doc["pages"][0]
+        page["width"], page["height"] = 200.0, 120.0
+        page["guides"] = guides
+        page["items"].append({"id": "it_box", "type": "shape", "geom": "rect", "frame": [36, 50, 64, 40], "rot": 0,
+                              "stroke": {"color": "#000000", "width": 1}, "fill": None})
+        out = export_document(doc, str(tmp_path / f"g{len(guides['x'])}"), ["pdf", "svg"], cache=cache)
+        pdf = pikepdf.open(out["files"][0])
+        svg = open(out["files"][1], encoding="utf-8").read()
+        outputs.append((pdf.pages[0].Contents.read_bytes(), svg))
+    assert outputs[0] == outputs[1]
+
+
+def test_layout_aid_settings(tmp_path, monkeypatch):
+    from figassemble.app.api import Api
+    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))
+    api = Api()
+    prefs = api.prefs_get()
+    # Rulers and guides show, the grid doesn't; snapping is on; the grid is 1 cm squares of 1 mm lines
+    assert (prefs["show_rulers"], prefs["show_guides"], prefs["show_grid"], prefs["snap"]) == (True, True, False, True)
+    assert prefs["grid"]["spacing"] == pytest.approx(10 * MM) and prefs["grid"]["subdivisions"] == 10
+    api.prefs_set({"show_grid": True, "snap": False})
+    stored = json.loads((tmp_path / "prefs.json").read_text())
+    assert stored["show_grid"] is True and stored["snap"] is False and "show_rulers" not in stored

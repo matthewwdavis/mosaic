@@ -22,6 +22,9 @@ PREFS_DEFAULTS = {
     "reduced_motion": False, "snap": True, "default_dpi": 600, "default_formats": ["pdf", "png"],
     "transparent": True, "panel_label": {"size": 8.0, "bold": True, "font": "Helvetica", "case": "lower"},
     "text": {"font": "Helvetica", "size": 6.0}, "stroke_width": 1.0, "recent": [],
+    # Layout aids: the grid is graph paper, 1 cm squares of 1 mm lines (spacing in points); things
+    # snap to the grid and guides only while they're shown
+    "show_rulers": True, "show_grid": False, "show_guides": True, "grid": {"spacing": 72 / 2.54, "subdivisions": 10},
 }
 PREFS_VERSION = 2
 
