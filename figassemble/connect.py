@@ -94,8 +94,13 @@ def _ray_hit(sub, origin, direction):
 
 
 def line_sites(prims) -> list[tuple[str, float, float]]:
-    """A dashed line's dash points, on the page (its ends and middle the editor works out)."""
+    """A dashed line's dash points, on the page (its ends and middle the editor works out). A
+    see-through line is drawn in a group with its arrowheads (resolve.fade_together)."""
     for p in prims:
+        inner = getattr(p, "prims", None)
+        found = line_sites(inner) if inner is not None else None
+        if found:
+            return found
         laid_out = getattr(p, "meta", {}).get("dashes")
         if laid_out:
             return laid_out[0].sites()

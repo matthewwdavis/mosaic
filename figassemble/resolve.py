@@ -220,6 +220,42 @@ def with_outline(prims: list, spec: dict | None, interior: list | None = None) -
     return fade(_contours(parts, spec)) + prims
 
 
+def fade_together(prims: list) -> list:
+    """A see-through line and its arrowheads, side by side, drawn opaque in one group that fades
+    as a whole, so they don't double up where the line runs into its head (as PowerPoint draws
+    them). Outlines and fills are left as they are."""
+    def opacity(p):
+        if not isinstance(p, DrawPath) or p.meta.get("role") in ("outline", "body"):
+            return None
+        if p.stroke is not None and p.stroke.opacity < 1.0:
+            return p.stroke.opacity
+        if p.fill is not None and p.fill.gradient is None and p.fill.opacity < 1.0:
+            return p.fill.opacity
+        return None
+
+    def opaque(p):
+        return DrawPath(p.path, stroke=replace(p.stroke, opacity=1.0) if p.stroke else None,
+                        fill=replace(p.fill, opacity=1.0) if p.fill else None, meta=p.meta)
+    out, run = [], []
+
+    def flush():
+        if len(run) > 1:
+            out.append(DrawGroup([opaque(p) for p in run], opacity(run[0]), meta={"role": "faded together"}))
+        else:
+            out.extend(run)
+        run.clear()
+    for p in prims:
+        op = opacity(p)
+        if op is None or (run and abs(opacity(run[0]) - op) > 1e-9):
+            flush()
+        if op is None:
+            out.append(p)
+        else:
+            run.append(p)
+    flush()
+    return out
+
+
 def _see_through(fill) -> bool:
     return fill.opacity < 1.0 or (fill.gradient is not None and fill.gradient.has_alpha)
 
@@ -634,8 +670,8 @@ class Resolver:
                     r.prims += stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))
                 else:
                     r.prims.append(DrawPath(path, stroke=stroke))
-        r.prims = with_outline([even_dashes(p) for p in r.prims], item.get("outline"),
-                               shape_interior(geom, shape_paths, m, fill, stroke))
+        r.prims = fade_together(with_outline([even_dashes(p) for p in r.prims], item.get("outline"),
+                                             shape_interior(geom, shape_paths, m, fill, stroke)))
         body = item.get("text")
         if body and body.get("paragraphs"):
             tx0, ty0, tx1, ty1 = presets.text_rect(geom, w, h, item.get("adj"))
@@ -724,7 +760,7 @@ class Resolver:
             for p in pts[1:]:
                 path.line_to(*p)
         drawn = [even_dashes(p) for p in stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))]
-        r.prims += with_outline(drawn, item.get("outline"))
+        r.prims += fade_together(with_outline(drawn, item.get("outline")))
         return r
 
 
