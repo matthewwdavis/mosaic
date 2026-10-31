@@ -90,15 +90,9 @@ class DrawGroup:
         return union_bbox(p.bbox() for p in self.prims)
 
 
-def outline_prims(prims: list, spec: dict | None) -> list:
-    """A contour of `spec["width"]` points in another colour around everything an item
-    draws (lines, arrowheads, fills), to sit underneath it. Its transparency applies to the
-    contour as a whole, so the outline of a line and of its head don't double up."""
-    return _faded(_contours(prims, spec), spec)
-
-
 def _faded(out: list, spec: dict, clip: list | None = None) -> list:
-    """Outline contours with the outline's transparency (and a clip) applied to them as one."""
+    """Outline contours with the outline's transparency (and a clip) applied to them as one, so
+    the outline of a line and of its head don't double up."""
     opacity = float(spec.get("opacity", 1.0))
     if out and (opacity < 1.0 or clip):
         return [DrawGroup(out, opacity, meta={"role": "outline"}, clip=clip or [])]
@@ -106,6 +100,8 @@ def _faded(out: list, spec: dict, clip: list | None = None) -> list:
 
 
 def _contours(prims: list, spec: dict | None) -> list:
+    """A contour of `spec["width"]` points in another colour around everything an item draws
+    (lines, arrowheads, fills), to sit underneath it."""
     if not spec:
         return []
     t = float(spec.get("width", 1.0))
@@ -144,7 +140,7 @@ def _dashed(prim) -> bool:
 
 
 def with_outline(prims: list, spec: dict | None, interior: list | None = None) -> list:
-    """An item's drawing with its outline (outline_prims) where the outline's type puts it:
+    """An item's drawing with its outline (_contours) where the outline's type puts it:
 
     - "outside" (the default): underneath everything, so a filled shape's outline shows only
       outside it, and runs through the gaps of a dashed line along the fill's edge;
@@ -173,12 +169,18 @@ def with_outline(prims: list, spec: dict | None, interior: list | None = None) -
     dashed = any(_dashed(p) for p in prims if id(p) in strokes)
     if kind in ("inside", "inside_gaps", "outside_only", "outside_only_gaps") and not interior:
         kind = "both" if kind.endswith("_gaps") else "both_filled"
+    # Lines and arrowheads that can be seen through would show the outline under them: every
+    # part of the outline is kept off what they paint
+    marks = _see_through_clip([p for p in prims if id(p) not in body], prims, spec)
+
+    def fade(contours, clip=None):
+        return _faded(contours, spec, (clip or []) + marks)
     if kind in ("outside_only", "outside_only_gaps"):
         if body:   # the fill hides the inside already
             kind = kind.replace("_only", "")
         else:
             band = _edge_band(interior, spec) if kind == "outside_only" or not dashed else []
-            return _faded(band + _contours(prims, spec), spec, _outside_clip(interior, prims, spec)) + prims
+            return fade(band + _contours(prims, spec), _outside_clip(interior, prims, spec)) + prims
     if kind in ("inside", "inside_gaps"):
         # Like Both sides (each line drawn over its outline, which goes over the fill before it),
         # kept inside the area, with the band along the area's edge under the first line
@@ -190,7 +192,7 @@ def with_outline(prims: list, spec: dict | None, interior: list | None = None) -
                 run.append(p)
                 continue
             if run or (p is None and band):
-                out += _faded(band + _contours(run, spec), spec, clip) + run
+                out += fade(band + _contours(run, spec), clip) + run
                 band, run = [], []
             if p is not None:
                 out.append(p)
@@ -205,7 +207,7 @@ def with_outline(prims: list, spec: dict | None, interior: list | None = None) -
                 run.append(p)
                 continue
             if run:
-                out += outline_prims([whole(q) if id(q) in strokes else q for q in run], spec) + run
+                out += fade(_contours([whole(q) if id(q) in strokes else q for q in run], spec)) + run
                 run = []
             if p is not None:
                 out.append(p)
@@ -214,8 +216,8 @@ def with_outline(prims: list, spec: dict | None, interior: list | None = None) -
     if body and interior and any(_see_through(p.fill) for p in prims if id(p) in body):
         # A fill that can be seen through would show the outline underneath it: keep it off
         # the fill's area (an opaque fill hides it already, and is drawn as it always was)
-        return _faded(_contours(parts, spec), spec, _outside_clip(interior, prims, spec)) + prims
-    return outline_prims(parts, spec) + prims
+        return fade(_contours(parts, spec), _outside_clip(interior, prims, spec)) + prims
+    return fade(_contours(parts, spec)) + prims
 
 
 def _see_through(fill) -> bool:
@@ -239,14 +241,28 @@ def _inside_clip(interior: list) -> list:
 
 
 def _outside_clip(interior: list, prims: list, spec: dict) -> list:
-    """A clip to everything but the area: a box round all of it with the area cut out."""
-    area, _even_odd = _inside_clip(interior)[0]
+    """A clip to everything but the area."""
+    return [_cut_out(_inside_clip(interior)[0][0], prims, spec)]
+
+
+def _see_through_clip(marks: list, prims: list, spec: dict) -> list:
+    """A clip to everything but the see-through lines and arrowheads among marks."""
+    marks = [p for p in marks if isinstance(p, DrawPath) and ((p.stroke is not None and p.stroke.opacity < 1.0)
+                                                             or (p.fill is not None and _see_through(p.fill)))]
+    if not marks:
+        return []
+    from .regions import painted_path
+    return [_cut_out(painted_path(marks), prims, spec)]
+
+
+def _cut_out(area: Path, prims: list, spec: dict) -> tuple:
+    """A clip to everything but an area: a box round all of it with the area cut out (even-odd)."""
     box = union_bbox([area.bbox(), *(p.bbox() for p in prims)])
     pad = 2 * float(spec.get("width", 1.0)) + max((p.stroke.width for p in prims
                                                     if isinstance(p, DrawPath) and p.stroke is not None), default=0.0) + 10.0
     x0, y0, x1, y1 = box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad
     frame = Path().move_to(x0, y0).line_to(x1, y0).line_to(x1, y1).line_to(x0, y1).close()
-    return [(Path(frame.segs + area.segs), True)]
+    return (Path(frame.segs + area.segs), True)
 
 
 def shape_interior(geom: str, shape_paths: list, m: Matrix, fill, stroke) -> list | None:

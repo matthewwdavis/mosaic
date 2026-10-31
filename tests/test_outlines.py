@@ -204,3 +204,27 @@ def test_a_see_through_fill_doesnt_show_the_outline_through_it():
     assert layers(prims_with(fade))[0].startswith("clipped(")
     # An opaque fill hides the outline already, and draws as it always has
     assert kinds(prims_with({"color": "#cfe3ff", "opacity": 1})) == ["outline-fill", "outline-line", "fill", "line"]
+
+
+def test_see_through_lines_dont_show_the_outline_through_them():
+    from shapely.geometry import Point
+
+    from figassemble.regions import _covered
+
+    def visible(item):
+        """Where the outline may show: inside its clip (None if it isn't clipped)."""
+        prims = Resolver({"assets": {}}).resolve(dict(item, outline={"color": "#fff", "width": 2, "opacity": 1})).prims
+        groups = [p for p in prims if isinstance(p, DrawGroup)]
+        return _covered(groups[0].clip) if groups else None
+    arrow = {"id": "l", "type": "line", "points": [[0, 0], [100, 0]], "arrow_start": None,
+             "arrow_end": {"type": "triangle", "w": "med", "len": "med"},
+             "stroke": {"color": "#000", "width": 4, "opacity": 0.5, "cap": "round"}}
+    area = visible(arrow)
+    # Kept off the line and its head, but not off the band round them
+    assert not area.contains(Point(50, 0)) and not area.contains(Point(97, 0)) and area.contains(Point(50, 3))
+    # PowerPoint-spaced dashes (lengths in line widths: 8 pt dashes and gaps): off each dash, not off the gaps
+    dashed = dict(arrow, arrow_end=None, stroke=dict(arrow["stroke"], dash=[2, 2], even_dashes=False, cap="flat"))
+    area = visible(dashed)
+    assert not area.contains(Point(4, 0)) and area.contains(Point(12, 0))
+    # An opaque line hides its outline already: no clip
+    assert visible(dict(arrow, stroke=dict(arrow["stroke"], opacity=1))) is None

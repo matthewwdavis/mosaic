@@ -44,6 +44,27 @@
 - [ ] Matthew's first real use: feedback round (in progress)
 - [ ] Windows: try the app window and the installer on a real machine (the installer runs in CI)
 
+## Illustrator-style and figure tools (asked for 2026-10-31)
+
+Matthew's choices are in brackets.
+
+- [x] Outlines under see-through lines and arrowheads kept off them (like see-through fills)
+- [ ] Colour-blind preview of the page (deuteranopia, protanopia, tritanopia, greyscale), never exported
+- [ ] Smart duplicate on ⌘D (a moved copy sets the offset for the next) and Transform Again on ⌘⇧D [both]
+- [ ] Copy style / Paste style (⌘⇧C / ⌘⇧V) and a Format Painter button [everything that applies]
+- [ ] Match sizes: same width / height / size, keeping proportions
+- [ ] Find and replace fonts
+- [ ] Document swatches, linked (editing one recolours its objects), saved in the figure plus a
+      personal library; colour-blind-safe palettes (Okabe-Ito, Paul Tol) [linked; figure + library]
+- [ ] Text styles, linked, with changes to one text kept as overrides [linked]
+- [ ] Isolation mode: double-click a group to edit inside it, nested too [Illustrator's way]
+- [ ] Crop pictures to a shape, and clipping masks for any objects [both]
+- [ ] Pathfinder: unite, minus front, intersect, exclude, with exact curves (skia-pathops) [exact]
+- [ ] Scale bars that stay right when the picture is resized or cropped; scale typed as a pixel
+      size, measured from a known length, or read from TIFF / ImageJ / OME metadata [all three]
+- [ ] Zoom insets: a box on a picture, an enlarged copy of that area, lines between, kept in step
+- [ ] Significance brackets: a bracket with asterisks or a p-value, tidy heights and gaps
+
 ## Acceptance test (test slide)
 
 - Imported all 52 objects; 8 of 9 SVGs relinked to the R originals with their PDF copies (the 9th is

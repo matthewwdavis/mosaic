@@ -16,7 +16,7 @@ import math
 
 import shapely
 from shapely import ops
-from shapely.geometry import LineString, MultiLineString, Point, Polygon
+from shapely.geometry import LinearRing, LineString, MultiLineString, Point, Polygon
 
 from .geometry import Path, flatten
 from .resolve import centre_paths
@@ -99,6 +99,87 @@ def union_path(areas: list) -> Path:
         if isinstance(face, Polygon) and face.area > GRID:
             out.segs += _path(face).segs
     return out
+
+
+def painted_path(prims: list) -> Path:
+    """The area some drawn paths paint, fills and strokes (with their dashes, ends and corners)
+    together, as straight-edged rings to clip by even-odd."""
+    shapes = []
+    for p in prims:
+        if p.fill is not None:
+            shapes.append(_covered([(p.path, p.fill.even_odd)]))
+        if p.stroke is not None:
+            shapes.append(_stroke_area(p.path, p.stroke))
+    out = Path()
+    for face in shapely.get_parts(shapely.unary_union(shapes)) if shapes else []:
+        if isinstance(face, Polygon) and face.area > GRID:
+            out.segs += _path(face).segs
+    return out
+
+
+_CAPS = {"round": "round", "flat": "flat", "square": "square"}
+_JOINS = {"round": "round", "miter": "mitre", "bevel": "bevel"}
+
+
+def _stroke_area(path: Path, s):
+    """The area a stroke paints (shapely): its width, ends, corners and dashes."""
+    width = dict(quad_segs=16, cap_style=_CAPS.get(s.cap, "flat"), join_style=_JOINS.get(s.join, "round"),
+                 mitre_limit=max(s.miter_limit, 1.0))
+    pieces = []
+    for sub in path.subpaths():
+        pts = flatten(sub, PER_CURVE)[0] if sub.segs else []
+        pts = [p for i, p in enumerate(pts) if i == 0 or math.dist(p, pts[i - 1]) > GRID]
+        closed = sub.is_closed() and len(pts) >= 3
+        if closed and math.dist(pts[0], pts[-1]) <= GRID:
+            pts = pts[:-1]
+        if s.dash:
+            for run in _dash_runs(pts + [pts[0]] if closed else pts, s.dash, s.dash_phase):
+                pieces.append(_run_area(run, s.width, width))
+        elif closed:
+            pieces.append(LinearRing(pts).buffer(s.width / 2, **width))   # corners all round, no ends
+        elif pts:
+            pieces.append(_run_area(pts, s.width, width))
+    return shapely.unary_union(pieces) if pieces else Polygon()
+
+
+def _run_area(pts: list, w: float, style: dict):
+    if len(pts) < 2 or LineString(pts).length <= GRID:   # a dot: a round end makes a disc
+        return Point(pts[0]).buffer(w / 2, quad_segs=16) if style["cap_style"] == "round" else Polygon()
+    return LineString(pts).buffer(w / 2, **style)
+
+
+def _dash_runs(pts: list, dash: list, phase: float) -> list:
+    """The stretches of a polyline that a dash pattern draws (PDF rules: the pattern starts
+    `phase` along it and repeats; an odd-length pattern repeats twice to pair dashes and gaps)."""
+    pattern = list(dash) * (1 if len(dash) % 2 == 0 else 2)
+    total = sum(pattern)
+    if total <= 0 or len(pts) < 2:
+        return [pts]
+    i, left = 0, phase % total
+    while left >= pattern[i]:
+        left -= pattern[i]
+        i = (i + 1) % len(pattern)
+    left = pattern[i] - left
+    runs, cur = [], [pts[0]] if i % 2 == 0 else None
+    for a, b in zip(pts, pts[1:]):
+        seg, t = math.dist(a, b), 0.0
+        while seg - t >= left:
+            t += left
+            q = (a[0] + (b[0] - a[0]) * t / seg, a[1] + (b[1] - a[1]) * t / seg) if seg else a
+            if cur is not None:
+                cur.append(q)
+                runs.append(cur)
+                cur = None
+            else:
+                cur = [q]
+            i = (i + 1) % len(pattern)
+            left = pattern[i]   # a zero-length dash (a round dot) ends where it starts
+        left -= seg - t
+        if cur is not None:
+            cur.append(b)
+    if cur is not None:
+        runs.append(cur)
+    return runs
 
 
 def edge_traced(areas: list, lines: list, tol: float) -> bool:
