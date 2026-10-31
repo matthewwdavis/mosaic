@@ -65,7 +65,8 @@ everything it uses, and keeps your settings. You can delete the downloaded folde
 1. **Choose a page size.** With nothing selected, the panel on the right shows the page: pick a
    **Journal** and **Figure type** (say *Nature*, *Double column*), or a standard size.
 2. **Drop in your plots.** Drag PDF, SVG, PNG, JPEG or TIFF files from Finder or Explorer onto the
-   page, or use **Picture** (I) in the tools on the left. They land at true size.
+   page, copy them there and paste (⌘V), or use **Picture** (I) in the tools on the left. They land
+   at true size and stay linked to their files.
 3. **Arrange them.** Drag them into place. Magenta lines show when edges and centres line up;
    hold ⌘ (Ctrl on Windows) to drag freely. The **Arrange** tab aligns and spaces several at once.
 4. **Label and annotate.** Press **P** and click to add panel labels (a, b, c…). Add text (T) and

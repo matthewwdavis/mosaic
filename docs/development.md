@@ -63,8 +63,14 @@ It prints `SELFTEST {...}` with every result, then `SMOKE ready errors=[]`. A hi
 timers run slowly, so this takes a few minutes. Without `FIGASSEMBLE_SMOKE_QUERY` it checks that
 the editor starts and that an edit switches on the close confirmation. On a Mac it then presses
 every keyboard shortcut with real key events, through AppKit and pywebview as a key press goes
-(`figassemble/app/keycheck.py`), since the self-test's own key presses never leave the page:
-`SMOKE keys: 66 of 66 passed`.
+(`figassemble/app/keycheck.py`), since the self-test's own key presses never leave the page, and
+pastes text, a PDF, a copied file and a screenshot from the real clipboard (put back afterwards):
+`SMOKE keys: 71 of 71 passed`.
+
+Paste reads the system clipboard on the Python side (`figassemble/app/clipboard.py`): AppKit on
+a Mac, the Windows clipboard API on Windows. The editor self-test sets
+`FIGASSEMBLE_FAKE_CLIPBOARD=1`, which swaps in a clipboard of FigAssemble's own, so tests never
+touch the real one.
 
 GitHub Actions runs the tests on Windows and Linux for every push (`.github/workflows/tests.yml`).
 `installers.yml` runs both installers on fresh Mac and Windows machines when they or what they

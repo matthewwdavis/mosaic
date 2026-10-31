@@ -204,6 +204,66 @@ FIELD_STEPS = [("cmd+a", False), ("cmd+c", False), ("cmd+v", False), ("cmd+z", F
                ("cmd+s", True)]
 
 
+# ⌘V with things other apps copy, put on the real clipboard: what each must paste as
+ITEMS_JS = """JSON.stringify(window.FA.store.items().map((it) => {
+  const a = it.asset && window.FA.store.doc.assets[it.asset], v = a && a.variants[a.primary];
+  return { id: it.id, type: it.type, frame: it.frame,
+    text: it.text ? it.text.paragraphs.map((p) => p.runs.map((r) => (r.bold ? `*${r.t}*` : r.t)).join("")).join("|") : null,
+    asset: a ? { primary: a.primary, linked: Object.values(a.variants).some((x) => x.src), dpi: v.dpi || null } : null };
+}))"""
+
+
+def paste_samples(folder: str) -> list[tuple[str, dict, object]]:
+    """(what, {pasteboard type: data}, check(new item)) for each kind of paste."""
+    import AppKit
+    import pikepdf
+    from PIL import Image
+    import io
+    import os
+
+    def rtf():
+        s = AppKit.NSMutableAttributedString.alloc().initWithString_("Bold and plain")
+        s.addAttribute_value_range_(AppKit.NSFontAttributeName, AppKit.NSFont.fontWithName_size_("Helvetica", 12), (0, 14))
+        s.addAttribute_value_range_(AppKit.NSFontAttributeName, AppKit.NSFont.fontWithName_size_("Helvetica-Bold", 12), (0, 4))
+        return bytes(s.RTFFromRange_documentAttributes_((0, s.length()), {}))
+    pdf = io.BytesIO()
+    doc = pikepdf.new()
+    doc.add_blank_page(page_size=(100, 50))
+    doc.save(pdf)
+    path = os.path.join(folder, "copied plot.pdf")
+    with open(path, "wb") as f:
+        f.write(pdf.getvalue())
+    png, tiff = io.BytesIO(), io.BytesIO()
+    Image.new("RGB", (40, 20), (10, 120, 200)).save(png, "PNG")
+    Image.new("RGB", (40, 20), (10, 120, 200)).save(tiff, "TIFF", dpi=(144, 144))
+    return [
+        ("text with bold (RTF)", {"public.rtf": on_main(rtf), "public.utf8-plain-text": "Bold and plain"},
+         lambda it: it["type"] == "shape" and it["text"] == "*Bold* and plain"),
+        ("a vector picture (PDF)", {"com.adobe.pdf": pdf.getvalue()},
+         lambda it: it["asset"] and it["asset"]["primary"] == "pdf" and not it["asset"]["linked"]
+         and abs(it["frame"][2] - 100) < 0.01),
+        ("a file copied in the Finder", {"public.file-url": AppKit.NSURL.fileURLWithPath_(path).absoluteString()},
+         lambda it: it["asset"] and it["asset"]["linked"]),
+        ("a screenshot (PNG, and a TIFF that records 144 dpi)", {"public.png": png.getvalue(), "public.tiff": tiff.getvalue()},
+         lambda it: it["asset"] and it["asset"]["primary"] == "png" and abs(it["frame"][2] - 20) < 0.01),
+        ("text with a picture: the text", {"public.utf8-plain-text": "Caption", "com.adobe.pdf": pdf.getvalue()},
+         lambda it: it["type"] == "shape" and it["text"] == "Caption"),
+    ]
+
+
+def put_clipboard(kinds: dict) -> None:
+    import AppKit
+    pb = AppKit.NSPasteboard.generalPasteboard()
+    pb.clearContents()
+    item = AppKit.NSPasteboardItem.alloc().init()
+    for kind, data in kinds.items():
+        if isinstance(data, str):
+            item.setString_forType_(data, kind)
+        else:
+            item.setData_forType_(AppKit.NSData.dataWithBytes_length_(data, len(data)), kind)
+    pb.writeObjects_([item])
+
+
 def moved(before: dict, after: dict, dx: float) -> bool:
     return (before["frame"] is not None and after["frame"] is not None
             and abs(after["frame"][0] - before["frame"][0] - dx) < 1e-6)
@@ -248,6 +308,24 @@ def run(window, ns_window) -> dict:
                 failed.append({"keys": f"{keys} in a text field", "wanted": "save" if saves else "left to the field",
                                "ran": ran, "keydown": keydown, "field focused": after["field"]})
         window.evaluate_js("document.activeElement.blur(); true")
+        # ⌘V with what other apps copy
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            samples = paste_samples(folder)
+            for what, kinds, ok_item in samples:
+                put_clipboard(kinds)
+                before = {it["id"] for it in json.loads(window.evaluate_js(ITEMS_JS))}
+                press(ns_window, "cmd+v")
+                new = []
+                for _ in range(60):
+                    time.sleep(0.05)
+                    new = [it for it in json.loads(window.evaluate_js(ITEMS_JS)) if it["id"] not in before]
+                    if new:
+                        break
+                ok = len(new) == 1 and bool(ok_item(new[0]))
+                passed += ok
+                if not ok:
+                    failed.append({"keys": f"cmd+v with {what}", "wanted": what, "ran": [], "keydown": [], "pasted": new})
     finally:
         restore_clipboard(clipboard)
-    return {"passed": passed, "total": len(STEPS) + len(FIELD_STEPS), "failed": failed}
+    return {"passed": passed, "total": len(STEPS) + len(FIELD_STEPS) + len(samples), "failed": failed}

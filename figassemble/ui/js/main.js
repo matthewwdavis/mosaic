@@ -413,14 +413,25 @@ const app = {
     const c = this.commands[name];
     return { label: c.label, keys: c.keys, run: () => this.run(name), ...opts };
   },
+  // What's on the clipboard, for the menus' Paste lines ({} if it can't be told)
+  async clipboardKinds() {
+    await this.copying;
+    try { return await rpc("clipboard_kinds", this.clipboardCount ?? null); } catch { return {}; }
+  },
+  // Paste, and Paste as picture when a plain paste would take the text instead of the picture
+  pasteEntries(clip, at) {
+    const both = clip.text && clip.picture && !clip.files && !clip.objects && !clip.own;
+    return [this.menuEntry("paste", { run: () => this.paste("auto", at) }),
+      both && { label: "Paste as picture", run: () => this.paste("picture", at) }];
+  },
   // For the selected objects
-  objectMenu() {
+  objectMenu(clip = {}, at = null) {
     const c = (name, opts) => this.menuEntry(name, opts);
     const sel = store.selected(), one = sel.length === 1 ? sel[0] : null;
     const locked = sel.length > 0 && sel.every((it) => it.locked);
     const asset = one?.type === "picture" ? store.doc.assets[one.asset] : null;
     return [
-      c("cut"), c("copy"), c("paste"), c("duplicate"), c("delete"),
+      c("cut"), c("copy"), ...this.pasteEntries(clip, at), c("duplicate"), c("delete"),
       "-",
       c("group", { disabled: sel.length < 2 }), c("ungroup", { disabled: !sel.some((it) => it.type === "group") }),
       "-",
@@ -437,11 +448,11 @@ const app = {
     ];
   },
   // For the page itself, where nothing was under the pointer
-  pageMenu() {
+  pageMenu(clip = {}, at = null) {
     const c = (name, opts) => this.menuEntry(name, opts);
     const show = (name, pref, label) => c(name, { label, checked: !!this.prefs[pref] });
     return [
-      c("paste"), c("selectAll"),
+      ...this.pasteEntries(clip, at), c("selectAll"),
       "-",
       c("insertPicture", { label: "Insert picture…" }), c("fitPage"),
       "-",
@@ -449,14 +460,26 @@ const app = {
       show("toggleGuides", "show_guides", "Guides"), show("toggleSnap", "snap", "Snap"),
     ];
   },
+  // Show a menu once the clipboard has been looked at (entries(clip) builds it); a newer menu
+  // asked for in the meantime wins
+  async showMenu(entries, x, y, returnFocus) {
+    const ask = (this._menuAsk = (this._menuAsk || 0) + 1);
+    const clip = await this.clipboardKinds();
+    if (ask === this._menuAsk) contextMenu.show(entries(clip), x, y, returnFocus);
+  },
   // A right-click on the page: like PowerPoint, an object outside the selection becomes the
-  // selection, and empty page clears it
+  // selection, and empty page clears it. Paste puts things where it was clicked
   contextMenuAt(x, y) {
     const r = canvas.stage.getBoundingClientRect();
-    const hit = canvas.itemAt(canvas.toPage(x - r.left, y - r.top));
+    const p = canvas.toPage(x - r.left, y - r.top);
+    const hit = canvas.itemAt(p);
     if (!hit) store.select([]);
     else if (!store.selection.includes(hit.id)) store.select([hit.id]);
-    contextMenu.show(hit ? this.objectMenu() : this.pageMenu(), x, y, canvas.stage);
+    return this.showMenu((clip) => (hit ? this.objectMenu(clip, p) : this.pageMenu(clip, p)), x, y, canvas.stage);
+  },
+  // An object's menu from the Objects list
+  objectListMenu(x, y) {
+    return this.showMenu((clip) => this.objectMenu(clip), x, y, panels.layerList);
   },
   // The menu key or Shift+F10: the menu for what has the focus, beside it
   keyboardMenu(target) {
@@ -467,20 +490,16 @@ const app = {
       return;
     }
     const row = store.selection.length && document.getElementById(`layer-opt-${store.selection[store.selection.length - 1]}`);
-    if (panels.layerList.contains(target) && row) {
-      contextMenu.show(this.objectMenu(), ...below(row), panels.layerList);
-      return;
-    }
+    if (panels.layerList.contains(target) && row) return this.objectListMenu(...below(row));
     const sr = canvas.stage.getBoundingClientRect(), b = itemsBBox(store.selected());
     if (b) {
       // Under the selection's bottom-left corner, kept inside the view
       const [x, y] = canvas.toScreen(b[0], b[3]);
-      contextMenu.show(this.objectMenu(), sr.left + Math.min(Math.max(x, 8), sr.width - 8),
+      return this.showMenu((clip) => this.objectMenu(clip), sr.left + Math.min(Math.max(x, 8), sr.width - 8),
         sr.top + Math.min(Math.max(y + 4, 8), sr.height - 8), canvas.stage);
-    } else {
-      store.select([]);
-      contextMenu.show(this.pageMenu(), sr.left + sr.width / 2, sr.top + sr.height / 2, canvas.stage);
     }
+    store.select([]);
+    return this.showMenu((clip) => this.pageMenu(clip), sr.left + sr.width / 2, sr.top + sr.height / 2, canvas.stage);
   },
   detachEnds() {
     const it = store.selected()[0];
@@ -512,17 +531,48 @@ const app = {
     walk(sel);
     this.clipboard = { items: clone(sel), assets: clone(assets), page: store.page().id };
     const text = "figassemble:" + JSON.stringify(this.clipboard);
-    navigator.clipboard?.writeText(text).catch(() => {});
+    // On the system clipboard too, for other documents; its change count afterwards tells a
+    // paste whether this copy is still the newest thing there
+    this.clipboardCount = null;
+    this.copying = Promise.resolve(navigator.clipboard?.writeText(text)).catch(() => {})
+      .then(() => rpc("clipboard_copied", text)).then((n) => { this.clipboardCount = n; }).catch(() => {});
     if (cut) this.deleteSelection();
     announce(`${cut ? "Cut" : "Copied"} ${sel.length} object${sel.length === 1 ? "" : "s"}`);
   },
-  async paste() {
-    let clip = this.clipboard;
-    try {
-      const text = await navigator.clipboard?.readText();
-      if (text?.startsWith("figassemble:")) clip = JSON.parse(text.slice(12));
-    } catch { /* clipboard not readable; use the internal one */ }
-    if (!clip) { announce("Nothing to paste"); return; }
+  // Paste what's newest on the clipboard: objects copied here or in another document, files
+  // copied in the Finder or Explorer (linked, as when dropped), a picture, or text as a text box.
+  // mode "picture" takes the picture even when there's text too; at: where (top-left) on the page,
+  // else the middle of the view
+  async paste(mode = "auto", at = null) {
+    await this.copying;   // a copy just made is on the clipboard first
+    let r;
+    try { r = await rpc("clipboard_paste", mode, this.clipboardCount ?? null); } catch { r = { kind: "unavailable" }; }
+    const centred = ([w, h]) => {
+      if (at) return at;
+      const sr = canvas.stage.getBoundingClientRect(), [cx, cy] = canvas.toPage(sr.width / 2, sr.height / 2);
+      return [cx - w / 2, cy - h / 2];
+    };
+    const sizeOf = (asset) => (asset.page_sizes ? asset.page_sizes[0] : asset.size_pt);
+    if (r.kind === "own" && this.clipboard) return this.pasteObjects(this.clipboard);
+    if (r.kind === "objects") return this.pasteObjects(r.clip);
+    if (r.kind === "files") {
+      const first = r.results.find((x) => !x.error);
+      return this.placeResults(r.results, first ? centred(sizeOf(first.asset)) : at, "linked");
+    }
+    if (r.kind === "picture") return this.placeResults([r], centred(sizeOf(r.asset)), "stored in the document");
+    if (r.kind === "text") return this.pasteText(r.paragraphs, at);
+    if (r.kind === "unavailable") {
+      // No system clipboard to read here: FigAssemble's own copies only
+      let clip = this.clipboard;
+      try {
+        const text = await navigator.clipboard?.readText();
+        if (text?.startsWith("figassemble:")) clip = JSON.parse(text.slice(12));
+      } catch { /* not readable: the copy made in this window */ }
+      if (clip) return this.pasteObjects(clip);
+    }
+    announce(mode === "picture" ? "There's no picture on the clipboard" : "Nothing to paste");
+  },
+  pasteObjects(clip) {
     const items = copyItems(clip.items);
     const offset = clip.page === store.page().id ? 10 : 0;
     store.update("Paste", (doc) => {
@@ -534,6 +584,26 @@ const app = {
     }, { select: items.map((i) => i.id) });
     clip.page = store.page().id;
     announce(`Pasted ${items.length} object${items.length === 1 ? "" : "s"}`);
+  },
+  // Pasted text: a text box in the default font and size, keeping bold, italic and line breaks.
+  // Long paragraphs wrap in a box 60% of the page wide; short ones size the box to the text
+  pasteText(paragraphs, at) {
+    const d = canvas.defaults || {};
+    const base = { font: d.text?.font || "Helvetica", size: d.text?.size || 6, color: "#000000" };
+    const paras = paragraphs.map((runs) => ({ align: "l",
+      runs: (runs.length ? runs : [{ t: "" }]).map((r) => ({ ...base, t: r.t, bold: !!r.bold, italic: !!r.italic })) }));
+    const longest = Math.max(0, ...paragraphs.map((runs) => runs.reduce((n, r) => n + r.t.length, 0)));
+    const wrap = longest > 80, w = wrap ? Math.round(store.page().width * 0.6) : 10;
+    let [x, y] = at || [];
+    if (!at) {
+      const sr = canvas.stage.getBoundingClientRect();
+      [x, y] = canvas.toPage(sr.width / 2, sr.height / 2);
+      if (wrap) x -= w / 2;
+    }
+    const item = { id: uid("it"), type: "shape", geom: "rect", textbox: true, stroke: null, fill: null, rot: 0,
+      frame: [x, y, w, 10], text: { paragraphs: paras, insets: [0, 0, 0, 0], wrap, anchor: "t", autofit: "shape" } };
+    store.update("Paste text", (doc) => doc.pages[store.pageIndex].items.push(item), { select: [item.id] });
+    announce(`Pasted text: ${paras.length} paragraph${paras.length === 1 ? "" : "s"}, in ${base.font} ${base.size} pt`);
   },
   duplicate() {
     const sel = store.selected();
@@ -865,11 +935,24 @@ document.addEventListener("drop", (e) => {
   const t = dropTarget(e.clientX, e.clientY);
   app.placeUploads([...e.dataTransfer.files], t.point);
 });
+// Edit ▸ Copy, Cut and Paste in the menu bar (the keys are handled above) do what the editor's
+// own commands do, outside text fields
 document.addEventListener("paste", (e) => {
   if (isField(e.target)) return;
+  e.preventDefault();
+  if (app.info.clipboard) return app.paste();
+  // No system clipboard to read here: pictures the web view hands over, else FigAssemble's own copy
   const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith("image/"));
-  if (files.length) { e.preventDefault(); app.placeUploads(files.map((f, i) => new File([f], f.name || `pasted-${i + 1}.png`, { type: f.type })), null); }
+  if (files.length) app.placeUploads(files.map((f, i) => new File([f], f.name || `pasted-${i + 1}.png`, { type: f.type })), null);
+  else app.paste();
 });
+for (const [type, cut] of [["copy", false], ["cut", true]]) {
+  document.addEventListener(type, (e) => {
+    if (isField(e.target) || !store.selection.length) return;
+    e.preventDefault();
+    app.copy(cut);
+  });
+}
 
 // Preferences -------------------------------------------------------------------------------
 

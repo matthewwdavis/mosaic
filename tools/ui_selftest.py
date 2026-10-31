@@ -33,13 +33,15 @@ def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int
     """Returns {"lines": SELFTEST lines, "errors": other console errors, "done": bool, "failed": bool}.
 
     Runs with its own settings folder, so it never touches ~/.figassemble (autosaves, recent
-    files, preferences).
+    files, preferences), and its own clipboard, so it never touches the system's.
     """
     if not os.environ.get("FIGASSEMBLE_HOME"):
         os.environ["FIGASSEMBLE_HOME"] = tempfile.mkdtemp(prefix="figassemble-selftest-")
     from figassemble.app.api import Api
     from figassemble.app.server import start_server
     os.makedirs(out, exist_ok=True)
+    fake_before = os.environ.get("FIGASSEMBLE_FAKE_CLIPBOARD")
+    os.environ["FIGASSEMBLE_FAKE_CLIPBOARD"] = "1"
     srv = start_server(Api())
     query = urllib.parse.urlencode({"selftest": 1, "files": ",".join(os.path.abspath(f) for f in files),
                                     "out": os.path.abspath(out), "finalSelect": "curve"})
@@ -52,6 +54,10 @@ def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int
             cmd.insert(1, "--no-sandbox")
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=400)
     srv.shutdown()
+    if fake_before is None:
+        os.environ.pop("FIGASSEMBLE_FAKE_CLIPBOARD", None)
+    else:
+        os.environ["FIGASSEMBLE_FAKE_CLIPBOARD"] = fake_before
     lines = [m.group(1) for m in re.finditer(r'CONSOLE[^\n]*?"(SELFTEST[^"]*)"', proc.stderr)]
     errors = [m.group(0) for m in re.finditer(r'CONSOLE[^\n]*?"(?!SELFTEST)[^"\n]*(Error|error)[^\n]*', proc.stderr)]
     done = any(line.startswith("SELFTEST DONE") for line in lines)

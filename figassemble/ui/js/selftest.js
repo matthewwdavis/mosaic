@@ -321,16 +321,18 @@ export async function run(app, params) {
       .find((b) => b.querySelector(".menu-label").textContent === label);
     const middleOf = (id) => { const fr = store.item(id).frame; return screenOf(fr[0] + fr[2] / 2, fr[1] + fr[3] / 2); };
     const middleOfEl = (el) => { const r = el.getBoundingClientRect(); return [r.left + Math.min(20, r.width / 2), r.top + r.height / 2]; };
-    function rightClick(at, target = canvas.stage) {
+    // (Menus open once the clipboard has been looked at, so each right-click waits for its menu)
+    async function rightClick(at, target = canvas.stage) {
       if (target === canvas.stage) {
         pointer("pointerdown", at, { button: 2, buttons: 2 });
         pointer("pointerup", at, { button: 2, buttons: 0 });
       }
       target.dispatchEvent(new MouseEvent("contextmenu", { clientX: at[0], clientY: at[1], bubbles: true, cancelable: true, button: 2 }));
+      await until(() => menuEl());
     }
     const picA = pics[0].id, picB = (pics[1] || rect).id;
     store.select([]);
-    rightClick(middleOf(picA));
+    await rightClick(middleOf(picA));
     check(menuEl() && store.selection.length === 1 && store.selection[0] === picA, "right-click selects the object and opens its menu",
       `menu=${!!menuEl()} selection=${store.selection}`);
     check(menuItem("Group")?.getAttribute("aria-disabled") === "true" && menuItem("Copy")?.querySelector("kbd")?.textContent === app.commands.copy.keys,
@@ -343,13 +345,14 @@ export async function run(app, params) {
     menuKey("Escape");
     check(!menuEl() && document.activeElement === canvas.stage, "Escape closes it, back to the page");
     store.select([picA, picB]);
-    rightClick(middleOf(picB));
+    await rightClick(middleOf(picB));
     check(store.selection.length === 2 && menuItem("Group")?.getAttribute("aria-disabled") !== "true",
       "right-click on one of two selected objects keeps both, and Group is on");
     menuItem("Group")?.click();
     const menuGroup = store.items().find((i) => i.type === "group");
     check(!menuEl() && menuGroup?.items.length === 2, "Group from the menu groups them");
     key("F10", { shiftKey: true });
+    await until(() => menuEl());
     check(menuEl() && document.activeElement?.closest(".context-menu"), "Shift+F10 opens the menu for the selection");
     menuKey("u");
     check(document.activeElement?.querySelector(".menu-label")?.textContent === "Ungroup", "typing U jumps to Ungroup",
@@ -358,18 +361,18 @@ export async function run(app, params) {
     check(!menuEl() && !store.items().some((i) => i.type === "group"), "Enter chooses it: ungrouped");
     // Lock from the menu; the Objects list's menu shows it locked, and unlocks it
     store.select([picA]);
-    rightClick(middleOf(picA));
+    await rightClick(middleOf(picA));
     menuItem("Lock position")?.click();
     check(store.item(picA).locked, "Lock position locks it");
     const lockedRow = document.getElementById(`layer-opt-${picA}`);
-    if (lockedRow) rightClick(middleOfEl(lockedRow), lockedRow);
+    if (lockedRow) await rightClick(middleOfEl(lockedRow), lockedRow);
     check(menuItem("Lock position")?.getAttribute("aria-checked") === "true", "the Objects list's menu shows it locked");
     menuItem("Lock position")?.click();
     check(!store.item(picA).locked, "and unlocks it");
     // Empty page: the page's own menu, with the rulers, grid and guides as they are
     const menuPage = store.page();
     const emptyAt = [[menuPage.width - 12, menuPage.height - 12], [menuPage.width - 12, 12], [12, menuPage.height - 12]].find((pt) => !canvas.itemAt(pt));
-    rightClick(screenOf(...emptyAt));
+    await rightClick(screenOf(...emptyAt));
     check(menuEl() && store.selection.length === 0 && menuItem("Rulers")?.getAttribute("aria-checked") === "true"
       && menuItem("Grid")?.getAttribute("aria-checked") === "false", "right-click on empty page: the page's menu, rulers shown, grid hidden");
     menuItem("Select all")?.click();
@@ -377,10 +380,10 @@ export async function run(app, params) {
     // A page's menu in the Pages list: duplicate the page, then delete the copy
     const pageRow = (i) => document.querySelector(`.page-list li[data-index="${i}"]`);
     const [pageAt, pageCount, itemCount] = [store.pageIndex, store.doc.pages.length, store.items().length];
-    rightClick(middleOfEl(pageRow(pageAt)), pageRow(pageAt));
+    await rightClick(middleOfEl(pageRow(pageAt)), pageRow(pageAt));
     menuItem("Duplicate page")?.click();
     check(store.doc.pages.length === pageCount + 1, "Duplicate page from a page's menu");
-    rightClick(middleOfEl(pageRow(store.pageIndex)), pageRow(store.pageIndex));
+    await rightClick(middleOfEl(pageRow(store.pageIndex)), pageRow(store.pageIndex));
     check(menuItem("Move page up")?.getAttribute("aria-disabled") !== "true", "a later page can move up");
     menuItem("Delete page")?.click();
     await until(() => store.doc.pages.length === pageCount);
@@ -394,9 +397,79 @@ export async function run(app, params) {
       pointer("pointermove", [at[0] + 30, at[1] + 20], { ctrlKey: true });
       pointer("pointerup", [at[0] + 30, at[1] + 20], { ctrlKey: true, buttons: 0 });
       canvas.stage.dispatchEvent(new MouseEvent("contextmenu", { clientX: at[0], clientY: at[1], bubbles: true, cancelable: true, ctrlKey: true }));
+      await until(() => menuEl());
       check(menuEl() && store.selection[0] === picA && store.item(picA).frame[0] === fr0[0], "Control-click opens the menu without moving anything");
       menuKey("Escape");
     }
+
+    // Pasting what other apps copied (a test clipboard stands in for the system's): text keeps
+    // bold, italic and paragraphs in the default font; a picture lands at true size in the middle
+    // of the view; PDF data stays a vector; copied files are placed linked; with text and a
+    // picture, ⌘V takes the text and the menu's Paste as picture the picture
+    const pasteKey = () => key("v", { metaKey: true, ctrlKey: true });
+    const pastedIds = [];
+    async function pasteOne(contents, how = pasteKey) {
+      const before = new Set(store.items().map((i) => i.id));
+      if (contents) await rpc("clipboard_fake", contents);
+      await how();
+      await until(() => store.items().some((i) => !before.has(i.id)), 4000);
+      const fresh = store.items().filter((i) => !before.has(i.id));
+      pastedIds.push(...fresh.map((i) => i.id));
+      return fresh.length === 1 ? fresh[0] : null;
+    }
+    const pastedText = await pasteOne({ text: "Plain and bold\nSecond line",
+      html: "<p>Plain and <b>bold</b></p><p><i>Second</i> line</p>" });
+    const paras = pastedText?.text?.paragraphs;
+    check(pastedText?.textbox && paras?.length === 2 && paras[0].runs.map((r) => `${r.bold ? "*" : ""}${r.t}`).join("|") === "Plain and |*bold"
+      && paras[1].runs[0].italic && paras[1].runs[0].t === "Second" && paras[0].runs[0].size === (canvas.defaults?.text?.size || 6),
+      "⌘V pastes text as a text box, keeping bold, italic and paragraphs, in the default size", JSON.stringify(paras));
+    const pastedPic = await pasteOne({ png: { size: [288, 144], dpi: 144 } });
+    const view = canvas.stage.getBoundingClientRect(), viewMid = canvas.toPage(view.width / 2, view.height / 2);
+    check(pastedPic?.type === "picture" && near(pastedPic.frame[2], 144, 0.01) && near(pastedPic.frame[3], 72, 0.01)
+      && near(pastedPic.frame[0] + 72, viewMid[0], 0.5) && near(pastedPic.frame[1] + 36, viewMid[1], 0.5),
+      "a pasted image lands at true size (288 px at 144 dpi: 2 in), in the middle of the view", JSON.stringify(pastedPic?.frame));
+    const pdfFile = files.find((f) => f.toLowerCase().endsWith(".pdf")), svgFile = files.find((f) => f.toLowerCase().endsWith(".svg"));
+    if (pdfFile) {
+      const p = await pasteOne({ pdf: pdfFile });
+      const a = p && store.doc.assets[p.asset];
+      check(p?.type === "picture" && a?.primary === "pdf" && !a.variants.pdf.src, "pasted PDF data stays a vector PDF, kept in the document",
+        JSON.stringify(a && { primary: a.primary, kinds: Object.keys(a.variants) }));
+    }
+    if (svgFile) {
+      const p = await pasteOne({ files: [svgFile], text: svgFile });
+      const a = p && store.doc.assets[p.asset];
+      check(a && Object.values(a.variants).some((v) => v.src) && a.auto_update !== false, "copied files are placed linked, as when dropped",
+        JSON.stringify(a && Object.keys(a.variants)));
+    }
+    const caption = await pasteOne({ text: "A caption", png: { size: [100, 50], dpi: 300 } });
+    check(caption?.textbox && caption.text.paragraphs[0].runs[0].t === "A caption", "with text and a picture copied, ⌘V takes the text");
+    const page0 = store.page();
+    const freeAt = [[page0.width - 40, page0.height - 40], [page0.width - 40, 20], [20, page0.height - 40]].find((pt) => !canvas.itemAt(pt))
+      || [page0.width - 40, page0.height - 40];
+    const asPicture = await pasteOne(null, async () => {
+      await rightClick(screenOf(...freeAt));
+      check(menuItem("Paste as picture"), "and the menu offers Paste as picture");
+      menuItem("Paste as picture")?.click();
+    });
+    const onePixel = 1.01 / canvas.k;   // the click's position comes in whole pixels
+    check(asPicture?.type === "picture" && near(asPicture.frame[0], freeAt[0], onePixel) && near(asPicture.frame[1], freeAt[1], onePixel),
+      "Paste as picture puts the picture where the page was right-clicked", JSON.stringify(asPicture?.frame));
+    await rpc("clipboard_fake", { png: { size: [10, 10] } });
+    await rightClick(screenOf(...freeAt));
+    check(menuItem("Paste") && !menuItem("Paste as picture"), "with only a picture copied, the menu has just Paste");
+    menuKey("Escape");
+    // FigAssemble's own copy pastes as objects while it's the newest thing; anything copied
+    // after it in another app wins
+    store.select([pastedPic?.id].filter(Boolean));
+    app.run("copy");
+    const own = await pasteOne(null, () => app.run("paste"));
+    check(own?.type === "picture" && own.asset === pastedPic?.asset, "FigAssemble's own copy pastes as objects");
+    const newer = await pasteOne({ text: "Newer" }, () => app.run("paste"));
+    check(newer?.textbox, "text copied in another app afterwards wins over FigAssemble's older copy");
+    store.update("Remove the pasted test objects", (doc) => {
+      const items = doc.pages[store.pageIndex].items;
+      items.splice(0, items.length, ...items.filter((i) => !pastedIds.includes(i.id)));
+    }, { select: [] });
 
     // Outline: a contour in a second colour around the shape, with its own transparency
     store.select([rect.id]);

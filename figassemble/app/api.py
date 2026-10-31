@@ -15,6 +15,7 @@ from .. import __version__, connect, docfile, model, presets
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
 from ..fonts import config_dir, get_font_index
 from ..resolve import Resolver
+from . import clipboard
 
 PREFS_DEFAULTS = {
     # Positions and sizes of objects in centimetres, page sizes in millimetres; font sizes and
@@ -71,7 +72,7 @@ class Api:
         from ..journals import JOURNALS, STANDARD_SIZES
         return {"version": __version__, "platform": sys.platform, "native": self.window is not None,
                 "prefs": self.prefs_get(), "standard_sizes": STANDARD_SIZES, "journals": JOURNALS,
-                "machine": platform.node(), "shapes": presets.catalog()}
+                "machine": platform.node(), "shapes": presets.catalog(), "clipboard": clipboard.backend() is not None}
 
     def fonts(self) -> list[str]:
         return get_font_index().families()
@@ -190,6 +191,43 @@ class Api:
         data = base64.b64decode(data_b64)
         aid, asset = new_asset_from_bytes(data, name, get_cache())
         return {"asset_id": aid, "asset": asset, "warnings": []}
+
+    # The system clipboard (see clipboard.py) ----------------------------------------------------
+
+    def clipboard_copied(self, text: str) -> int | None:
+        """The editor put text on the clipboard: its change count now, to know a later paste's
+        clipboard still holds that copy (the test clipboard takes the text itself)."""
+        cb = clipboard.backend()
+        if isinstance(cb, clipboard.FakeClipboard):
+            return cb.put({"text": text})
+        return cb.count() if cb else None
+
+    def clipboard_kinds(self, own_count: int | None = None) -> dict:
+        return clipboard.kinds(clipboard.backend(), own_count)
+
+    def clipboard_paste(self, mode: str = "auto", own_count: int | None = None) -> dict:
+        """What Paste puts on the page: {"kind": "own"} (the editor's own copy), "objects"
+        (FigAssemble objects from another document), "files" (placed linked), "picture" (stored
+        in the document), "text" (paragraphs), "none" or "unavailable"."""
+        kind, data = clipboard.plan(clipboard.backend(), mode, own_count)
+        if kind == "objects":
+            return {"kind": kind, "clip": json.loads(data)}
+        if kind == "files":
+            return {"kind": kind, "results": self.add_files(data)}
+        if kind == "picture":
+            raw, ext = data
+            aid, asset = new_asset_from_bytes(raw, f"Pasted picture{ext}", get_cache())
+            return {"kind": kind, "asset_id": aid, "asset": asset, "warnings": []}
+        if kind == "text":
+            return {"kind": kind, "paragraphs": data}
+        return {"kind": kind}
+
+    def clipboard_fake(self, contents: dict) -> int:
+        """Set the test clipboard's contents (only with FIGASSEMBLE_FAKE_CLIPBOARD)."""
+        cb = clipboard.backend()
+        if not isinstance(cb, clipboard.FakeClipboard):
+            raise PermissionError("only the test clipboard can be set")
+        return cb.put(contents)
 
     def refresh_assets(self, assets: dict, doc_path: str | None = None) -> dict:
         """Re-read linked files that changed on disk; returns the updated asset records."""

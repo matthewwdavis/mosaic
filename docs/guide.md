@@ -72,8 +72,24 @@ double-click a page's name to rename it. One document can hold versions of a fig
 
 ## Pictures
 
-**Placing:** drag PDF, SVG, PNG, JPEG or TIFF files onto the page, or click **Picture** (I). They
-land at **true size**, exactly as the file says. Several files at once arrive in a cascade.
+**Placing:** drag PDF, SVG, PNG, JPEG or TIFF files onto the page, or click **Picture** (I), or
+copy the files in Finder or Explorer and paste them (⌘V). They land at **true size**, exactly as
+the file says. Several files at once arrive in a cascade.
+
+**Pasting** (⌘V, the Paste button, or right-click → Paste to paste where you clicked) takes
+whatever was copied last:
+
+- **Objects** copied in FigAssemble, in this document or another.
+- **Files** copied in Finder or Explorer: placed linked, as if you'd dropped them.
+- **A picture** copied in another app, such as a screenshot or an image copied from a browser,
+  at true size (its recorded resolution, or 300 dpi if it has none), stored in the document. On
+  a Mac, shapes and drawings copied from Illustrator, PowerPoint, Keynote or Preview arrive as a
+  vector PDF, so they stay sharp. On Windows these arrive as a bitmap.
+- **Text** as a text box in your default font and size (Settings → New objects), keeping bold,
+  italic and line breaks.
+
+Some apps copy text and a picture together (Word, Excel, PowerPoint). ⌘V then pastes the text;
+right-click and choose **Paste as picture** for the picture instead.
 
 - **Linked and stored:** a placed file stays **linked**, so when the file changes (you re-run your
   R code), the picture updates within a couple of seconds and keeps its place and size. A copy is
@@ -216,6 +232,8 @@ shortcut beside it:
     the lot.
 - **Empty page:** Paste, Select all, Insert picture, Fit page to content, and the Rulers, Grid,
   Guides and Snap switches.
+- **Paste** from a right-click puts things where you clicked. When the clipboard holds both text
+  and a picture, **Paste as picture** appears beside it (see [Pictures](#pictures)).
 - **A page in the Pages list:** Add, Duplicate, Delete, Move up or down, Rename.
 - **An object in the Objects list:** the object's menu. This is the way to unlock an object,
   since a locked one can't be clicked on the page.

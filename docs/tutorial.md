@@ -57,8 +57,9 @@ You'll shrink the height to fit the figure at the end.
 ## 3. Place the plots
 
 Open the `examples` folder in Finder (Explorer on Windows) and drag **`growth_curves.pdf`**,
-**`expression_bars.pdf`** and **`dose_response.pdf`** onto the page. Or click **Picture** at the
-bottom of the tools and choose them.
+**`expression_bars.pdf`** and **`dose_response.pdf`** onto the page. Or select the three files,
+copy them (⌘C) and paste them into FigAssemble (⌘V), or click **Picture** at the bottom of the
+tools and choose them.
 
 They land at **true size**: 100%, exactly as R saved them, so their 6 pt text is still 6 pt. Drag
 them apart if they overlap, then click one to see what FigAssemble knows about it:

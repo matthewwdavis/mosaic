@@ -22,6 +22,8 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
     extra = os.environ.get("FIGASSEMBLE_SMOKE_QUERY")   # e.g. the editor self-test, for testing
     if extra:
         url += ("&" if "?" in url else "?") + extra
+        if "selftest" in extra:
+            os.environ["FIGASSEMBLE_FAKE_CLIPBOARD"] = "1"   # the self-test's own clipboard, not the system's
     if browser:
         print(f"FigAssemble is running at {url}\nPress Ctrl+C to stop.")
         webbrowser.open(url)

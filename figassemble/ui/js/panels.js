@@ -508,7 +508,7 @@ export const panels = {
       li.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         if (!store.selection.includes(it.id)) store.select([it.id]);
-        contextMenu.show(this.app.objectMenu(), e.clientX, e.clientY, this.layerList);
+        this.app.objectListMenu(e.clientX, e.clientY);
       });
       return li;
     }));
