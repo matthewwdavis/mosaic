@@ -212,6 +212,9 @@ body.resizing-panel { cursor: col-resize; user-select: none; }
 .insp-tab:hover { color: var(--text); background: var(--hover); }
 .insp-tab[aria-selected="true"] { color: var(--text); background: var(--panel); border-color: var(--line); }
 .insp-panel[hidden] { display: none; }
+/* Gradient fills: the colours along a bar, then one block per colour stop */
+.grad-bar { height: 0.9rem; margin: 0.35rem 0 0.25rem; border: 1px solid var(--line); border-radius: 0.25rem; }
+.grad-stop { border-top: 1px dashed var(--line); margin-top: 0.4rem; padding-top: 0.15rem; }
 .section { border-top: 1px solid var(--line); margin: 0.25rem 0 0; padding: 0.3rem 0 0.15rem; }
 .insp-panel > .section:first-child, .sidebar.right > .section:first-child { border-top: none; }
 .section > summary { display: flex; align-items: center; gap: 0.45rem; padding: 0.25rem 0.1rem; border-radius: 0.3rem;

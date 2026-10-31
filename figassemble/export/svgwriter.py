@@ -208,11 +208,15 @@ class SvgWriter:
         g = fill.gradient
         self._clip += 1
         gid = f"fa-grad{self._clip}"
-        lg = etree.SubElement(self._defs, _q("linearGradient"))
+        lg = etree.SubElement(self._defs, _q("radialGradient" if g.kind == "radial" else "linearGradient"))
         lg.set("id", gid)
         lg.set("gradientUnits", "userSpaceOnUse")
-        for k, v in zip(("x1", "y1", "x2", "y2"), (g.p0[0], g.p0[1], g.p1[0], g.p1[1])):
-            lg.set(k, _fmt(v, 6))
+        if g.kind == "radial":
+            for k, v in zip(("cx", "cy", "r", "fx", "fy"), (g.p0[0], g.p0[1], g.radius, g.p0[0], g.p0[1])):
+                lg.set(k, _fmt(v, 6))
+        else:
+            for k, v in zip(("x1", "y1", "x2", "y2"), (g.p0[0], g.p0[1], g.p1[0], g.p1[1])):
+                lg.set(k, _fmt(v, 6))
         lg.set("gradientTransform", _matrix(g.matrix))
         for pos, color, opacity in g.stops:
             stop = etree.SubElement(lg, _q("stop"))

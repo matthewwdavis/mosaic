@@ -173,10 +173,21 @@ real text in PDF and SVG exports, with the fonts embedded.
   adjustment so you can type it, and can change one shape into another.
 - **Corner rounding** (0-100%) rounds every straight-edged shape's corners (triangles, polygons,
   stars, arrows). 100% is as round as the shape allows; a triangle becomes a circle.
-- **Fill**: none or a colour, with transparency. Every colour has a picker and a hex code
-  (`#1A2B3C`) you can type or paste.
+- **Fill**: none, a colour with transparency, or a gradient. Every colour has a picker and a hex
+  code (`#1A2B3C`) you can type or paste.
+  - **Linear gradient**: a blend at any angle (90° runs top to bottom).
+  - **Radial gradient**: circles from the middle or a corner, out to the far corner.
+
+  A gradient has two or more **colour stops**, each with a position along it and its own
+  transparency. **Add stop** puts one in the widest gap; **Reverse** swaps the ends. Gradients
+  from PowerPoint slides come in as they were.
 - **Outline around it**: a band in a second colour around everything the object draws, e.g. a white
-  edge that keeps a black arrow visible on a photo. You set its thickness and transparency.
+  edge that keeps a black arrow visible on a photo. You set its thickness, transparency and type:
+  - **Outside**: underneath the object, so on a filled shape it shows only outside;
+  - **Both sides of the line**: along both sides of the line, inside a filled shape too, and only
+    round the dashes of a dashed line;
+  - **Outside, gaps empty**: outside, but nothing in the gaps of a dashed line (Outside runs a
+    band through them along the fill's edge).
 - **Make editable curve** (arcs): turns an arc into a curve with points you can drag.
 
 ## Dashes

@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, replace
 from . import dashes, presets
 from .fonts import FontIndex
 from .geometry import (DrawPath, Fill, Matrix, Path, Stroke, arrowhead, dash_array, frame_matrix, head_outline,
-                       line_end_inside, linear_gradient, round_shape_paths, sample_path, smooth_path)
+                       line_end_inside, make_gradient, round_shape_paths, sample_path, smooth_path)
 from .textlayout import GlyphRun, TextLayout, layout_text
 
 
@@ -125,6 +125,39 @@ def outline_prims(prims: list, spec: dict | None) -> list:
     if out and opacity < 1.0:
         return [DrawGroup(out, opacity, meta={"role": "outline"})]
     return out
+
+
+def _dashed(prim) -> bool:
+    return isinstance(prim, DrawPath) and prim.stroke is not None and bool(prim.stroke.dash or prim.meta.get("dashes"))
+
+
+def with_outline(prims: list, spec: dict | None) -> list:
+    """An item's drawing with its outline (outline_prims) where the outline's type puts it:
+
+    - "outside" (the default): underneath everything, so a filled shape's outline shows only
+      outside it, and runs through the gaps of a dashed line along the fill's edge;
+    - "both": around the line on both sides, between each fill and its line, so it shows inside
+      a filled shape too, and only round the dashes of a dashed line;
+    - "outside_gaps": underneath, like "outside", but leaving the gaps of a dashed line empty
+      (no band along the fill's edge).
+
+    A shape with no line has only its outside to outline, whatever the type."""
+    if not spec or float(spec.get("width", 1.0)) <= 0:
+        return prims
+    kind = spec.get("type", "outside")
+    body = {id(p) for p in prims if isinstance(p, DrawPath) and p.fill is not None and p.meta.get("role") == "body"}
+    strokes = {id(p) for p in prims if isinstance(p, DrawPath) and p.stroke is not None}
+    if kind == "both" and body and strokes:
+        # Arrowheads' outlines underneath; each line's outline over the fill drawn before it
+        out = outline_prims([p for p in prims if id(p) not in body | strokes], spec)
+        for p in prims:
+            if id(p) in strokes:
+                out += outline_prims([p], spec)
+            out.append(p)
+        return out
+    if kind == "outside_gaps" and any(_dashed(p) for p in prims if id(p) in strokes):
+        return outline_prims([p for p in prims if id(p) not in body], spec) + prims
+    return outline_prims(prims, spec) + prims
 
 
 def make_stroke(d: dict | None) -> Stroke | None:
@@ -350,7 +383,7 @@ class Resolver:
         stroke = make_stroke(item.get("stroke"))
         fill = make_fill(item.get("fill"))
         if fill is not None and (item.get("fill") or {}).get("gradient"):
-            fill.gradient = linear_gradient(item["fill"]["gradient"], w, h, m)
+            fill.gradient = make_gradient(item["fill"]["gradient"], w, h, m)
         if geom == "custom":
             shape_paths = custom_paths(item.get("path") or {}, w, h)
         else:
@@ -361,16 +394,14 @@ class Resolver:
         for sp in shape_paths:
             path = sp.path.transformed(m)
             if sp.fill and fill is not None and not path.is_empty:
-                r.prims.append(DrawPath(path, fill=shaded(fill, sp.shade)))
+                r.prims.append(DrawPath(path, fill=shaded(fill, sp.shade), meta={"role": "body"}))
             if sp.stroke and stroke is not None and not path.is_empty:
                 open_path = not sp.path.is_closed() and (presets.is_open(geom) or geom == "custom")
                 if open_path and has_ends:
                     r.prims += stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))
                 else:
                     r.prims.append(DrawPath(path, stroke=stroke))
-        r.prims = [even_dashes(p) for p in r.prims]
-        if item.get("outline"):
-            r.prims = outline_prims(r.prims, item["outline"]) + r.prims
+        r.prims = with_outline([even_dashes(p) for p in r.prims], item.get("outline"))
         body = item.get("text")
         if body and body.get("paragraphs"):
             tx0, ty0, tx1, ty1 = presets.text_rect(geom, w, h, item.get("adj"))
@@ -400,7 +431,7 @@ class Resolver:
             for p in pts[1:]:
                 path.line_to(*p)
         drawn = [even_dashes(p) for p in stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))]
-        r.prims += outline_prims(drawn, item.get("outline")) + drawn
+        r.prims += with_outline(drawn, item.get("outline"))
         return r
 
 

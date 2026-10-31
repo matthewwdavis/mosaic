@@ -594,6 +594,43 @@ export async function run(app, params) {
     await settle();
     check(store.item(rect.id).outline.opacity === 0.5 && canvas.els.get(rect.id)?.g.innerHTML.includes('opacity="0.5"'),
       "outline transparency fades the contour as one piece", JSON.stringify(store.item(rect.id).outline));
+    // Outline types: Both sides of the line goes over the fill and under the line
+    store.update("Fill for the test", (doc) => { findItem(doc, rect.id).fill = { color: "#cfe3ff", opacity: 1 }; });
+    await choose("Outline type", "both");
+    await settle();
+    const layered = [...(canvas.els.get(rect.id)?.g.querySelectorAll("path") || [])].map((p) => p.getAttribute("style") || "");
+    check(store.item(rect.id).outline.type === "both" && layered.length === 3 && layered[0].includes("fill:#cfe3ff")
+      && layered[1].includes("stroke:#ffffff"), "Both sides of the line draws the outline over the fill, under the line",
+      layered.join(" | "));
+    await choose("Outline type", "outside");
+    store.update("Unfill", (doc) => { findItem(doc, rect.id).fill = null; });
+
+    // Gradient fills: linear, then radial from a corner; stops can be added and reversed
+    store.select([rect.id]);
+    await choose("Fill", "linear");
+    await settle();
+    let gf = store.item(rect.id).fill;
+    check(gf?.gradient?.type === "linear" && gf.gradient.stops.length === 2 && canvas.els.get(rect.id)?.g.innerHTML.includes("linearGradient"),
+      "Fill: Linear gradient fills the shape with a gradient, drawn by the engine", JSON.stringify(gf));
+    await choose("Fill", "radial");
+    await choose("Gradient from", "tl");
+    await settle();
+    gf = store.item(rect.id).fill;
+    check(gf.gradient.type === "radial" && gf.gradient.center.join() === "0,0" && canvas.els.get(rect.id)?.g.innerHTML.includes("radialGradient"),
+      "a radial gradient can start from a corner", JSON.stringify(gf.gradient));
+    const insButton = (text) => { inspector.render(); return [...document.querySelectorAll("#inspector button")].find((b) => b.textContent === text); };
+    insButton("Add stop")?.click();
+    await settle();
+    gf = store.item(rect.id).fill;
+    check(gf.gradient.stops.length === 3 && gf.gradient.stops[1].pos === 0.5, "Add stop puts a colour stop in the widest gap",
+      JSON.stringify(gf.gradient.stops));
+    const firstColour = gf.gradient.stops[0].color;
+    insButton("Reverse")?.click();
+    await settle();
+    gf = store.item(rect.id).fill;
+    check(gf.gradient.stops[2].color === firstColour && gf.gradient.stops[0].pos === 0, "Reverse swaps the ends",
+      JSON.stringify(gf.gradient.stops));
+    await choose("Fill", "none");
 
     // Hex codes next to colour pickers
     inspector.render();

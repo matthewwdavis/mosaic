@@ -184,12 +184,22 @@ def parse_fill(el, colors: ColorContext, placeholder=None) -> tuple[dict | None,
             if not stops:
                 return None, notes
             stops.sort(key=lambda s: s["pos"])
-            lin = child.find("a:lin", NS)
-            if lin is None:
-                notes.append("radial/path gradient drawn as a linear gradient")
+            lin, path = child.find("a:lin", NS), child.find("a:path", NS)
+            if lin is None and path is not None:
+                # A path gradient: circles round the middle of its focus rectangle (given as
+                # insets from the shape's edges, in thousandths of a percent)
+                if path.get("path", "circle") != "circle":
+                    notes.append(f"{path.get('path')}-shaped gradient drawn as a circular one")
+                ftr = path.find("a:fillToRect", NS)
+                l, t, r, b = ((int(ftr.get(k, "0")) / 100000.0 for k in ("l", "t", "r", "b")) if ftr is not None
+                              else (0.0, 0.0, 0.0, 0.0))
+                center = [round((l + 1.0 - r) / 2, 6), round((t + 1.0 - b) / 2, 6)]
+                # (the stops carry the transparency; the fill's own opacity would apply on top of it)
+                return {"color": stops[0]["color"], "opacity": 1.0,
+                        "gradient": {"type": "radial", "center": center, "stops": stops}}, notes
             angle = int(lin.get("ang", "0")) / 60000.0 if lin is not None else 90.0
             scaled = lin is None or _bool_attr(lin.get("scaled", "0"))
-            return {"color": stops[0]["color"], "opacity": stops[0]["opacity"],
+            return {"color": stops[0]["color"], "opacity": 1.0,
                     "gradient": {"type": "linear", "angle": angle, "scaled": scaled, "stops": stops}}, notes
         if t == "pattFill":
             c = colors.resolve(first_color(child.find("a:fgClr", NS)), placeholder)

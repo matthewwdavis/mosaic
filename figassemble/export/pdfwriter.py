@@ -187,10 +187,13 @@ class PdfWriter:
                 return [round(opacity * gray_alpha, 6)]
             return [float(v) for v in _rgb(color).split()]
         func = self._function([(pos, comps(c, op)) for pos, c, op in g.stops])
+        if g.kind == "radial":   # circles from a point at the centre out to the radius
+            kind, coords = 3, [g.p0[0], g.p0[1], 0.0, g.p0[0], g.p0[1], g.radius]
+        else:
+            kind, coords = 2, [g.p0[0], g.p0[1], g.p1[0], g.p1[1]]
         return self.pdf.make_indirect(Dictionary(
-            ShadingType=2, ColorSpace=Name.DeviceGray if gray_alpha is not None else Name.DeviceRGB,
-            Coords=Array([g.p0[0], g.p0[1], g.p1[0], g.p1[1]]), Function=func,
-            Extend=Array([True, True])))
+            ShadingType=kind, ColorSpace=Name.DeviceGray if gray_alpha is not None else Name.DeviceRGB,
+            Coords=Array(coords), Function=func, Extend=Array([True, True])))
 
     def _gradient_fill(self, prim: DrawPath, res: dict) -> list[str]:
         g, f = prim.fill.gradient, prim.fill

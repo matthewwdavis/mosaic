@@ -17,6 +17,32 @@ const HEADS = [["none", "None"], ["triangle", "Triangle"], ["stealth", "Stealth"
   ["oval", "Circle"], ["diamond", "Diamond"]];
 const SIZES = [["sm", "Small"], ["med", "Medium"], ["lg", "Large"]];
 const ROUNDED_HEADS = ["triangle", "stealth", "arrow", "diamond"];   // heads whose corners can be rounded
+const OUTLINE_TYPES = [["outside", "Outside"], ["both", "Both sides of the line"], ["outside_gaps", "Outside, gaps empty"]];
+// Where a radial gradient starts: its centre as fractions of the shape's box
+const CENTRES = [["middle", [0.5, 0.5], "The middle"], ["tl", [0, 0], "Top left corner"], ["tr", [1, 0], "Top right corner"],
+  ["bl", [0, 1], "Bottom left corner"], ["br", [1, 1], "Bottom right corner"]];
+
+// The gradient's colours along a bar, over a checkerboard so transparency shows
+function gradientBar(g) {
+  const css = (st) => {
+    const c = parseHex(st.color) || "#000000";
+    const [r, gg, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    return `rgba(${r}, ${gg}, ${b}, ${st.opacity ?? 1}) ${fmt(st.pos * 100, 2)}%`;
+  };
+  return h("div", { class: "grad-bar", "aria-hidden": "true", style: {
+    backgroundImage: `linear-gradient(90deg, ${g.stops.map(css).join(", ")}), repeating-conic-gradient(#c8c8c8 0 25%, #ffffff 0 50%)`,
+    backgroundSize: "auto, 8px 8px" } });
+}
+// A new stop halfway across the widest gap between stops, its colour and transparency between theirs
+function addGradientStop(gr) {
+  let at = 0;
+  for (let i = 1; i < gr.stops.length; i++) if (gr.stops[i].pos - gr.stops[i - 1].pos > gr.stops[at + 1].pos - gr.stops[at].pos) at = i - 1;
+  const [a, b] = [gr.stops[at], gr.stops[at + 1]];
+  const mix = (x, y) => Math.round((parseInt(x, 16) + parseInt(y, 16)) / 2).toString(16).padStart(2, "0");
+  const [ca, cb] = [parseHex(a.color) || "#000000", parseHex(b.color) || "#ffffff"];
+  const color = `#${[1, 3, 5].map((i) => mix(ca.slice(i, i + 2), cb.slice(i, i + 2))).join("")}`;
+  gr.stops.splice(at + 1, 0, { pos: (a.pos + b.pos) / 2, color, opacity: ((a.opacity ?? 1) + (b.opacity ?? 1)) / 2 });
+}
 let fieldId = 0;
 
 export const inspector = {
@@ -425,18 +451,64 @@ export const inspector = {
     }
   },
   fillSection(it) {
-    const f = it.fill;
-    const mode = !f ? "none" : f.gradient ? "gradient" : "solid";
-    const opts = [["none", "No fill"], ["solid", "Colour"]];
-    if (mode === "gradient") opts.push(["gradient", "Gradient (from PowerPoint)"]);
+    const f = it.fill, g = f?.gradient;
+    const mode = !f ? "none" : g ? (g.type === "radial" ? "radial" : "linear") : "solid";
+    const opts = [["none", "No fill"], ["solid", "Colour"], ["linear", "Linear gradient"], ["radial", "Radial gradient"]];
     const kids = [selectField("Fill", mode, opts, (v) => this.edit("Fill", (o) => {
+      const old = o.fill, og = old?.gradient;
       if (v === "none") o.fill = null;
-      else if (v === "solid") o.fill = { color: o.fill?.color || "#ffffff", opacity: o.fill?.opacity ?? 1 };
+      else if (v === "solid") o.fill = og ? { color: og.stops[0].color, opacity: og.stops[0].opacity ?? 1 }
+        : { color: old?.color || "#ffffff", opacity: old?.opacity ?? 1 };
+      else {
+        // From the fill's colour to white, or the gradient it had, top to bottom (radial: from the middle)
+        const stops = og?.stops || [{ pos: 0, color: old?.color || "#ffffff", opacity: old?.opacity ?? 1 },
+          { pos: 1, color: "#ffffff", opacity: old?.opacity ?? 1 }];
+        const gradient = v === "radial" ? { type: "radial", center: og?.center || [0.5, 0.5], stops }
+          : { type: "linear", angle: og?.angle ?? 90, scaled: og?.scaled ?? false, stops };
+        o.fill = { color: stops[0].color, opacity: 1, gradient };
+      }
     }))];
     if (mode === "solid") kids.push(row(
       colorField("Fill colour", f.color, (v) => this.edit("Fill colour", (o) => { o.fill = { ...o.fill, color: v }; })),
       transparencyField("Fill transparency", f.opacity, (op) => this.edit("Fill transparency", (o) => { o.fill = { ...o.fill, opacity: op }; }))));
+    if (g) kids.push(...this.gradientFields(g));
     return section("Fill", kids);
+  },
+  // A gradient's direction (linear) or starting point (radial), and its colour stops, each with
+  // a position and a transparency
+  gradientFields(g) {
+    const setG = (label, fn) => this.edit(label, (o) => {
+      const gr = JSON.parse(JSON.stringify(o.fill.gradient));
+      fn(gr);
+      gr.stops.sort((a, b) => a.pos - b.pos);
+      o.fill = { ...o.fill, color: gr.stops[0].color, gradient: gr };
+    });
+    const out = [gradientBar(g)];
+    if (g.type === "radial") {
+      const at = CENTRES.find(([, c]) => c[0] === g.center?.[0] && c[1] === g.center?.[1])?.[0] || "middle";
+      out.push(selectField("Gradient from", at, CENTRES.map(([k, , label]) => [k, label]),
+        (v) => setG("Gradient centre", (gr) => { gr.center = CENTRES.find(([k]) => k === v)[1].slice(); })));
+    } else {
+      out.push(numField("Gradient angle", g.angle ?? 0, "deg", (v) => setG("Gradient angle", (gr) => {
+        gr.angle = ((v % 360) + 360) % 360;
+      }), { step: 15 }));
+    }
+    g.stops.forEach((st, i) => {
+      const n = i + 1;
+      out.push(h("div", { class: "grad-stop" },
+        row(colorField(`Stop ${n} colour`, st.color, (v) => setG("Gradient colour", (gr) => { gr.stops[i].color = v; })),
+          numField(`Stop ${n} position`, st.pos * 100, "%", (v) => setG("Gradient stop position", (gr) => {
+            gr.stops[i].pos = Math.min(Math.max(v / 100, 0), 1);
+          }), { min: 0, max: 100, step: 5 })),
+        row(transparencyField(`Stop ${n} transparency`, st.opacity, (op) => setG("Gradient transparency", (gr) => { gr.stops[i].opacity = op; })),
+          g.stops.length > 2 ? button(`Remove colour stop ${n}`, () => setG("Remove gradient stop", (gr) => { gr.stops.splice(i, 1); }),
+            "Remove stop", "small") : null)));
+    });
+    out.push(row(button("Add a colour stop in the widest gap", () => setG("Add gradient stop", addGradientStop), "Add stop", "small"),
+      button("Reverse the gradient's colours", () => setG("Reverse gradient", (gr) => {
+        gr.stops = gr.stops.map((s) => ({ ...s, pos: 1 - s.pos }));
+      }), "Reverse", "small")));
+    return out;
   },
   strokeSection(it) {
     const st = it.stroke;
@@ -475,8 +547,11 @@ export const inspector = {
       kids.push(row(colorField("Outline colour", o.color, set("Outline colour", "color")),
         numField("Outline thickness", o.width ?? 1, "pt", (v) => set("Outline thickness", "width")(Math.max(v, 0.05)), { min: 0.05, step: 0.25 })));
       kids.push(transparencyField("Outline transparency", o.opacity, (op) => set("Outline transparency", "opacity")(op)));
+      kids.push(selectField("Outline type", o.type || "outside", OUTLINE_TYPES, set("Outline type", "type")));
     }
-    kids.push(h("p", { class: "hint" }, "A band of another colour around everything it draws, e.g. a white edge that keeps a black arrow visible on a photo."));
+    kids.push(h("p", { class: "hint" }, "A band of another colour around everything it draws, e.g. a white edge that keeps a black arrow "
+      + "visible on a photo. Outside: only outside a filled shape. Both sides of the line: inside it too, and only round the "
+      + "dashes of a dashed line. Outside, gaps empty: outside, but nothing in a dashed line's gaps."));
     return section("Outline", kids);
   },
   endsSection(it) {

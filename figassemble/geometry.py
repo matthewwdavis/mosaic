@@ -890,16 +890,38 @@ class Stroke:
 
 @dataclass
 class Gradient:
-    """A linear gradient defined in a unit square, mapped onto the page by `matrix`."""
+    """A gradient defined in its own space, mapped onto the page by `matrix`: linear along
+    p0 -> p1, or radial in circles round p0 out to `radius` (p1 then unused)."""
 
     stops: list[tuple[float, str, float]]          # (position 0..1, colour, opacity)
-    p0: tuple[float, float]                        # axis start, unit-square coordinates
+    p0: tuple[float, float]                        # axis start (or centre), gradient coordinates
     p1: tuple[float, float]
     matrix: Matrix = field(default_factory=Matrix)
+    kind: str = "linear"                           # or "radial"
+    radius: float = 0.0
 
     @property
     def has_alpha(self) -> bool:
         return any(op < 1.0 for _, _, op in self.stops)
+
+
+def _gradient_stops(spec: dict) -> list[tuple[float, str, float]]:
+    stops = [(float(s["pos"]), s["color"], float(s.get("opacity", 1.0))) for s in spec.get("stops", [])]
+    return sorted(stops, key=lambda s: s[0]) or [(0.0, "#000000", 1.0)]
+
+
+def make_gradient(spec: dict, w: float, h: float, frame_m: Matrix) -> Gradient:
+    return radial_gradient(spec, w, h, frame_m) if spec.get("type") == "radial" else linear_gradient(spec, w, h, frame_m)
+
+
+def radial_gradient(spec: dict, w: float, h: float, frame_m: Matrix) -> Gradient:
+    """Radial gradient over a w x h shape: circles from `center` (fractions of the box, the middle
+    by default) out to the box's farthest corner, stretched to the box's proportions as
+    PowerPoint draws its circular gradients."""
+    cx, cy = (float(v) for v in spec.get("center", (0.5, 0.5)))
+    r = max(math.hypot(x - cx, y - cy) for x in (0.0, 1.0) for y in (0.0, 1.0))
+    return Gradient(_gradient_stops(spec), (cx, cy), (cx, cy), frame_m @ Matrix.scale(max(w, 1e-9), max(h, 1e-9)),
+                    kind="radial", radius=r)
 
 
 def linear_gradient(spec: dict, w: float, h: float, frame_m: Matrix) -> Gradient:
@@ -911,8 +933,7 @@ def linear_gradient(spec: dict, w: float, h: float, frame_m: Matrix) -> Gradient
     """
     theta = math.radians(spec.get("angle", 0.0))
     dx, dy = math.cos(theta), math.sin(theta)
-    stops = [(float(s["pos"]), s["color"], float(s.get("opacity", 1.0))) for s in spec.get("stops", [])]
-    stops = stops or [(0.0, "#000000", 1.0)]
+    stops = _gradient_stops(spec)
     if spec.get("scaled", True):
         extent = abs(dx) + abs(dy)
         p0 = (0.5 - dx * extent / 2, 0.5 - dy * extent / 2)

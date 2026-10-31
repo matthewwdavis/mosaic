@@ -17,8 +17,11 @@ Every item has an `id` and a `type`:
 adj     {name: value}: a preset's adjust values as fractions, or degrees for angles (presets.py)
 rounding 0..1: corner rounding of a shape's straight-edged corners (1 = as round as fits)
 arrow_start, arrow_end {type: triangle|stealth|arrow|oval|diamond, w, len: sm|med|lg, rounding 0..1}
-outline {color, width, opacity}: a contour of `width` points in another colour around
-        everything the item draws, underneath it; its opacity applies to the contour as a whole
+outline {color, width, opacity, type}: a contour of `width` points in another colour around
+        everything the item draws; its opacity applies to the contour as a whole. type:
+        outside (default; underneath, so it shows only outside a filled shape), both (round
+        the line on both sides, over the fill), outside_gaps (underneath, leaving a dashed
+        line's gaps empty)
 
 stroke {color, width, dash (preset or list of widths), cap: flat|round|square,
         join: round|miter|bevel, opacity, even_dashes: false for PowerPoint's dash spacing
