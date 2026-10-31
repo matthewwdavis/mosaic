@@ -370,3 +370,10 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   align-items: center; padding: 0.3rem 0.4rem 0.3rem 0.8rem; border: 2px solid var(--sel); border-radius: 0.5rem;
   background: var(--panel); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
 .cvd-note[hidden] { display: none; }
+
+/* Fonts dialog */
+.fonts { width: 100%; border-collapse: collapse; }
+.fonts td, .fonts th { text-align: left; padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.fonts .font-name { font-size: 1.05rem; }
+.fonts td.warning { color: var(--warn, inherit); font-weight: 600; }
+.fonts input { width: 9rem; }

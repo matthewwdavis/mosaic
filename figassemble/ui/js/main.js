@@ -228,6 +228,18 @@ const app = {
     if (!resize) this.noteTransform({ kind: "move", dx, dy });
     if (sel.length === 1) announce(describeItem(store.selected()[0], store.doc));
   },
+  // Fonts: every run in that font, on every page, in another (the Fonts dialog)
+  replaceFont(from, to) {
+    let n = 0;
+    const walk = (items) => {
+      for (const it of items) {
+        if (it.type === "group") walk(it.items);
+        for (const p of it.text?.paragraphs || []) for (const r of p.runs || []) if (r.font === from) { r.font = to; n++; }
+      }
+    };
+    store.update("Replace font", (doc) => doc.pages.forEach((pg) => walk(pg.items)));
+    announce(`Replaced ${from} with ${to}${n ? "" : " (nothing used it)"}`);
+  },
   // Match sizes: the other selected objects take the key object's width (or height), keeping
   // their proportions and their top-left corners. Line widths don't scale, so the box grows in a
   // straight line with the factor: one trial scale gives the exact one
@@ -895,6 +907,7 @@ app.commands = {
   copy: cmd("Copy", () => app.copy(), `${M}C`, key("c"), "Copy"),
   paste: cmd("Paste", () => app.paste(), `${M}V`, key("v"), "Paste"),
   duplicate: cmd("Duplicate", () => app.duplicate(), `${M}D`, key("d"), "Duplicate"),
+  fonts: cmd("Fonts in this figure: see and replace them", () => panels.fontsDialog(), null, null, "Fonts"),
   sameWidth: cmd("Same width: make the selected objects as wide as the key object (or the first selected), keeping "
     + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
   sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the first selected), keeping "

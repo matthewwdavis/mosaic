@@ -53,7 +53,7 @@ Matthew's choices are in brackets.
 - [x] Smart duplicate on ⌘D (a moved copy sets the offset for the next) and Transform Again on ⌘⇧D [both]
 - [x] Copy style / Paste style (⌘⇧C / ⌘⇧V) and a Format Painter button [everything that applies]
 - [x] Match sizes: same width / height / size, keeping proportions
-- [ ] Find and replace fonts
+- [x] Find and replace fonts
 - [ ] Document swatches, linked (editing one recolours its objects), saved in the figure plus a
       personal library; colour-blind-safe palettes (Okabe-Ito, Paul Tol) [linked; figure + library]
 - [ ] Text styles, linked, with changes to one text kept as overrides [linked]

@@ -750,7 +750,23 @@ export async function run(app, params) {
       && near(matched[0], bigWas[0], 1e-6) && near(matched[1], bigWas[1], 1e-6),
     "Same height makes the others as tall as the first selected, keeping their proportions and corner",
     `${JSON.stringify(bigWas)} -> ${JSON.stringify(matched)} (key ${JSON.stringify(keyFrame)})`);
-    store.select([dupA.id, dupB.id]);
+    // Fonts: each font the text uses, and Replace swaps one everywhere
+    store.update("Arial text for the test", (doc) => doc.pages[store.pageIndex].items.push({ id: "fonttest", type: "shape", geom: "rect",
+      textbox: true, frame: [50, 50, 60, 12], rot: 0, stroke: null, fill: null,
+      text: { paragraphs: [{ align: "l", runs: [{ t: "Arial text", font: "Arial", size: 6, bold: false, italic: false, color: "#000000" }] }],
+        insets: [0, 0, 0, 0], wrap: false, anchor: "t", autofit: "shape" } }));
+    await app.run("fonts");
+    const fontsDlg = [...document.querySelectorAll("dialog[open]")].pop();
+    const arialRow = [...fontsDlg.querySelectorAll("tbody tr")].find((tr) => tr.querySelector(".font-name")?.textContent === "Arial");
+    check(arialRow && /1 text object/.test(arialRow.textContent), "the Fonts dialog lists each font and the text using it",
+      fontsDlg.querySelector("tbody")?.textContent);
+    arialRow.querySelector("input").value = "Helvetica";
+    arialRow.querySelector("button").click();
+    const fontNow = store.item("fonttest").text.paragraphs[0].runs[0].font;
+    check(fontNow === "Helvetica" && ![...fontsDlg.querySelectorAll(".font-name")].some((el) => el.textContent === "Arial"),
+      "Replace swaps the font everywhere, and the list follows", fontNow);
+    fontsDlg.close();
+    store.select([dupA.id, dupB.id, "fonttest"]);
     await app.run("delete");
 
     // Gradient fills: linear, then radial from a corner; stops can be added and reversed

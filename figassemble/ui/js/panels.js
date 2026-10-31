@@ -27,6 +27,7 @@ const ICONS = {
   plus: "M12 5v14M5 12h14", duplicate: "M8 8h11v11H8zM5 5h11v3M5 5v11h3", trash: "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13",
   again: "M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3",
   sameWidth: "M5 6h14M5 4v4M19 4v4M5 15h14M5 13v4M19 13v4", sameHeight: "M6 5v14M4 5h4M4 19h4M15 5v14M13 5h4M13 19h4",
+  fonts: "M4 19l5-14h1l5 14M6 14h7M15 19l3-8h.5l3 8M16 16.5h4",
   brush: "M20 3l-7 7M11 9l4 4M10.5 10.5l3 3-3 3a3 3 0 01-4.2 0l-.3-.3a3 3 0 010-4.2zM6.6 16.6C6 18.6 4.6 20 3 20.5c2 .6 4.4.2 5.8-1.4",
   eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 110 6 3 3 0 010-6z",
   eyeoff: "M3 3l18 18M10.6 5.1A10 10 0 0112 5c6 0 10 7 10 7a17 17 0 01-3 3.8M6.1 6.1C3.6 7.8 2 12 2 12s4 7 10 7a9.6 9.6 0 004-.9",
@@ -53,6 +54,26 @@ const ICONS = {
   guides: "M9 8v13M8 15h13M6.5 3h5L9 6zM3 12.5v5l3-2.5z",
   magnet: "M5 4h4.5v7.5a2.5 2.5 0 005 0V4H19v7.5a7 7 0 01-14 0zM5 8h4.5M14.5 8H19",
 };
+
+// Which text objects (and pages) use each font
+function fontUses(doc) {
+  const uses = new Map();
+  const walk = (items, page) => {
+    for (const it of items) {
+      if (it.type === "group") walk(it.items, page);
+      for (const p of it.text?.paragraphs || []) {
+        for (const r of p.runs || []) {
+          if (!r.font || !(r.t || "").length) continue;
+          if (!uses.has(r.font)) uses.set(r.font, { objects: new Set(), pages: new Set() });
+          uses.get(r.font).objects.add(it.id);
+          uses.get(r.font).pages.add(page);
+        }
+      }
+    }
+  };
+  doc.pages.forEach((pg, i) => walk(pg.items, i));
+  return uses;
+}
 
 export function icon(name) {
   return pathIcon(ICONS[name] || "");
@@ -178,6 +199,7 @@ export const panels = {
         group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste"), this.painterButton()),
         group("Objects", t("duplicate", "duplicate"), t("transformAgain", "again"), t("delete", "trash")),
         group("Page", t("addPage", "plus"), t("fitPage", "fit")),
+        group("Text", t("fonts", "fonts")),
       ]],
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
       ["view", "View", [
@@ -660,7 +682,8 @@ export const panels = {
           }
           return li;
         })) : h("p", {}, "✓ Nothing to flag on this page."),
-        h("p", { class: "hint" }, "Fonts missing from placed PDFs are embedded automatically when you export."));
+        h("p", { class: "hint" }, "Fonts missing from placed PDFs are embedded automatically when you export."),
+        h("div", { class: "button-row" }, button("See and replace the fonts the figure's text uses", () => this.fontsDialog(), "Fonts…")));
     } catch (err) {
       body.replaceChildren(h("p", { class: "error" }, err.message));
     }
@@ -853,6 +876,43 @@ export const panels = {
         h("li", {}, "Space + drag, or scroll: move around; ⌘/Ctrl + scroll or pinch: zoom. While the whole page fits "
           + "in the view it stays centred"),
         h("li", {}, "Drag a side panel's inner edge to make it wider or narrower; double-click the edge to put it back"))));
+  },
+
+  // Fonts: every font the figure's text uses, how many text objects use it and whether it's on
+  // this computer; Replace swaps one for another on every page (one undo step)
+  fontsDialog() {
+    const body = h("div", {});
+    const listId = `font-list-${Date.now()}`;
+    const render = () => {
+      const uses = fontUses(store.doc);
+      const installed = new Set((this.app.fonts || []).map((f) => f.toLowerCase()));
+      const rows = [...uses].sort((a, b) => a[0].localeCompare(b[0])).map(([font, u]) => {
+        const input = h("input", { type: "text", list: listId, placeholder: "Another font", "aria-label": `Replace ${font} with` });
+        const go = button(`Replace ${font} with the font typed`, () => {
+          const to = input.value.trim();
+          if (!to || to === font) return;
+          this.app.replaceFont(font, to);
+          render();
+          body.querySelector("input")?.focus();
+        }, "Replace");
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go.click(); } });
+        const have = installed.has(font.toLowerCase()) || !this.app.fonts?.length;
+        return h("tr", {},
+          h("td", {}, h("span", { class: "font-name", style: { fontFamily: `"${font}"` } }, font)),
+          h("td", {}, `${u.objects.size} text object${u.objects.size === 1 ? "" : "s"}${u.pages.size > 1 ? ` on ${u.pages.size} pages` : ""}`),
+          h("td", { class: have ? "" : "warning" }, have ? "On this computer" : "Not on this computer: drawn with a stand-in"),
+          h("td", {}, h("div", { class: "button-row inline" }, input, go)));
+      });
+      body.replaceChildren(
+        rows.length ? h("table", { class: "fonts" },
+          h("thead", {}, h("tr", {}, h("th", {}, "Font"), h("th", {}, "Used by"), h("th", {}, "Status"), h("th", {}, "Replace with"))),
+          h("tbody", {}, ...rows)) : h("p", {}, "No text in this figure yet."),
+        h("datalist", { id: listId }, ...(this.app.fonts || []).map((f) => h("option", { value: f }))),
+        h("p", { class: "hint" }, "Text inside placed pictures keeps its own fonts; fonts missing from placed PDFs are "
+          + "embedded when you export."));
+    };
+    render();
+    this.dialog("Fonts in this figure", body);
   },
 
   reportDialog(title, lines) {

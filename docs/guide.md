@@ -32,7 +32,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 
 1. **Tabs** across the top, like PowerPoint's ribbon:
    - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; Duplicate, Again, Delete; Add page,
-     Fit page.
+     Fit page; Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group, Order (see
      [Align and distribute](#align-and-distribute)).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
@@ -139,6 +139,10 @@ For screen readers, give each picture a **Description** in the Object section.
 - **Panel label (P):** click to add the next free letter (a, b, c…) in bold 8 pt Helvetica.
   Settings changes the size and case.
 - Any shape can hold text: double-click it to type.
+- **Fonts** (Home tab, or **Fonts…** in Check) lists every font the figure's text uses, how many
+  text objects use each, and whether it's on this computer (one that isn't is drawn with a
+  stand-in). Type another font beside one and click **Replace** to swap it on every page, e.g.
+  Arial from old slides for Helvetica. Text inside placed pictures keeps its own fonts.
 
 Helvetica is used if you have it, Arial otherwise (it has the same letter widths). Text stays
 real text in PDF and SVG exports, with the fonts embedded.
