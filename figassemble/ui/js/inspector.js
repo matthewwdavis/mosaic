@@ -29,7 +29,7 @@ export const inspector = {
     if (this._raf) return;
     this._raf = requestAnimationFrame(() => { this._raf = null; this.render(); });
   },
-  units() { return this.app.prefs.units || "pt"; },
+  units() { return this.app.prefs.units || "cm"; },
   pageUnits() { return this.app.prefs.page_units || "mm"; },
 
   render() {
@@ -83,23 +83,51 @@ export const inspector = {
   pageSections() {
     const page = store.page();
     const pu = this.pageUnits();
-    const presets = this.app.info.page_presets || {};
-    const presetOptions = [["", "Custom size"], ...Object.keys(presets).map((k) => [k, k])];
-    const current = Object.entries(presets).find(([, [w, hh]]) => Math.abs(w - page.width) < 0.01 && Math.abs(hh - page.height) < 0.01);
+    const { standard, journal, type } = pagePreset(page, this.app.info);
+    const standards = this.app.info.standard_sizes || [];
+    const journals = this.app.info.journals || [];
+    const len = (mm) => `${fmt(toUnit(mm * MM_PT, pu), 1)} ${UNIT_LABEL[pu]}`;
+    const setStandard = (name) => {
+      const s = standards.find((x) => x.name === name);
+      if (!s) return;
+      this.editPage(`${name} page`, (p) => { p.width = s.width_mm * MM_PT; p.height = s.height_mm * MM_PT; p.preset = { standard: name }; });
+      canvas.fit();
+      announce(`Page is now ${name}, ${len(s.width_mm)} by ${len(s.height_mm)}`);
+    };
+    const setJournal = (jname, tname) => {
+      const j = journals.find((x) => x.name === jname);
+      if (!j) { this.editPage("No journal size", (p) => { delete p.preset; }); return; }
+      // A journal on its own starts at its widest figure type (most multi-panel figures)
+      const t = j.types.find((x) => x.name === tname) || j.types.reduce((a, b) => (b.width_mm > a.width_mm ? b : a));
+      this.editPage(`${j.name} ${t.name.toLowerCase()} page`, (p) => {
+        p.width = t.width_mm * MM_PT;
+        p.height = j.depth_mm * MM_PT;
+        p.preset = { journal: j.name, type: t.name };
+      });
+      canvas.fit();
+      announce(`Page is now a ${j.name} ${t.name.toLowerCase()} figure, ${len(t.width_mm)} wide and ${len(j.depth_mm)} deep`);
+    };
     return [
       section("Page", [
         textField("Name", page.name, (v) => this.editPage("Rename page", (p) => { p.name = v || p.name; })),
-        selectField("Size", current ? current[0] : "", presetOptions, (v) => {
-          if (!v) return;
-          const [w, hh] = presets[v];
-          this.editPage("Page size", (p) => { p.width = w; p.height = hh; });
-          canvas.fit();
-        }),
-        row(numField("Width", page.width, pu, (v) => this.editPage("Page width", (p) => { p.width = Math.max(v, 1); }), { min: 1 }),
-          numField("Height", page.height, pu, (v) => this.editPage("Page height", (p) => { p.height = Math.max(v, 1); }), { min: 1 })),
+        selectField("Standard size", standard ? standard.name : "",
+          [["", journal ? "—" : "Custom size"], ...standards.map((s) => [s.name, `${s.name} (${len(s.width_mm)} × ${len(s.height_mm)})`])],
+          setStandard),
+        selectField("Journal", journal ? journal.name : "", [["", "None"], ...journals.map((j) => [j.name, j.name])],
+          (v) => setJournal(v)),
+        selectField("Figure type", type ? type.name : "",
+          journal ? journal.types.map((t) => [t.name, `${t.name} — ${len(t.width_mm)} wide`]) : [["", "Choose a journal first"]],
+          (v) => setJournal(journal.name, v), { disabled: !journal }),
+        journal ? h("p", { class: "hint" }, `${journal.name}: ${journal.note} Source: ${journal.source}.`) : null,
+        row(numField("Width", page.width, pu, (v) => this.editPage("Page width", (p) => { p.width = Math.max(v, 1); delete p.preset; }), { min: 1 }),
+          numField("Height", page.height, pu, (v) => this.editPage("Page height", (p) => {
+            p.height = Math.max(v, 1);
+            if (p.preset?.standard) delete p.preset;   // a journal figure may be shorter than the full depth
+          }), { min: 1 })),
         h("div", { class: "button-row" },
-          button("Swap width and height", () => this.editPage("Rotate page", (p) => { [p.width, p.height] = [p.height, p.width]; }), "⟲"),
-          button("Fit page to content", () => this.app.run("fitPage"), "Fit to content")),
+          button("Swap width and height", () => this.editPage("Rotate page", (p) => { [p.width, p.height] = [p.height, p.width]; delete p.preset; }), "⟲"),
+          button(journal ? "Fit the page height to the content (keeps the column width)" : "Fit page to content",
+            () => this.app.run("fitPage"), "Fit to content")),
         radioField("Background", page.background ? "white" : "none", [["none", "Transparent"], ["white", "White"]],
           (v) => this.editPage("Background", (p) => { p.background = v === "white" ? "#ffffff" : null; })),
       ]),
@@ -362,7 +390,21 @@ export const inspector = {
 
 // Field builders ---------------------------------------------------------------------------
 
-function digits(u) { return u === "in" ? 3 : 2; }
+const MM_PT = 72 / 25.4;
+
+// Which standard or journal size a page is, if it still has that size
+export function pagePreset(page, info) {
+  const near = (a, b) => Math.abs(a - b) < 0.05;
+  const p = page.preset || {};
+  const journal = (info.journals || []).find((j) => j.name === p.journal);
+  const type = journal?.types.find((t) => t.name === p.type && near(t.width_mm * MM_PT, page.width)) || null;
+  if (journal && type) return { journal, type, standard: null };
+  const standard = (info.standard_sizes || []).find((s) => near(s.width_mm * MM_PT, page.width)
+    && near(s.height_mm * MM_PT, page.height)) || null;
+  return { journal: null, type: null, standard };
+}
+
+function digits(u) { return u === "in" || u === "cm" ? 3 : 2; }
 function kindName(it) {
   if (it.type === "picture") return "Picture";
   if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_start || it.arrow_end ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
@@ -382,7 +424,7 @@ export function numField(text, valuePt, unit, onCommit, opts = {}) {
   const isLen = unit in { pt: 1, mm: 1, cm: 1, in: 1, px: 1 };
   const shown = isLen ? toUnit(valuePt, unit) : valuePt;
   const input = h("input", { id, type: "number", inputmode: "decimal", value: fmt(shown, isLen ? digits(unit) : 2),
-    step: opts.step ?? (isLen ? (unit === "in" ? 0.01 : unit === "pt" ? 0.5 : 0.1) : 1), min: opts.min, max: opts.max,
+    step: opts.step ?? (isLen ? { in: 0.01, pt: 0.5, cm: 0.1, mm: 0.5, px: 1 }[unit] : 1), min: opts.min, max: opts.max,
     "data-bind": opts.bind, "aria-describedby": `${id}-u` });
   input.addEventListener("change", () => {
     const v = parseFloat(input.value);

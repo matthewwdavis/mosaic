@@ -3,8 +3,24 @@
 
 import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
+import { inspector } from "./inspector.js";
 import { store } from "./store.js";
 import { lineMidpoints } from "./util.js";
+
+const MMPT = 72 / 25.4;
+const near = (a, b, tol = 0.05) => Math.abs(a - b) < tol;
+// Set a properties-panel dropdown by its label, as a person would
+async function choose(label, value) {
+  inspector.render();
+  const l = [...document.querySelectorAll("#inspector label")].find((x) => x.textContent === label);
+  const field = l && document.getElementById(l.htmlFor);
+  if (!field) return false;
+  field.value = value;
+  field.dispatchEvent(new Event("change", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 60));
+  return true;
+}
+const pageSize = () => `${(store.page().width / MMPT).toFixed(1)} × ${(store.page().height / MMPT).toFixed(1)} mm`;
 
 const results = [];
 const log = (ok, name, detail = "") => {
@@ -46,6 +62,7 @@ export async function run(app, params) {
     canvas.fit();
     await settle();
     check(store.items().length === 0, "new document is empty");
+    check(near(store.page().width, 210 * MMPT) && near(store.page().height, 297 * MMPT), "new pages are A4", pageSize());
     canvas.setZoom(1);
     check(document.querySelector(".zoom-label")?.textContent === "100%", "zoom readout shows 100% at true size",
       document.querySelector(".zoom-label")?.textContent);
@@ -62,6 +79,10 @@ export async function run(app, params) {
     check(Math.abs(pics[0].frame[2] - a0.size_pt[0]) < 1e-6, "placed at true size");
     const img = canvas.els.get(pics[0].id)?.g.querySelector("image");
     check(img && img.getAttribute("href").includes("/asset/"), "picture preview rendered");
+    store.select([pics[0].id]);
+    inspector.render();
+    const units = [...document.querySelectorAll("#inspector .unit")].map((u) => u.textContent);
+    check(units.includes("cm") && !units.includes("pt"), "a picture's position and size show in centimetres", units.join(","));
     // Keep the pictures apart so pointer tests hit the one intended
     if (pics[1]) store.update("Arrange for test", (doc) => {
       const it = doc.pages[0].items.find((i) => i.id === pics[1].id);
@@ -70,12 +91,12 @@ export async function run(app, params) {
 
     // Drawing tools
     canvas.setTool("rect");
-    await drag([300, 300], [360, 340]);
+    await drag([300, 300], [360, 340], { metaKey: true, ctrlKey: true });   // ⌘: no snapping
     const rect = store.items().find((i) => i.geom === "rect");
     check(rect && Math.abs(rect.frame[2] - 60) < 0.6 && Math.abs(rect.frame[3] - 40) < 0.6, "rectangle drawn by dragging", JSON.stringify(rect?.frame));
     check(canvas.els.get(rect?.id)?.g.querySelector("path"), "rectangle drawn by the engine");
     canvas.setTool("arrow");
-    await drag([300, 380], [400, 380]);
+    await drag([300, 380], [400, 380], { metaKey: true, ctrlKey: true });
     const arrow = store.items().find((i) => i.type === "line");
     check(arrow?.arrow_end?.type === "triangle", "arrow drawn with a head");
 
@@ -105,7 +126,7 @@ export async function run(app, params) {
 
     // A PowerPoint-style arc becomes a curve with points
     canvas.setTool("arc");
-    await drag([420, 300], [480, 360]);
+    await drag([420, 300], [480, 360], { metaKey: true, ctrlKey: true });
     const arcItem = store.items().find((i) => i.geom === "arc");
     store.select([arcItem.id]);
     await app.run("shapeToCurve");
@@ -205,6 +226,24 @@ export async function run(app, params) {
     await app.run("deletePage");
     store.setPage(0);
     check(store.doc.pages.length === 2, "page deleted");
+
+    // Journal page sizes from the Page panel
+    store.select([]);
+    await choose("Journal", "Nature");
+    check(near(store.page().width, 180 * MMPT) && near(store.page().height, 170 * MMPT),
+      "Nature starts at a double-column page, 180 × 170 mm", pageSize());
+    await choose("Figure type", "Single column");
+    check(near(store.page().width, 90 * MMPT) && near(store.page().height, 170 * MMPT), "Nature single column is 90 mm wide", pageSize());
+    await choose("Journal", "Science");
+    await choose("Figure type", "2 columns");
+    check(near(store.page().width, 121 * MMPT) && near(store.page().height, 199 * MMPT), "Science 2 columns is 121 × 199 mm", pageSize());
+    await choose("Journal", "Cell");
+    check(near(store.page().width, 174 * MMPT) && near(store.page().height, 200 * MMPT), "Cell full width is 174 × 200 mm", pageSize());
+    await app.run("fitPage");
+    check(near(store.page().width, 174 * MMPT) && store.page().height < 200 * MMPT,
+      "Fit to content on a journal page keeps the column width", pageSize());
+    await choose("Standard size", "A4");
+    check(near(store.page().width, 210 * MMPT) && near(store.page().height, 297 * MMPT), "Standard size goes back to A4", pageSize());
 
     // Export, save and reopen
     if (out) {

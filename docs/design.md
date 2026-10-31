@@ -50,8 +50,14 @@ pre-export check says so.
   (full keyboard control, screen-reader labels and announcements, high contrast,
   colour-blind-safe interface, adjustable interface text size, reduced motion); easy
   to install for labmates on Mac and Windows without the command line.
-- **Units:** positions, sizes, font sizes and line widths in points by default; page
-  sizes in millimetres. Anyone can switch.
+- **Units:** positions and sizes of objects in centimetres (changed from points on
+  2026-10-31); font sizes and line widths always in points; page sizes in millimetres.
+  Anyone can switch. Settings files store only real choices, so changed defaults reach everyone.
+- **Page sizes:** new pages are A4. The Page panel has a Standard size dropdown (A4, US Letter,
+  16:9 slide), a Journal dropdown (Nature, Science, Cell) and a Figure type dropdown; a journal
+  type sets the column width and the journal's maximum figure depth (Nature 90/180 mm x 170 mm;
+  Science 5.7/12.1/18.4 cm x 19.9 cm, leaving room for the legend; Cell 85/114/174 mm x 200 mm).
+  On journal pages "Fit to content" keeps the column width. Data and sources: `journals.py`.
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.

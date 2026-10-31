@@ -204,11 +204,17 @@ export function announce(msg) {
   announceTimer = setTimeout(() => { el.textContent = msg; }, 60);
 }
 
+// The unit announcements use; main.js keeps it in step with the preference
+export const display = { units: "cm" };
+const UNIT_WORDS = { pt: "points", mm: "millimetres", cm: "centimetres", in: "inches", px: "pixels" };
+
 export function describeItem(it, doc) {
-  const n = (v) => fmt(v, 1);
+  const u = display.units;
+  const n = (v) => fmt(toUnit(v, u), u === "cm" || u === "in" ? 2 : 1);
+  const unit = UNIT_WORDS[u] || u;
   if (it.type === "picture") {
     const a = doc.assets[it.asset];
-    return `Picture ${it.name || a?.name || ""}, ${n(it.frame[2])} by ${n(it.frame[3])} points at ${n(it.frame[0])}, ${n(it.frame[1])}`;
+    return `Picture ${it.name || a?.name || ""}, ${n(it.frame[2])} by ${n(it.frame[3])} ${unit} at ${n(it.frame[0])}, ${n(it.frame[1])}`;
   }
   if (it.type === "line") {
     const [a, b] = [it.points[0], it.points[it.points.length - 1]];
@@ -218,8 +224,8 @@ export function describeItem(it, doc) {
   }
   if (it.type === "group") return `Group of ${it.items.length} objects`;
   const text = itemText(it);
-  if (text) return `Text "${text.slice(0, 60)}", at ${n(it.frame[0])}, ${n(it.frame[1])}`;
-  return `${GEOM_NAMES[it.geom] || "Shape"}, ${n(it.frame[2])} by ${n(it.frame[3])} points at ${n(it.frame[0])}, ${n(it.frame[1])}`;
+  if (text) return `Text "${text.slice(0, 60)}", at ${n(it.frame[0])}, ${n(it.frame[1])} ${unit}`;
+  return `${GEOM_NAMES[it.geom] || "Shape"}, ${n(it.frame[2])} by ${n(it.frame[3])} ${unit} at ${n(it.frame[0])}, ${n(it.frame[1])}`;
 }
 export const GEOM_NAMES = { rect: "Rectangle", roundRect: "Rounded rectangle", ellipse: "Ellipse", triangle: "Triangle",
   rtTriangle: "Right triangle", arc: "Arc", rightBracket: "Right bracket", leftBracket: "Left bracket", custom: "Freeform" };

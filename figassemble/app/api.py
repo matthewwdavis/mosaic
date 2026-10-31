@@ -16,15 +16,36 @@ from ..fonts import config_dir, get_font_index
 from ..resolve import Resolver
 
 PREFS_DEFAULTS = {
-    "units": "pt", "page_units": "mm", "ui_scale": 1.0, "theme": "system", "show_tool_labels": True,
+    # Positions and sizes of objects in centimetres, page sizes in millimetres; font sizes and
+    # line widths are always points
+    "units": "cm", "page_units": "mm", "ui_scale": 1.0, "theme": "system", "show_tool_labels": True,
     "reduced_motion": False, "snap": True, "default_dpi": 600, "default_formats": ["pdf", "png"],
     "transparent": True, "panel_label": {"size": 8.0, "bold": True, "font": "Helvetica", "case": "lower"},
     "text": {"font": "Helvetica", "size": 6.0}, "stroke_width": 1.0, "recent": [],
 }
+PREFS_VERSION = 2
 
 
 def _prefs_path() -> str:
     return os.path.join(config_dir(), "prefs.json")
+
+
+def _read_prefs_file() -> dict:
+    try:
+        with open(_prefs_path(), encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_prefs_file(stored: dict) -> None:
+    with open(_prefs_path(), "w", encoding="utf-8") as fh:
+        json.dump(stored, fh, indent=1)
+
+
+def _choices_only(stored: dict) -> dict:
+    """Keep only settings that differ from the defaults, so changing a default reaches everyone."""
+    return {k: v for k, v in stored.items() if k == "prefs_version" or PREFS_DEFAULTS.get(k, ...) != v}
 
 
 class Api:
@@ -40,28 +61,36 @@ class Api:
     # App ------------------------------------------------------------------------------
 
     def app_info(self) -> dict:
+        from ..journals import JOURNALS, STANDARD_SIZES
         return {"version": __version__, "platform": sys.platform, "native": self.window is not None,
-                "prefs": self.prefs_get(), "page_presets": model.PAGE_PRESETS,
+                "prefs": self.prefs_get(), "standard_sizes": STANDARD_SIZES, "journals": JOURNALS,
                 "machine": platform.node()}
 
     def fonts(self) -> list[str]:
         return get_font_index().families()
 
     def prefs_get(self) -> dict:
+        stored = _read_prefs_file()
+        if stored and stored.get("prefs_version") != PREFS_VERSION:
+            # Version 1 saved every default alongside real choices, which froze positions in
+            # points; keep only real choices so the centimetre default applies
+            stored = {k: v for k, v in stored.items() if not (k == "units" and v == "pt")}
+            stored = _choices_only(stored)
+            stored["prefs_version"] = PREFS_VERSION
+            with self._lock:
+                _write_prefs_file(stored)
         prefs = dict(PREFS_DEFAULTS)
-        try:
-            with open(_prefs_path(), encoding="utf-8") as fh:
-                prefs.update(json.load(fh))
-        except (OSError, ValueError):
-            pass
+        prefs.update({k: v for k, v in stored.items() if k != "prefs_version"})
         return prefs
 
     def prefs_set(self, prefs: dict) -> dict:
-        merged = self.prefs_get()
-        merged.update(prefs or {})
-        with self._lock, open(_prefs_path(), "w", encoding="utf-8") as fh:
-            json.dump(merged, fh, indent=1)
-        return merged
+        self.prefs_get()   # brings an older settings file up to date first
+        with self._lock:
+            stored = _read_prefs_file()
+            stored.update(prefs or {})
+            stored["prefs_version"] = PREFS_VERSION
+            _write_prefs_file(_choices_only(stored))
+        return self.prefs_get()
 
     def _remember(self, path: str) -> None:
         prefs = self.prefs_get()

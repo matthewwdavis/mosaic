@@ -10,7 +10,7 @@ import { canvas, findDeep, reid, shiftItem } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { panels } from "./panels.js";
 import { store } from "./store.js";
-import { MOD, announce, clone, describeItem, isMac, itemBBox, itemsBBox, lineMidpoints, uid } from "./util.js";
+import { MOD, announce, clone, describeItem, display, isMac, itemBBox, itemsBBox, lineMidpoints, uid } from "./util.js";
 
 const app = {
   prefs: {},
@@ -434,14 +434,23 @@ const app = {
     const boxes = items.map((it) => canvas.els.get(it.id)?.bbox || itemBBox(it));
     const b = [Math.min(...boxes.map((x) => x[0])), Math.min(...boxes.map((x) => x[1])),
       Math.max(...boxes.map((x) => x[2])), Math.max(...boxes.map((x) => x[3]))];
-    store.update("Fit page to content", (doc) => {
+    // A journal figure keeps its column width; only the height is cropped
+    const journalPage = !!store.page().preset?.journal;
+    store.update(journalPage ? "Fit page height to content" : "Fit page to content", (doc) => {
       const p = doc.pages[store.pageIndex];
-      for (const it of p.items) shiftItem(it, clone(it), -b[0], -b[1]);
-      p.width = b[2] - b[0];
-      p.height = b[3] - b[1];
+      if (journalPage) {
+        for (const it of p.items) shiftItem(it, clone(it), 0, -b[1]);
+        p.height = b[3] - b[1];
+      } else {
+        for (const it of p.items) shiftItem(it, clone(it), -b[0], -b[1]);
+        p.width = b[2] - b[0];
+        p.height = b[3] - b[1];
+        delete p.preset;
+      }
     });
     canvas.fit();
-    announce("Page fitted to its content, with no margin");
+    announce(journalPage ? "Page height fitted to the content; the column width is kept"
+      : "Page fitted to its content, with no margin");
   },
 };
 
@@ -630,6 +639,7 @@ document.addEventListener("paste", (e) => {
 // Preferences -------------------------------------------------------------------------------
 
 function applyPrefs(p) {
+  display.units = p.units || "cm";
   const root = document.documentElement;
   root.style.setProperty("--ui-scale", p.ui_scale || 1);
   root.dataset.theme = p.theme || "system";

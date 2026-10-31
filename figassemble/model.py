@@ -23,28 +23,26 @@ import copy
 import time
 
 from .assets import new_id
+from .journals import DEFAULT_SIZE, standard_size
 
 FORMAT_VERSION = 1
 MM = 72.0 / 25.4
 
-# Page presets (points); Nature's double column is 180 mm wide
-PAGE_PRESETS = {
-    "Journal double column (180 x 170 mm)": (180 * MM, 170 * MM),
-    "Journal single column (88 x 120 mm)": (88 * MM, 120 * MM),
-    "US Letter": (612.0, 792.0),
-    "A4": (210 * MM, 297 * MM),
-    "Slide 16:9 (13.33 x 7.5 in)": (960.0, 540.0),
-}
-DEFAULT_PAGE = (180 * MM, 170 * MM)
+# New pages are a normal sheet of paper; journal sizes are chosen per page (see journals.py)
+DEFAULT_PAGE = standard_size(DEFAULT_SIZE)
 
 DEFAULT_STROKE = {"color": "#000000", "width": 1.0, "dash": "solid", "cap": "round", "join": "round", "opacity": 1.0}
 DEFAULT_TEXT_RUN = {"font": "Helvetica", "size": 6.0, "bold": False, "italic": False, "color": "#000000"}
 
 
 def new_page(name: str = "Page 1", width: float | None = None, height: float | None = None) -> dict:
-    w, h = (width, height) if width and height else DEFAULT_PAGE
-    return {"id": new_id("pg"), "name": name, "width": w, "height": h, "background": None,
-            "guides": {"x": [], "y": []}, "items": []}
+    page = {"id": new_id("pg"), "name": name, "background": None, "guides": {"x": [], "y": []}, "items": []}
+    if width and height:
+        page["width"], page["height"] = width, height
+    else:
+        page["width"], page["height"] = DEFAULT_PAGE
+        page["preset"] = {"standard": DEFAULT_SIZE}
+    return page
 
 
 def new_document(title: str = "Untitled figure") -> dict:

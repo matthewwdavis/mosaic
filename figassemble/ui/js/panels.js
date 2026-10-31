@@ -73,8 +73,9 @@ export const panels = {
     canvas.onToolChange = (tool) => this.renderTools(tool);
     document.addEventListener("fa-zoom", (e) => { this.zoomLabel.textContent = `${fmt(e.detail * 100, 0)}%`; });
     document.addEventListener("fa-cursor", (e) => {
-      const u = app.prefs.units || "pt";
-      this.cursor.textContent = `x ${fmt(toUnit(e.detail[0], u), 1)}, y ${fmt(toUnit(e.detail[1], u), 1)} ${UNIT_LABEL[u]}`;
+      const u = app.prefs.units || "cm";
+      const d = u === "cm" || u === "in" ? 2 : 1;
+      this.cursor.textContent = `x ${fmt(toUnit(e.detail[0], u), d)}, y ${fmt(toUnit(e.detail[1], u), d)} ${UNIT_LABEL[u]}`;
     });
   },
 
@@ -394,7 +395,7 @@ export const panels = {
     const label = p.panel_label || {};
     this.dialog("Preferences", h("div", {},
       h("fieldset", {}, h("legend", {}, "Measurements"),
-        selectField("Positions and sizes in", p.units || "pt", unitOpts, set("units")),
+        selectField("Positions and sizes in", p.units || "cm", unitOpts, set("units")),
         selectField("Page sizes in", p.page_units || "mm", unitOpts, set("page_units"))),
       h("fieldset", {}, h("legend", {}, "Interface"),
         h("div", { class: "field" }, h("label", { for: "pref-scale" }, "Interface text size"), scale),

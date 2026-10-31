@@ -56,8 +56,12 @@ activated). A no-command-line installer is planned.
   picture to crop it.
 - **Arrange:** drag to move (objects snap to edges, centres and the page; hold ⌘/Ctrl to
   stop snapping), align and distribute several objects, group (⌘G), bring forward (⌘]).
-- **Pages:** one document can hold many pages, e.g. versions of a figure. Page sizes are in
-  millimetres (journal presets included); "Fit to content" crops the page to the figure.
+- **Pages:** one document can hold many pages, e.g. versions of a figure. New pages are A4.
+  In the Page panel, pick a **Journal** (Nature, Science, Cell) and a **Figure type** (e.g. Nature
+  single column, 90 mm) to set the page to that width and the journal's maximum depth, or pick a
+  **Standard size** (A4, US Letter, 16:9 slide). "Fit to content" crops the page to the figure
+  (on journal pages it keeps the column width). Positions and sizes are in centimetres; font
+  sizes and line widths in points (change units in Settings).
 - **Check** lists the smallest text after scaling, low-resolution images, conversions that
   will be needed and files that can't be found.
 - **Export** (⌘E): PDF, SVG, PNG, TIFF at 300/600/1200 dpi or any other, transparent or
