@@ -167,6 +167,7 @@ STEPS = [
     ("tab", {"check": lambda b, s: s["selected"] == 1, "what": "Tab selects one object"}),
     ("right", {"check": lambda b, s: moved(b, s, 1), "what": "→ moves it 1 pt"}),
     ("shift+right", {"check": lambda b, s: moved(b, s, 10), "what": "⇧→ moves it 10 pt"}),
+    ("cmd+shift+d", {"ran": ["transformAgain"], "check": lambda b, s: moved(b, s, 10), "what": "⌘⇧D moves it 10 pt again"}),
     ("cmd+shift+]", {"ran": ["bringToFront"]}),
     ("cmd+]", {"ran": ["bringForward"]}),
     ("cmd+[", {"ran": ["sendBackward"]}),

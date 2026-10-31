@@ -93,6 +93,7 @@ of what you can do with it, with the shortcuts alongside.
 | Undo, Redo | ⌘Z, ⌘⇧Z | Ctrl+Z, Ctrl+Y |
 | Cut, Copy, Paste | ⌘X, ⌘C, ⌘V | Ctrl+X, Ctrl+C, Ctrl+V |
 | Duplicate, Delete | ⌘D, Delete | Ctrl+D, Delete |
+| Transform again (repeat the last move, resize or turn) | ⌘⇧D | Ctrl+Shift+D |
 | Select all | ⌘A | Ctrl+A |
 | Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |
 | Bring forward, Send backward | ⌘], ⌘[ | Ctrl+], Ctrl+[ |

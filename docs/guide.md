@@ -31,11 +31,12 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 ![The FigAssemble window, numbered](images/window-tour.png)
 
 1. **Tabs** across the top, like PowerPoint's ribbon:
-   - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste; Duplicate, Delete; Add page,
+   - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste; Duplicate, Again, Delete; Add page,
      Fit page.
    - **Arrange**: Align, Distribute, Spacing, Align to, Group, Order (see
      [Align and distribute](#align-and-distribute)).
-   - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings.
+   - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
+     a colour vision preview (Check colours).
 2. Each tab's commands, in labelled groups.
 3. **Always in view:** **Snap** (on when highlighted), **Check**, **Export**, **Settings**, **Help**.
 4. **Pages** of the document, and **Objects** on the current page, front to back. Each object has
@@ -255,6 +256,12 @@ the object when it moves, resizes or rotates.
   inside a box. Tab and Shift+Tab step through objects.
 - **Move:** drag, or arrow keys: 1 pt per press, 10 pt with Shift, 0.1 pt with Option (Alt).
   Option-drag (Alt-drag) makes a copy.
+- **Duplicate (⌘D)** puts the copy 10 pt down and right. Move the copy where you want it, then
+  Duplicate again: the next copy goes at that same offset, as in PowerPoint. Keep pressing ⌘D
+  for a row of evenly spaced copies.
+- **Transform again (⌘⇧D)**, as in Illustrator, repeats your last move, resize or turn on whatever
+  is selected: a drag, arrow-key nudges, or numbers typed in the Arrange tab. If the last move was
+  an Option-drag (Alt-drag) copy, it makes another copy the same distance on.
 - **Resize:** drag a handle. Corners keep a picture's proportions (Shift does the opposite).
   Option (Alt) resizes from the centre. Option+Shift+arrows change the size by 1 pt.
 - **Rotate:** drag the round handle above the object; Shift keeps to 15° steps.
@@ -339,6 +346,12 @@ Guides and the grid are never exported.
 Each item can select the object it's about. Fonts missing from placed PDFs (R's `pdf()` leaves
 Helvetica out) are embedded automatically on export.
 
+**Colour vision** (View tab → Check colours) shows the page as people with colour blindness see
+it: **Red-green: deuteranopia** (the most common), **Red-green: protanopia**, **Blue-yellow:
+tritanopia**, or **Greyscale** (as printed in black and white). Use it to check that colours that
+carry meaning stay apart. Only the page and its objects change, never the exported files; a note
+over the page says the preview is on, and its **Stop** button (or **Normal**) ends it.
+
 **Export** (⌘E):
 
 - **Formats:** PDF, SVG, PNG, TIFF (LZW-compressed). **More options:** JPEG, EPS (transparency is
@@ -408,6 +421,7 @@ Press **?** in FigAssemble for this list.
 | Export, Check before export | ⌘E, ⌘⇧E | Ctrl+E, Ctrl+Shift+E |
 | Undo, Redo | ⌘Z, ⌘⇧Z | Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z |
 | Cut, Copy, Paste, Duplicate | ⌘X, ⌘C, ⌘V, ⌘D | Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+D |
+| Transform again (repeat the last move, resize or turn) | ⌘⇧D | Ctrl+Shift+D |
 | Delete | Delete | Delete or Backspace |
 | Select all | ⌘A | Ctrl+A |
 | Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |

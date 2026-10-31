@@ -364,3 +364,9 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   .snap-label, .guide-label { fill: CanvasText; stroke: Canvas; }
   .ruler-corner { border-color: CanvasText; }
 }
+
+/* Colour vision preview: a note over the page while it's on */
+.cvd-note { position: absolute; top: 0.6rem; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; gap: 0.6rem;
+  align-items: center; padding: 0.3rem 0.4rem 0.3rem 0.8rem; border: 2px solid var(--sel); border-radius: 0.5rem;
+  background: var(--panel); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+.cvd-note[hidden] { display: none; }

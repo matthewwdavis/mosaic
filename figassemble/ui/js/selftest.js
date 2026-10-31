@@ -668,6 +668,35 @@ export async function run(app, params) {
       else delete a.outline;
     });
 
+    // Duplicate as in PowerPoint: move the copy, and the next Duplicate repeats that offset
+    store.select([rect.id]);
+    await app.run("duplicate");
+    const dupA = store.selected()[0], rectAt = store.item(rect.id).frame;
+    check(near(dupA.frame[0] - rectAt[0], 10, 1e-6) && near(dupA.frame[1] - rectAt[1], 10, 1e-6),
+      "Duplicate puts the copy 10 pt down and right", JSON.stringify(dupA.frame));
+    store.update("Move the copy", (doc) => { const d = findItem(doc, dupA.id); d.frame[0] += 30; d.frame[1] -= 10; });
+    await app.run("duplicate");
+    const dupB = store.selected()[0], dupOffset = [dupB.frame[0] - store.item(dupA.id).frame[0], dupB.frame[1] - store.item(dupA.id).frame[1]];
+    check(near(dupOffset[0], 40, 1e-6) && near(dupOffset[1], 0, 1e-6), "once the copy is moved, Duplicate repeats that offset",
+      JSON.stringify(dupOffset));
+    // Transform again (⌘⇧D): the last nudge, typed turn and resize, each done again
+    app.nudge(5, 0);
+    const nudgedX = store.item(dupB.id).frame[0];
+    await app.run("transformAgain");
+    check(near(store.item(dupB.id).frame[0] - nudgedX, 5, 1e-6), "Transform again repeats the last move", `${store.item(dupB.id).frame[0] - nudgedX}`);
+    await choose("Rotation", "15");
+    await app.run("transformAgain");
+    check(near(store.item(dupB.id).rot, 30, 1e-6), "and the last turn", `${store.item(dupB.id).rot}`);
+    store.update("Unturn", (doc) => { findItem(doc, dupB.id).rot = 0; });
+    const beforeResize = store.item(dupB.id).frame.slice();
+    app.noteTransform({ kind: "resize", sx: 2, sy: 1, anchor: [0, 0] });
+    await app.run("transformAgain");
+    const afterResize = store.item(dupB.id).frame;
+    check(near(afterResize[2], beforeResize[2] * 2, 1e-6) && near(afterResize[0], beforeResize[0], 1e-6) && near(afterResize[3], beforeResize[3], 1e-6),
+      "and the last resize, keeping the same side still", `${JSON.stringify(beforeResize)} -> ${JSON.stringify(afterResize)}`);
+    store.select([dupA.id, dupB.id]);
+    await app.run("delete");
+
     // Gradient fills: linear, then radial from a corner; stops can be added and reversed
     store.select([rect.id]);
     await choose("Fill", "linear");
@@ -1089,6 +1118,19 @@ export async function run(app, params) {
       `pressed=${gridBtn.getAttribute("aria-pressed")} grid=${!!document.querySelector(".grid path")} pref=${app.prefs.show_grid}`);
     gridBtn.click();
     await until(() => app.prefs.show_grid === false);
+    // Its colour vision preview filters the page and its objects, not the handles or exports
+    const cvdLabel = [...document.querySelectorAll("#rpanel-view label")].find((l) => l.textContent === "Colour vision");
+    const cvdSelect = cvdLabel && document.getElementById(cvdLabel.htmlFor);
+    cvdSelect.value = "deuteranopia";
+    cvdSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    const cvdNote = document.querySelector(".cvd-note");
+    check(canvas.itemsLayer.getAttribute("filter") === "url(#fa-cvd)" && canvas.pageRect.getAttribute("filter") === "url(#fa-cvd)"
+      && !canvas.overlay.getAttribute("filter") && (canvas.cvdMatrix.getAttribute("values") || "").startsWith("0.367322 0.860646")
+      && !cvdNote.hidden, "Colour vision previews the page as with deuteranopia, with a note over it",
+    `${canvas.itemsLayer.getAttribute("filter")} ${canvas.cvdMatrix.getAttribute("values")?.slice(0, 30)} ${cvdNote.hidden}`);
+    cvdNote.querySelector("button").click();
+    check(!canvas.itemsLayer.getAttribute("filter") && cvdNote.hidden && cvdSelect.value === "normal",
+      "the note's Stop button ends the preview, and the menu follows", cvdSelect.value);
     document.getElementById("rtab-home").click();
     keepAids = ["guides", "guidelist"].includes(params.get("finalSelect"));
     if (!keepAids) { store.setPage(aidsPage); await app.run("deletePage"); }

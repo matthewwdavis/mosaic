@@ -362,31 +362,52 @@ export const inspector = {
     }
     if (it.type === "group") {
       const b = itemsBBox(it.items);
-      const move = (axis) => (v) => this.edit("Move", (x) => {
-        const bb = itemsBBox(x.items);
-        const orig = JSON.parse(JSON.stringify(x));
-        shiftItem(x, orig, axis === 0 ? v - bb[0] : 0, axis === 1 ? v - bb[1] : 0);
-      });
+      const move = (axis) => (v) => {
+        const was = itemsBBox(store.item(it.id).items);
+        this.app.noteTransform?.({ kind: "move", dx: axis === 0 ? v - was[0] : 0, dy: axis === 1 ? v - was[1] : 0 });
+        this.edit("Move", (x) => {
+          const bb = itemsBBox(x.items);
+          const orig = JSON.parse(JSON.stringify(x));
+          shiftItem(x, orig, axis === 0 ? v - bb[0] : 0, axis === 1 ? v - bb[1] : 0);
+        });
+      };
       return section("Position", [row(numField("X", b[0], u, move(0)), numField("Y", b[1], u, move(1))),
         h("p", { class: "hint" }, `${fmt(toUnit(b[2] - b[0], u), 2)} × ${fmt(toUnit(b[3] - b[1], u), 2)} ${UNIT_LABEL[u]}`)]);
     }
     const [x, y, w, hh] = it.frame;
     const lockAspect = it.type === "picture";
-    const setW = (v) => this.edit("Resize", (o) => {
-      const nw = Math.max(v, 0.1);
-      if (lockAspect) o.frame[3] = o.frame[3] * nw / o.frame[2];
-      o.frame[2] = nw;
-    });
-    const setH = (v) => this.edit("Resize", (o) => {
-      const nh = Math.max(v, 0.1);
-      if (lockAspect) o.frame[2] = o.frame[2] * nh / o.frame[3];
-      o.frame[3] = nh;
-    });
+    // Typed changes count as transforms too, for Transform Again (⌘⇧D), measured from the object
+    // as it is now (the numbers here can be from before a drag)
+    const now = () => store.item(it.id);
+    const note = (t) => this.app.noteTransform?.(t);
+    const setW = (v) => {
+      const nw = Math.max(v, 0.1), was = now().frame[2];
+      if (was > 0) note({ kind: "resize", sx: nw / was, sy: lockAspect ? nw / was : 1, anchor: [0, 0] });
+      this.edit("Resize", (o) => {
+        if (lockAspect) o.frame[3] = o.frame[3] * nw / o.frame[2];
+        o.frame[2] = nw;
+      });
+    };
+    const setH = (v) => {
+      const nh = Math.max(v, 0.1), was = now().frame[3];
+      if (was > 0) note({ kind: "resize", sx: lockAspect ? nh / was : 1, sy: nh / was, anchor: [0, 0] });
+      this.edit("Resize", (o) => {
+        if (lockAspect) o.frame[2] = o.frame[2] * nh / o.frame[3];
+        o.frame[3] = nh;
+      });
+    };
+    const setRot = (v) => {
+      note({ kind: "rotate", angle: ((((v - (now().rot || 0)) % 360) + 540) % 360) - 180 });
+      this.edit("Rotate", (o) => { o.rot = ((v % 360) + 360) % 360; });
+    };
+    const setPos = (i) => (v) => {
+      note({ kind: "move", dx: i === 0 ? v - now().frame[0] : 0, dy: i === 1 ? v - now().frame[1] : 0 });
+      this.edit("Move", (o) => { o.frame[i] = v; });
+    };
     const kids = [
-      row(numField("X", x, u, (v) => this.edit("Move", (o) => { o.frame[0] = v; }), { bind: "x" }),
-        numField("Y", y, u, (v) => this.edit("Move", (o) => { o.frame[1] = v; }), { bind: "y" })),
+      row(numField("X", x, u, setPos(0), { bind: "x" }), numField("Y", y, u, setPos(1), { bind: "y" })),
       row(numField("Width", w, u, setW, { bind: "w", min: 0.1 }), numField("Height", hh, u, setH, { bind: "h", min: 0.1 })),
-      row(numField("Rotation", it.rot || 0, "deg", (v) => this.edit("Rotate", (o) => { o.rot = ((v % 360) + 360) % 360; }), { bind: "rot", step: 1 }),
+      row(numField("Rotation", it.rot || 0, "deg", setRot, { bind: "rot", step: 1 }),
         h("div", { class: "button-row inline" },
           toggle("Flip horizontally", !!it.flip_h, (on) => this.edit("Flip", (o) => { o.flip_h = on; }), "⇋"),
           toggle("Flip vertically", !!it.flip_v, (on) => this.edit("Flip", (o) => { o.flip_v = on; }), "⇵"))),
@@ -859,6 +880,15 @@ export function alignToField(app) {
   const f = selectField("Align to", app.prefs.align_to || "selection",
     [["selection", "Selection"], ["key", "Key object"], ["page", "Page"]], (v) => app.setAlignTo(v));
   f.querySelector("select").dataset.sync = "align_to";
+  return f;
+}
+// The View tab's colour vision preview, kept in step with the page's Stop button
+export function colourVisionField() {
+  const f = selectField("Colour vision", canvas.colourVision || "normal", [["normal", "Normal"],
+    ["deuteranopia", "Red-green: deuteranopia"], ["protanopia", "Red-green: protanopia"],
+    ["tritanopia", "Blue-yellow: tritanopia"], ["greyscale", "Greyscale"]], (v) => canvas.setColourVision(v));
+  const sel = f.querySelector("select");
+  document.addEventListener("fa-colour-vision", (e) => { sel.value = e.detail; });
   return f;
 }
 export function button(labelText, onClick, content, cls = "") {

@@ -6,7 +6,9 @@ window.addEventListener("error", (e) => window.__faErrors.push(String(e.message)
 window.addEventListener("unhandledrejection", (e) => window.__faErrors.push(String(e.reason?.message || e.reason)));
 
 import { rpc } from "./api.js";
-import { canvas, copyItems, detachMoved, detachRegion, findDeep, shiftGuides, shiftItem, withRegionLines } from "./canvas.js";
+import {
+  canvas, copyItems, detachMoved, detachRegion, findDeep, rotateItem, scaleItem, shiftGuides, shiftItem, withRegionLines,
+} from "./canvas.js";
 import { contextMenu } from "./contextmenu.js";
 import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
@@ -222,6 +224,7 @@ const app = {
         } else if (!resize) shiftItem(it, clone(it), dx, dy);
       }
     });
+    if (!resize) this.noteTransform({ kind: "move", dx, dy });
     if (sel.length === 1) announce(describeItem(store.selected()[0], store.doc));
   },
   // Align and distribute, as in Illustrator: to the selection, a key object or the page. One
@@ -641,13 +644,57 @@ const app = {
     store.update("Paste text", (doc) => doc.pages[store.pageIndex].items.push(item), { select: [item.id] });
     announce(`Pasted text: ${paras.length} paragraph${paras.length === 1 ? "" : "s"}, in ${base.font} ${base.size} pt`);
   },
+  // Duplicate, as in PowerPoint: the copy goes 10 pt down and right, but once a copy has been
+  // moved, duplicating it again puts the next copy at that same offset from it
   duplicate() {
     const sel = store.selected();
     if (!sel.length) return;
+    let [dx, dy] = [10, 10];
+    const last = this.lastDuplicate, ids = sel.map((it) => it.id);
+    const from = last && last.copies.length === ids.length && last.copies.every((id) => ids.includes(id))
+      ? last.originals.map((id) => store.item(id)).filter(Boolean) : [];
+    if (from.length && from.length === last.originals.length) {
+      const a = itemsBBox(from), b = itemsBBox(sel);
+      if (a && b) [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+    }
     const items = copyItems(sel);
-    for (const c of items) shiftItem(c, clone(c), 10, 10);
+    for (const c of items) shiftItem(c, clone(c), dx, dy);
     store.update("Duplicate", (doc) => doc.pages[store.pageIndex].items.push(...items), { select: items.map((i) => i.id) });
+    this.lastDuplicate = { originals: ids, copies: store.selection.slice() };
     announce(`Duplicated ${items.length} object${items.length === 1 ? "" : "s"}`);
+  },
+  // Transform Again (⌘⇧D), as in Illustrator: the last move, resize or turn, done again to what's
+  // selected now; a move made by Option-dragging a copy makes another copy
+  noteTransform(t) { this.lastTransform = t; },
+  transformAgain() {
+    const t = this.lastTransform;
+    let sel = store.selected().filter((it) => !it.locked);
+    if (!t) { announce("Nothing to repeat yet: move, resize or rotate something first"); return; }
+    if (!sel.length) return;
+    if (t.kind === "move" && t.copy) {
+      const items = copyItems(withRegionLines(sel));
+      for (const c of items) shiftItem(c, clone(c), t.dx, t.dy);
+      store.update("Transform again", (doc) => doc.pages[store.pageIndex].items.push(...items),
+        { select: items.slice(0, sel.length).map((i) => i.id) });
+      announce(`Copied and moved ${lengthText(Math.hypot(t.dx, t.dy), this.prefs.units)} again`);
+      return;
+    }
+    if (t.kind === "move") sel = withRegionLines(sel);
+    else sel = sel.filter((it) => it.geom !== "region");
+    const box = itemsBBox(sel);
+    store.update("Transform again", (doc) => {
+      const items = sel.map((x) => findDeep(doc.pages[store.pageIndex].items, x.id));
+      if (t.kind === "move") {
+        detachMoved(items);
+        for (const it of items) shiftItem(it, clone(it), t.dx, t.dy);
+      } else if (t.kind === "rotate") {
+        for (const it of items) rotateItem(it, t.angle, (box[0] + box[2]) / 2, (box[1] + box[3]) / 2);
+      } else if (t.kind === "resize") {
+        for (const it of items) scaleItem(it, t.sx, t.sy, t.anchor);
+      }
+    });
+    announce(t.kind === "move" ? `Moved ${lengthText(Math.hypot(t.dx, t.dy), this.prefs.units)} again`
+      : t.kind === "rotate" ? `Turned ${Math.round(t.angle * 10) / 10} degrees again` : "Resized again");
   },
   // Curves --------------------------------------------------------------------------
 
@@ -789,6 +836,8 @@ app.commands = {
   copy: cmd("Copy", () => app.copy(), `${M}C`, key("c"), "Copy"),
   paste: cmd("Paste", () => app.paste(), `${M}V`, key("v"), "Paste"),
   duplicate: cmd("Duplicate", () => app.duplicate(), `${M}D`, key("d"), "Duplicate"),
+  transformAgain: cmd("Transform again: repeat the last move, resize or turn", () => app.transformAgain(), `${M}${S}D`,
+    key("d", { shift: true }), "Again"),
   delete: cmd("Delete", () => app.deleteSelection(), "Delete", (e) => plain(e) && (e.key === "Delete" || e.key === "Backspace"), "Delete"),
   selectAll: cmd("Select all", () => { store.select(store.items().filter((i) => !i.locked).map((i) => i.id)); announce(`${store.selection.length} objects selected`); }, `${M}A`, key("a")),
   group: cmd("Group", () => app.group(), `${M}G`, key("g"), "Group"),
@@ -1038,6 +1087,7 @@ async function start() {
   applyPrefs(app.prefs);
   canvas.init(document.getElementById("stage"));
   canvas.onKeyClick = (id) => app.toggleKeyObject(id);
+  canvas.onTransform = (t) => app.noteTransform(t);
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.onFillArea = (p) => app.fillArea(p);
   canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);

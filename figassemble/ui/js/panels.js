@@ -2,7 +2,7 @@
 
 import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
-import { alignToField, button, gapField, numField, selectField } from "./inspector.js";
+import { alignToField, button, colourVisionField, gapField, numField, selectField } from "./inspector.js";
 import { store } from "./store.js";
 import { contextMenu } from "./contextmenu.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, s, shapeName, toUnit } from "./util.js";
@@ -25,6 +25,7 @@ const ICONS = {
   gear: "M12 9a3 3 0 110 6 3 3 0 010-6zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1",
   help: "M12 3a9 9 0 110 18 9 9 0 010-18zM9.5 9.5a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4M12 17h.01",
   plus: "M12 5v14M5 12h14", duplicate: "M8 8h11v11H8zM5 5h11v3M5 5v11h3", trash: "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13",
+  again: "M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3",
   eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 110 6 3 3 0 010-6z",
   eyeoff: "M3 3l18 18M10.6 5.1A10 10 0 0112 5c6 0 10 7 10 7a17 17 0 01-3 3.8M6.1 6.1C3.6 7.8 2 12 2 12s4 7 10 7a9.6 9.6 0 004-.9",
   lock: "M6 11h12v9H6zM8 11V8a4 4 0 018 0v3", unlock: "M6 11h12v9H6zM8 11V8a4 4 0 017.5-2",
@@ -173,7 +174,7 @@ export const panels = {
         group("File", t("new", "new"), t("open", "open"), t("save", "save")),
         group("Edit", t("undo", "undo"), t("redo", "redo")),
         group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste")),
-        group("Objects", t("duplicate", "duplicate"), t("delete", "trash")),
+        group("Objects", t("duplicate", "duplicate"), t("transformAgain", "again"), t("delete", "trash")),
         group("Page", t("addPage", "plus"), t("fitPage", "fit")),
       ]],
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
@@ -184,6 +185,7 @@ export const panels = {
           this.toggleButton("toggleGrid", "grid", "show_grid", ". Things snap to it while it shows"),
           this.toggleButton("toggleGuides", "guides", "show_guides", ". Drag a new one out of a ruler")),
         group("Grid", t("gridSettings", "gear")),
+        group("Check colours", colourVisionField()),
       ]],
     ];
     const tabRow = h("div", { class: "ribbon-tabs", role: "tablist", "aria-label": "Command tabs" });

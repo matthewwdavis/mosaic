@@ -49,8 +49,8 @@
 Matthew's choices are in brackets.
 
 - [x] Outlines under see-through lines and arrowheads kept off them (like see-through fills)
-- [ ] Colour-blind preview of the page (deuteranopia, protanopia, tritanopia, greyscale), never exported
-- [ ] Smart duplicate on ⌘D (a moved copy sets the offset for the next) and Transform Again on ⌘⇧D [both]
+- [x] Colour-blind preview of the page (deuteranopia, protanopia, tritanopia, greyscale), never exported
+- [x] Smart duplicate on ⌘D (a moved copy sets the offset for the next) and Transform Again on ⌘⇧D [both]
 - [ ] Copy style / Paste style (⌘⇧C / ⌘⇧V) and a Format Painter button [everything that applies]
 - [ ] Match sizes: same width / height / size, keeping proportions
 - [ ] Find and replace fonts

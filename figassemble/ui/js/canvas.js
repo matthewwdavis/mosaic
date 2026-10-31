@@ -18,6 +18,16 @@ const ROT_OFFSET = 24;        // rotation handle distance above the frame, CSS p
 const SEL_GAP = 6;            // the selection box and its handles stand this far outside the object, CSS px
 const SVG_PREVIEW_LIMIT = 8e6; // bigger SVGs preview as rendered PDFs for speed
 const DEFAULT_SIZE = (72 / 2.54) * 2;   // a click (or Enter) with a drawing tool places a 2 cm object
+// Colour vision previews: linear-RGB matrices, Machado, Oliveira & Fernandes 2009 at full strength
+export const COLOUR_VISION = {
+  deuteranopia: { name: "deuteranopia (red-green, no green cones)",
+    rows: [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.011820, 0.042940, 0.968881]] },
+  protanopia: { name: "protanopia (red-green, no red cones)",
+    rows: [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]] },
+  tritanopia: { name: "tritanopia (blue-yellow, no blue cones)",
+    rows: [[1.255528, -0.076749, -0.178779], [-0.078411, 0.930809, 0.147602], [0.004733, 0.691367, 0.303900]] },
+  greyscale: { name: "greyscale", rows: [[0.2126, 0.7152, 0.0722], [0.2126, 0.7152, 0.0722], [0.2126, 0.7152, 0.0722]] },
+};
 // The drawing tools that make preset shapes, and which preset each draws
 const TOOL_GEOMS = { rect: "rect", roundrect: "roundRect", ellipse: "ellipse", triangle: "triangle", arc: "arc",
   bracket: "rightBracket" };
@@ -51,8 +61,15 @@ export const canvas = {
     this.guidesLayer = s("g", { class: "guides" });
     this.view.append(this.pageShadow, this.pageRect, this.ghostLayer, this.itemsLayer, this.gridLayer, this.guidesLayer);
     this.overlay = s("g", { class: "overlay" });
-    this.svg.append(this.view, this.overlay);
+    this.cvdMatrix = s("feColorMatrix", { type: "matrix" });
+    const cvd = s("filter", { id: "fa-cvd", "color-interpolation-filters": "linearRGB" });
+    const defs = s("defs");
+    cvd.append(this.cvdMatrix);
+    defs.append(cvd);
+    this.svg.append(defs, this.view, this.overlay);
     stage.append(this.svg);
+    this.cvdNote = h("div", { class: "cvd-note", role: "status", hidden: true });
+    stage.append(this.cvdNote);
     this.setRulers(this.defaults?.show_rulers !== false);
     store.afterChange = (doc) => this.followLinks(doc);
     this.editor = h("div", { class: "text-editor", contenteditable: "true", spellcheck: "false", hidden: true,
@@ -594,11 +611,24 @@ export const canvas = {
         if (op.link) announce(`Attached to ${this.siteLabel(op.link)}`);
       }
     }
+    if (op.moved) this.noteTransform(op);
     if (op.moved) store.endLive(op.label);
     else store.cancelLive();
     if (!op.moved && op.keyCandidate) this.onKeyClick?.(op.keyCandidate);
     if (op.moved && store.selection.length === 1) announce(describeItem(store.selected()[0], store.doc));
     this.drawOverlay();
+  },
+  // What a finished drag did, for Transform Again (⌘⇧D): a move (an Option-drag copies too),
+  // a resize keeping the opposite side (or the middle) still, or a turn
+  noteTransform(op) {
+    const it = store.selected()[0], o = op.orig;
+    if (op.type === "move") this.onTransform?.({ kind: "move", dx: op.dx || 0, dy: op.dy || 0, copy: op.label === "Duplicate" });
+    else if (op.type === "resize" && it?.frame && o.frame[2] > 0 && o.frame[3] > 0) {
+      const fixed = (lo, hi) => (op.alt ? 0.5 : op.dir.includes(lo) ? 1 : op.dir.includes(hi) ? 0 : 0.5);
+      this.onTransform?.({ kind: "resize", sx: it.frame[2] / o.frame[2], sy: it.frame[3] / o.frame[3], anchor: [fixed("w", "e"), fixed("n", "s")] });
+    } else if (op.type === "rotate" && it) {
+      this.onTransform?.({ kind: "rotate", angle: ((((it.rot || 0) - (o.rot || 0)) % 360) + 540) % 360 - 180 });
+    }
   },
   hover(pt, p) {
     if (["line", "arrow"].includes(this.tool)) {
@@ -677,6 +707,7 @@ export const canvas = {
     if (!op.moved && Math.hypot(dx, dy) * this.k < 2) return;
     op.moved = true;
     [dx, dy] = this.snapMove(op.bbox, dx, dy, op.targets, e);
+    [op.dx, op.dy] = [dx, dy];
     for (const o of op.orig) {
       const it = findDeep(store.items(), o.id);
       if (it) shiftItem(it, o, dx, dy);
@@ -795,6 +826,22 @@ export const canvas = {
     const minor = parts > 1 && (spacing / parts) * this.k >= GRID_MIN_PX ? spacing / parts : null;
     return { major, minor, parts, snap: minor || major };
   },
+  // The page as people with colour blindness see it (Machado, Oliveira & Fernandes 2009, full
+  // strength, in linear RGB), or in grey; only the page and its objects, never an export
+  setColourVision(mode) {
+    const m = COLOUR_VISION[mode];
+    this.colourVision = m ? mode : "normal";
+    if (m) this.cvdMatrix.setAttribute("values", m.rows.map((r) => `${r.join(" ")} 0 0`).join(" ") + " 0 0 0 1 0");
+    for (const el of [this.pageRect, this.ghostLayer, this.itemsLayer]) {
+      if (m) el.setAttribute("filter", "url(#fa-cvd)");
+      else el.removeAttribute("filter");
+    }
+    this.cvdNote.replaceChildren(...(m ? [`Previewing ${m.name} — never exported `,
+      h("button", { type: "button", class: "btn", onclick: () => this.setColourVision("normal") }, "Stop")] : []));
+    this.cvdNote.hidden = !m;
+    document.dispatchEvent(new CustomEvent("fa-colour-vision", { detail: this.colourVision }));
+  },
+
   drawGrid() {
     if (!this.gridLayer || !store.doc) return;
     const page = store.page();
@@ -1002,6 +1049,7 @@ export const canvas = {
       if (dir.includes("w")) x0 = x1 - nw; else x1 = x0 + nw;
       if (dir.includes("n")) y0 = y1 - nh; else y1 = y0 + nh;
     }
+    op.alt = e.altKey;
     if (e.altKey) {   // from the centre
       const cx = w / 2, cy = h / 2;
       const hw = Math.max(Math.abs(x1 - cx), Math.abs(x0 - cx)), hh = Math.max(Math.abs(y1 - cy), Math.abs(y0 - cy));
@@ -1519,6 +1567,48 @@ export function shiftItem(it, orig, dx, dy) {
     it.points = orig.points.map((p) => [p[0] + dx, p[1] + dy]);
   } else {
     it.frame = [orig.frame[0] + dx, orig.frame[1] + dy, orig.frame[2], orig.frame[3]];
+  }
+}
+
+// Turn an object by `angle` degrees (clockwise) about (cx, cy): a framed object's middle goes
+// round and the object turns with it; a line's points turn; a group's parts each do
+export function rotateItem(it, angle, cx, cy) {
+  const r = (angle * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+  const turn = ([x, y]) => [cx + (x - cx) * c - (y - cy) * s, cy + (x - cx) * s + (y - cy) * c];
+  if (it.type === "group") it.items.forEach((k) => rotateItem(k, angle, cx, cy));
+  else if (it.type === "line") it.points = it.points.map(turn);
+  else {
+    const [x, y, w, h] = it.frame;
+    const [mx, my] = turn([x + w / 2, y + h / 2]);
+    it.frame = [mx - w / 2, my - h / 2, w, h];
+    it.rot = ((((it.rot || 0) + angle) % 360) + 360) % 360;
+  }
+}
+
+// Resize an object by (sx, sy), keeping the point at (fx, fy) of its own box where it is (a
+// turned object along its own sides; a line or group along the page's)
+export function scaleItem(it, sx, sy, [fx, fy]) {
+  if (it.frame && it.type !== "group") {
+    const [, , w, h] = it.frame;
+    const [px, py] = apply(frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v), fx * w, fy * h);
+    const nw = Math.max(w * sx, 0.5), nh = Math.max(h * sy, 0.5);
+    const q = apply(frameMatrix([0, 0, nw, nh], it.rot || 0, it.flip_h, it.flip_v), fx * nw, fy * nh);
+    it.frame = [px - q[0], py - q[1], nw, nh];
+    return;
+  }
+  const pts = itemCorners(it);
+  const x0 = Math.min(...pts.map((p) => p[0])), x1 = Math.max(...pts.map((p) => p[0]));
+  const y0 = Math.min(...pts.map((p) => p[1])), y1 = Math.max(...pts.map((p) => p[1]));
+  scaleAbout(it, sx, sy, x0 + fx * (x1 - x0), y0 + fy * (y1 - y0));
+}
+function scaleAbout(it, sx, sy, ax, ay) {
+  if (it.type === "group") it.items.forEach((k) => scaleAbout(k, sx, sy, ax, ay));
+  else if (it.type === "line") it.points = it.points.map(([x, y]) => [ax + (x - ax) * sx, ay + (y - ay) * sy]);
+  else {
+    const [x, y, w, h] = it.frame;
+    const [cx, cy] = [ax + (x + w / 2 - ax) * sx, ay + (y + h / 2 - ay) * sy];
+    const nw = Math.max(w * sx, 0.5), nh = Math.max(h * sy, 0.5);
+    it.frame = [cx - nw / 2, cy - nh / 2, nw, nh];
   }
 }
 
