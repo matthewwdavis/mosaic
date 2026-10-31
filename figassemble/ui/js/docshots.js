@@ -106,14 +106,15 @@ export async function run(app, params) {
   await settle();
   if (scene === "labels") return finish();
 
-  // Step 5: a note with an arrow attached to it, pointing at the curve's midpoint
+  // Step 5: a note with an arrow attached to it, pointing at the curve where it crosses 50% (at
+  // 1.5 µM: x 261.7, y 206.7 on the page, from the plot's scales), stopping 4 pt short
   store.update("Note", (doc) => {
     doc.pages[0].items.push({ ...label("note", "Half the cells survive at 1.5 µM", 330, 173), text: {
       paragraphs: [{ align: "l", runs: [{ t: "Half the cells survive at 1.5 µM", font: "Helvetica", size: 6, bold: false, italic: false,
         color: "#000000" }] }], insets: [0, 0, 0, 0], wrap: false, anchor: "t", autofit: "shape" } });
   });
   await settle();
-  store.update("Arrow", (doc) => doc.pages[0].items.push({ id: "arrow", type: "line", points: [[328, 177], [275, 203]],
+  store.update("Arrow", (doc) => doc.pages[0].items.push({ id: "arrow", type: "line", points: [[328, 177], [265.3, 205.1]],
     stroke: { color: "#000000", width: 0.75, dash: "solid", cap: "round", join: "round", opacity: 1 }, arrow_start: null,
     arrow_end: { type: "triangle", w: "med", len: "med" }, start_link: { item: "note", site: "m3" } }), { select: [] });
   await settle();

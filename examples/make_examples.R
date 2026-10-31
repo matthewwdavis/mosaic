@@ -4,13 +4,18 @@
 #   Rscript examples/make_examples.R      (from the repository's top folder)
 #
 # Style as in Matthew's figures: theme_classic, Helvetica at base size 6, transparent
-# backgrounds, margins cropped to the ink, 0.2 cm legend keys.
+# backgrounds, margins cropped to the ink, 0.2 cm legend keys. Each panel has its own random
+# seed, and the jitter a fixed one, so the three copies of a plot are identical and re-running
+# the script makes the same plots.
 
 library(data.table)
 library(ggplot2)
 library(magrittr)
 
 # Setup ---------------------------------------------------------------------------------------
+
+# Measuring text opens a graphics device; a null one keeps R from leaving an Rplots.pdf behind
+pdf(NULL)
 
 # Colour-blind-safe colours (Okabe-Ito)
 okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00", "#CC79A7")
@@ -113,11 +118,10 @@ save_figure <- function(plot, stem, panel_w_mm, panel_h_mm) {
   cat(sprintf("%s: %.0f x %.0f pt\n", stem, fit$width * 72, fit$height * 72))
 }
 
-set.seed(20261031)
-
 # Panel a: growth curves ----------------------------------------------------------------------
 
 # 1. Optical density of three strains every 2 h, from logistic growth with a little noise
+set.seed(1)
 growth.table <- CJ(STRAIN = c("Wild type", "mutA", "mutB"), HOURS = seq(0, 24, by = 2))
 growth.table[, RATE := c("Wild type" = 0.55, "mutA" = 0.42, "mutB" = 0.30)[STRAIN]]
 growth.table[, CAPACITY := c("Wild type" = 1.6, "mutA" = 1.4, "mutB" = 1.1)[STRAIN]]
@@ -140,6 +144,7 @@ save_figure(growth.plot, "growth_curves", panel_w_mm = 60, panel_h_mm = 38)
 # Panel b: expression bars --------------------------------------------------------------------
 
 # 1. Relative expression of four genes, control and treated, three replicates each
+set.seed(2)
 expression.table <- CJ(GENE = paste0("gene", 1:4), CONDITION = c("Control", "Treated"), REP = 1:3)
 expression.table[, MEAN := fifelse(CONDITION == "Control", 1, c(gene1 = 3.2, gene2 = 1.8, gene3 = 0.6, gene4 = 2.4)[GENE])]
 expression.table[, VALUE := MEAN * exp(rnorm(.N, 0, 0.12))]
@@ -151,7 +156,7 @@ expression.plot <- expression_summary.table %>%
   geom_col(position = position_dodge(width = 0.8), width = 0.7) +
   geom_errorbar(aes(ymin = MEAN - SD, ymax = MEAN + SD), position = position_dodge(width = 0.8), width = 0.25,
                 linewidth = 0.3, lineend = "round") +
-  geom_point(data = expression.table, aes(y = VALUE), position = position_jitterdodge(jitter.width = 0.15, dodge.width = 0.8),
+  geom_point(data = expression.table, aes(y = VALUE), position = position_jitterdodge(jitter.width = 0.15, dodge.width = 0.8, seed = 3),
              size = 0.4, colour = "grey20", show.legend = FALSE) +
   scale_fill_manual(values = c(Control = "grey70", Treated = okabe_ito[5]), name = NULL) +
   scale_y_continuous(expand = expansion(0), limits = c(0, 4.2)) +
@@ -163,6 +168,7 @@ save_figure(expression.plot, "expression_bars", panel_w_mm = 60, panel_h_mm = 38
 # Panel c: dose response ----------------------------------------------------------------------
 
 # 1. Response to eight doses of a drug, four replicates, around a Hill curve
+set.seed(4)
 dose.table <- CJ(DOSE = 10^seq(-2, 2, length.out = 8), REP = 1:4)
 dose.table[, RESPONSE := 100 / (1 + (DOSE / 1.5)^1.2) + rnorm(.N, 0, 4)]
 curve.table <- data.table(DOSE = 10^seq(-2, 2, length.out = 200))
