@@ -81,6 +81,13 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                 if window.confirm_close:
                     break
             print(f"SMOKE close confirmation: {before} before an edit, {window.confirm_close} after", flush=True)
+            if sys.platform == "darwin":
+                # Real key presses, through AppKit and pywebview, must reach the editor's shortcuts
+                from webview.platforms.cocoa import BrowserView
+                from . import keycheck
+                keys = keycheck.run(window, BrowserView.instances[window.uid].window)
+                print(f"SMOKE keys: {keys['passed']} of {keys['total']} passed"
+                      + (f"; failed: {json.dumps(keys['failed'])}" if keys["failed"] else ""), flush=True)
         closing_started[0] = time.time()
         window.destroy()
 

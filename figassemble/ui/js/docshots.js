@@ -99,6 +99,17 @@ export async function run(app, params) {
     document.getElementById("rtab-arrange").click();
     return finish();
   }
+  if (scene === "group") {
+    // The top two plots selected and the bar chart right-clicked, the pointer on Group
+    store.select([a, b]);
+    await settle();
+    const at = screenOf(fr(b)[0] + fr(b)[2] * 0.3, fr(b)[1] + fr(b)[3] * 0.35);
+    setTimeout(() => {
+      canvas.stage.dispatchEvent(new MouseEvent("contextmenu", { clientX: at[0], clientY: at[1], bubbles: true, cancelable: true, button: 2 }));
+      [...document.querySelectorAll(".context-menu .menu-item")].find((m) => m.textContent.startsWith("Group"))?.focus();
+    }, 200);
+    return finish();
+  }
 
   // Step 4: panel labels a, b, c
   store.update("Labels", (doc) => doc.pages[0].items.push(label("la", "a", 4, 4), label("lb", "b", 217, 4), label("lc", "c", 4, 153)),

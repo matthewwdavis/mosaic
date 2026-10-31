@@ -314,6 +314,90 @@ export async function run(app, params) {
     app.run("ungroup");
     check(!store.items().some((i) => i.type === "group"), "ungroup restores the objects");
 
+    // Right-click menus: an object's commands with their shortcuts, Group once two are selected,
+    // the page's own menu, a page's menu in the Pages list, and the same from the keyboard
+    const menuEl = () => document.querySelector(".context-menu");
+    const menuItem = (label) => [...(menuEl()?.querySelectorAll(".menu-item") || [])]
+      .find((b) => b.querySelector(".menu-label").textContent === label);
+    const middleOf = (id) => { const fr = store.item(id).frame; return screenOf(fr[0] + fr[2] / 2, fr[1] + fr[3] / 2); };
+    const middleOfEl = (el) => { const r = el.getBoundingClientRect(); return [r.left + Math.min(20, r.width / 2), r.top + r.height / 2]; };
+    function rightClick(at, target = canvas.stage) {
+      if (target === canvas.stage) {
+        pointer("pointerdown", at, { button: 2, buttons: 2 });
+        pointer("pointerup", at, { button: 2, buttons: 0 });
+      }
+      target.dispatchEvent(new MouseEvent("contextmenu", { clientX: at[0], clientY: at[1], bubbles: true, cancelable: true, button: 2 }));
+    }
+    const picA = pics[0].id, picB = (pics[1] || rect).id;
+    store.select([]);
+    rightClick(middleOf(picA));
+    check(menuEl() && store.selection.length === 1 && store.selection[0] === picA, "right-click selects the object and opens its menu",
+      `menu=${!!menuEl()} selection=${store.selection}`);
+    check(menuItem("Group")?.getAttribute("aria-disabled") === "true" && menuItem("Copy")?.querySelector("kbd")?.textContent === app.commands.copy.keys,
+      "the menu shows shortcuts, and Group waits for two objects");
+    check(menuItem("Crop picture") && menuItem("Replace picture…"), "a picture's menu can crop and replace it");
+    const mr = menuEl()?.getBoundingClientRect();
+    check(mr && mr.left >= 0 && mr.top >= 0 && mr.right <= window.innerWidth && mr.bottom <= window.innerHeight,
+      "the menu stays inside the window", JSON.stringify(mr));
+    check(document.activeElement?.closest(".context-menu"), "the menu takes the keyboard focus");
+    menuKey("Escape");
+    check(!menuEl() && document.activeElement === canvas.stage, "Escape closes it, back to the page");
+    store.select([picA, picB]);
+    rightClick(middleOf(picB));
+    check(store.selection.length === 2 && menuItem("Group")?.getAttribute("aria-disabled") !== "true",
+      "right-click on one of two selected objects keeps both, and Group is on");
+    menuItem("Group")?.click();
+    const menuGroup = store.items().find((i) => i.type === "group");
+    check(!menuEl() && menuGroup?.items.length === 2, "Group from the menu groups them");
+    key("F10", { shiftKey: true });
+    check(menuEl() && document.activeElement?.closest(".context-menu"), "Shift+F10 opens the menu for the selection");
+    menuKey("u");
+    check(document.activeElement?.querySelector(".menu-label")?.textContent === "Ungroup", "typing U jumps to Ungroup",
+      document.activeElement?.textContent);
+    menuKey("Enter");
+    check(!menuEl() && !store.items().some((i) => i.type === "group"), "Enter chooses it: ungrouped");
+    // Lock from the menu; the Objects list's menu shows it locked, and unlocks it
+    store.select([picA]);
+    rightClick(middleOf(picA));
+    menuItem("Lock position")?.click();
+    check(store.item(picA).locked, "Lock position locks it");
+    const lockedRow = document.getElementById(`layer-opt-${picA}`);
+    if (lockedRow) rightClick(middleOfEl(lockedRow), lockedRow);
+    check(menuItem("Lock position")?.getAttribute("aria-checked") === "true", "the Objects list's menu shows it locked");
+    menuItem("Lock position")?.click();
+    check(!store.item(picA).locked, "and unlocks it");
+    // Empty page: the page's own menu, with the rulers, grid and guides as they are
+    const menuPage = store.page();
+    const emptyAt = [[menuPage.width - 12, menuPage.height - 12], [menuPage.width - 12, 12], [12, menuPage.height - 12]].find((pt) => !canvas.itemAt(pt));
+    rightClick(screenOf(...emptyAt));
+    check(menuEl() && store.selection.length === 0 && menuItem("Rulers")?.getAttribute("aria-checked") === "true"
+      && menuItem("Grid")?.getAttribute("aria-checked") === "false", "right-click on empty page: the page's menu, rulers shown, grid hidden");
+    menuItem("Select all")?.click();
+    check(store.selection.length > 1 && store.selection.length === store.items().filter((i) => !i.locked).length, "Select all from it");
+    // A page's menu in the Pages list: duplicate the page, then delete the copy
+    const pageRow = (i) => document.querySelector(`.page-list li[data-index="${i}"]`);
+    const [pageAt, pageCount, itemCount] = [store.pageIndex, store.doc.pages.length, store.items().length];
+    rightClick(middleOfEl(pageRow(pageAt)), pageRow(pageAt));
+    menuItem("Duplicate page")?.click();
+    check(store.doc.pages.length === pageCount + 1, "Duplicate page from a page's menu");
+    rightClick(middleOfEl(pageRow(store.pageIndex)), pageRow(store.pageIndex));
+    check(menuItem("Move page up")?.getAttribute("aria-disabled") !== "true", "a later page can move up");
+    menuItem("Delete page")?.click();
+    await until(() => store.doc.pages.length === pageCount);
+    store.setPage(pageAt);
+    check(store.doc.pages.length === pageCount && store.items().length === itemCount, "Delete page from its menu removes the copy");
+    if (navigator.platform.toUpperCase().includes("MAC")) {
+      // Control-click is a right-click on a Mac: it starts no drag, and the menu opens
+      store.select([]);
+      const at = middleOf(picA), fr0 = store.item(picA).frame.slice();
+      pointer("pointerdown", at, { ctrlKey: true });
+      pointer("pointermove", [at[0] + 30, at[1] + 20], { ctrlKey: true });
+      pointer("pointerup", [at[0] + 30, at[1] + 20], { ctrlKey: true, buttons: 0 });
+      canvas.stage.dispatchEvent(new MouseEvent("contextmenu", { clientX: at[0], clientY: at[1], bubbles: true, cancelable: true, ctrlKey: true }));
+      check(menuEl() && store.selection[0] === picA && store.item(picA).frame[0] === fr0[0], "Control-click opens the menu without moving anything");
+      menuKey("Escape");
+    }
+
     // Outline: a contour in a second colour around the shape, with its own transparency
     store.select([rect.id]);
     fieldByLabel("Outline around it")?.click();
@@ -642,9 +726,10 @@ export async function run(app, params) {
     check(!document.getElementById("rpanel-view").hidden && gridBtn?.getAttribute("aria-pressed") === "false",
       "the View tab shows the grid is off");
     gridBtn.click();
-    await until(() => app.prefs.show_grid === true);
-    await settle();
-    check(gridBtn.getAttribute("aria-pressed") === "true" && document.querySelector(".grid path"), "its Grid button shows the grid");
+    // (Waiting for the drawing itself: a hidden window's timers can lag well behind the setting)
+    await until(() => gridBtn.getAttribute("aria-pressed") === "true" && document.querySelector(".grid path"), 5000);
+    check(gridBtn.getAttribute("aria-pressed") === "true" && document.querySelector(".grid path"), "its Grid button shows the grid",
+      `pressed=${gridBtn.getAttribute("aria-pressed")} grid=${!!document.querySelector(".grid path")} pref=${app.prefs.show_grid}`);
     gridBtn.click();
     await until(() => app.prefs.show_grid === false);
     document.getElementById("rtab-home").click();

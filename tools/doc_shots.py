@@ -26,6 +26,7 @@ W, H, SCALE = 1440, 900, 2
 # scene -> crop (x0, y0, x1, y1) in window pixels, or None for the whole window
 SCENES = {
     "window": None, "page-size": (1176, 98, 1440, 640), "placed": None, "snapping": None, "arrange": None,
+    "group": (405, 140, 1065, 600),
     "labels": None, "annotated": None, "style": (1176, 98, 1440, 900), "check": (380, 120, 1060, 780),
     "export": (380, 60, 1060, 860), "shapes": (200, 98, 760, 900), "guides": None, "result": None,
 }

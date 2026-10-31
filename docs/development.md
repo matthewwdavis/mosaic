@@ -50,9 +50,9 @@ python tools/ui_selftest.py plot.svg plot.pdf  # the editor self-test on your ow
 ```
 
 The **editor self-test** (`figassemble/ui/js/selftest.js`) drives the real editor with pointer
-and keyboard events: drawing, snapping, guides, align, connectors, dashes, export and more, about
-140 checks. `tests/test_ui.py` runs it in headless Chrome. To run it in the app's own window
-(WebKit on a Mac):
+and keyboard events: drawing, snapping, guides, align, connectors, dashes, right-click menus,
+export and more, about 160 checks. `tests/test_ui.py` runs it in headless Chrome. To run it in the
+app's own window (WebKit on a Mac):
 
 ```sh
 FIGASSEMBLE_HOME=$(mktemp -d) FIGASSEMBLE_SMOKETEST=1 \
@@ -60,8 +60,11 @@ FIGASSEMBLE_HOME=$(mktemp -d) FIGASSEMBLE_SMOKETEST=1 \
 ```
 
 It prints `SELFTEST {...}` with every result, then `SMOKE ready errors=[]`. A hidden window's
-timers run slowly, so this takes a few minutes. Without `FIGASSEMBLE_SMOKE_QUERY` it only checks
-that the editor starts.
+timers run slowly, so this takes a few minutes. Without `FIGASSEMBLE_SMOKE_QUERY` it checks that
+the editor starts and that an edit switches on the close confirmation. On a Mac it then presses
+every keyboard shortcut with real key events, through AppKit and pywebview as a key press goes
+(`figassemble/app/keycheck.py`), since the self-test's own key presses never leave the page:
+`SMOKE keys: 66 of 66 passed`.
 
 GitHub Actions runs the tests on Windows and Linux for every push (`.github/workflows/tests.yml`).
 `installers.yml` runs both installers on fresh Mac and Windows machines when they or what they

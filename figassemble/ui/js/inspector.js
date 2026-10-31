@@ -6,7 +6,8 @@ import { canvas, findDeep, pageGuides, shiftItem } from "./canvas.js";
 import { icon } from "./panels.js";
 import { store } from "./store.js";
 import {
-  UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, lengthText, lineSamples, shapeCatalog, shapeName, toUnit,
+  UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, shapeCatalog,
+  shapeName, toUnit,
 } from "./util.js";
 
 const DASHES = [["solid", "Solid"], ["sysDot", "Round dot"], ["sysDash", "Short dash"], ["dash", "Dash"],
@@ -609,7 +610,7 @@ export function numField(text, valuePt, unit, onCommit, opts = {}) {
     if (Number.isNaN(v)) return;
     onCommit(isLen ? fromUnit(v, unit) : v);
   });
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); e.stopPropagation(); });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); keepFieldKeys(e); });
   const unitText = { deg: "°", "%": "%" }[unit] || UNIT_LABEL[unit] || unit;
   return h("div", { class: "field" }, label(text, id),
     h("div", { class: "with-unit" }, input, h("span", { class: "unit", id: `${id}-u`, "aria-label": unitName(unit) }, unitText)));
@@ -621,14 +622,14 @@ export function textField(text, value, onCommit, opts = {}) {
   const id = `f${++fieldId}`;
   const input = h("input", { id, type: "text", value: value ?? "", list: opts.list });
   input.addEventListener("change", () => onCommit(input.value.trim()));
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); e.stopPropagation(); });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); keepFieldKeys(e); });
   return h("div", { class: "field" }, label(text, id), input);
 }
 function textArea(text, value, onCommit) {
   const id = `f${++fieldId}`;
   const ta = h("textarea", { id, rows: 2 }, value || "");
   ta.addEventListener("change", () => onCommit(ta.value.trim()));
-  ta.addEventListener("keydown", (e) => e.stopPropagation());
+  ta.addEventListener("keydown", keepFieldKeys);
   return h("div", { class: "field" }, label(text, id), ta);
 }
 // A dropdown with its options in labelled groups: [[group title, [[value, label], ...]], ...]
@@ -669,7 +670,7 @@ function colorField(text, value, onChange) {
   code.addEventListener("change", commit);
   code.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { commit(); code.blur(); }
-    e.stopPropagation();
+    keepFieldKeys(e);
   });
   return h("div", { class: "field color" }, label(text, id), h("div", { class: "color-row" }, picker, code));
 }
@@ -724,7 +725,7 @@ export function gapField(app) {
     for (const el of document.querySelectorAll('[data-sync="spacing_gap"]')) el.value = pt == null ? "" : fmt(toUnit(pt, u), 3);
     announce(pt == null ? "Spacing: as even as fits" : `Spacing: ${lengthText(pt, true)} apart`);
   });
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); e.stopPropagation(); });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); keepFieldKeys(e); });
   return h("div", { class: "field gap" }, label("Gap", id),
     h("div", { class: "with-unit" }, input, h("span", { class: "unit", id: `${id}-u`, "aria-label": unitName(u) }, UNIT_LABEL[u])));
 }

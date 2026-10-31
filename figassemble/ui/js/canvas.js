@@ -4,9 +4,9 @@
 import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
 import {
-  PX_PER_PT, announce, apply, clamp, describeItem, frameMatrix, h, hitItem, invert, itemBBox,
-  itemCorners, itemsBBox, lengthText, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s, shapeCatalog,
-  svgMatrix, translate, uid,
+  PX_PER_PT, announce, apply, clamp, describeItem, frameMatrix, h, hitItem, invert, isMac, itemBBox,
+  itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s,
+  shapeCatalog, svgMatrix, translate, uid,
 } from "./util.js";
 
 const HANDLE = 8;             // handle size, CSS px
@@ -64,6 +64,14 @@ export const canvas = {
     stage.addEventListener("pointercancel", (e) => this.pointerUp(e, true));
     stage.addEventListener("dblclick", (e) => this.doubleClick(e));
     stage.addEventListener("wheel", (e) => this.wheel(e), { passive: false });
+    stage.addEventListener("contextmenu", (e) => {
+      if (this.editing && this.editor.contains(e.target)) return;   // text being typed keeps its own menu
+      e.preventDefault();
+      if (this.op) return;
+      if (this.editing) this.commitEdit();
+      if (this.cropping) this.endCrop();
+      this.onContextMenu?.(e.clientX, e.clientY);
+    });
     this.editor.addEventListener("keydown", (e) => this.editorKey(e));
     store.on((what, detail) => {
       if (what === "doc") this.render(detail);
@@ -409,6 +417,7 @@ export const canvas = {
       return;
     }
     if (e.button !== 0) return;
+    if (isMac && e.ctrlKey && !e.metaKey) return;   // Control-click is a right-click: its menu opens from the contextmenu event
     if (this.tool !== "select") return this.startDraw(p, e);
     const hd = this.handleAt(pt);
     if (hd) return this.startHandle(hd, p, e);
@@ -1370,7 +1379,7 @@ export const canvas = {
       document.execCommand({ b: "bold", i: "italic", u: "underline" }[e.key.toLowerCase()]);
     }
     if (e.key === "Enter" && e.shiftKey) { e.preventDefault(); document.execCommand("insertLineBreak"); }
-    e.stopPropagation();
+    keepFieldKeys(e);
   },
   commitEdit() {
     const ed = this.editing;

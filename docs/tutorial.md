@@ -36,7 +36,8 @@ Open FigAssemble. Here's the window with a finished figure in it:
    selected, it shows the page. Click a section's heading to fold it away.
 8. **Zoom.** Pinch, or ⌘ + scroll, also zooms; scroll or Space + drag moves around.
 
-Every button has a tooltip with its keyboard shortcut. Press **?** for the full list.
+Every button has a tooltip with its keyboard shortcut. Press **?** for the full list. Right-click
+an object or the page (Control-click on a Mac) for a menu of what you can do with it.
 
 ## 2. Choose the page size
 
@@ -107,6 +108,16 @@ The Arrange tab and the panel on the right have the same controls:
 For exact positions, select an object and type its **X** and **Y** in the **Arrange** tab on the
 right. Positions are in centimetres from the page's top-left corner, like the rulers. Arrow keys
 also move a selected object: 1 pt per press, 10 pt with Shift.
+
+Once panels sit where you want them, you can keep them together. Select the top two plots,
+right-click one of them and choose **Group**, or press **⌘G**:
+
+![The right-click menu on the two selected plots, with Group](images/group.png)
+
+A group moves, lines up and resizes as one object; **Ungroup** (⌘⇧G) takes it apart again. The
+right-click menu has the everyday commands for whatever you click, each with its shortcut: copy
+and paste, order, lock and hide, and for a picture, crop and replace. Right-click empty page for
+the page's own commands.
 
 ## 5. Add panel labels
 

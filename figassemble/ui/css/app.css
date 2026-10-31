@@ -134,6 +134,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .menu-item[aria-checked="false"] .check { visibility: hidden; }
 .menu-item kbd { font-size: 0.8rem; color: var(--muted); }
 .menu-sep { height: 1px; margin: 0.3rem 0.2rem; background: var(--line); }
+/* Right-click menus: shortcuts as plain text on the right, commands that don't apply greyed */
+.context-menu { overflow-y: auto; }
+.context-menu .menu-item { padding: 0.3rem 0.5rem; }
+.context-menu .menu-item kbd { border: none; background: none; padding: 0 0 0 1.5rem; }
+.context-menu .menu-item:focus { background: var(--accent); color: var(--accent-text); outline: none; }
+.context-menu .menu-item:focus kbd { color: inherit; }
+.context-menu .menu-item[aria-disabled="true"] { color: var(--muted); opacity: 0.6; cursor: default; }
+.context-menu .menu-item[aria-disabled="true"]:focus { background: var(--hover); color: var(--muted); }
 .shape-hint { position: sticky; bottom: 0; margin: 0.35rem -0.6rem 0; padding: 0.35rem 0.6rem; min-height: 2rem;
   background: var(--panel); border-top: 1px solid var(--line); color: var(--muted); font-size: 0.85rem; }
 
@@ -345,6 +353,8 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   .tool[aria-pressed="true"], .tool.active, .shape-item[aria-current], .page-list li.current,
   .layer-list li.selected { outline: 2px solid Highlight; }
   .shape-item:hover { outline: 1px solid Highlight; }
+  .context-menu .menu-item:focus { outline: 2px solid Highlight; }
+  .context-menu .menu-item[aria-disabled="true"] { color: GrayText; opacity: 1; }
   .guides line, .snap-gap { stroke: Highlight; }
   .grid .minor, .grid .major { stroke: GrayText; }
   .snap-label, .guide-label { fill: CanvasText; stroke: Canvas; }

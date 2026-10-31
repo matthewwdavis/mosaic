@@ -12,6 +12,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 - [Dashes](#dashes)
 - [Connecting lines to objects](#connecting-lines-to-objects)
 - [Moving, sizing and arranging](#moving-sizing-and-arranging)
+- [Right-click menus](#right-click-menus)
 - [Align and distribute](#align-and-distribute)
 - [Rulers, guides, grid and snapping](#rulers-guides-grid-and-snapping)
 - [Checking and exporting](#checking-and-exporting)
@@ -200,7 +201,28 @@ the object when it moves, resizes or rotates.
 - **Group (⌘G), Ungroup (⌘⇧G)**; **Order**: bring to front (⌘⇧]), forward (⌘]), backward
   (⌘[), to back (⌘⇧[).
 - **Lock** stops an object being selected or moved on the page; **Hide** hides it (it isn't
-  exported). Both are in the Object section and the Objects list.
+  exported). Both are in the Object section, the Objects list and the right-click menu.
+
+## Right-click menus
+
+Right-click (or Control-click on a Mac) for a menu of what you can do, with each command's
+shortcut beside it:
+
+- **An object:** Cut, Copy, Paste, Duplicate, Delete; Group, Ungroup; the four Order commands;
+  Lock position, Hide. A picture adds Crop, Replace and Show the picture's file; a text box or
+  shape adds Edit text; a line attached to objects adds Detach the ends.
+  - Right-clicking an object that isn't selected selects it.
+  - Right-clicking one of several selected objects keeps them all selected, so **Group** groups
+    the lot.
+- **Empty page:** Paste, Select all, Insert picture, Fit page to content, and the Rulers, Grid,
+  Guides and Snap switches.
+- **A page in the Pages list:** Add, Duplicate, Delete, Move up or down, Rename.
+- **An object in the Objects list:** the object's menu. This is the way to unlock an object,
+  since a locked one can't be clicked on the page.
+
+From the keyboard, **Shift+F10** (or the menu key on a Windows keyboard) opens the menu for
+whatever has the focus: the selection, the page, or the current page or object in a list. Arrow
+keys move through it, a letter jumps to a command, Enter chooses, and Escape closes it.
 
 ## Align and distribute
 
@@ -303,29 +325,33 @@ folder, along with recovery copies and a cache of rendered previews.
 
 ## Keyboard shortcuts
 
-Press **?** in FigAssemble for this list. On Windows use Ctrl for ⌘ and Shift for ⇧.
+Press **?** in FigAssemble for this list.
 
-| Action | Keys |
-|---|---|
-| New, Open, Save, Save as | ⌘N, ⌘O, ⌘S, ⌘⇧S |
-| Export, Check before export | ⌘E, ⌘⇧E |
-| Undo, Redo | ⌘Z, ⌘⇧Z (also Ctrl+Y on Windows) |
-| Cut, Copy, Paste, Duplicate | ⌘X, ⌘C, ⌘V, ⌘D |
-| Delete | Delete or Backspace |
-| Select all | ⌘A |
-| Group, Ungroup | ⌘G, ⌘⇧G |
-| Bring to front, Bring forward | ⌘⇧], ⌘] |
-| Send backward, Send to back | ⌘[, ⌘⇧[ |
-| Zoom in, Zoom out, Fit page in window, True size | ⌘+, ⌘−, ⌘0, ⌘1 |
-| Rulers, Grid, Guides | ⌘R, ⌘', ⌘; |
-| Snap on or off | ⌘⇧; |
-| Select, Text, Panel label | V, T, P |
-| Line, Arrow | L, A |
-| Rectangle, Rounded rectangle, Ellipse | R, U, O |
-| Shapes menu | S |
-| Insert picture | I |
-| Add page | ⌘⇧N |
-| Settings, Help | ⌘,, ? |
+| Action | Mac | Windows |
+|---|---|---|
+| New, Open, Save, Save as | ⌘N, ⌘O, ⌘S, ⌘⇧S | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S |
+| Export, Check before export | ⌘E, ⌘⇧E | Ctrl+E, Ctrl+Shift+E |
+| Undo, Redo | ⌘Z, ⌘⇧Z | Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z |
+| Cut, Copy, Paste, Duplicate | ⌘X, ⌘C, ⌘V, ⌘D | Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+D |
+| Delete | Delete | Delete or Backspace |
+| Select all | ⌘A | Ctrl+A |
+| Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |
+| Bring to front, Bring forward | ⌘⇧], ⌘] | Ctrl+Shift+], Ctrl+] |
+| Send backward, Send to back | ⌘[, ⌘⇧[ | Ctrl+[, Ctrl+Shift+[ |
+| Menu for the selection | Right-click, Control-click or Shift+F10 | Right-click, Shift+F10 or the menu key |
+| Zoom in, Zoom out, Fit page in window, True size | ⌘+, ⌘−, ⌘0, ⌘1 | Ctrl+Plus, Ctrl+Minus, Ctrl+0, Ctrl+1 |
+| Rulers, Grid, Guides | ⌘R, ⌘', ⌘; | Ctrl+R, Ctrl+', Ctrl+; |
+| Snap on or off | ⌘⇧; | Ctrl+Shift+; |
+| Select, Text, Panel label | V, T, P | V, T, P |
+| Line, Arrow | L, A | L, A |
+| Rectangle, Rounded rectangle, Ellipse | R, U, O | R, U, O |
+| Shapes menu | S | S |
+| Insert picture | I | I |
+| Add page | ⌘⇧N | Ctrl+Shift+N |
+| Settings, Help | ⌘, (comma), ? | Ctrl+, (comma), ? |
+
+In a text field, the editing keys (⌘A, ⌘C, ⌘V, ⌘Z…) work on the text, and Save, Open, New and
+Export still work, saving what you've typed.
 
 **On the page:**
 
@@ -340,7 +366,8 @@ Press **?** in FigAssemble for this list. On Windows use Ctrl for ⌘ and Shift 
 ## Accessibility
 
 - Every tool and setting is a labelled control you can reach with the keyboard. The toolbar, tabs,
-  menus and lists move with the arrow keys; Tab moves between groups.
+  menus and lists move with the arrow keys; Tab moves between groups. Shift+F10 opens the
+  right-click menu for whatever has the focus.
 - Screen readers hear what's selected, where it is, and what each action did. Pictures can carry
   a description.
 - **Settings:** interface text size, light, dark or high-contrast appearance, labels under

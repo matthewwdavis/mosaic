@@ -77,6 +77,30 @@ everything it uses, and keeps your settings. You can delete the downloaded folde
 15 minutes, using the sample plots in [`examples/`](examples). Everything else is in the
 **[user guide](docs/guide.md)**, including [all keyboard shortcuts](docs/guide.md#keyboard-shortcuts).
 
+## Keyboard shortcuts
+
+The ones you'll use most. Right-click an object, the page or a page in the Pages list for a menu
+of what you can do with it, with the shortcuts alongside.
+
+| Action | Mac | Windows |
+|---|---|---|
+| Undo, Redo | ⌘Z, ⌘⇧Z | Ctrl+Z, Ctrl+Y |
+| Cut, Copy, Paste | ⌘X, ⌘C, ⌘V | Ctrl+X, Ctrl+C, Ctrl+V |
+| Duplicate, Delete | ⌘D, Delete | Ctrl+D, Delete |
+| Select all | ⌘A | Ctrl+A |
+| Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |
+| Bring forward, Send backward | ⌘], ⌘[ | Ctrl+], Ctrl+[ |
+| Move the selection 1 pt (10 pt) | Arrow keys (with ⇧) | Arrow keys (with Shift) |
+| Zoom in, Zoom out, Fit page, True size | ⌘+, ⌘−, ⌘0, ⌘1 | Ctrl+Plus, Ctrl+Minus, Ctrl+0, Ctrl+1 |
+| Save, Open, Export | ⌘S, ⌘O, ⌘E | Ctrl+S, Ctrl+O, Ctrl+E |
+| Select, Text, Panel label, Line, Arrow, Rectangle | V, T, P, L, A, R | V, T, P, L, A, R |
+| Insert picture | I | I |
+| Menu for the selection | Right-click or Control-click | Right-click or Shift+F10 |
+| Every shortcut | ? | ? |
+
+All of them are in the [user guide](docs/guide.md#keyboard-shortcuts), and **?** shows them in
+FigAssemble.
+
 ## Feedback
 
 Feedback is the point of this early version: what's confusing, what's missing, what breaks.

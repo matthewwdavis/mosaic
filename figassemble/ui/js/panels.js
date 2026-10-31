@@ -4,7 +4,8 @@ import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
 import { alignToField, button, gapField, numField, selectField } from "./inspector.js";
 import { store } from "./store.js";
-import { UNIT_LABEL, announce, fmt, h, itemLabel, shapeName, toUnit } from "./util.js";
+import { contextMenu } from "./contextmenu.js";
+import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, shapeName, toUnit } from "./util.js";
 
 // 24 x 24 stroke icons
 const ICONS = {
@@ -400,6 +401,11 @@ export const panels = {
       h("span", { class: "page-size" }, `${fmt(toUnit(p.width, pu), 1)} × ${fmt(toUnit(p.height, pu), 1)} ${UNIT_LABEL[pu]}`));
       li.addEventListener("click", () => store.setPage(i));
       li.addEventListener("dblclick", () => this.renamePage(i));
+      li.addEventListener("contextmenu", (e) => {
+        if (e.target.closest("input")) return;   // the name being typed keeps its own menu
+        e.preventDefault();
+        this.pageMenu(i, e.clientX, e.clientY);
+      });
       li.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/x-fa-page", String(i)); });
       li.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("text/x-fa-page")) e.preventDefault(); });
       li.addEventListener("drop", (e) => {
@@ -427,11 +433,24 @@ export const panels = {
       this.pageList.focus();
     };
     input.addEventListener("keydown", (e) => {
-      e.stopPropagation();
+      keepFieldKeys(e);
       if (e.key === "Enter") done(true);
       if (e.key === "Escape") done(false);
     });
     input.addEventListener("blur", () => done(true), { once: true });
+  },
+  // A page's right-click menu (it becomes the current page, as a click would make it)
+  pageMenu(i, x, y) {
+    store.setPage(i);
+    const c = (name, opts) => this.app.menuEntry(name, opts);
+    const n = store.doc.pages.length;
+    contextMenu.show([
+      c("addPage"), c("duplicatePage"), c("deletePage", { disabled: n < 2 }),
+      "-",
+      c("pageUp", { disabled: i === 0 }), c("pageDown", { disabled: i === n - 1 }),
+      "-",
+      { label: "Rename page", keys: "F2", run: () => this.renamePage(i) },
+    ], x, y, this.pageList);
   },
 
   // Objects on the page ------------------------------------------------------------------
@@ -481,9 +500,15 @@ export const panels = {
           store.update(it.locked ? "Unlock" : "Lock", (d) => { d.pages[store.pageIndex].items.find((x) => x.id === it.id).locked = !it.locked; });
         }, icon(it.locked ? "lock" : "unlock"), "icon-btn small"));
       li.addEventListener("click", (e) => {
-        if (e.shiftKey || e.metaKey || e.ctrlKey) {
+        // (On a Mac, Control-click is a right-click)
+        if (e.shiftKey || e.metaKey || (e.ctrlKey && !isMac)) {
           store.select(selected ? store.selection.filter((x) => x !== it.id) : [...store.selection, it.id]);
         } else store.select([it.id]);
+      });
+      li.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        if (!store.selection.includes(it.id)) store.select([it.id]);
+        contextMenu.show(this.app.objectMenu(), e.clientX, e.clientY, this.layerList);
       });
       return li;
     }));
@@ -719,6 +744,8 @@ export const panels = {
         h("li", {}, "Enter: edit text, or crop a picture; Escape: finish"),
         h("li", {}, "With a drawing tool chosen, Enter places a 2 cm shape in the middle of the view"),
         h("li", {}, "Shapes menu (S): arrow keys move, typing a name jumps to it, Enter chooses, Escape closes"),
+        h("li", {}, `Right-click${isMac ? " (or Control-click)" : ""}, the menu key or Shift+F10: a menu of commands for `
+          + "the selection, the page, a page in the Pages list or an object in the Objects list"),
         h("li", {}, "Shift while dragging: keep straight lines, squares and proportions"),
         h("li", {}, "Option/Alt while dragging: duplicate; ⌘/Ctrl: don't snap, just this once"),
         h("li", {}, "Things snap to the page, other objects' edges and centres, equal gaps between objects, "

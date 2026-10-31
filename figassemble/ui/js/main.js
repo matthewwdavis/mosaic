@@ -7,6 +7,7 @@ window.addEventListener("unhandledrejection", (e) => window.__faErrors.push(Stri
 
 import { rpc } from "./api.js";
 import { canvas, copyItems, detachMoved, findDeep, shiftGuides, shiftItem } from "./canvas.js";
+import { contextMenu } from "./contextmenu.js";
 import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
@@ -389,6 +390,108 @@ const app = {
     }, { select: childIds });
     announce("Ungrouped");
   },
+  // Lock or hide the selection (hidden objects leave the selection)
+  setFlag(flag, on) {
+    const ids = new Set(store.selection);
+    if (!ids.size) return;
+    const label = flag === "locked" ? (on ? "Lock" : "Unlock") : (on ? "Hide" : "Show");
+    store.update(label, (doc) => {
+      for (const id of ids) {
+        const it = findDeep(doc.pages[store.pageIndex].items, id);
+        if (it) it[flag] = on;
+      }
+    }, flag === "hidden" && on ? { select: [] } : {});
+    const n = `${ids.size} object${ids.size === 1 ? "" : "s"}`;
+    announce({ Lock: `Locked ${n} in place`, Unlock: `Unlocked ${n}`, Hide: `Hid ${n}; the Objects list shows them again`,
+      Show: `Showing ${n}` }[label]);
+  },
+
+  // Right-click menus ------------------------------------------------------------------------
+
+  // One menu line for a command: its label and shortcut
+  menuEntry(name, opts = {}) {
+    const c = this.commands[name];
+    return { label: c.label, keys: c.keys, run: () => this.run(name), ...opts };
+  },
+  // For the selected objects
+  objectMenu() {
+    const c = (name, opts) => this.menuEntry(name, opts);
+    const sel = store.selected(), one = sel.length === 1 ? sel[0] : null;
+    const locked = sel.length > 0 && sel.every((it) => it.locked);
+    const asset = one?.type === "picture" ? store.doc.assets[one.asset] : null;
+    return [
+      c("cut"), c("copy"), c("paste"), c("duplicate"), c("delete"),
+      "-",
+      c("group", { disabled: sel.length < 2 }), c("ungroup", { disabled: !sel.some((it) => it.type === "group") }),
+      "-",
+      c("bringToFront"), c("bringForward"), c("sendBackward"), c("sendToBack"),
+      "-",
+      { label: "Lock position", checked: locked, run: () => this.setFlag("locked", !locked) },
+      { label: "Hide", run: () => this.setFlag("hidden", true) },
+      "-",
+      one?.type === "picture" && { label: "Crop picture", keys: "Enter", run: () => canvas.startCrop(one.id) },
+      one?.type === "picture" && c("replacePicture", { label: "Replace picture…" }),
+      asset?.variants[asset.primary]?.src && c("revealPicture"),
+      one?.type === "shape" && { label: "Edit text", keys: "Enter", run: () => canvas.startEdit(one.id) },
+      one?.type === "line" && (one.start_link || one.end_link) && { label: "Detach the ends", run: () => this.detachEnds() },
+    ];
+  },
+  // For the page itself, where nothing was under the pointer
+  pageMenu() {
+    const c = (name, opts) => this.menuEntry(name, opts);
+    const show = (name, pref, label) => c(name, { label, checked: !!this.prefs[pref] });
+    return [
+      c("paste"), c("selectAll"),
+      "-",
+      c("insertPicture", { label: "Insert picture…" }), c("fitPage"),
+      "-",
+      show("toggleRulers", "show_rulers", "Rulers"), show("toggleGrid", "show_grid", "Grid"),
+      show("toggleGuides", "show_guides", "Guides"), show("toggleSnap", "snap", "Snap"),
+    ];
+  },
+  // A right-click on the page: like PowerPoint, an object outside the selection becomes the
+  // selection, and empty page clears it
+  contextMenuAt(x, y) {
+    const r = canvas.stage.getBoundingClientRect();
+    const hit = canvas.itemAt(canvas.toPage(x - r.left, y - r.top));
+    if (!hit) store.select([]);
+    else if (!store.selection.includes(hit.id)) store.select([hit.id]);
+    contextMenu.show(hit ? this.objectMenu() : this.pageMenu(), x, y, canvas.stage);
+  },
+  // The menu key or Shift+F10: the menu for what has the focus, beside it
+  keyboardMenu(target) {
+    const below = (el) => { const r = el.getBoundingClientRect(); return [r.left + 12, r.bottom - 4]; };
+    if (panels.pageList.contains(target)) {
+      const li = panels.pageList.children[store.pageIndex];
+      if (li) panels.pageMenu(store.pageIndex, ...below(li));
+      return;
+    }
+    const row = store.selection.length && document.getElementById(`layer-opt-${store.selection[store.selection.length - 1]}`);
+    if (panels.layerList.contains(target) && row) {
+      contextMenu.show(this.objectMenu(), ...below(row), panels.layerList);
+      return;
+    }
+    const sr = canvas.stage.getBoundingClientRect(), b = itemsBBox(store.selected());
+    if (b) {
+      // Under the selection's bottom-left corner, kept inside the view
+      const [x, y] = canvas.toScreen(b[0], b[3]);
+      contextMenu.show(this.objectMenu(), sr.left + Math.min(Math.max(x, 8), sr.width - 8),
+        sr.top + Math.min(Math.max(y + 4, 8), sr.height - 8), canvas.stage);
+    } else {
+      store.select([]);
+      contextMenu.show(this.pageMenu(), sr.left + sr.width / 2, sr.top + sr.height / 2, canvas.stage);
+    }
+  },
+  detachEnds() {
+    const it = store.selected()[0];
+    if (!it || it.type !== "line") return;
+    store.update("Detach", (doc) => {
+      const l = findDeep(doc.pages[store.pageIndex].items, it.id);
+      delete l.start_link;
+      delete l.end_link;
+    });
+    announce("Detached: the line's ends no longer follow other objects");
+  },
   deleteSelection() {
     const ids = new Set(store.selection);
     if (!ids.size) return;
@@ -419,7 +522,7 @@ const app = {
       const text = await navigator.clipboard?.readText();
       if (text?.startsWith("figassemble:")) clip = JSON.parse(text.slice(12));
     } catch { /* clipboard not readable; use the internal one */ }
-    if (!clip) return;
+    if (!clip) { announce("Nothing to paste"); return; }
     const items = copyItems(clip.items);
     const offset = clip.page === store.page().id ? 10 : 0;
     store.update("Paste", (doc) => {
@@ -665,12 +768,22 @@ document.addEventListener("keydown", (e) => {
   if (document.querySelector("dialog[open]")) return;
   if (e.key === " " && !isField(e.target)) { canvas.spaceDown = true; canvas.stage.style.cursor = "grab"; e.preventDefault(); return; }
   const inField = isField(e.target);
+  if (!inField && (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey))) {
+    e.preventDefault();
+    app.keyboardMenu(e.target);
+    return;
+  }
   // In text fields only the document-level commands are ours; everything else stays native
   const always = ["save", "saveAs", "open", "new", "export"];
   for (const [name, c] of Object.entries(app.commands)) {
     if (!c.match || !c.match(e)) continue;
     if (inField && !always.includes(name)) return;
     e.preventDefault();
+    if (inField) {
+      // What's being typed goes into the document first, so a save includes it
+      canvas.commitEdit();
+      e.target.blur();
+    }
     app.run(name);
     return;
   }
@@ -781,6 +894,7 @@ async function start() {
   applyPrefs(app.prefs);
   canvas.init(document.getElementById("stage"));
   canvas.onKeyClick = (id) => app.toggleKeyObject(id);
+  canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);
   rulers.init(document.querySelector(".stage-wrap"));
   // Dragging a new guide out of a ruler shows the guides if they were hidden
@@ -816,7 +930,7 @@ async function start() {
     if (store.dirty && store.doc) rpc("autosave", store.doc, store.autosaveKey).catch(() => {});
   }, 60000);
   window.addEventListener("beforeunload", (e) => { if (store.dirty && !app.info.native) { e.preventDefault(); e.returnValue = ""; } });
-  window.FA.app = app;
+  Object.assign(window.FA, { app, store, canvas, panels, inspector });   // for the smoke test's checks
   app.offerRecovery = offerRecovery;
   document.body.classList.add("ready");
   announce("FigAssemble is ready. Drop figure files onto the page, or press I to insert a picture.");

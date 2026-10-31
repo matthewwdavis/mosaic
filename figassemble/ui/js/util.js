@@ -24,6 +24,12 @@ export const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 export const isMac = navigator.platform.toUpperCase().includes("MAC") || /Mac/.test(navigator.userAgent);
 export const MOD = isMac ? "⌘" : "Ctrl+";
 
+// A field's keydown: keys stay in the field, except ⌘/Ctrl + a letter, which goes on to the
+// editor's shortcuts (in a field those run only Save, Open, New and Export; the rest are the field's)
+export function keepFieldKeys(e) {
+  if (!((e.metaKey || e.ctrlKey) && /^[a-z]$/i.test(e.key))) e.stopPropagation();
+}
+
 // Element builder: h("button", {class: "x", onclick: fn, "aria-label": "..."}, "text", child)
 export function h(tag, attrs = {}, ...children) {
   const el = document.createElement(tag);
