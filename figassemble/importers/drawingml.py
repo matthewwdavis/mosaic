@@ -1,11 +1,12 @@
 """DrawingML pieces shared by the PowerPoint importer: themes, colours, line/fill styles,
-text defaults and the shape-guide formula language.
+text defaults and custom-geometry guides (presets.py has the formula language).
 """
 from __future__ import annotations
 
 import colorsys
-import math
 import re
+
+from ..presets import builtin_guides, eval_formula
 
 A = "http://schemas.openxmlformats.org/drawingml/2006/main"
 P = "http://schemas.openxmlformats.org/presentationml/2006/main"
@@ -294,72 +295,6 @@ def style_font_color(colors: ColorContext, style_el) -> tuple[str, float] | None
 # ---------------------------------------------------------------------------
 # Shape guide formulas (used by custom geometry)
 # ---------------------------------------------------------------------------
-
-def builtin_guides(w: float, h: float) -> dict[str, float]:
-    ss = min(w, h)
-    g = {"w": w, "h": h, "l": 0.0, "t": 0.0, "r": w, "b": h, "hc": w / 2, "vc": h / 2,
-         "ss": ss, "ls": max(w, h), "cd2": 10800000.0, "cd4": 5400000.0, "cd8": 2700000.0,
-         "3cd4": 16200000.0, "3cd8": 8100000.0, "5cd8": 13500000.0, "7cd8": 18900000.0}
-    for n in (2, 3, 4, 5, 6, 8, 10, 12, 16, 32):
-        g[f"wd{n}"] = w / n
-        g[f"hd{n}"] = h / n
-        g[f"ssd{n}"] = ss / n
-    return g
-
-
-def _ang(v: float) -> float:
-    return math.radians(v / 60000.0)
-
-
-def eval_formula(fmla: str, env: dict[str, float]) -> float:
-    parts = fmla.split()
-    op, args = parts[0], parts[1:]
-
-    def val(x: str) -> float:
-        if x in env:
-            return env[x]
-        try:
-            return float(x)
-        except ValueError:
-            raise KeyError(x)
-
-    v = [val(a) for a in args]
-    if op == "val":
-        return v[0]
-    if op == "*/":
-        return v[0] * v[1] / v[2] if v[2] else 0.0
-    if op == "+-":
-        return v[0] + v[1] - v[2]
-    if op == "+/":
-        return (v[0] + v[1]) / v[2] if v[2] else 0.0
-    if op == "?:":
-        return v[1] if v[0] > 0 else v[2]
-    if op == "abs":
-        return abs(v[0])
-    if op == "at2":
-        return math.degrees(math.atan2(v[1], v[0])) * 60000.0
-    if op == "cat2":
-        return v[0] * math.cos(math.atan2(v[2], v[1]))
-    if op == "sat2":
-        return v[0] * math.sin(math.atan2(v[2], v[1]))
-    if op == "cos":
-        return v[0] * math.cos(_ang(v[1]))
-    if op == "sin":
-        return v[0] * math.sin(_ang(v[1]))
-    if op == "tan":
-        return v[0] * math.tan(_ang(v[1]))
-    if op == "max":
-        return max(v[0], v[1])
-    if op == "min":
-        return min(v[0], v[1])
-    if op == "mod":
-        return math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
-    if op == "pin":
-        return min(max(v[1], v[0]), v[2])
-    if op == "sqrt":
-        return math.sqrt(max(v[0], 0.0))
-    raise ValueError(f"unknown guide operator {op}")
-
 
 def guide_env(geom_el, w: float, h: float) -> dict[str, float]:
     env = builtin_guides(w, h)

@@ -14,7 +14,7 @@ import posixpath
 import zipfile
 import xml.etree.ElementTree as ET
 
-from .. import model
+from .. import model, presets
 from ..assets import AssetCache, get_cache, new_asset, new_asset_from_bytes, new_id
 from ..geometry import Matrix, frame_matrix
 from .drawingml import (NS, P, R, ColorContext, Theme, emu, first_color, guide_env, num, parse_fill,
@@ -24,10 +24,6 @@ from .relink import CandidateIndex, default_search_dirs
 REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/"
 SVG_BLIP = "{http://schemas.microsoft.com/office/drawing/2016/SVG/main}svgBlip"
 
-# Preset shapes FigAssemble draws natively, and how their adjust values convert
-_ADJ_FRACTION = {"roundRect": ["adj"], "rightBracket": ["adj"], "leftBracket": ["adj"], "triangle": ["adj"]}
-_ADJ_ANGLE = {"arc": ["adj1", "adj2"]}
-_PRESETS = {"rect", "roundRect", "ellipse", "triangle", "rtTriangle", "arc", "rightBracket", "leftBracket"}
 _LINE_PRESETS = {"line", "straightConnector1"}
 
 
@@ -418,18 +414,15 @@ class SlideImporter:
             item["geom"] = "custom"
             item["path"] = self._custom_path(cust, xf["ext"])
             self.counts["freeform"] += 1
-        elif geom in _PRESETS:
+        elif presets.is_preset(geom):
+            # Every PowerPoint preset is drawn from its own formulas; adjust values convert
+            # to fractions and degrees
             item["geom"] = geom
             adj = {}
             for gd in (prst.findall("a:avLst/a:gd", NS) if prst is not None else []):
                 name, fmla = gd.get("name"), gd.get("fmla", "")
-                if not fmla.startswith("val "):
-                    continue
-                v = float(fmla.split()[1])
-                if name in _ADJ_ANGLE.get(geom, []):
-                    adj[name] = v / 60000.0
-                elif name in _ADJ_FRACTION.get(geom, []):
-                    adj[name] = v / 100000.0
+                if fmla.startswith("val "):
+                    adj[name] = presets.to_stored(geom, name, float(fmla.split()[1]))
             if adj:
                 item["adj"] = adj
         else:

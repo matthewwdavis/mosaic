@@ -1,4 +1,5 @@
-"""Matrices, paths and the DrawingML-compatible shape geometry FigAssemble draws with.
+"""Matrices, paths, corner rounding, arrowheads and dashes: the geometry FigAssemble draws with
+(PowerPoint's preset shapes are evaluated in presets.py).
 
 Coordinates are points (1/72 in) with y pointing down, as in SVG and PowerPoint.
 Angles are in degrees and positive angles turn clockwise on screen.
@@ -515,7 +516,7 @@ def sample_path(path: Path, n: int) -> list[list[float]]:
 
 
 # ---------------------------------------------------------------------------
-# Preset shapes (DrawingML presetShapeDefinitions formulas)
+# Shapes
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -525,88 +526,208 @@ class ShapePath:
     path: Path
     fill: bool = True
     stroke: bool = True
-
-
-# Adjust-value defaults, in the units FigAssemble stores them: fractions or degrees
-PRESET_DEFAULTS: dict[str, dict[str, float]] = {
-    "rect": {},
-    "roundRect": {"adj": 0.16667},
-    "ellipse": {},
-    "triangle": {"adj": 0.5},
-    "rtTriangle": {},
-    "arc": {"adj1": 270.0, "adj2": 0.0},
-    "rightBracket": {"adj": 0.08333},
-    "leftBracket": {"adj": 0.08333},
-    "line": {},
-}
-
-# Presets whose stroke is an open path, so line ends (arrowheads) apply
-OPEN_PRESETS = {"arc", "rightBracket", "leftBracket", "line"}
+    shade: str | None = None   # DrawingML fill modifier: darken, darkenLess, lighten, lightenLess
 
 
 def preset_paths(geom: str, w: float, h: float, adj: dict | None = None) -> list[ShapePath]:
-    """Paths for a DrawingML preset shape filling a w x h frame."""
-    a = dict(PRESET_DEFAULTS.get(geom, {}))
-    a.update(adj or {})
-    ss = min(w, h)
-    if geom == "roundRect":
-        r = ss * min(max(a["adj"], 0.0), 0.5)
-        p = (Path().move_to(0, r).arc_to(r, r, 180, 90).line_to(w - r, 0).arc_to(r, r, 270, 90)
-             .line_to(w, h - r).arc_to(r, r, 0, 90).line_to(r, h).arc_to(r, r, 90, 90).close())
-        return [ShapePath(p)]
-    if geom == "ellipse":
-        rx, ry = w / 2, h / 2
-        p = (Path().move_to(0, ry).arc_to(rx, ry, 180, 90).arc_to(rx, ry, 270, 90)
-             .arc_to(rx, ry, 0, 90).arc_to(rx, ry, 90, 90).close())
-        return [ShapePath(p)]
-    if geom == "triangle":
-        x2 = w * min(max(a["adj"], 0.0), 1.0)
-        return [ShapePath(Path().move_to(0, h).line_to(x2, 0).line_to(w, h).close())]
-    if geom == "rtTriangle":
-        return [ShapePath(Path().move_to(0, h).line_to(0, 0).line_to(w, h).close())]
-    if geom == "arc":
-        st = a["adj1"] % 360.0
-        en = a["adj2"] % 360.0
-        sw = en - st
-        if sw <= 0:
-            sw += 360.0
-        rx, ry = w / 2, h / 2
-        t = _param_angle(max(rx, 1e-9), max(ry, 1e-9), math.radians(st))
-        x1, y1 = rx + rx * math.cos(t), ry + ry * math.sin(t)
-        stroke = Path().move_to(x1, y1).arc_to(rx, ry, st, sw)
-        fill = Path().move_to(x1, y1).arc_to(rx, ry, st, sw).line_to(rx, ry).close()
-        return [ShapePath(fill, fill=True, stroke=False), ShapePath(stroke, fill=False, stroke=True)]
-    if geom in ("rightBracket", "leftBracket"):
-        max_adj = 0.5 * h / ss if ss > 0 else 0.0
-        y1 = ss * min(max(a["adj"], 0.0), max_adj)
-        if geom == "rightBracket":
-            def draw(p):
-                return p.move_to(0, 0).arc_to(w, y1, 270, 90).line_to(w, h - y1).arc_to(w, y1, 0, 90)
-        else:
-            def draw(p):
-                return p.move_to(w, h).arc_to(w, y1, 90, 90).line_to(0, y1).arc_to(w, y1, 180, 90)
-        return [ShapePath(draw(Path()).close(), fill=True, stroke=False),
-                ShapePath(draw(Path()), fill=False, stroke=True)]
-    if geom == "line":
-        return [ShapePath(Path().move_to(0, 0).line_to(w, h), fill=False, stroke=True)]
-    # rect, and the fallback for presets not implemented yet
-    return [ShapePath(Path().move_to(0, 0).line_to(w, 0).line_to(w, h).line_to(0, h).close())]
+    """Paths for a DrawingML preset shape filling a w x h frame (presets.py has the formulas)."""
+    from .presets import shape_paths
+    return shape_paths(geom, w, h, adj)
 
 
 def preset_text_rect(geom: str, w: float, h: float, adj: dict | None = None) -> tuple[float, float, float, float]:
     """Area text is laid out in, before insets (x0, y0, x1, y1 in frame coordinates)."""
-    a = dict(PRESET_DEFAULTS.get(geom, {}))
-    a.update(adj or {})
-    if geom == "roundRect":
-        il = min(w, h) * min(max(a["adj"], 0.0), 0.5) * 0.29289
-        return (il, il, w - il, h - il)
-    if geom == "ellipse":
-        dx, dy = w / 2 * math.cos(math.radians(45)), h / 2 * math.sin(math.radians(45))
-        return (w / 2 - dx, h / 2 - dy, w / 2 + dx, h / 2 + dy)
-    if geom == "triangle":
-        x2 = w * min(max(a["adj"], 0.0), 1.0)
-        return (x2 / 2, h / 2, (x2 + w) / 2, h)
-    return (0.0, 0.0, w, h)
+    from .presets import text_rect
+    return text_rect(geom, w, h, adj)
+
+
+# ---------------------------------------------------------------------------
+# Rounded corners
+# ---------------------------------------------------------------------------
+
+_MIN_TURN = 1e-4              # radians; gentler bends are straight runs
+_MAX_TURN = math.pi - 1e-3    # hairpin turns stay sharp
+
+
+def _unit(p, q) -> tuple[float, float]:
+    d = math.dist(p, q)
+    return ((q[0] - p[0]) / d, (q[1] - p[1]) / d) if d > 0 else (0.0, 0.0)
+
+
+def _turn(a: list, b: list) -> float:
+    """How far the direction turns (radians) from straight edge a into straight edge b."""
+    u, v = _unit(a[1], a[2]), _unit(b[1], b[2])
+    return math.atan2(abs(u[0] * v[1] - u[1] * v[0]), u[0] * v[0] + u[1] * v[1])
+
+
+def _edges(sub: Path) -> tuple[list[list], bool]:
+    """A subpath as edges ["L", p0, p1] or ["C", p0, c1, c2, p1], and whether it is closed.
+    Zero-length lines are dropped and straight runs along one line merged."""
+    edges: list[list] = []
+    cur = start = None
+    closed = False
+    for s in sub.segs:
+        if s[0] == "M":
+            cur = start = (s[1], s[2])
+        elif s[0] == "L":
+            edges.append(["L", cur, (s[1], s[2])])
+            cur = (s[1], s[2])
+        elif s[0] == "C":
+            edges.append(["C", cur, (s[1], s[2]), (s[3], s[4]), (s[5], s[6])])
+            cur = (s[5], s[6])
+        elif s[0] == "Z":
+            closed = True
+            if cur is not None and start is not None and math.dist(cur, start) > 1e-9:
+                edges.append(["L", cur, start])
+            cur = start
+    edges = [e for e in edges if not (e[0] == "L" and math.dist(e[1], e[2]) <= 1e-9)]
+    merged: list[list] = []
+    for e in edges:
+        if merged and e[0] == "L" and merged[-1][0] == "L" and _turn(merged[-1], e) < _MIN_TURN:
+            merged[-1] = ["L", merged[-1][1], e[2]]
+        else:
+            merged.append(e)
+    if closed and len(merged) > 2 and merged[0][0] == "L" and merged[-1][0] == "L" \
+            and _turn(merged[-1], merged[0]) < _MIN_TURN:
+        merged[0] = ["L", merged[-1][1], merged[0][2]]
+        merged.pop()
+    return merged, closed
+
+
+def _corner_factors(edges: list[list], closed: bool) -> list[float]:
+    """tan(turn / 2) for the corner at the end of each edge, 0 where there is none (only
+    two straight edges meeting at an angle make a corner)."""
+    n = len(edges)
+    t = [0.0] * n
+    for i in range(n if closed else n - 1):
+        a, b = edges[i], edges[(i + 1) % n]
+        if a[0] == "L" and b[0] == "L" and a is not b:
+            turn = _turn(a, b)
+            if _MIN_TURN < turn < _MAX_TURN:
+                t[i] = math.tan(turn / 2)
+    return t
+
+
+def corner_count(paths) -> int:
+    """How many corners between straight edges the paths have."""
+    return sum(sum(1 for f in _corner_factors(*_edges(sub)) if f > 0) for p in paths for sub in p.subpaths())
+
+
+def _fillet(path: Path, a, b, u_in, u_out, r: float) -> None:
+    """A circular arc of radius r from a to b, tangent to direction u_in at a and u_out at b."""
+    cross = u_in[0] * u_out[1] - u_in[1] * u_out[0]
+    turn = math.atan2(abs(cross), u_in[0] * u_out[0] + u_in[1] * u_out[1])
+    sgn = 1.0 if cross > 0 else -1.0             # +1: turning clockwise on screen (y down)
+    cx, cy = a[0] - u_in[1] * sgn * r, a[1] + u_in[0] * sgn * r
+    th = math.atan2(a[1] - cy, a[0] - cx)
+    n = max(1, math.ceil(turn / (math.pi / 2) - 1e-9))
+    step = sgn * turn / n
+    k = 4.0 / 3.0 * math.tan(step / 4.0) * r
+    for j in range(n):
+        t0, t1 = th + step * j, th + step * (j + 1)
+        p0 = (cx + r * math.cos(t0), cy + r * math.sin(t0))
+        p1 = b if j == n - 1 else (cx + r * math.cos(t1), cy + r * math.sin(t1))
+        path.curve_to(p0[0] - k * math.sin(t0), p0[1] + k * math.cos(t0),
+                      p1[0] + k * math.sin(t1), p1[1] - k * math.cos(t1), p1[0], p1[1])
+
+
+def _rounded(edges: list[list], closed: bool, t: list[float], r: float) -> Path:
+    n = len(edges)
+
+    def before(i):   # corner factor at the start of edge i
+        return t[i - 1] if (i > 0 or closed) else 0.0
+
+    def start(i):
+        e = edges[i]
+        if e[0] != "L" or not before(i):
+            return e[1]
+        u = _unit(e[1], e[2])
+        d = r * before(i)
+        return (e[1][0] + u[0] * d, e[1][1] + u[1] * d)
+
+    def end(i):
+        e = edges[i]
+        if e[0] != "L" or not t[i]:
+            return e[-1]
+        u = _unit(e[1], e[2])
+        d = r * t[i]
+        return (e[2][0] - u[0] * d, e[2][1] - u[1] * d)
+
+    out = Path().move_to(*start(0))
+    cur = start(0)
+    for i, e in enumerate(edges):
+        q = end(i)
+        if e[0] == "L":
+            if math.dist(cur, q) > 1e-9:
+                out.line_to(*q)
+        else:
+            out.curve_to(*e[2], *e[3], *e[4])
+        cur = q
+        if t[i] and (closed or i < n - 1):
+            nxt = (i + 1) % n
+            nxt_start = start(nxt)
+            _fillet(out, q, nxt_start, _unit(e[1], e[2]), _unit(edges[nxt][1], edges[nxt][2]), r)
+            cur = nxt_start
+    if closed:
+        out.close()
+    return out
+
+
+def round_corners(paths, amount: float) -> list[Path]:
+    """Round every corner where two straight edges meet, with one radius for all of them.
+
+    `amount` 0 keeps the corners sharp; 1 is the largest radius that still fits every edge
+    (a triangle becomes its inscribed circle, a rectangle a stadium). Corners next to curves
+    stay as they are.
+    """
+    amount = min(max(float(amount or 0.0), 0.0), 1.0)
+    paths = list(paths)
+    if amount <= 0:
+        return paths
+    parsed = [[(*_edges(sub), sub) for sub in p.subpaths()] for p in paths]
+    parsed = [[(edges, closed, _corner_factors(edges, closed), sub) for edges, closed, sub in subs] for subs in parsed]
+    r_max = math.inf
+    for subs in parsed:
+        for edges, closed, t, _sub in subs:
+            for i, e in enumerate(edges):
+                if e[0] != "L":
+                    continue
+                f = (t[i - 1] if (i > 0 or closed) else 0.0) + t[i]
+                if f > 0:
+                    r_max = min(r_max, math.dist(e[1], e[2]) / f)
+    if not math.isfinite(r_max) or r_max <= 0:
+        return paths
+    r = amount * r_max
+    out = []
+    for subs in parsed:
+        p = Path()
+        for edges, closed, t, sub in subs:
+            p.extend(_rounded(edges, closed, t, r) if any(t) else sub)
+        out.append(p)
+    return out
+
+
+def round_shape_paths(shape_paths: list[ShapePath], amount: float) -> list[ShapePath]:
+    rounded = round_corners([sp.path for sp in shape_paths], amount)
+    return [ShapePath(p, sp.fill, sp.stroke, sp.shade) for p, sp in zip(rounded, shape_paths)]
+
+
+def flatten(path: Path, per_curve: int = 16) -> list[list[tuple[float, float]]]:
+    """Each subpath as a polyline (curves sampled)."""
+    out: list[list[tuple[float, float]]] = []
+    cur = None
+    for s in path.segs:
+        if s[0] == "M":
+            cur = (s[1], s[2])
+            out.append([cur])
+        elif s[0] == "L":
+            cur = (s[1], s[2])
+            out[-1].append(cur)
+        elif s[0] == "C":
+            bez = [cur, (s[1], s[2]), (s[3], s[4]), (s[5], s[6])]
+            out[-1] += [_bezier_point(bez, k / per_curve) for k in range(1, per_curve + 1)]
+            cur = (s[5], s[6])
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -618,52 +739,96 @@ ARROW_SIZE = {"sm": 2.0, "med": 3.0, "lg": 5.0}
 # Thin lines get arrowheads sized as if the line were at least this wide (points);
 # measured from PowerPoint: a small head on a 1 pt line is 4 x 4 pt
 ARROW_MIN_BASE_WIDTH = 2.0
+# Heads whose rounded tip is slid forward to reach the end point again
+_POINTED_HEADS = ("triangle", "stealth", "arrow")
+
+
+def head_size(spec: dict, line_width: float) -> tuple[float, float]:
+    """(width, length) of a line end in points."""
+    base = max(line_width, ARROW_MIN_BASE_WIDTH)
+    return (ARROW_SIZE.get(spec.get("w", "med"), 3.0) * base, ARROW_SIZE.get(spec.get("len", "med"), 3.0) * base)
+
+
+def head_outline(spec: dict, line_width: float) -> tuple[Path, float] | None:
+    """A line end in its own coordinates: x along the line with the tip at 0 and the head at
+    negative x, y across. With `rounding` (0..1) its corners are rounded and a pointed head
+    slides forward so the rounded tip still reaches 0; returns (path, how far it slid)."""
+    kind = spec.get("type", "triangle")
+    w, length = head_size(spec, line_width)
+    if kind == "triangle":
+        p = Path().move_to(0, 0).line_to(-length, w / 2).line_to(-length, -w / 2).close()
+    elif kind == "stealth":
+        p = Path().move_to(0, 0).line_to(-length, w / 2).line_to(-length * 0.5, 0).line_to(-length, -w / 2).close()
+    elif kind == "diamond":
+        p = Path().move_to(length / 2, 0).line_to(0, w / 2).line_to(-length / 2, 0).line_to(0, -w / 2).close()
+    elif kind == "oval":
+        rx, ry, k = length / 2, w / 2, 0.5522847498307936
+        p = (Path().move_to(rx, 0).curve_to(rx, ry * k, rx * k, ry, 0, ry)
+             .curve_to(-rx * k, ry, -rx, ry * k, -rx, 0).curve_to(-rx, -ry * k, -rx * k, -ry, 0, -ry)
+             .curve_to(rx * k, -ry, rx, -ry * k, rx, 0).close())
+    elif kind == "arrow":
+        p = Path().move_to(-length, w / 2).line_to(0, 0).line_to(-length, -w / 2)
+    else:
+        return None
+    rounding = min(max(float(spec.get("rounding") or 0.0), 0.0), 1.0)
+    shift = 0.0
+    if rounding > 0 and kind != "oval":
+        p = round_corners([p], rounding)[0]
+        if kind in _POINTED_HEADS:
+            shift = -p.bbox()[2]
+            p = p.transformed(Matrix.translate(shift, 0.0))
+    return p, shift
 
 
 def arrowhead(tip: tuple[float, float], direction: tuple[float, float], line_width: float,
               spec: dict) -> tuple[list[ShapePath], float]:
     """Geometry of a line end at `tip`, travelling along unit vector `direction`.
 
-    Returns the paths to draw (filled or stroked in the line colour) and how far the line
-    itself should be shortened so it doesn't poke out past the head.
+    Returns the paths to draw (filled or stroked in the line colour) and the head's length
+    along the line from its tip.
     """
     kind = spec.get("type", "triangle")
-    base = max(line_width, ARROW_MIN_BASE_WIDTH)
-    w = ARROW_SIZE.get(spec.get("w", "med"), 3.0) * base
-    length = ARROW_SIZE.get(spec.get("len", "med"), 3.0) * base
+    found = head_outline(spec, line_width)
+    if found is None:
+        return [], 0.0
+    local, _shift = found
     dx, dy = direction
-    nx, ny = -dy, dx
-    tx, ty = tip
-
-    def pt(along: float, across: float) -> tuple[float, float]:
-        return (tx + dx * along + nx * across, ty + dy * along + ny * across)
-
-    if kind == "triangle":
-        p = Path().move_to(*pt(0, 0)).line_to(*pt(-length, w / 2)).line_to(*pt(-length, -w / 2)).close()
-        return [ShapePath(p, fill=True, stroke=False)], length
-    if kind == "stealth":
-        p = (Path().move_to(*pt(0, 0)).line_to(*pt(-length, w / 2)).line_to(*pt(-length * 0.5, 0))
-             .line_to(*pt(-length, -w / 2)).close())
-        return [ShapePath(p, fill=True, stroke=False)], length * 0.5
-    if kind == "diamond":
-        p = (Path().move_to(*pt(length / 2, 0)).line_to(*pt(0, w / 2)).line_to(*pt(-length / 2, 0))
-             .line_to(*pt(0, -w / 2)).close())
-        return [ShapePath(p, fill=True, stroke=False)], 0.0
-    if kind == "oval":
-        rx, ry = length / 2, w / 2
-        p = Path()
-        k = 0.5522847498307936
-        p.move_to(*pt(rx, 0))
-        p.curve_to(*pt(rx, ry * k), *pt(rx * k, ry), *pt(0, ry))
-        p.curve_to(*pt(-rx * k, ry), *pt(-rx, ry * k), *pt(-rx, 0))
-        p.curve_to(*pt(-rx, -ry * k), *pt(-rx * k, -ry), *pt(0, -ry))
-        p.curve_to(*pt(rx * k, -ry), *pt(rx, -ry * k), *pt(rx, 0))
-        p.close()
-        return [ShapePath(p, fill=True, stroke=False)], 0.0
+    p = local.transformed(Matrix(dx, dy, -dy, dx, tip[0], tip[1]))
+    w, length = head_size(spec, line_width)
     if kind == "arrow":
-        p = Path().move_to(*pt(-length, w / 2)).line_to(*pt(0, 0)).line_to(*pt(-length, -w / 2))
         return [ShapePath(p, fill=False, stroke=True)], 0.0
-    return [], 0.0
+    return [ShapePath(p, fill=True, stroke=False)], {"triangle": length, "stealth": length * 0.5}.get(kind, 0.0)
+
+
+def _inside(poly: list[tuple[float, float]], x: float, y: float) -> bool:
+    inside = False
+    for (x0, y0), (x1, y1) in zip(poly, poly[1:] + poly[:1]):
+        if (y0 > y) != (y1 > y) and x < (x1 - x0) * (y - y0) / (y1 - y0) + x0:
+            inside = not inside
+    return inside
+
+
+def _segment_distance(x: float, y: float, a, b) -> float:
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    t = ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy or 1.0)
+    t = min(max(t, 0.0), 1.0)
+    return math.hypot(x - (a[0] + t * dx), y - (a[1] + t * dy))
+
+
+def line_end_inside(outline: Path, start: float, radius: float, limit: float) -> float:
+    """How far behind the tip a line of half-width `radius` can end inside a rounded head:
+    `start` if its end fits there, else the first spot further back where it does."""
+    polys = [p for p in flatten(outline) if len(p) > 2]
+    if not polys:
+        return start
+    poly = max(polys, key=len)
+    steps = 400
+    for i in range(steps + 1):
+        t = start + (limit - start) * i / steps
+        if _inside(poly, -t, 0.0) and all(_segment_distance(-t, 0.0, a, b) >= radius
+                                          for a, b in zip(poly, poly[1:] + poly[:1])):
+            return t
+    return start
 
 
 # ---------------------------------------------------------------------------

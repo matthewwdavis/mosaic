@@ -4,7 +4,7 @@ import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
 import { button, numField, selectField } from "./inspector.js";
 import { store } from "./store.js";
-import { UNIT_LABEL, announce, fmt, h, itemLabel, toUnit } from "./util.js";
+import { UNIT_LABEL, announce, fmt, h, itemLabel, shapeName, toUnit } from "./util.js";
 
 // 24 x 24 stroke icons
 const ICONS = {
@@ -26,15 +26,20 @@ const ICONS = {
   eyeoff: "M3 3l18 18M10.6 5.1A10 10 0 0112 5c6 0 10 7 10 7a17 17 0 01-3 3.8M6.1 6.1C3.6 7.8 2 12 2 12s4 7 10 7a9.6 9.6 0 004-.9",
   lock: "M6 11h12v9H6zM8 11V8a4 4 0 018 0v3", unlock: "M6 11h12v9H6zM8 11V8a4 4 0 017.5-2",
   group: "M3 3h7v7H3zM14 14h7v7h-7zM7 10v4h7", import: "M12 15V3M7 10l5 5 5-5M5 17v3h14v-3",
+  shapes: "M7 3l4.5 8h-9zM17 3.5a3.5 3.5 0 110 7 3.5 3.5 0 010-7zM8.5 13.5h7v7h-7z",
 };
 
 export function icon(name) {
+  return pathIcon(ICONS[name] || "");
+}
+// An icon from path data in a 24 x 24 box (the Shapes menu's icons come from the engine)
+function pathIcon(d) {
   const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svgEl.setAttribute("viewBox", "0 0 24 24");
   svgEl.setAttribute("aria-hidden", "true");
   svgEl.setAttribute("class", "icon");
   const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  p.setAttribute("d", ICONS[name] || "");
+  p.setAttribute("d", d);
   svgEl.append(p);
   return svgEl;
 }
@@ -57,6 +62,19 @@ function roving(container, selector, vertical = false) {
     items[j].tabIndex = 0;
     items[j].focus();
   });
+}
+
+// The item in the next row up or down of a wrapped grid, nearest in x
+function verticalNeighbour(items, i, down) {
+  if (i < 0) return items[0];
+  const r = items[i].getBoundingClientRect(), cx = r.left + r.width / 2;
+  const rows = items.map((b, k) => ({ k, q: b.getBoundingClientRect() }))
+    .filter(({ q }) => (down ? q.top > r.top + r.height / 2 : q.top < r.top - r.height / 2));
+  if (!rows.length) return items[i];
+  const top = down ? Math.min(...rows.map(({ q }) => q.top)) : Math.max(...rows.map(({ q }) => q.top));
+  const row = rows.filter(({ q }) => Math.abs(q.top - top) < 2);
+  row.sort((a, b) => Math.abs(a.q.left + a.q.width / 2 - cx) - Math.abs(b.q.left + b.q.width / 2 - cx));
+  return items[row[0].k];
 }
 
 export const panels = {
@@ -102,7 +120,7 @@ export const panels = {
         t("toolLine", "line", "line"), t("toolArrow", "arrow", "arrow"), t("toolRect", "rect", "rect"),
         t("toolRoundRect", "roundrect", "roundrect"), t("toolEllipse", "ellipse", "ellipse"),
         t("toolTriangle", "triangle", "triangle"), t("toolArc", "arc", "arc"), t("toolBracket", "bracket", "bracket"),
-        t("insertPicture", "picture")),
+        this.shapeMenuButton(), t("insertPicture", "picture")),
       group("Edit", t("undo", "undo"), t("redo", "redo")),
       group("Zoom", t("zoomOut", "zoomout"), this.zoomLabel, t("zoomIn", "zoomin"), t("zoomFit", "fit")),
       h("div", { class: "spacer" }),
@@ -117,6 +135,107 @@ export const panels = {
   renderTools(tool) {
     for (const b of document.querySelectorAll("#toolbar [data-tool]")) {
       b.setAttribute("aria-pressed", b.dataset.tool === tool ? "true" : "false");
+    }
+    if (this.shapeBtn) {
+      const on = tool === "shape";
+      this.shapeBtn.classList.toggle("active", on);
+      this.shapeBtn.title = `Shapes (S)${on ? ` — drawing: ${shapeName(canvas.shapeGeom)}` : ""}`;
+    }
+  },
+
+  // Shapes menu: every shape in groups, as a grid of icons ---------------------------------
+
+  shapeMenuButton() {
+    const cat = this.app.info.shapes || { groups: [], shapes: {} };
+    const c = this.app.commands.shapesMenu;
+    const btn = h("button", { type: "button", class: "tool", id: "shapes-button", title: `${c.label} (${c.keys})`,
+      "aria-label": c.label, "aria-haspopup": "menu", "aria-expanded": "false", "aria-controls": "shape-menu",
+      "data-cmd": "shapesMenu", tabindex: -1 },
+    icon("shapes"), h("span", { class: "tool-label" }, `${c.short} ▾`));
+    btn.addEventListener("click", () => this.toggleShapeMenu());
+    btn.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); this.openShapeMenu(); }
+    });
+    // The name of the shape under the pointer or focus, for anyone who doesn't know the icons
+    const hint = h("p", { class: "shape-hint", "aria-hidden": "true" }, "Choose a shape, then drag on the page");
+    const menu = h("div", { id: "shape-menu", class: "shape-menu", role: "menu", "aria-label": "Shapes", hidden: true },
+      ...cat.groups.map((g) => h("div", { class: "shape-group", role: "group", "aria-label": g.title },
+        h("div", { class: "shape-group-title", "aria-hidden": "true" }, g.title),
+        h("div", { class: "shape-grid" }, ...g.shapes.map((geom) => {
+          const name = cat.shapes[geom].name;
+          const item = h("button", { type: "button", class: "shape-item", role: "menuitem", tabindex: -1,
+            "data-geom": geom, "aria-label": name, title: name }, pathIcon(cat.shapes[geom].icon));
+          const show = () => { hint.textContent = name; };
+          item.addEventListener("click", () => this.chooseShape(geom));
+          item.addEventListener("pointerenter", show);
+          item.addEventListener("focus", show);
+          return item;
+        })))),
+      hint);
+    menu.addEventListener("keydown", (e) => this.shapeMenuKey(e));
+    document.body.append(menu);
+    document.addEventListener("pointerdown", (e) => {
+      if (!menu.hidden && !menu.contains(e.target) && !btn.contains(e.target)) this.closeShapeMenu(false);
+    }, true);
+    window.addEventListener("resize", () => { if (!menu.hidden) this.placeShapeMenu(); });
+    this.shapeBtn = btn;
+    this.shapeMenu = menu;
+    return btn;
+  },
+  placeShapeMenu() {
+    const r = this.shapeBtn.getBoundingClientRect(), m = this.shapeMenu;
+    m.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - m.offsetWidth - 8))}px`;
+    m.style.top = `${r.bottom + 4}px`;
+    m.style.maxHeight = `${Math.max(window.innerHeight - r.bottom - 16, 160)}px`;
+  },
+  openShapeMenu() {
+    const m = this.shapeMenu;
+    m.hidden = false;
+    this.shapeBtn.setAttribute("aria-expanded", "true");
+    this.placeShapeMenu();
+    const items = [...m.querySelectorAll(".shape-item")];
+    for (const b of items) b.toggleAttribute("aria-current", b.dataset.geom === canvas.shapeGeom);
+    (items.find((b) => b.dataset.geom === canvas.shapeGeom) || items[0])?.focus();
+  },
+  closeShapeMenu(refocus = true) {
+    if (this.shapeMenu.hidden) return;
+    this.shapeMenu.hidden = true;
+    this.shapeBtn.setAttribute("aria-expanded", "false");
+    if (refocus) this.shapeBtn.focus();
+  },
+  toggleShapeMenu() {
+    if (this.shapeMenu.hidden) this.openShapeMenu();
+    else this.closeShapeMenu();
+  },
+  chooseShape(geom) {
+    this.closeShapeMenu(false);
+    canvas.setTool("shape", geom);
+    canvas.stage.focus({ preventScroll: true });
+    announce(`${shapeName(geom)}: drag on the page to draw it, click for a 2 cm one, or press Enter to place one in the middle`);
+  },
+  // Arrow keys move through the grid, typing jumps to a name, Enter chooses, Escape closes
+  shapeMenuKey(e) {
+    e.stopPropagation();
+    const items = [...this.shapeMenu.querySelectorAll(".shape-item")];
+    const i = items.indexOf(document.activeElement);
+    const go = (j) => { e.preventDefault(); items[Math.max(0, Math.min(items.length - 1, j))]?.focus(); };
+    if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); this.closeShapeMenu(); }
+    else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (i >= 0) this.chooseShape(items[i].dataset.geom); }
+    else if (e.key === "ArrowRight") go(i + 1);
+    else if (e.key === "ArrowLeft") go(i - 1);
+    else if (e.key === "Home") go(0);
+    else if (e.key === "End") go(items.length - 1);
+    else if (e.key === "ArrowDown" || e.key === "ArrowUp") go(items.indexOf(verticalNeighbour(items, i, e.key === "ArrowDown")));
+    else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      clearTimeout(this._typedTimer);
+      this._typed = (this._typed || "") + e.key.toLowerCase();
+      this._typedTimer = setTimeout(() => { this._typed = ""; }, 700);
+      // One letter cycles through the names starting with it; more letters narrow the search
+      const n = items.length;
+      for (let k = this._typed.length > 1 ? 0 : 1; k <= n; k++) {
+        const b = items[(i + k + n) % n];
+        if (b.getAttribute("aria-label").toLowerCase().startsWith(this._typed)) { b.focus(); break; }
+      }
     }
   },
 
@@ -424,6 +543,8 @@ export const panels = {
         h("li", {}, "Arrow keys: move by 1 pt; with Shift by 10 pt; with Option/Alt by 0.1 pt"),
         h("li", {}, "Option/Alt+Shift+arrows: make the object 1 pt wider, narrower, taller or shorter"),
         h("li", {}, "Enter: edit text, or crop a picture; Escape: finish"),
+        h("li", {}, "With a drawing tool chosen, Enter places a 2 cm shape in the middle of the view"),
+        h("li", {}, "Shapes menu (S): arrow keys move, typing a name jumps to it, Enter chooses, Escape closes"),
         h("li", {}, "Shift while dragging: keep straight lines, squares and proportions"),
         h("li", {}, "Option/Alt while dragging: duplicate; ⌘/Ctrl: don't snap"),
         h("li", {}, "Space + drag, or scroll: move around; ⌘/Ctrl + scroll or pinch: zoom"))));

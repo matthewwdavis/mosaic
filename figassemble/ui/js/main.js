@@ -10,7 +10,7 @@ import { canvas, findDeep, reid, shiftItem } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { panels } from "./panels.js";
 import { store } from "./store.js";
-import { MOD, announce, clone, describeItem, display, isMac, itemBBox, itemsBBox, lineMidpoints, uid } from "./util.js";
+import { MOD, announce, clone, describeItem, display, isMac, itemBBox, itemsBBox, lineMidpoints, shapeCatalog, uid } from "./util.js";
 
 const app = {
   prefs: {},
@@ -514,6 +514,7 @@ app.commands = {
   toolTriangle: tool("triangle", "Triangle", null, "Triangle"),
   toolArc: tool("arc", "Arc", null, "Arc"),
   toolBracket: tool("bracket", "Bracket", null, "Bracket"),
+  shapesMenu: cmd("Shapes", () => panels.toggleShapeMenu(), "S", (e) => plain(e) && !e.shiftKey && e.key.toLowerCase() === "s", "Shapes"),
   addPage: cmd("Add page", () => app.addPage(), `${M}${S}N`, key("n", { shift: true })),
   duplicatePage: cmd("Duplicate page", () => app.addPage(true)),
   deletePage: cmd("Delete page", () => app.deletePage()),
@@ -565,6 +566,12 @@ document.addEventListener("keydown", (e) => {
     if (canvas.cropping) canvas.endCrop();
     else if (canvas.tool !== "select") canvas.setTool("select");
     else if (store.selection.length) { store.select([]); announce("Nothing selected"); }
+    return;
+  }
+  if (e.key === "Enter" && canvas.tool !== "select" && onCanvas) {
+    // With a drawing tool chosen, Enter places one in the middle of the view (no pointer needed)
+    e.preventDefault();
+    canvas.placeDefault();
     return;
   }
   if (e.key === "Enter" && store.selection.length === 1) {
@@ -653,6 +660,7 @@ function applyPrefs(p) {
 async function start() {
   app.info = await rpc("app_info");
   app.prefs = app.info.prefs;
+  Object.assign(shapeCatalog, app.info.shapes || {});
   applyPrefs(app.prefs);
   canvas.init(document.getElementById("stage"));
   panels.init(app);

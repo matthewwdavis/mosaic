@@ -45,7 +45,17 @@ activated). A no-command-line installer is planned.
   - Hold **Shift** while dropping a file onto a picture to replace it (position and scale kept).
 - **Draw** with Text (T), Panel label (P: adds a, b, c… in order), Line (L), Arrow (A),
   Rectangle (R), Rounded rectangle (U), Ellipse (O), Triangle, Arc and Bracket.
-  Shift keeps straight lines, squares and proportions.
+  Shift keeps straight lines, squares and proportions. Click instead of dragging for a 2 cm
+  shape; with the keyboard, choose a tool and press Enter to place one in the middle.
+- **Shapes (S)** opens a menu of PowerPoint's shapes: rectangles, basic shapes (polygons,
+  pie, frame, ring, cylinder, heart…), block arrows, stars, brackets and braces, and
+  equation symbols. Arrow keys move through it, typing a name jumps to it, Enter chooses.
+  Drag a shape's yellow handles to adjust it (a star's inner radius, an arrow's head length),
+  or type the values in the properties panel.
+- **Round corners:** Corner rounding (0–100%) rounds the corners of triangles, polygons,
+  stars, block arrows and any other straight-edged shape; 100% is as round as the shape
+  allows. Each arrowhead has its own rounding too; the rounded tip still ends on the line's
+  end point.
 - **Curve an arrow (or line):** select it and drag the hollow handle halfway along it; the
   arrow bends into a smooth curve through that point and the head follows. Drag other hollow
   handles to add more points (S-curves), drag points to reshape, double-click a point to
@@ -73,7 +83,8 @@ activated). A no-command-line installer is planned.
 - **Export** (⌘E): PDF, SVG, PNG, TIFF at 300/600/1200 dpi or any other, transparent or
   white. More options: JPEG, EPS, CMYK (only when a journal asks).
 - **PowerPoint:** Open a `.pptx` to turn its slides into pages, with pictures relinked to the
-  original figure files where they can be found.
+  original figure files where they can be found. Every PowerPoint shape comes in as itself,
+  drawn from PowerPoint's own shape formulas.
 
 Documents are saved as `.figasm` files. Unsaved work is autosaved every minute and offered
 back after a crash.

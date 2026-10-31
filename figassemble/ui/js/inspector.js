@@ -4,7 +4,7 @@
 import { rpc } from "./api.js";
 import { canvas, findDeep, shiftItem } from "./canvas.js";
 import { store } from "./store.js";
-import { GEOM_NAMES, UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, lineSamples, toUnit } from "./util.js";
+import { UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, lineSamples, shapeCatalog, shapeName, toUnit } from "./util.js";
 
 const DASHES = [["solid", "Solid"], ["sysDot", "Round dot"], ["sysDash", "Short dash"], ["dash", "Dash"],
   ["dashDot", "Dash dot"], ["lgDash", "Long dash"], ["lgDashDot", "Long dash dot"], ["lgDashDotDot", "Long dash dot dot"],
@@ -12,7 +12,7 @@ const DASHES = [["solid", "Solid"], ["sysDot", "Round dot"], ["sysDash", "Short 
 const HEADS = [["none", "None"], ["triangle", "Triangle"], ["stealth", "Stealth"], ["arrow", "Open arrow"],
   ["oval", "Circle"], ["diamond", "Diamond"]];
 const SIZES = [["sm", "Small"], ["med", "Medium"], ["lg", "Large"]];
-const GEOMS = ["rect", "roundRect", "ellipse", "triangle", "rtTriangle", "arc", "rightBracket", "leftBracket"];
+const ROUNDED_HEADS = ["triangle", "stealth", "arrow", "diamond"];   // heads whose corners can be rounded
 let fieldId = 0;
 
 export const inspector = {
@@ -147,11 +147,11 @@ export const inspector = {
     const out = [this.headerSection(it), this.arrangeSection(it)];
     if (it.type === "picture") out.push(this.pictureSection(it));
     if (it.type === "shape") {
-      if (it.geom !== "custom" && !it.textbox) out.push(this.geometrySection(it));
+      if (!it.textbox) out.push(this.geometrySection(it));
       if (it.text) out.push(this.textSection(it));
       if (!it.textbox || it.fill || it.stroke) out.push(this.fillSection(it));
       out.push(this.strokeSection(it));
-      if (["arc", "rightBracket", "leftBracket", "custom"].includes(it.geom) && it.stroke) out.push(this.endsSection(it));
+      if ((shapeCatalog.shapes[it.geom]?.open || it.geom === "custom") && it.stroke) out.push(this.endsSection(it));
       if (!it.textbox || it.fill || it.stroke) out.push(this.outlineSection(it));
       if (it.textbox && !it.text) out.push(this.textSection(it));
     }
@@ -289,24 +289,50 @@ export const inspector = {
       if (src) el.title = src;
     } catch { el.textContent = ""; }
   },
+  // Which shape it is, its adjustments (the yellow handles' values) and corner rounding
   geometrySection(it) {
-    const kids = [selectField("Shape", it.geom, GEOMS.map((g) => [g, GEOM_NAMES[g]]),
-      (v) => this.edit("Change shape", (o) => { o.geom = v; o.adj = {}; }))];
-    const adj = it.adj || {};
-    if (it.geom === "roundRect") kids.push(numField("Corner radius", (adj.adj ?? 0.16667) * 100, "%", (v) =>
-      this.edit("Corner radius", (o) => { o.adj = { ...(o.adj || {}), adj: Math.min(Math.max(v, 0), 50) / 100 }; }), { min: 0, max: 50, step: 1 }));
-    if (it.geom === "triangle") kids.push(numField("Apex position", (adj.adj ?? 0.5) * 100, "%", (v) =>
-      this.edit("Apex", (o) => { o.adj = { adj: Math.min(Math.max(v, 0), 100) / 100 }; }), { min: 0, max: 100, step: 1 }));
-    if (it.geom === "rightBracket" || it.geom === "leftBracket") kids.push(numField("End curve", (adj.adj ?? 0.08333) * 100, "%", (v) =>
-      this.edit("Bracket curve", (o) => { o.adj = { adj: Math.max(v, 0) / 100 }; }), { min: 0, max: 50, step: 1 }));
+    const info = shapeCatalog.shapes[it.geom];
+    const kids = [];
+    if (it.geom !== "custom") {
+      const groups = shapeCatalog.groups.map((g) => [g.title, g.shapes.map((geom) => [geom, shapeName(geom)])]);
+      if (!shapeCatalog.groups.some((g) => g.shapes.includes(it.geom))) groups.push(["From PowerPoint", [[it.geom, shapeName(it.geom)]]]);
+      kids.push(groupedSelectField("Shape", it.geom, groups, (v) => this.edit("Change shape", (o) => {
+        o.geom = v;
+        o.adj = {};
+        if (!shapeCatalog.shapes[v]?.open) { o.arrow_start = null; o.arrow_end = null; }
+      })));
+    }
+    const fields = (info?.adjust || []).map((a) => numField(a.label, (it.adj?.[a.name] ?? a.default) * a.factor, a.unit,
+      (v) => this.setAdjust(it.id, a, v), { step: 1, min: a.unit === "deg" || a.min === null ? undefined : a.min * a.factor,
+        max: a.unit === "deg" || a.max === null ? undefined : a.max * a.factor }));
+    const roundable = info?.corners || it.geom === "custom";
+    if (roundable) fields.push(numField("Corner rounding", (it.rounding || 0) * 100, "%", (v) => this.edit("Corner rounding", (o) => {
+      o.rounding = Math.min(Math.max(v, 0), 100) / 100;
+      if (!o.rounding) delete o.rounding;
+    }), { min: 0, max: 100, step: 5 }));
+    for (let i = 0; i < fields.length; i += 2) kids.push(fields[i + 1] ? row(fields[i], fields[i + 1]) : fields[i]);
     if (it.geom === "arc") {
-      kids.push(row(
-        numField("Start angle", adj.adj1 ?? 270, "deg", (v) => this.edit("Arc start", (o) => { o.adj = { ...(o.adj || {}), adj1: ((v % 360) + 360) % 360 }; }), { step: 1 }),
-        numField("End angle", adj.adj2 ?? 0, "deg", (v) => this.edit("Arc end", (o) => { o.adj = { ...(o.adj || {}), adj2: ((v % 360) + 360) % 360 }; }), { step: 1 })));
       kids.push(button("Turn this arc into a curve with points you can drag", () => this.app.run("shapeToCurve"), "Make editable curve"));
       kids.push(h("p", { class: "hint" }, "The curve passes through points along the arc, so its shape may shift by a fraction of a point."));
     }
+    const hints = [];
+    if (info?.adjust?.length) hints.push("Drag the yellow handles on the page to adjust the shape.");
+    if (/^star\d+$/.test(it.geom)) hints.push("Inner radius is a percentage of the outer radius.");
+    if (roundable) hints.push("Corner rounding: 0% keeps the corners sharp; 100% is as round as the shape allows.");
+    if (hints.length) kids.push(h("p", { class: "hint" }, hints.join(" ")));
     return section("Shape", kids);
+  },
+  // A typed adjustment, kept inside the range its handle allows on this shape
+  async setAdjust(id, a, shown) {
+    let v = shown / a.factor;
+    if (a.unit === "deg") v = ((v % 360) + 360) % 360;
+    const it = store.item(id);
+    if (!it) return;
+    const stored = await rpc("clamp_adjust", { geom: it.geom, frame: it.frame, adj: it.adj }, a.name, v);
+    this.edit(a.label, (o) => { o.adj = { ...(o.adj || {}), [a.name]: stored }; });
+    if (Math.abs(stored - v) > 1e-6) {
+      announce(`${a.label} goes up to ${fmt(stored * a.factor, 1)}${a.unit === "deg" ? "°" : "%"} on this shape`);
+    }
   },
   fillSection(it) {
     const f = it.fill;
@@ -356,14 +382,24 @@ export const inspector = {
   endsSection(it) {
     const end = (key, label) => {
       const spec = it[key];
-      return row(selectField(label, spec?.type || "none", HEADS, (v) => this.edit("Arrowhead", (o) => {
-        o[key] = v === "none" ? null : { type: v, w: o[key]?.w || "med", len: o[key]?.len || "med" };
+      const out = [row(selectField(label, spec?.type || "none", HEADS, (v) => this.edit("Arrowhead", (o) => {
+        o[key] = v === "none" ? null : { ...(o[key] || {}), type: v, w: o[key]?.w || "med", len: o[key]?.len || "med" };
       })), selectField(`${label} size`, spec?.w || "med", SIZES, (v) => this.edit("Arrowhead size", (o) => {
         if (o[key]) o[key] = { ...o[key], w: v, len: v };
-      }), { disabled: !spec }));
+      }), { disabled: !spec }))];
+      if (spec && ROUNDED_HEADS.includes(spec.type)) {
+        out.push(numField(`${label} rounding`, (spec.rounding || 0) * 100, "%", (v) => this.edit("Arrowhead rounding", (o) => {
+          if (!o[key]) return;
+          o[key] = { ...o[key], rounding: Math.min(Math.max(v, 0), 100) / 100 };
+          if (!o[key].rounding) delete o[key].rounding;
+        }), { min: 0, max: 100, step: 5 }));
+      }
+      return out;
     };
-    return section("Arrowheads", [end("arrow_start", "Start"), end("arrow_end", "End"),
-      button("Swap start and end arrowheads", () => this.edit("Swap arrowheads", (o) => { [o.arrow_start, o.arrow_end] = [o.arrow_end, o.arrow_start]; }), "Swap ends")]);
+    const rounded = [it.arrow_start, it.arrow_end].some((s) => s && ROUNDED_HEADS.includes(s.type));
+    return section("Arrowheads", [...end("arrow_start", "Start"), ...end("arrow_end", "End"),
+      button("Swap start and end arrowheads", () => this.edit("Swap arrowheads", (o) => { [o.arrow_start, o.arrow_end] = [o.arrow_end, o.arrow_start]; }), "Swap ends"),
+      rounded ? h("p", { class: "hint" }, "Rounding: 0% is a sharp point; 100% is fully rounded. The rounded tip still ends on the line's end point.") : null]);
   },
   textSection(it) {
     const body = it.text || { paragraphs: [{ runs: [] }] };
@@ -430,7 +466,7 @@ function kindName(it) {
   if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_start || it.arrow_end ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
   if (it.type === "group") return "Group";
   if (it.textbox) return "Text box";
-  return GEOM_NAMES[it.geom] || "Shape";
+  return shapeName(it.geom);
 }
 function section(title, children) {
   const id = `sec-${++fieldId}`;
@@ -472,6 +508,15 @@ function textArea(text, value, onCommit) {
   ta.addEventListener("change", () => onCommit(ta.value.trim()));
   ta.addEventListener("keydown", (e) => e.stopPropagation());
   return h("div", { class: "field" }, label(text, id), ta);
+}
+// A dropdown with its options in labelled groups: [[group title, [[value, label], ...]], ...]
+function groupedSelectField(text, value, groups, onChange) {
+  const id = `f${++fieldId}`;
+  const sel = h("select", { id }, ...groups.map(([title, options]) => h("optgroup", { label: title },
+    ...options.map(([v, l]) => h("option", { value: v, selected: v === value ? "selected" : undefined }, l)))));
+  sel.value = value;
+  sel.addEventListener("change", () => onChange(sel.value));
+  return h("div", { class: "field" }, label(text, id), sel);
 }
 export function selectField(text, value, options, onChange, opts = {}) {
   const id = `f${++fieldId}`;

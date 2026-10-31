@@ -10,7 +10,7 @@ import subprocess
 import sys
 import threading
 
-from .. import __version__, docfile, model
+from .. import __version__, docfile, model, presets
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
 from ..fonts import config_dir, get_font_index
 from ..resolve import Resolver
@@ -64,7 +64,7 @@ class Api:
         from ..journals import JOURNALS, STANDARD_SIZES
         return {"version": __version__, "platform": sys.platform, "native": self.window is not None,
                 "prefs": self.prefs_get(), "standard_sizes": STANDARD_SIZES, "journals": JOURNALS,
-                "machine": platform.node()}
+                "machine": platform.node(), "shapes": presets.catalog()}
 
     def fonts(self) -> list[str]:
         return get_font_index().families()
@@ -197,11 +197,24 @@ class Api:
         for it in items:
             try:
                 r = resolver.resolve(it)
-                out.append({"id": it.get("id"), "svg": fragment(r, it.get("id", "x")), "bbox": r.bbox,
-                            "autofit_frame": r.autofit_frame, "warnings": r.warnings})
+                res = {"id": it.get("id"), "svg": fragment(r, it.get("id", "x")), "bbox": r.bbox,
+                       "autofit_frame": r.autofit_frame, "warnings": r.warnings}
+                if it.get("type") == "shape" and not it.get("textbox") and presets.is_preset(it.get("geom", "")):
+                    # Where the shape's adjust handles sit, in frame coordinates
+                    res["handles"] = presets.handles(it["geom"], it["frame"][2], it["frame"][3], it.get("adj"))
+                out.append(res)
             except Exception as exc:
                 out.append({"id": it.get("id"), "svg": "", "bbox": None, "warnings": [str(exc)]})
         return out
+
+    def drag_handle(self, item: dict, index: int, point: list[float]) -> dict:
+        """Adjust values that put a shape's handle `index` nearest a frame point."""
+        return presets.drag_handle(item["geom"], item["frame"][2], item["frame"][3], item.get("adj"),
+                                   int(index), float(point[0]), float(point[1]))
+
+    def clamp_adjust(self, item: dict, name: str, value: float) -> float:
+        return presets.clamp_adjust(item["geom"], item["frame"][2], item["frame"][3], item.get("adj"),
+                                    name, float(value))
 
     def shape_to_curve(self, assets: dict, item: dict) -> dict:
         from ..resolve import shape_to_curve

@@ -62,6 +62,19 @@ pre-export check says so.
   (Genetics, G3, Genome Research, Heredity, MBE), they were measured from a published 2025
   open-access article, as Matthew chose; the app's note says so. On journal pages "Fit to
   content" keeps the column width. Data and sources: `journals.py`.
+- **Shapes (2026-10-31):** a Shapes menu on the toolbar (S) with PowerPoint's rectangles,
+  basic shapes, block arrows, stars, brackets and braces, and equation symbols (88 in all),
+  as a grid of icons in groups, usable from the keyboard (arrows, type-ahead, Enter). A click
+  or Enter with any drawing tool places a 2 cm shape, so no pointer is needed. Shapes keep
+  PowerPoint's yellow adjust handles; the properties panel names each adjustment (Inner
+  radius, Shaft width, Head length...). The existing toolbar buttons stay.
+- **Corner rounding:** every shape with corners between straight edges (triangles,
+  polygons, stars, block arrows, freeforms) has Corner rounding 0-100%: one radius for all
+  corners, 100% being the largest that fits (a triangle becomes its inscribed circle, a
+  rectangle a stadium). Corners next to curves are left alone.
+- **Rounded arrowheads:** each triangle, stealth, open or diamond head has its own rounding
+  0-100% on the same scale. A pointed head slides forward so its rounded tip still ends on
+  the line's end point, and the line's end moves with it, kept hidden inside the head.
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.
@@ -78,7 +91,9 @@ figassemble/
   model.py        document JSON: defaults, validation, ids
   docfile.py      .figasm container (zip: document.json + embedded assets)
   assets.py       linked/embedded files, sibling variants, intrinsic sizes, change detection
-  geometry.py     matrices, paths, DrawingML-compatible preset shapes, arrowheads, dashes
+  geometry.py     matrices, paths, corner rounding, arrowheads, dashes
+  presets.py      PowerPoint's 187 preset shapes from their formulas; handles; the Shapes menu
+  data/           presets.json (from the standard's presetShapeDefinitions.xml)
   fonts.py        font discovery and fallback; metrics
   textlayout.py   paragraphs/runs -> positioned glyph runs (PowerPoint-compatible)
   resolve.py      items -> drawing primitives in page space (shared by every writer and the UI)
@@ -102,3 +117,12 @@ figassemble/
 - **Shapes follow DrawingML** (PowerPoint's model): preset names, adjust values, line
   ends, dash presets and text-box insets, so imported slides render the same and the
   behaviour is familiar.
+- **Preset shapes come from PowerPoint's own definitions.** The Office Open XML standard
+  (ECMA-376 Part 1) publishes the formulas of all 187 presets; `tools/build_presets.py`
+  turns them into `data/presets.json`, and `presets.py` evaluates them in points for each
+  frame: paths, the text area, darker/lighter faces (cubes, cylinders) and handle positions.
+  Every preset in a .pptx imports as itself (Matthew's decks use braces, block arrows,
+  equals signs...). Items store adjust values as fractions or, for angles, degrees.
+- **Adjust handles** are solved numerically: the engine searches each handle's range for
+  the adjust value that puts it nearest the pointer (and polishes two-value handles with
+  Newton steps), so every preset's handles work without per-shape code.

@@ -5,19 +5,25 @@ import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, fmt, frameMatrix, h, hitItem, invert, itemBBox,
-  itemCorners, itemsBBox, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s, svgMatrix, translate, uid,
+  itemCorners, itemsBBox, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s, shapeCatalog, svgMatrix,
+  translate, uid,
 } from "./util.js";
 
 const HANDLE = 8;             // handle size, CSS px
 const SNAP_PX = 6;            // snapping distance, CSS px
 const ROT_OFFSET = 24;        // rotation handle distance above the frame, CSS px
 const SVG_PREVIEW_LIMIT = 8e6; // bigger SVGs preview as rendered PDFs for speed
+const DEFAULT_SIZE = (72 / 2.54) * 2;   // a click (or Enter) with a drawing tool places a 2 cm object
+// The drawing tools that make preset shapes, and which preset each draws
+const TOOL_GEOMS = { rect: "rect", roundrect: "roundRect", ellipse: "ellipse", triangle: "triangle", arc: "arc",
+  bracket: "rightBracket" };
 
 export const canvas = {
   zoom: 1,
   panX: 48,
   panY: 48,
   tool: "select",
+  shapeGeom: null,           // the preset the Shapes menu's tool draws
   els: new Map(),            // item id -> {g, key, geomKey, origin}
   pending: new Map(),        // item id -> item awaiting the engine
   op: null,
@@ -233,6 +239,7 @@ export const canvas = {
       e.geomKey = gk;
       e.origin = origin;
       e.bbox = r.bbox;
+      e.handles = r.handles || null;
       if (r.autofit_frame) autofit.push([r.id, r.autofit_frame]);
     });
     if (autofit.length) {
@@ -293,10 +300,14 @@ export const canvas = {
     const m = frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v);
     const [, , w, h] = it.frame;
     const pts = { nw: [0, 0], n: [w / 2, 0], ne: [w, 0], e: [w, h / 2], se: [w, h], s: [w / 2, h], sw: [0, h], w: [0, h / 2] };
-    const out = Object.entries(pts).map(([dir, [x, y]]) => {
+    // The shape's own adjust handles (PowerPoint's yellow ones) come first, so they win where
+    // they sit on top of a resize handle
+    const adjust = it.type === "shape" ? (this.els.get(it.id)?.handles || []).map(([x, y], index) => ({
+      kind: "adjust", index, at: this.toScreen(...apply(m, x, y)) })) : [];
+    const out = [...adjust, ...Object.entries(pts).map(([dir, [x, y]]) => {
       const [px, py] = apply(m, x, y);
       return { kind: "resize", dir, at: this.toScreen(px, py) };
-    });
+    })];
     // Rotation handle: above the top edge along the frame's own "up"
     const r = rotate(it.rot || 0);
     const [ux, uy] = apply(r, 0, -1);
@@ -319,6 +330,9 @@ export const canvas = {
         o.append(s("circle", { class: "handle point", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 + 1 }));
       } else if (hd.kind === "mid") {
         o.append(s("circle", { class: "handle mid", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 - 0.5 }));
+      } else if (hd.kind === "adjust") {
+        const [x, y] = hd.at, d = HANDLE / 2 + 1;
+        o.append(s("path", { class: "handle adjust", d: `M${x} ${y - d}L${x + d} ${y}L${x} ${y + d}L${x - d} ${y}Z` }));
       } else {
         o.append(s("rect", { class: `handle ${hd.kind}`, x: hd.at[0] - HANDLE / 2, y: hd.at[1] - HANDLE / 2,
           width: HANDLE, height: HANDLE }));
@@ -393,6 +407,7 @@ export const canvas = {
     if (op.type === "resize") return this.resizeTo(p, e);
     if (op.type === "rotate") return this.rotateTo(p, e);
     if (op.type === "end") return this.endTo(p, e);
+    if (op.type === "adjust") return this.adjustTo(p);
     if (op.type === "draw") return this.drawTo(p, e);
     if (op.type === "crop") return this.cropTo(p, e);
     if (op.type === "cropmove") return this.cropMoveTo(p, e);
@@ -417,6 +432,14 @@ export const canvas = {
       }
       return this.drawOverlay();
     }
+    if (op.type === "adjust") {
+      // The last pointer position may still be with the engine; finish when it answers
+      op.done = true;
+      op.cancelled = cancelled;
+      if (cancelled) store.cancelLive();
+      else if (!op.busy) this.finishAdjust(op);
+      return;
+    }
     if (cancelled) { store.cancelLive(); return; }
     if (op.type === "draw") return this.finishDraw(op);
     if (op.moved) store.endLive(op.label);
@@ -430,7 +453,7 @@ export const canvas = {
     else if (this.tool === "select") {
       const hd = this.handleAt(pt);
       if (hd) {
-        cursor = hd.kind === "rotate" ? "grab" : hd.kind === "mid" ? "pointer"
+        cursor = hd.kind === "rotate" ? "grab" : (hd.kind === "mid" || hd.kind === "adjust") ? "pointer"
           : (hd.kind === "end" || hd.kind === "point") ? "move" : resizeCursor(hd.dir, store.selected()[0]);
       }
       else if (this.itemAt(p)) cursor = "move";
@@ -550,6 +573,7 @@ export const canvas = {
     if (hd.kind === "resize") this.op = { type: "resize", dir: hd.dir, orig, moved: false, label: "Resize",
       targets: this.snapTargets([it.id]) };
     else if (hd.kind === "rotate") this.op = { type: "rotate", orig, moved: false, label: "Rotate" };
+    else if (hd.kind === "adjust") this.op = { type: "adjust", index: hd.index, orig, moved: false, label: "Adjust shape" };
     else if (hd.kind === "end" || hd.kind === "point") this.op = { type: "end", index: hd.index, orig, moved: false,
       label: hd.kind === "end" ? "Move end" : "Move point", targets: this.snapTargets([it.id]) };
     else if (hd.kind === "mid") {
@@ -636,11 +660,42 @@ export const canvas = {
     op.moved = true;
     store.live();
   },
+  // Adjust handles: the engine works out the adjust values that bring the handle nearest the
+  // pointer (each shape's formulas differ); one request at a time, always the latest position
+  adjustTo(p) {
+    const op = this.op, o = op.orig;
+    op.target = apply(invert(frameMatrix(o.frame, o.rot || 0, o.flip_h, o.flip_v)), ...p);
+    if (!op.busy) this.sendAdjust(op);
+  },
+  async sendAdjust(op) {
+    op.busy = true;
+    while (op.target && op.target !== op.sent && !op.cancelled) {
+      const target = op.target;
+      op.sent = target;
+      const it = store.item(op.orig.id);
+      if (!it) break;
+      try {
+        const adj = await rpc("drag_handle", { geom: it.geom, frame: it.frame, adj: it.adj }, op.index, target);
+        if (op.cancelled) break;
+        it.adj = adj;
+        op.moved = true;
+        store.live();
+      } catch (err) { console.error(err); break; }
+    }
+    op.busy = false;
+    if (op.done && !op.cancelled) this.finishAdjust(op);
+  },
+  finishAdjust(op) {
+    if (op.moved) store.endLive(op.label);
+    else store.cancelLive();
+    this.drawOverlay();
+  },
 
   // Drawing tools ----------------------------------------------------------------------
 
-  setTool(tool) {
+  setTool(tool, geom = null) {
     if (this.editing) this.commitEdit();
+    if (tool === "shape" && geom) this.shapeGeom = geom;
     this.tool = tool;
     this.stage.style.cursor = tool === "select" ? "default" : "crosshair";
     if (this.onToolChange) this.onToolChange(tool);
@@ -669,18 +724,42 @@ export const canvas = {
     this.overlay.replaceChildren();
     const [ax, ay] = this.toScreen(...op.start), [bx, by] = this.toScreen(...q);
     if (["line", "arrow"].includes(op.tool)) this.overlay.append(s("line", { class: "draw-preview", x1: ax, y1: ay, x2: bx, y2: by }));
-    else this.overlay.append(s("rect", { class: "draw-preview", x: Math.min(ax, bx), y: Math.min(ay, by),
-      width: Math.abs(bx - ax), height: Math.abs(by - ay) }));
+    else {
+      const box = [Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay)];
+      this.overlay.append(s("rect", { class: "draw-preview", x: box[0], y: box[1], width: box[2], height: box[3] }));
+      // The shape's outline (its menu icon, stretched over the box) shows what is being drawn
+      const shape = shapeCatalog.shapes[this.toolGeom(op.tool)];
+      if (shape?.icon && box[2] > 2 && box[3] > 2) {
+        const [ix, iy, iw, ih] = shape.box;
+        this.overlay.append(s("path", { class: "draw-preview shape", d: shape.icon,
+          transform: `translate(${box[0]} ${box[1]}) scale(${box[2] / iw} ${box[3] / ih}) translate(${-ix} ${-iy})` }));
+      }
+    }
     for (const g of this.snapGuides) {
       const [sx, sy] = this.toScreen(g.x ?? 0, g.y ?? 0);
       this.overlay.append(s("line", { class: "snap-guide", x1: g.x !== undefined ? sx : -1e4, x2: g.x !== undefined ? sx : 1e5,
         y1: g.y !== undefined ? sy : -1e4, y2: g.y !== undefined ? sy : 1e5 }));
     }
   },
+  toolGeom(tool) { return tool === "shape" ? this.shapeGeom : TOOL_GEOMS[tool]; },
+  // Enter with a drawing tool: one object in the middle of the view, on the page
+  placeDefault() {
+    const r = this.stage.getBoundingClientRect(), page = store.page();
+    const [x, y] = this.toPage(r.width / 2, r.height / 2);
+    const c = [clamp(x, 0, page.width), clamp(y, 0, page.height)];
+    this.finishDraw({ type: "draw", tool: this.tool, start: c, cur: c, moved: false, centred: true });
+  },
   finishDraw(op) {
     const d = this.defaults || {};
     const stroke = { color: "#000000", width: d.stroke_width || 1, dash: "solid", cap: "round", join: "round", opacity: 1 };
-    const [ax, ay] = op.start, [bx, by] = op.cur;
+    let [ax, ay] = op.start, [bx, by] = op.cur;
+    if (!op.moved && !["text", "label"].includes(op.tool)) {
+      // A click (or Enter) without dragging: a 2 cm object from the click, or centred on the view
+      const half = op.centred ? DEFAULT_SIZE / 2 : 0;
+      const line = ["line", "arrow"].includes(op.tool);
+      [ax, ay] = [ax - half, line ? ay : ay - half];
+      [bx, by] = [ax + DEFAULT_SIZE, line ? ay : ay + DEFAULT_SIZE];
+    }
     const frame = [Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay)];
     let item = null;
     const tool = op.tool;
@@ -699,13 +778,12 @@ export const canvas = {
       if (!lab) setTimeout(() => this.startEdit(item.id, true), 30);
       return;
     }
-    if (!op.moved) { this.drawOverlay(); return; }
     if (tool === "line" || tool === "arrow") {
       item = { id: uid("it"), type: "line", points: [[ax, ay], [bx, by]], stroke,
         arrow_start: null, arrow_end: tool === "arrow" ? { type: "triangle", w: "med", len: "med" } : null };
     } else {
-      const geom = { rect: "rect", roundrect: "roundRect", ellipse: "ellipse", triangle: "triangle", arc: "arc",
-        bracket: "rightBracket" }[tool];
+      const geom = this.toolGeom(tool);
+      if (!geom) { this.drawOverlay(); return; }
       item = { id: uid("it"), type: "shape", geom, frame, rot: 0, flip_h: false, flip_v: false, stroke,
         fill: null, arrow_start: null, arrow_end: null };
     }

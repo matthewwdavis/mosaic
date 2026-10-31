@@ -8,10 +8,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from . import presets
 from .fonts import FontIndex
-from .geometry import (OPEN_PRESETS, DrawPath, Fill, Matrix, Path, Stroke, arrowhead, dash_array,
-                       frame_matrix, linear_gradient, preset_paths, preset_text_rect, sample_path,
-                       smooth_path)
+from .geometry import (DrawPath, Fill, Matrix, Path, Stroke, arrowhead, dash_array, frame_matrix, head_outline,
+                       line_end_inside, linear_gradient, round_shape_paths, sample_path, smooth_path)
 from .textlayout import GlyphRun, TextLayout, layout_text
 
 
@@ -141,15 +141,37 @@ def make_fill(d: dict | None) -> Fill | None:
                 even_odd=bool(d.get("even_odd", False)))
 
 
-def line_end_trim(spec: dict, width: float) -> float:
-    """How far a line is shortened under an arrowhead (calibrated against PowerPoint)."""
+# DrawingML's darker and lighter faces (a cube's sides, a cylinder's top): (keep, towards)
+_SHADES = {"darken": (0.6, 0.0), "darkenLess": (0.8, 0.0), "lighten": (0.6, 1.0), "lightenLess": (0.8, 1.0)}
+
+
+def shaded(fill: Fill, mode: str | None) -> Fill:
+    if mode not in _SHADES or fill.gradient is not None or not fill.color.startswith("#") or len(fill.color) != 7:
+        return fill
+    keep, toward = _SHADES[mode]
+    rgb = [int(fill.color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    color = "#" + "".join(f"{round((c * keep + toward * (1 - keep)) * 255):02x}" for c in rgb)
+    return Fill(color=color, opacity=fill.opacity, even_odd=fill.even_odd)
+
+
+def line_end_trim(spec: dict, width: float, cap: str = "round") -> float:
+    """How far a line is shortened under an arrowhead (calibrated against PowerPoint).
+
+    A rounded head slides forward to keep its tip on the end point, and the line's end moves
+    with it, as far back as it needs to stay hidden inside the head."""
     if not spec or spec.get("type") in (None, "none", "arrow", "oval", "diamond"):
         return 0.0
-    from .geometry import ARROW_MIN_BASE_WIDTH, ARROW_SIZE
-    length = ARROW_SIZE.get(spec.get("len", "med"), 3.0) * max(width, ARROW_MIN_BASE_WIDTH)
+    from .geometry import head_size
+    length = head_size(spec, width)[1]
     if spec.get("type") == "stealth":
-        return max(length * 0.5 - width / 2, 0.0)
-    return max(length - width, 0.0)
+        trim = max(length * 0.5 - width / 2, 0.0)
+    else:
+        trim = max(length - width, 0.0)
+    if spec.get("rounding"):
+        outline, shift = head_outline(spec, width)
+        cap_reach = width / 2 * (math.sqrt(2) if cap == "square" else 1.0)
+        trim = line_end_inside(outline, max(trim - shift, 0.0), cap_reach, length)
+    return trim
 
 
 def chord_point(path: Path, distance: float, from_end: bool):
@@ -218,7 +240,7 @@ def stroke_with_ends(path: Path, stroke: Stroke, start: dict | None, end: dict |
         else:   # path shorter than the head: point along the end tangent
             travel = tan[1] if at_end else (-tan[1][0], -tan[1][1])
             ax, q, arc = (-travel[0], -travel[1]), None, 0.0
-        plan.append((spec, at_end, tip, ax, q, arc, line_end_trim(spec, stroke.width)))
+        plan.append((spec, at_end, tip, ax, q, arc, line_end_trim(spec, stroke.width, stroke.cap)))
         for sp in arrowhead(tip, (-ax[0], -ax[1]), stroke.width, spec)[0]:
             heads.append(DrawPath(sp.path, stroke=head_stroke if sp.stroke else None,
                                   fill=head_fill if sp.fill else None, meta={"role": "line-end"}))
@@ -311,14 +333,16 @@ class Resolver:
         if geom == "custom":
             shape_paths = custom_paths(item.get("path") or {}, w, h)
         else:
-            shape_paths = preset_paths(geom, w, h, item.get("adj"))
+            shape_paths = presets.shape_paths(geom, w, h, item.get("adj"))
+        if item.get("rounding"):
+            shape_paths = round_shape_paths(shape_paths, item["rounding"])
         has_ends = bool(item.get("arrow_start") or item.get("arrow_end"))
         for sp in shape_paths:
             path = sp.path.transformed(m)
             if sp.fill and fill is not None and not path.is_empty:
-                r.prims.append(DrawPath(path, fill=fill))
+                r.prims.append(DrawPath(path, fill=shaded(fill, sp.shade)))
             if sp.stroke and stroke is not None and not path.is_empty:
-                open_path = not sp.path.is_closed() and (geom in OPEN_PRESETS or geom == "custom")
+                open_path = not sp.path.is_closed() and (presets.is_open(geom) or geom == "custom")
                 if open_path and has_ends:
                     r.prims += stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))
                 else:
@@ -327,7 +351,7 @@ class Resolver:
             r.prims = outline_prims(r.prims, item["outline"]) + r.prims
         body = item.get("text")
         if body and body.get("paragraphs"):
-            tx0, ty0, tx1, ty1 = preset_text_rect(geom, w, h, item.get("adj"))
+            tx0, ty0, tx1, ty1 = presets.text_rect(geom, w, h, item.get("adj"))
             layout = layout_text(body, tx1 - tx0, ty1 - ty0, self.fonts)
             # Like PowerPoint, text is never mirrored: a horizontal flip leaves it alone and a
             # vertical flip turns it 180 degrees

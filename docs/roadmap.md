@@ -18,10 +18,15 @@
 - [x] Accessibility, first pass: labelled controls, keyboard operation of the page and lists,
       screen-reader announcements, interface text size, light/dark/high-contrast, reduced motion
 - [x] Mac launcher app (`packaging/macos/make_app.py`)
-- [x] Editor self-test in headless Chrome and in the app's WebKit window (now 42 checks)
+- [x] Editor self-test in headless Chrome and in the app's WebKit window (now 71 checks)
 - [x] Curved arrows and lines: smooth curve through draggable points (centripetal Catmull-Rom),
       add/remove points on the page or in the panel, straight-segment mode, PowerPoint arcs
       convertible on demand ("Make editable curve")
+- [x] Outlines in a second colour around arrows and shapes; hex codes beside every colour
+- [x] Shapes menu: 88 PowerPoint shapes (rectangles, basic shapes, block arrows, stars,
+      brackets and braces, equation symbols) drawn from PowerPoint's published formulas, with
+      yellow adjust handles; all 187 presets import from .pptx as themselves
+- [x] Corner rounding for every straight-edged shape; rounded arrowheads (tip stays on the end point)
 - [ ] Matthew's first real use: feedback round (in progress)
 - [ ] Windows: test the app window on a real machine; no-command-line installer (PyInstaller via CI)
 
@@ -38,7 +43,7 @@
 
 - Freeform drawing and point editing; curved connectors
 - Rulers and draggable guides
-- Importer coverage for every figure deck (vertical text, bullets, more presets)
+- Importer coverage for every figure deck (vertical text, bullets)
 - Optional raster DPI cap / file-size targets for journal limits
 - Opening .figasm files by double-clicking them in Finder/Explorer
 - Fun name

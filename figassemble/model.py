@@ -6,10 +6,13 @@ Coordinates are points (1/72 in) on the page, origin top-left, y down. Every ite
 - picture  {asset, page_index, frame [x, y, w, h], crop [l, t, r, b] (fractions), rot,
             flip_h, flip_v, opacity, source: auto|pdf|svg|png}
 - shape    {geom (DrawingML preset name or "custom"), adj, frame, rot, flip_h, flip_v,
-            stroke, fill, arrow_start, arrow_end, path (custom), text, textbox, outline}
+            stroke, fill, arrow_start, arrow_end, path (custom), text, textbox, outline, rounding}
 - line     {points [[x, y], ...], curve: straight|smooth, stroke, arrow_start, arrow_end, outline}
 - group    {items: [...]}   children keep page coordinates
 
+adj     {name: value}: a preset's adjust values as fractions, or degrees for angles (presets.py)
+rounding 0..1: corner rounding of a shape's straight-edged corners (1 = as round as fits)
+arrow_start, arrow_end {type: triangle|stealth|arrow|oval|diamond, w, len: sm|med|lg, rounding 0..1}
 outline {color, width, opacity}: a contour of `width` points in another colour around
         everything the item draws, underneath it; its opacity applies to the contour as a whole
 

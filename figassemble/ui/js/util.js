@@ -225,10 +225,14 @@ export function describeItem(it, doc) {
   if (it.type === "group") return `Group of ${it.items.length} objects`;
   const text = itemText(it);
   if (text) return `Text "${text.slice(0, 60)}", at ${n(it.frame[0])}, ${n(it.frame[1])} ${unit}`;
-  return `${GEOM_NAMES[it.geom] || "Shape"}, ${n(it.frame[2])} by ${n(it.frame[3])} ${unit} at ${n(it.frame[0])}, ${n(it.frame[1])}`;
+  return `${shapeName(it.geom)}, ${n(it.frame[2])} by ${n(it.frame[3])} ${unit} at ${n(it.frame[0])}, ${n(it.frame[1])}`;
 }
 export const GEOM_NAMES = { rect: "Rectangle", roundRect: "Rounded rectangle", ellipse: "Ellipse", triangle: "Triangle",
   rtTriangle: "Right triangle", arc: "Arc", rightBracket: "Right bracket", leftBracket: "Left bracket", custom: "Freeform" };
+// Every preset shape the engine draws: the Shapes menu's groups and each shape's name,
+// adjustments and icon (main.js fills this in from the engine at start-up)
+export const shapeCatalog = { groups: [], shapes: {} };
+export const shapeName = (geom) => shapeCatalog.shapes[geom]?.name || GEOM_NAMES[geom] || "Shape";
 export function itemText(it) {
   return (it.text?.paragraphs || []).map((p) => (p.runs || []).map((r) => r.t).join("")).join(" ").trim();
 }
@@ -241,5 +245,5 @@ export function itemLabel(it, doc) {
   if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_end || it.arrow_start ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
   if (it.type === "group") return it.name && !/^Group \d+$/.test(it.name) ? it.name : `Group (${it.items.length})`;
   const t = itemText(it);
-  return t ? `“${t.slice(0, 40)}”` : (GEOM_NAMES[it.geom] || "Shape");
+  return t ? `“${t.slice(0, 40)}”` : shapeName(it.geom);
 }

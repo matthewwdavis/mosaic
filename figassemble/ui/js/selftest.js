@@ -138,6 +138,77 @@ export async function run(app, params) {
     const conv = store.item(arcItem.id);
     check(conv?.type === "line" && conv.curve === "smooth" && conv.points.length === 3,
       "an arc turns into an editable curve", JSON.stringify(conv?.points));
+
+    // The Shapes menu: open it from the toolbar, find the 5-point star by typing, choose it with Enter
+    const shapesBtn = document.getElementById("shapes-button");
+    const menu = document.getElementById("shape-menu");
+    const menuKey = (k) => document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+    shapesBtn.click();
+    const menuItems = menu.querySelectorAll('[role="menuitem"]');
+    check(!menu.hidden && shapesBtn.getAttribute("aria-expanded") === "true" && menuItems.length >= 80,
+      "the Shapes button opens a menu of every shape", `${menuItems.length} shapes, hidden=${menu.hidden}`);
+    check(document.activeElement?.getAttribute("role") === "menuitem", "the menu takes the keyboard focus",
+      document.activeElement?.outerHTML?.slice(0, 80));
+    menuKey("Escape");
+    check(menu.hidden && document.activeElement === shapesBtn, "Escape closes the menu and returns to its button");
+    shapesBtn.click();
+    menuKey("ArrowDown");
+    check(document.activeElement?.dataset.geom && document.activeElement.dataset.geom !== "rect",
+      "arrow keys move through the grid", document.activeElement?.dataset.geom);
+    for (const k of ["5", "-"]) menuKey(k);
+    check(document.activeElement?.dataset.geom === "star5", "typing a name jumps to that shape", document.activeElement?.dataset.geom);
+    menuKey("Enter");
+    check(menu.hidden && canvas.tool === "shape" && canvas.shapeGeom === "star5", "Enter makes it the drawing tool",
+      `${canvas.tool} ${canvas.shapeGeom}`);
+    await drag([100, 430], [160, 490], { metaKey: true, ctrlKey: true });
+    const star = store.items().find((i) => i.geom === "star5");
+    check(star && near(star.frame[2], 60, 0.6) && near(star.frame[3], 60, 0.6), "the star is drawn by dragging", JSON.stringify(star?.frame));
+    check((canvas.els.get(star?.id)?.g.querySelector("path")?.getAttribute("d") || "").split("L").length === 10,
+      "the engine draws its ten corners");
+
+    // Its yellow handle sets the inner radius, in one undo step
+    const hd = star && canvas.handlesFor(store.item(star.id)).find((x) => x.kind === "adjust");
+    check(hd, "the star has a yellow adjust handle");
+    if (hd) {
+      const hp = canvas.toPage(...hd.at);
+      await drag(hp, [hp[0], hp[1] + 8], { metaKey: true, ctrlKey: true });
+      await wait(150);
+      await settle();
+      const inner = store.item(star.id).adj?.adj;
+      check(inner > 0.05 && inner < 0.15, "dragging the handle towards the centre makes the star thinner", String(inner));
+      app.run("undo");
+      check(store.item(star.id).adj?.adj === undefined, "one undo puts the handle back", JSON.stringify(store.item(star.id).adj));
+    }
+
+    // Enter with a drawing tool places a 2 cm shape in the middle of the view, no pointer needed
+    canvas.setTool("shape", "rightArrow");
+    key("Enter");
+    await settle();
+    const centred = store.items().find((i) => i.geom === "rightArrow");
+    check(centred && near(centred.frame[2], (2 * 72) / 2.54, 0.01) && canvas.tool === "select",
+      "Enter places a 2 cm shape and goes back to selecting", JSON.stringify(centred?.frame));
+    if (centred) { store.select([centred.id]); key("Delete"); }
+
+    // Corner rounding on a triangle, and an adjustment typed beyond its range
+    canvas.setTool("triangle");
+    await drag([200, 430], [260, 490], { metaKey: true, ctrlKey: true });
+    const tri = store.items().find((i) => i.geom === "triangle");
+    await choose("Corner rounding", "30");
+    await settle();
+    const triD = canvas.els.get(tri?.id)?.g.querySelector("path")?.getAttribute("d") || "";
+    check(store.item(tri.id).rounding === 0.3 && triD.includes("C"), "Corner rounding rounds a triangle's corners",
+      `${store.item(tri.id).rounding} ${triD.slice(0, 60)}`);
+    await choose("Apex position", "150");
+    await wait(150);
+    check(store.item(tri.id).adj?.adj === 1, "an adjustment is kept inside its range", JSON.stringify(store.item(tri.id).adj));
+
+    // Rounded arrowheads
+    store.select([arrow.id]);
+    await choose("End rounding", "50");
+    await settle();
+    const headD = [...(canvas.els.get(arrow.id)?.g.querySelectorAll("path") || [])].pop()?.getAttribute("d") || "";
+    check(store.item(arrow.id).arrow_end.rounding === 0.5 && headD.includes("C"), "an arrowhead's point can be rounded",
+      `${JSON.stringify(store.item(arrow.id).arrow_end)} ${headD.slice(0, 60)}`);
     canvas.setTool("label");
     await drag([5, 5], [5, 5]);
     const label = store.items().find((i) => i.text?.paragraphs?.[0]?.runs?.[0]?.t === "a");
@@ -296,6 +367,13 @@ export async function run(app, params) {
       // Leave a curve selected so a screenshot shows its handles
       const curve = store.items().find((i) => i.type === "line" && i.curve === "smooth" && i.points.length > 2);
       if (curve) { store.select([curve.id]); canvas.setZoom(3, ...canvas.toScreen(curve.points[1][0], curve.points[1][1])); }
+    }
+    if (["star", "shapes"].includes(params.get("finalSelect"))) {
+      // Leave the star selected (its yellow handle and Shape settings showing), and the Shapes
+      // menu open for "shapes"
+      const s = store.items().find((i) => i.geom === "star5");
+      if (s) { store.select([s.id]); canvas.setZoom(4, ...canvas.toScreen(s.frame[0] + 30, s.frame[1] + 30)); }
+      if (params.get("finalSelect") === "shapes") setTimeout(() => document.getElementById("shapes-button").click(), 300);
     }
     await settle();
   } catch (err) {
