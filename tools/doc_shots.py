@@ -28,7 +28,7 @@ SCENES = {
     "window": None, "page-size": (1176, 98, 1440, 640), "placed": None, "snapping": None, "arrange": None,
     "group": (405, 140, 1065, 600),
     "labels": None, "annotated": None, "style": (1176, 98, 1440, 900), "check": (380, 120, 1060, 780),
-    "export": (380, 60, 1060, 860), "shapes": (200, 98, 760, 900), "guides": None, "result": None,
+    "export": (380, 60, 1060, 860), "shapes": (200, 98, 760, 900), "guides": None, "result": None, "themes": (468, 63, 972, 838),
 }
 # Numbered callouts on the window tour: (x, y) in window pixels, in the order the tutorial lists them
 TOUR = [(248, 22), (588, 62), (1042, 18), (78, 120), (238, 700), (304, 450), (1262, 124), (1066, 884)]

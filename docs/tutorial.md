@@ -26,7 +26,8 @@ Open FigAssemble. Here's the window with a finished figure in it:
    (align, distribute, group, order) and **View** (zoom, rulers, grid, guides).
 2. **The tab's commands**, in labelled groups.
 3. **Always in view:** **Snap** (switches snapping on and off), **Check** (looks for problems
-   before exporting), **Export**, **Settings** and **Help** (all keyboard shortcuts).
+   before exporting), **Export**, **Settings** (units, themes and more) and **Help** (all keyboard
+   shortcuts).
 4. **Pages and Objects.** A document can have several pages; Objects lists everything on the
    current page, front to back, with buttons to hide or lock each one.
 5. **Drawing tools:** Select, Text, panel Label, Line, Arrow, shapes, the **Shapes** menu of

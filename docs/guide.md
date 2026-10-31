@@ -329,14 +329,25 @@ anything that couldn't be brought across.
 
 The gear button (⌘,):
 
+- **Theme:** how the interface looks. Click a picture to switch at once:
+  - FigAssemble's own Light, Dark and High contrast;
+  - a dozen RStudio favourites: Textmate, Tomorrow, Solarized Light, Dawn, Xcode, Tomorrow Night,
+    Solarized Dark, Monokai, Dracula, Cobalt, Material and Twilight;
+  - some originals: Pistachio, Walnut, Alfalfa, Lab notebook, Blueprint, Chalkboard and Terminal.
+
+  **Match the system** (the default) follows your computer's light and dark mode, using the
+  themes you pick for **By day** and **At night**. Themes colour the interface only: the page
+  stays white, so a figure looks the way it will print. Every theme keeps text readable (WCAG AA
+  contrast).
 - **Measurements:** the unit for positions and sizes (cm by default; mm, points or inches) and for
   page sizes (mm). Font sizes and line widths are always in points.
-- **Interface:** text size, appearance (match the system, light, dark, high contrast), labels under
-  toolbar buttons, reduced motion.
+- **Interface:** text size, labels under toolbar buttons, reduced motion.
 - **Rulers, grid and guides:** what's shown, snapping, the grid's spacing and how many finer lines
   each square has.
 - **Unsaved work:** recovery copies kept from earlier sessions, with Delete all.
 - **New objects:** default text size, line width, and panel label size and case.
+
+<img src="images/themes.png" alt="The theme gallery in Settings" width="420">
 
 The version number is at the bottom. Settings are kept in a `.figassemble` folder in your home
 folder, along with recovery copies and a cache of rendered previews.
@@ -388,9 +399,9 @@ Export still work, saving what you've typed.
   right-click menu for whatever has the focus.
 - Screen readers hear what's selected, where it is, and what each action did. Pictures can carry
   a description.
-- **Settings:** interface text size, light, dark or high-contrast appearance, labels under
-  toolbar buttons, reduced motion. The system's high-contrast and reduced-motion settings are
-  followed too.
+- **Settings:** interface text size, a High contrast theme (and every other theme meets WCAG AA
+  contrast), labels under toolbar buttons, reduced motion. The system's dark mode, contrast and
+  reduced-motion settings are followed too.
 
 ## Command line
 

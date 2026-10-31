@@ -471,6 +471,40 @@ export async function run(app, params) {
       items.splice(0, items.length, ...items.filter((i) => !pastedIds.includes(i.id)));
     }, { select: [] });
 
+    // Themes: the Settings gallery applies one at once, the arrow keys choose the next, and
+    // Match the system uses the day or the night theme as the system is light or dark
+    const panelVar = () => getComputedStyle(document.documentElement).getPropertyValue("--panel").trim();
+    const themeColors = Object.fromEntries((app.info.themes || []).map((t) => [t.id, t.colors]));
+    const themeTile = (id) => document.querySelector(`.theme-tile[data-theme-id="${id}"]`);
+    app.run("preferences");
+    await until(() => themeTile("dracula"));
+    check(document.querySelectorAll(".theme-tile").length === (app.info.themes || []).length + 1,
+      "the gallery shows every theme, and Match the system");
+    themeTile("dracula")?.click();
+    await until(() => panelVar() === themeColors.dracula?.panel, 4000);
+    check(panelVar() === themeColors.dracula?.panel && themeTile("dracula")?.getAttribute("aria-checked") === "true",
+      "choosing Dracula in the gallery applies it at once", panelVar());
+    themeTile("dracula")?.focus();
+    themeTile("dracula")?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+    await until(() => panelVar() === themeColors.cobalt?.panel, 4000);
+    check(app.prefs.theme === "cobalt" && document.activeElement === themeTile("cobalt"), "the arrow keys choose the next theme",
+      app.prefs.theme);
+    themeTile("system")?.click();
+    await until(() => !document.querySelector(".theme-daynight")?.hidden);
+    for (const [sel, id] of [["pref-theme-day", "pistachio"], ["pref-theme-night", "walnut"]]) {
+      const el = document.getElementById(sel);
+      el.value = id;
+      el.dispatchEvent(new Event("change"));
+      await until(() => app.prefs[sel === "pref-theme-day" ? "theme_day" : "theme_night"] === id);
+    }
+    const night = matchMedia("(prefers-color-scheme: dark)").matches;
+    await until(() => panelVar() === themeColors[night ? "walnut" : "pistachio"]?.panel, 4000);
+    check(panelVar() === themeColors[night ? "walnut" : "pistachio"]?.panel,
+      `Match the system uses the ${night ? "night" : "day"} theme here`, panelVar());
+    await app.savePrefs({ theme: "system", theme_day: "light", theme_night: "dark" });
+    await until(() => panelVar() === themeColors[night ? "dark" : "light"]?.panel, 4000);
+    for (const dlg of document.querySelectorAll("dialog[open]")) dlg.close();
+
     // Outline: a contour in a second colour around the shape, with its own transparency
     store.select([rect.id]);
     fieldByLabel("Outline around it")?.click();

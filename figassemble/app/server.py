@@ -66,7 +66,12 @@ class Handler(BaseHTTPRequestHandler):
             if path.endswith(".js"):
                 ctype = "text/javascript"
             with open(path, "rb") as fh:
-                return self._send(200, fh.read(), ctype)
+                body = fh.read()
+            if path == os.path.join(UI_DIR, "index.html"):
+                # The chosen theme's colours, there from the first paint (no flash of another theme)
+                body = body.replace(b'<style id="theme-vars"></style>',
+                                    f'<style id="theme-vars">{self.server.api.theme_css()}</style>'.encode("utf-8"))
+            return self._send(200, body, ctype)
         if rest.startswith("asset/"):
             return self._asset(rest[6:], parse_qs(url.query))
         self._send(404, b"not found", "text/plain")

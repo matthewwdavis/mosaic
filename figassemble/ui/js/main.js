@@ -961,12 +961,33 @@ function applyPrefs(p) {
   const root = document.documentElement;
   root.style.setProperty("--ui-scale", p.ui_scale || 1);
   root.dataset.theme = p.theme || "system";
+  applyTheme(p);
   document.body.classList.toggle("no-tool-labels", p.show_tool_labels === false);
   document.body.classList.toggle("reduce-motion", !!p.reduced_motion);
   canvas.defaults = p;
   if (canvas.stage) canvas.setRulers(p.show_rulers !== false);
   document.dispatchEvent(new CustomEvent("fa-prefs", { detail: p }));
 }
+
+// The theme's colours: written into the page by the server at load, swapped here when Settings
+// changes the theme (or its day and night themes)
+let themeKey = null;
+function applyTheme(p) {
+  const key = [p.theme || "system", p.theme_day || "light", p.theme_night || "dark"];
+  if (key.join("|") === themeKey) return;
+  const first = themeKey === null;
+  themeKey = key.join("|");
+  if (first) return;
+  rpc("theme_css", ...key).then((css) => {
+    if (key.join("|") !== themeKey) return;
+    document.getElementById("theme-vars").textContent = css;
+    document.dispatchEvent(new CustomEvent("fa-prefs", { detail: app.prefs }));   // the rulers redraw in it
+  }).catch(() => {});
+}
+// The system switching between light and dark: the rulers (drawn, not styled) follow
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  document.dispatchEvent(new CustomEvent("fa-prefs", { detail: app.prefs }));
+});
 
 // Start-up ------------------------------------------------------------------------------------
 

@@ -5,7 +5,7 @@ import { canvas } from "./canvas.js";
 import { alignToField, button, gapField, numField, selectField } from "./inspector.js";
 import { store } from "./store.js";
 import { contextMenu } from "./contextmenu.js";
-import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, shapeName, toUnit } from "./util.js";
+import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, s, shapeName, toUnit } from "./util.js";
 
 // 24 x 24 stroke icons
 const ICONS = {
@@ -673,10 +673,9 @@ export const panels = {
       h("fieldset", {}, h("legend", {}, "Measurements"),
         selectField("Positions and sizes in", p.units || "cm", unitOpts, set("units")),
         selectField("Page sizes in", p.page_units || "mm", unitOpts, set("page_units"))),
+      h("fieldset", {}, h("legend", {}, "Theme"), this.themeGallery()),
       h("fieldset", {}, h("legend", {}, "Interface"),
         h("div", { class: "field" }, h("label", { for: "pref-scale" }, "Interface text size"), scale),
-        selectField("Appearance", p.theme || "system", [["system", "Match the system"], ["light", "Light"], ["dark", "Dark"],
-          ["contrast", "High contrast"]], set("theme")),
         chk("show_tool_labels", "Show labels under toolbar buttons"),
         chk("reduced_motion", "Reduce motion")),
       h("fieldset", {}, h("legend", {}, "Rulers, grid and guides"),
@@ -701,6 +700,88 @@ export const panels = {
           (v) => this.app.savePrefs({ panel_label: { ...label, case: v } }))),
       h("p", { class: "hint version" }, `FigAssemble ${this.app.info.version}`),
     ));
+  },
+
+  // Themes as preview tiles in groups; choosing one applies it at once. "Match the system"
+  // switches between a day theme and a night theme. The page stays white in every theme
+  themeGallery() {
+    const themes = this.app.info.themes || [];
+    const byId = Object.fromEntries(themes.map((t) => [t.id, t]));
+    const groups = { FigAssemble: "FigAssemble", RStudio: "RStudio favourites", Crops: "Crops", Science: "Science" };
+    const tiles = [];
+    const preview = (c, x = 0, w = 72) => [
+      s("rect", { x, width: w, height: 44, fill: c.stage }),
+      s("rect", { x, width: w, height: 9, fill: c.panel }),
+      s("rect", { x: x + w - 18, y: 2.5, width: 14, height: 4, rx: 2, fill: c.accent }),
+      s("rect", { x, y: 9, width: Math.min(14, w), height: 35, fill: c.panel }),
+      s("rect", { x: x + 3, y: 13, width: Math.min(8, w - 3), height: 2, fill: c.text }),
+      s("rect", { x: x + 3, y: 18, width: Math.min(6, w - 3), height: 2, fill: c.muted }),
+      s("rect", { x: x + 3, y: 23, width: Math.min(8, w - 3), height: 2, fill: c.text }),
+    ];
+    const page = (c) => [s("rect", { x: 24, y: 14, width: 34, height: 24, fill: "#ffffff" }),
+      s("rect", { x: 28, y: 19, width: 15, height: 9, fill: "none", stroke: c.sel, "stroke-width": 1.4 })];
+    const tile = (id, name, svgParts) => {
+      const svg = s("svg", { viewBox: "0 0 72 44", "aria-hidden": "true" });
+      svg.append(...svgParts);
+      const b = h("button", { type: "button", class: "theme-tile", role: "radio", "data-theme-id": id, tabindex: -1,
+        "aria-checked": "false" }, svg, h("span", {}, name));
+      b.addEventListener("click", () => choose(id));
+      tiles.push(b);
+      return b;
+    };
+    const day = h("select", { id: "pref-theme-day" }), night = h("select", { id: "pref-theme-night" });
+    for (const [sel, key] of [[day, "theme_day"], [night, "theme_night"]]) {
+      for (const g of Object.keys(groups)) {
+        const og = h("optgroup", { label: groups[g] });
+        og.append(...themes.filter((t) => t.group === g).map((t) => h("option", { value: t.id }, t.name)));
+        sel.append(og);
+      }
+      sel.value = this.app.prefs[key] || (key === "theme_day" ? "light" : "dark");
+      sel.addEventListener("change", () => { this.app.savePrefs({ [key]: sel.value }).then(() => mark()); });
+    }
+    const dayNight = h("div", { class: "theme-daynight" },
+      h("div", { class: "field" }, h("label", { for: "pref-theme-day" }, "By day"), day),
+      h("div", { class: "field" }, h("label", { for: "pref-theme-night" }, "At night"), night));
+    const systemPreview = () => {
+      const d = byId[day.value] || byId.light, n = byId[night.value] || byId.dark;
+      return [...preview(d.colors, 0, 36), ...preview(n.colors, 36, 36), ...page(d.colors)];
+    };
+    const mark = () => {
+      const cur = this.app.prefs.theme || "system";
+      for (const b of tiles) {
+        const on = b.dataset.themeId === cur;
+        b.setAttribute("aria-checked", on ? "true" : "false");
+        b.tabIndex = on ? 0 : -1;
+      }
+      dayNight.hidden = cur !== "system";
+      const sys = tiles.find((b) => b.dataset.themeId === "system")?.querySelector("svg");
+      if (sys) sys.replaceChildren(...systemPreview());
+    };
+    const choose = (id, focus = false) => {
+      this.app.savePrefs({ theme: id }).then(() => mark());
+      if (focus) tiles.find((b) => b.dataset.themeId === id)?.focus();
+      announce(`Theme: ${id === "system" ? "match the system" : byId[id]?.name}`);
+    };
+    const gallery = h("div", { class: "theme-gallery", role: "radiogroup", "aria-label": "Theme" });
+    for (const g of Object.keys(groups)) {
+      const own = themes.filter((t) => t.group === g);
+      if (!own.length) continue;
+      const grid = h("div", { class: "theme-grid" });
+      if (g === "FigAssemble") grid.append(tile("system", "Match the system", systemPreview()));
+      grid.append(...own.map((t) => tile(t.id, t.name, [...preview(t.colors), ...page(t.colors)])));
+      gallery.append(h("h3", { class: "theme-group" }, groups[g]), grid);
+    }
+    // Arrow keys move through the themes and choose as they go (a radio group)
+    gallery.addEventListener("keydown", (e) => {
+      const i = tiles.indexOf(document.activeElement);
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (i < 0 || !step) return;
+      e.preventDefault();
+      choose(tiles[(i + step + tiles.length) % tiles.length].dataset.themeId, true);
+    });
+    mark();
+    return h("div", {}, gallery, dayNight,
+      h("p", { class: "hint" }, "Themes colour the interface only: the page stays white, so figures look as they'll print."));
   },
 
   // Copies of unsaved documents from earlier sessions, kept to offer back after a crash

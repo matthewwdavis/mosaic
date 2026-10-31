@@ -11,7 +11,7 @@ import sys
 import threading
 import zipfile
 
-from .. import __version__, connect, docfile, model, presets
+from .. import __version__, connect, docfile, model, presets, themes
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
 from ..fonts import config_dir, get_font_index
 from ..resolve import Resolver
@@ -20,7 +20,9 @@ from . import clipboard
 PREFS_DEFAULTS = {
     # Positions and sizes of objects in centimetres, page sizes in millimetres; font sizes and
     # line widths are always points
-    "units": "cm", "page_units": "mm", "ui_scale": 1.0, "theme": "system", "show_tool_labels": True,
+    "units": "cm", "page_units": "mm", "ui_scale": 1.0, "show_tool_labels": True,
+    # Interface theme (themes.py): one theme, or "system" for the day and night themes by the system's mode
+    "theme": "system", "theme_day": "light", "theme_night": "dark",
     "reduced_motion": False, "snap": True, "default_dpi": 600, "default_formats": ["pdf", "png"],
     "transparent": True, "panel_label": {"size": 8.0, "bold": True, "font": "Helvetica", "case": "lower"},
     "text": {"font": "Helvetica", "size": 6.0}, "stroke_width": 1.0, "recent": [],
@@ -72,7 +74,14 @@ class Api:
         from ..journals import JOURNALS, STANDARD_SIZES
         return {"version": __version__, "platform": sys.platform, "native": self.window is not None,
                 "prefs": self.prefs_get(), "standard_sizes": STANDARD_SIZES, "journals": JOURNALS,
-                "machine": platform.node(), "shapes": presets.catalog(), "clipboard": clipboard.backend() is not None}
+                "machine": platform.node(), "shapes": presets.catalog(), "clipboard": clipboard.backend() is not None,
+                "themes": themes.catalog()}
+
+    def theme_css(self, theme: str | None = None, day: str | None = None, night: str | None = None) -> str:
+        """The interface colours for a theme (by default the one chosen in Settings)."""
+        p = self.prefs_get()
+        return themes.css(theme or p.get("theme", "system"), day or p.get("theme_day", "light"),
+                          night or p.get("theme_night", "dark"))
 
     def fonts(self) -> list[str]:
         return get_font_index().families()

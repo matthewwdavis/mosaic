@@ -23,38 +23,12 @@
   --pressed: #dbe7fa;
   --ruler-bg: #ecece8;
   --ruler-page: #ffffff;
-  --ruler-tick: #8a8a83;
-  --guide-line: #0089b8;
+  --ruler-tick: #888881;
+  --guide-line: #0086b4;
   color-scheme: light;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root[data-theme="system"] {
-    --bg: #1d1e20; --panel: #26272a; --panel-2: #2d2e31; --text: #ececea; --muted: #b4b4ae;
-    --line: #43444a; --accent: #5b9dff; --accent-text: #0b0c0e; --focus: #8fbaff; --sel: #4d97ff;
-    --guide: #ff4fb2; --warn: #ffbf66; --ok: #7fd18b; --danger: #ff8a80; --stage: #141517;
-    --hover: #34353a; --pressed: #23344f; --ruler-bg: #202124; --ruler-page: #34353a;
-    --ruler-tick: #7c7d83; --guide-line: #22a8d8; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #1d1e20; --panel: #26272a; --panel-2: #2d2e31; --text: #ececea; --muted: #b4b4ae;
-  --line: #43444a; --accent: #5b9dff; --accent-text: #0b0c0e; --focus: #8fbaff; --sel: #4d97ff;
-  --guide: #ff4fb2; --warn: #ffbf66; --ok: #7fd18b; --danger: #ff8a80; --stage: #141517;
-  --hover: #34353a; --pressed: #23344f; --ruler-bg: #202124; --ruler-page: #34353a;
-    --ruler-tick: #7c7d83; --guide-line: #22a8d8; color-scheme: dark;
-}
-/* High contrast: pure black and white, thick yellow focus */
-:root[data-theme="contrast"] {
-  --bg: #000; --panel: #000; --panel-2: #000; --text: #fff; --muted: #fff; --line: #fff;
-  --accent: #ffd400; --accent-text: #000; --focus: #ffd400; --sel: #00e5ff; --guide: #ff3dff;
-  --warn: #ffd400; --ok: #7dff8a; --danger: #ff7070; --stage: #000; --hover: #333; --pressed: #4a4100;
-  --ruler-bg: #000; --ruler-page: #2a2a2a; --ruler-tick: #fff; --guide-line: #22c4f0;
-  color-scheme: dark;
-}
-@media (prefers-contrast: more) {
-  :root[data-theme="system"] { --muted: var(--text); --line: #6e6e68; }
-}
+/* These are the Light theme's colours. The theme chosen in Settings (figassemble/themes.py) is
+   written into the page's <style id="theme-vars"> and overrides them. */
 
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -134,6 +108,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .menu-item[aria-checked="false"] .check { visibility: hidden; }
 .menu-item kbd { font-size: 0.8rem; color: var(--muted); }
 .menu-sep { height: 1px; margin: 0.3rem 0.2rem; background: var(--line); }
+/* Theme gallery (Settings): a small picture of each theme, the chosen one outlined */
+.theme-group { font-size: 0.8rem; font-weight: 650; color: var(--muted); margin: 0.7rem 0 0.3rem; }
+.theme-group:first-child { margin-top: 0.2rem; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.6rem, 1fr)); gap: 0.35rem; }
+.theme-tile { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.3rem; border: 2px solid transparent;
+  border-radius: 0.45rem; background: transparent; color: var(--text); font: inherit; font-size: 0.8rem;
+  line-height: 1.2; text-align: center; cursor: pointer; }
+.theme-tile svg { display: block; width: 100%; height: auto; border-radius: 0.25rem; border: 1px solid var(--line); }
+.theme-tile:hover { background: var(--hover); }
+.theme-tile[aria-checked="true"] { border-color: var(--sel); background: var(--pressed); }
+.theme-daynight { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.6rem; }
+.theme-daynight[hidden] { display: none; }
 /* Right-click menus: shortcuts as plain text on the right, commands that don't apply greyed */
 .context-menu { overflow-y: auto; }
 .context-menu .menu-item { padding: 0.3rem 0.5rem; }
@@ -354,6 +340,7 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   .layer-list li.selected { outline: 2px solid Highlight; }
   .shape-item:hover { outline: 1px solid Highlight; }
   .context-menu .menu-item:focus { outline: 2px solid Highlight; }
+  .theme-tile[aria-checked="true"] { outline: 3px solid Highlight; }
   .context-menu .menu-item[aria-disabled="true"] { color: GrayText; opacity: 1; }
   .guides line, .snap-gap { stroke: Highlight; }
   .grid .minor, .grid .major { stroke: GrayText; }

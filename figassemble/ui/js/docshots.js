@@ -43,7 +43,7 @@ export async function run(app, params) {
   const scene = params.get("docshot"), dir = params.get("examples"), out = params.get("out");
   app.autoConfirm = true;
   for (const d of document.querySelectorAll("dialog[open]")) d.close();
-  await app.savePrefs({ theme: "light", show_rulers: true, show_grid: false, show_guides: true, snap: true });
+  await app.savePrefs({ theme: params.get("theme") || "light", show_rulers: true, show_grid: false, show_guides: true, snap: true });
   store.setDoc(await rpc("new_document"));
   store.update("Title", (doc) => { doc.meta.title = "Tutorial figure"; });
   document.getElementById("rtab-home").click();
@@ -141,6 +141,15 @@ export async function run(app, params) {
     return finish();
   }
   if (scene === "export") { setTimeout(() => app.run("export"), 200); return finish(); }
+  if (scene === "themes") {
+    // Settings, scrolled to the theme gallery, on the default: Match the system, Light by day, Dark at night
+    await app.savePrefs({ theme: "system", theme_day: "light", theme_night: "dark" });
+    setTimeout(() => {
+      app.run("preferences");
+      setTimeout(() => document.querySelector(".theme-gallery")?.closest("fieldset")?.scrollIntoView({ block: "start" }), 100);
+    }, 200);
+    return finish();
+  }
   if (scene === "check") { setTimeout(() => app.run("preflight"), 200); return finish(); }
   if (scene === "shapes") { setTimeout(() => document.getElementById("shapes-button").click(), 200); return finish(); }
   if (scene === "guides") {
