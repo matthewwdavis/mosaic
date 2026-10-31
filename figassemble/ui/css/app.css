@@ -170,6 +170,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .handle { fill: #fff; stroke: var(--sel); stroke-width: 1.5; }
 .handle.rot { fill: var(--sel); stroke: #fff; }
 .handle.end { fill: var(--sel); stroke: #fff; }
+.handle.point { fill: var(--sel); stroke: #fff; stroke-width: 1.5; }
+.handle.mid { fill: #fff; stroke: var(--sel); stroke-width: 1.5; }
+.sel-outline.line { stroke-width: 1; stroke-dasharray: 3 2; }
+.point-row { border-left: 2px solid var(--line); padding-left: 0.5rem; margin: 0.2rem 0; }
+.btn.small { min-height: 1.6rem; padding: 0.1rem 0.45rem; font-size: 0.82rem; }
 .handle.crop { fill: #111; stroke: #fff; stroke-width: 1.5; }
 .snap-guide { stroke: var(--guide); stroke-width: 1; stroke-dasharray: 5 3; }
 .marquee { fill: rgba(10, 99, 214, 0.08); stroke: var(--sel); stroke-width: 1; stroke-dasharray: 4 3; }

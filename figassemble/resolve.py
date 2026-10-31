@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 
 from .fonts import FontIndex
 from .geometry import (OPEN_PRESETS, DrawPath, Fill, Matrix, Path, Stroke, arrowhead, dash_array,
-                       frame_matrix, linear_gradient, preset_paths, preset_text_rect)
+                       frame_matrix, linear_gradient, preset_paths, preset_text_rect, sample_path,
+                       smooth_path)
 from .textlayout import GlyphRun, TextLayout, layout_text
 
 
@@ -297,11 +298,39 @@ class Resolver:
         stroke = make_stroke(item.get("stroke"))
         if len(pts) < 2 or stroke is None:
             return r
-        path = Path().move_to(*pts[0])
-        for p in pts[1:]:
-            path.line_to(*p)
+        if item.get("curve") == "smooth" and len(pts) >= 3:
+            path = smooth_path(pts)   # passes through every point
+        else:
+            path = Path().move_to(*pts[0])
+            for p in pts[1:]:
+                path.line_to(*p)
         r.prims += stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))
         return r
+
+
+def shape_to_curve(item: dict, assets: dict | None = None) -> dict:
+    """Turn an open shape (an arc, e.g. a curved arrow from PowerPoint) into a line whose
+    points can be dragged: a smooth curve through points spread along the original."""
+    plain = dict(item, arrow_start=None, arrow_end=None)
+    r = Resolver({"assets": assets or {}}).resolve(plain)
+    strokes = [p for p in r.prims if isinstance(p, DrawPath) and p.stroke is not None]
+    if not strokes:
+        raise ValueError("this shape has no line to turn into a curve")
+    path = strokes[0].path
+    if item.get("geom") == "arc":
+        adj = item.get("adj") or {}
+        sweep = (adj.get("adj2", 0.0) - adj.get("adj1", 270.0)) % 360.0 or 360.0
+        n = 3 if sweep <= 90 else 1 + math.ceil(sweep / 60.0)
+    else:
+        bb = path.bbox()
+        n = max(3, min(12, 2 + round(math.hypot(bb[2] - bb[0], bb[3] - bb[1]) / 40.0))) if bb else 3
+    out = {"id": item.get("id"), "type": "line", "name": item.get("name", ""), "points": sample_path(path, n),
+           "curve": "smooth", "stroke": item.get("stroke"), "arrow_start": item.get("arrow_start"),
+           "arrow_end": item.get("arrow_end")}
+    for key in ("hidden", "locked", "alt"):
+        if key in item:
+            out[key] = item[key]
+    return out
 
 
 def custom_paths(spec: dict, w: float, h: float):

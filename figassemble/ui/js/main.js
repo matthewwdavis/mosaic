@@ -10,7 +10,7 @@ import { canvas, findDeep, reid, shiftItem } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { panels } from "./panels.js";
 import { store } from "./store.js";
-import { MOD, announce, clone, describeItem, isMac, itemBBox, itemsBBox, uid } from "./util.js";
+import { MOD, announce, clone, describeItem, isMac, itemBBox, itemsBBox, lineMidpoints, uid } from "./util.js";
 
 const app = {
   prefs: {},
@@ -347,6 +347,46 @@ const app = {
     store.update("Duplicate", (doc) => doc.pages[store.pageIndex].items.push(...items), { select: items.map((i) => i.id) });
     announce(`Duplicated ${items.length} object${items.length === 1 ? "" : "s"}`);
   },
+  // Curves --------------------------------------------------------------------------
+
+  addPoint() {
+    const it = store.selected()[0];
+    if (!it || it.type !== "line") return;
+    let best = 0, bestLen = -1;
+    for (let i = 0; i < it.points.length - 1; i++) {
+      const l = Math.hypot(it.points[i + 1][0] - it.points[i][0], it.points[i + 1][1] - it.points[i][1]);
+      if (l > bestLen) { bestLen = l; best = i; }
+    }
+    const at = lineMidpoints(it)[best].at;
+    store.update("Add point", (doc) => {
+      const x = findDeep(doc.pages[store.pageIndex].items, it.id);
+      x.points.splice(best + 1, 0, [at[0], at[1]]);
+      if (!x.curve) x.curve = "smooth";
+    });
+    announce(`Added point ${best + 1}; move it in the panel or drag it on the page`);
+  },
+  straighten() {
+    const it = store.selected()[0];
+    if (!it || it.type !== "line" || it.points.length < 3) return;
+    store.update("Make straight", (doc) => {
+      const x = findDeep(doc.pages[store.pageIndex].items, it.id);
+      x.points = [x.points[0], x.points[x.points.length - 1]];
+    });
+    announce("Made straight");
+  },
+  async shapeToCurve() {
+    const it = store.selected()[0];
+    if (!it || it.type !== "shape") return;
+    const assets = {};
+    for (const [id, a] of Object.entries(store.doc.assets)) assets[id] = { size_pt: a.size_pt, page_sizes: a.page_sizes };
+    const line = await rpc("shape_to_curve", assets, it);
+    store.update("Make editable curve", (doc) => {
+      const items = doc.pages[store.pageIndex].items;
+      items[items.findIndex((x) => x.id === it.id)] = line;
+    }, { select: [line.id] });
+    announce(`Now a curve through ${line.points.length} points: drag them to reshape it`);
+  },
+
   cycleSelection(back) {
     const items = store.items().filter((it) => !it.hidden);
     if (!items.length) return;
@@ -471,6 +511,9 @@ app.commands = {
   pageUp: cmd("Move page up", () => app.movePage(store.pageIndex, store.pageIndex - 1)),
   pageDown: cmd("Move page down", () => app.movePage(store.pageIndex, store.pageIndex + 1)),
   fitPage: cmd("Fit page to content", () => app.fitPage()),
+  addPoint: cmd("Add point to line", () => app.addPoint()),
+  straighten: cmd("Make line straight", () => app.straighten()),
+  shapeToCurve: cmd("Make editable curve", () => app.shapeToCurve()),
   replacePicture: cmd("Replace picture", () => app.replacePicture()),
   revealPicture: cmd("Show the picture's file", async () => {
     const it = store.selected()[0];

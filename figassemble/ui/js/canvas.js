@@ -5,7 +5,7 @@ import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, fmt, frameMatrix, h, hitItem, invert, itemBBox,
-  itemCorners, itemsBBox, mul, rotate, s, svgMatrix, translate, uid,
+  itemCorners, itemsBBox, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s, svgMatrix, translate, uid,
 } from "./util.js";
 
 const HANDLE = 8;             // handle size, CSS px
@@ -279,10 +279,17 @@ export const canvas = {
     return s("polygon", { class: cls, points: pts.map(([x, y]) => this.toScreen(x, y).join(",")).join(" ") });
   },
   handlesFor(it) {
+    if (it.locked) return [];
     if (it.type === "line") {
-      return it.points.map((p, i) => ({ kind: "end", index: i, at: this.toScreen(p[0], p[1]) }));
+      // Ends and middle points can be dragged; the hollow handle halfway along each stretch
+      // adds a point there (dragging one on a straight arrow bends it into a curve)
+      const n = it.points.length;
+      const pts = it.points.map((p, i) => ({ kind: i === 0 || i === n - 1 ? "end" : "point", index: i,
+        at: this.toScreen(p[0], p[1]) }));
+      const mids = lineMidpoints(it).map((m) => ({ kind: "mid", index: m.index, at: this.toScreen(m.at[0], m.at[1]) }));
+      return [...pts, ...mids];
     }
-    if (it.type === "group" || it.locked) return [];
+    if (it.type === "group") return [];
     const m = frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v);
     const [, , w, h] = it.frame;
     const pts = { nw: [0, 0], n: [w / 2, 0], ne: [w, 0], e: [w, h / 2], se: [w, h], s: [w / 2, h], sw: [0, h], w: [0, h / 2] };
@@ -299,10 +306,19 @@ export const canvas = {
   },
   drawHandles(it) {
     const o = this.overlay;
-    o.append(this.outline(itemCorners(it), "sel-outline"));
+    if (it.type === "line") {
+      o.append(s("polyline", { class: "sel-outline line",
+        points: lineSamples(it).map(([x, y]) => this.toScreen(x, y).join(",")).join(" ") }));
+    } else {
+      o.append(this.outline(itemCorners(it), "sel-outline"));
+    }
     for (const hd of this.handlesFor(it)) {
       if (hd.kind === "rotate") {
         o.append(s("circle", { class: "handle rot", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 + 1 }));
+      } else if (hd.kind === "point") {
+        o.append(s("circle", { class: "handle point", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 + 1 }));
+      } else if (hd.kind === "mid") {
+        o.append(s("circle", { class: "handle mid", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 - 0.5 }));
       } else {
         o.append(s("rect", { class: `handle ${hd.kind}`, x: hd.at[0] - HANDLE / 2, y: hd.at[1] - HANDLE / 2,
           width: HANDLE, height: HANDLE }));
@@ -413,7 +429,10 @@ export const canvas = {
     if (this.spaceDown) cursor = "grab";
     else if (this.tool === "select") {
       const hd = this.handleAt(pt);
-      if (hd) cursor = hd.kind === "rotate" ? "grab" : hd.kind === "end" ? "move" : resizeCursor(hd.dir, store.selected()[0]);
+      if (hd) {
+        cursor = hd.kind === "rotate" ? "grab" : hd.kind === "mid" ? "pointer"
+          : (hd.kind === "end" || hd.kind === "point") ? "move" : resizeCursor(hd.dir, store.selected()[0]);
+      }
       else if (this.itemAt(p)) cursor = "move";
     }
     this.stage.style.cursor = cursor;
@@ -430,7 +449,15 @@ export const canvas = {
     }
   },
   doubleClick(e) {
-    const p = this.toPage(...this.eventPoint(e));
+    const pt = this.eventPoint(e);
+    const p = this.toPage(...pt);
+    const sel = store.selected();
+    if (sel.length === 1 && sel[0].type === "line" && !sel[0].locked) {
+      // On a selected line: double-click a middle point to remove it, the line to add one
+      const hd = this.handleAt(pt);
+      if (hd?.kind === "point") return this.removePoint(sel[0].id, hd.index);
+      if (!hd && hitItem(sel[0], p, 4 / this.k)) return this.insertPoint(sel[0].id, p);
+    }
     const hit = this.itemAt(p);
     if (!hit) return;
     if (hit.type === "picture") this.startCrop(hit.id);
@@ -523,8 +550,35 @@ export const canvas = {
     if (hd.kind === "resize") this.op = { type: "resize", dir: hd.dir, orig, moved: false, label: "Resize",
       targets: this.snapTargets([it.id]) };
     else if (hd.kind === "rotate") this.op = { type: "rotate", orig, moved: false, label: "Rotate" };
-    else if (hd.kind === "end") this.op = { type: "end", index: hd.index, orig, moved: false, label: "Move end",
-      targets: this.snapTargets([it.id]) };
+    else if (hd.kind === "end" || hd.kind === "point") this.op = { type: "end", index: hd.index, orig, moved: false,
+      label: hd.kind === "end" ? "Move end" : "Move point", targets: this.snapTargets([it.id]) };
+    else if (hd.kind === "mid") {
+      // A new point appears where the handle was and follows the pointer; nothing is kept
+      // unless it actually moves
+      const m = lineMidpoints(it)[hd.index];
+      it.points.splice(hd.index + 1, 0, [m.at[0], m.at[1]]);
+      const bending = orig.points.length === 2 && !orig.curve;
+      if (bending) it.curve = "smooth";
+      this.op = { type: "end", index: hd.index + 1, orig, moved: false, label: bending ? "Curve arrow" : "Add point",
+        targets: this.snapTargets([it.id]) };
+    }
+  },
+  removePoint(id, index) {
+    const it = store.item(id);
+    if (!it || it.type !== "line" || index <= 0 || index >= it.points.length - 1) return;
+    store.update("Remove point", (doc) => { findDeep(doc.pages[store.pageIndex].items, id).points.splice(index, 1); });
+    announce(`Removed a point; ${it.points.length - 2} middle point${it.points.length - 2 === 1 ? "" : "s"} left`);
+  },
+  insertPoint(id, p) {
+    const it = store.item(id);
+    if (!it || it.type !== "line") return;
+    const { index } = nearestStretch(it, p);
+    store.update("Add point", (doc) => {
+      const x = findDeep(doc.pages[store.pageIndex].items, id);
+      x.points.splice(index + 1, 0, [p[0], p[1]]);
+      if (x.points.length === 3 && !x.curve) x.curve = "smooth";
+    });
+    announce("Added a point; drag it to reshape the line");
   },
   resizeTo(p, e) {
     const op = this.op, o = op.orig, it = store.selected()[0];
@@ -571,8 +625,9 @@ export const canvas = {
   endTo(p, e) {
     const op = this.op, it = store.selected()[0];
     let q = this.snapPoint(p, op.targets, e);
-    if (e.shiftKey && it.points.length === 2) {
-      const other = it.points[1 - op.index];
+    if (e.shiftKey) {
+      // Keep the stretch to the previous point at a multiple of 45 degrees
+      const other = it.points[op.index === 0 ? 1 : op.index - 1];
       const ang = Math.round(Math.atan2(q[1] - other[1], q[0] - other[0]) / (Math.PI / 4)) * (Math.PI / 4);
       const len = Math.hypot(q[0] - other[0], q[1] - other[1]);
       q = [other[0] + Math.cos(ang) * len, other[1] + Math.sin(ang) * len];

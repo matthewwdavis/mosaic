@@ -9,7 +9,8 @@ export const fromUnit = (v, unit) => v * PT_PER[unit];
 
 export function fmt(v, digits = 2) {
   if (v === null || v === undefined || Number.isNaN(v)) return "";
-  const s = Number(v).toFixed(digits).replace(/\.?0+$/, "");
+  let s = Number(v).toFixed(digits);
+  if (s.includes(".")) s = s.replace(/\.?0+$/, "");   // trailing zeros after the point only (300 stays 300)
   return s === "-0" ? "0" : s;
 }
 
@@ -78,9 +79,66 @@ export function frameMatrix(frame, rot = 0, fh = false, fv = false) {
 }
 export const svgMatrix = (m) => `matrix(${m.map((v) => +v.toFixed(6)).join(" ")})`;
 
+// Curved lines: a smooth curve through every point (centripetal Catmull-Rom as cubic
+// Beziers), the same formula the engine draws with (geometry.smooth_path)
+export const isCurved = (it) => it.type === "line" && it.curve === "smooth" && it.points.length >= 3;
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+export function smoothSegments(points, alpha = 0.5) {
+  const pts = points.filter((p, i) => i === 0 || dist(p, points[i - 1]) > 1e-9);
+  if (pts.length < 3) return pts.slice(1).map((p, i) => [pts[i], pts[i], p, p]);
+  const n = pts.length;
+  const ext = [[2 * pts[0][0] - pts[1][0], 2 * pts[0][1] - pts[1][1]], ...pts,
+    [2 * pts[n - 1][0] - pts[n - 2][0], 2 * pts[n - 1][1] - pts[n - 2][1]]];
+  const segs = [];
+  for (let i = 1; i < ext.length - 2; i++) {
+    const [p0, p1, p2, p3] = [ext[i - 1], ext[i], ext[i + 1], ext[i + 2]];
+    const d1 = dist(p0, p1) ** alpha, d2 = dist(p1, p2) ** alpha, d3 = dist(p2, p3) ** alpha;
+    const b1 = d1 < 1e-12 ? p1 : [0, 1].map((k) => (d1 * d1 * p2[k] - d2 * d2 * p0[k] + (2 * d1 * d1 + 3 * d1 * d2 + d2 * d2) * p1[k]) / (3 * d1 * (d1 + d2)));
+    const b2 = d3 < 1e-12 ? p2 : [0, 1].map((k) => (d3 * d3 * p1[k] - d2 * d2 * p3[k] + (2 * d3 * d3 + 3 * d3 * d2 + d2 * d2) * p2[k]) / (3 * d3 * (d3 + d2)));
+    segs.push([p1, b1, b2, p2]);
+  }
+  return segs;
+}
+export function bezPoint([p0, c1, c2, p3], t) {
+  const m = 1 - t, a = m * m * m, b = 3 * m * m * t, c = 3 * m * t * t, d = t * t * t;
+  return [a * p0[0] + b * c1[0] + c * c2[0] + d * p3[0], a * p0[1] + b * c1[1] + c * c2[1] + d * p3[1]];
+}
+// Points along a line (densely along curves) for hit testing and bounds
+export function lineSamples(it, per = 16) {
+  if (!isCurved(it)) return it.points.map((p) => [p[0], p[1]]);
+  const out = [it.points[0].slice()];
+  for (const seg of smoothSegments(it.points)) for (let k = 1; k <= per; k++) out.push(bezPoint(seg, k / per));
+  return out;
+}
+// The middle of each stretch between neighbouring points (on the curve, for curved lines)
+export function lineMidpoints(it) {
+  const segs = isCurved(it) ? smoothSegments(it.points) : null;
+  const out = [];
+  for (let i = 0; i < it.points.length - 1; i++) {
+    const a = it.points[i], b = it.points[i + 1];
+    const at = segs && segs.length === it.points.length - 1 ? bezPoint(segs[i], 0.5) : [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    out.push({ index: i, at });
+  }
+  return out;
+}
+// Which stretch of a line a page point is nearest (to insert a point there)
+export function nearestStretch(it, p) {
+  const segs = isCurved(it) ? smoothSegments(it.points) : null;
+  let best = { index: 0, d: Infinity };
+  for (let i = 0; i < it.points.length - 1; i++) {
+    const samples = segs && segs.length === it.points.length - 1
+      ? Array.from({ length: 17 }, (_, k) => bezPoint(segs[i], k / 16)) : [it.points[i], it.points[i + 1]];
+    for (let k = 1; k < samples.length; k++) {
+      const d = distToSegment(p, samples[k - 1], samples[k]);
+      if (d < best.d) best = { index: i, d };
+    }
+  }
+  return best;
+}
+
 // Geometry of items for selection and hit testing
 export function itemCorners(it) {
-  if (it.type === "line") return it.points.map((p) => [p[0], p[1]]);
+  if (it.type === "line") return lineSamples(it);
   if (it.type === "group") return groupBBoxCorners(it);
   const m = frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v);
   const [, , w, h] = it.frame;
@@ -123,7 +181,8 @@ export function hitItem(it, p, tol) {
   if (it.hidden) return false;
   if (it.type === "line") {
     const w = (it.stroke?.width || 1) / 2 + tol;
-    for (let i = 1; i < it.points.length; i++) if (distToSegment(p, it.points[i - 1], it.points[i]) <= w) return true;
+    const pts = lineSamples(it);
+    for (let i = 1; i < pts.length; i++) if (distToSegment(p, pts[i - 1], pts[i]) <= w) return true;
     return false;
   }
   if (it.type === "group") return it.items.some((c) => hitItem(c, p, tol));
@@ -153,7 +212,9 @@ export function describeItem(it, doc) {
   }
   if (it.type === "line") {
     const [a, b] = [it.points[0], it.points[it.points.length - 1]];
-    return `${it.arrow_end || it.arrow_start ? "Arrow" : "Line"} from ${n(a[0])}, ${n(a[1])} to ${n(b[0])}, ${n(b[1])}`;
+    const kind = `${isCurved(it) ? "Curved " : ""}${it.arrow_end || it.arrow_start ? "arrow" : "line"}`;
+    const via = it.points.length > 2 ? `, through ${it.points.length - 2} point${it.points.length === 3 ? "" : "s"}` : "";
+    return `${kind[0].toUpperCase()}${kind.slice(1)} from ${n(a[0])}, ${n(a[1])} to ${n(b[0])}, ${n(b[1])}${via}`;
   }
   if (it.type === "group") return `Group of ${it.items.length} objects`;
   const text = itemText(it);
@@ -171,7 +232,7 @@ export function itemLabel(it, doc) {
     const generic = !it.name || /^(Graphic|Picture|Image|Content Placeholder) \d+$/.test(it.name);
     return (generic ? doc.assets[it.asset]?.name : it.name) || "Picture";
   }
-  if (it.type === "line") return it.arrow_end || it.arrow_start ? "Arrow" : "Line";
+  if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_end || it.arrow_start ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
   if (it.type === "group") return it.name && !/^Group \d+$/.test(it.name) ? it.name : `Group (${it.items.length})`;
   const t = itemText(it);
   return t ? `“${t.slice(0, 40)}”` : (GEOM_NAMES[it.geom] || "Shape");

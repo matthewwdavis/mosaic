@@ -97,7 +97,9 @@ def frame_matrix(frame, rot: float = 0.0, flip_h: bool = False, flip_v: bool = F
 
 def _fmt(v: float, ndigits: int) -> str:
     """Compact number formatting: fixed precision, no trailing zeros, no '-0'."""
-    s = f"{v:.{ndigits}f}".rstrip("0").rstrip(".")
+    s = f"{v:.{ndigits}f}"
+    if "." in s:   # only zeros after the decimal point go (300 stays 300)
+        s = s.rstrip("0").rstrip(".")
     return "0" if s in ("-0", "") else s
 
 
@@ -430,6 +432,73 @@ def _bezier_param_at_length_from_end(pts, length: float, total: float) -> float:
         else:
             hi = mid
     return (lo + hi) / 2
+
+
+def smooth_path(points, alpha: float = 0.5) -> Path:
+    """A smooth curve through every point: centripetal Catmull-Rom, as cubic Beziers.
+
+    Centripetal parameterisation (alpha 0.5) keeps the curve from overshooting or looping
+    when points are unevenly spaced. The ends continue the first and last segments'
+    directions. The editor uses the same formula (ui/js/util.js) to place its handles.
+    """
+    pts = [(float(p[0]), float(p[1])) for p in points]
+    clean = [pts[0]] + [p for i, p in enumerate(pts[1:], 1) if math.dist(p, pts[i - 1]) > 1e-9]
+    path = Path().move_to(*clean[0])
+    if len(clean) < 3:
+        for p in clean[1:]:
+            path.line_to(*p)
+        return path
+    first = (2 * clean[0][0] - clean[1][0], 2 * clean[0][1] - clean[1][1])
+    last = (2 * clean[-1][0] - clean[-2][0], 2 * clean[-1][1] - clean[-2][1])
+    ext = [first] + clean + [last]
+    for i in range(1, len(ext) - 2):
+        p0, p1, p2, p3 = ext[i - 1], ext[i], ext[i + 1], ext[i + 2]
+        d1, d2, d3 = (math.dist(p0, p1) ** alpha, math.dist(p1, p2) ** alpha, math.dist(p2, p3) ** alpha)
+        if d1 < 1e-12:
+            b1 = p1
+        else:
+            b1 = tuple((d1 * d1 * p2[k] - d2 * d2 * p0[k] + (2 * d1 * d1 + 3 * d1 * d2 + d2 * d2) * p1[k])
+                       / (3 * d1 * (d1 + d2)) for k in (0, 1))
+        if d3 < 1e-12:
+            b2 = p2
+        else:
+            b2 = tuple((d3 * d3 * p1[k] - d2 * d2 * p3[k] + (2 * d3 * d3 + 3 * d3 * d2 + d2 * d2) * p2[k])
+                       / (3 * d3 * (d3 + d2)) for k in (0, 1))
+        path.curve_to(b1[0], b1[1], b2[0], b2[1], p2[0], p2[1])
+    return path
+
+
+def sample_path(path: Path, n: int) -> list[list[float]]:
+    """n points spread evenly along a path by length (first and last are its ends)."""
+    flat: list[tuple[float, float]] = []
+    cur = None
+    for s in path.segs:
+        if s[0] == "M":
+            cur = (s[1], s[2])
+            flat.append(cur)
+        elif s[0] == "L":
+            cur = (s[1], s[2])
+            flat.append(cur)
+        elif s[0] == "C":
+            bez = [cur, (s[1], s[2]), (s[3], s[4]), (s[5], s[6])]
+            flat += [_bezier_point(bez, k / 64) for k in range(1, 65)]
+            cur = (s[5], s[6])
+    if len(flat) < 2 or n < 2:
+        return [list(p) for p in flat[:n]]
+    cum = [0.0]
+    for a, b in zip(flat, flat[1:]):
+        cum.append(cum[-1] + math.dist(a, b))
+    out = []
+    j = 0
+    for k in range(n):
+        target = cum[-1] * k / (n - 1)
+        while j < len(cum) - 2 and cum[j + 1] < target:
+            j += 1
+        span = cum[j + 1] - cum[j]
+        t = (target - cum[j]) / span if span > 0 else 0.0
+        a, b = flat[j], flat[j + 1]
+        out.append([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])
+    return out
 
 
 # ---------------------------------------------------------------------------

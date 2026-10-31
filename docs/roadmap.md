@@ -18,8 +18,11 @@
 - [x] Accessibility, first pass: labelled controls, keyboard operation of the page and lists,
       screen-reader announcements, interface text size, light/dark/high-contrast, reduced motion
 - [x] Mac launcher app (`packaging/macos/make_app.py`)
-- [x] Editor self-test in headless Chrome and in the app's WebKit window (33 checks)
-- [ ] Matthew's first real use: feedback round
+- [x] Editor self-test in headless Chrome and in the app's WebKit window (now 42 checks)
+- [x] Curved arrows and lines: smooth curve through draggable points (centripetal Catmull-Rom),
+      add/remove points on the page or in the panel, straight-segment mode, PowerPoint arcs
+      convertible on demand ("Make editable curve")
+- [ ] Matthew's first real use: feedback round (in progress)
 - [ ] Windows: test the app window on a real machine; no-command-line installer (PyInstaller via CI)
 
 ## Acceptance test (test slide)

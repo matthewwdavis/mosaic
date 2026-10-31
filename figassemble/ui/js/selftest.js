@@ -4,6 +4,7 @@
 import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
 import { store } from "./store.js";
+import { lineMidpoints } from "./util.js";
 
 const results = [];
 const log = (ok, name, detail = "") => {
@@ -39,11 +40,16 @@ export async function run(app, params) {
   const files = (params.get("files") || "").split(",").filter(Boolean);
   const out = params.get("out");
   app.autoConfirm = true;
+  for (const dlg of document.querySelectorAll("dialog[open]")) dlg.close();   // e.g. a recovery offer
   try {
     store.setDoc(await rpc("new_document"));
     canvas.fit();
     await settle();
     check(store.items().length === 0, "new document is empty");
+    canvas.setZoom(1);
+    check(document.querySelector(".zoom-label")?.textContent === "100%", "zoom readout shows 100% at true size",
+      document.querySelector(".zoom-label")?.textContent);
+    canvas.fit();
 
     // Placing files keeps them linked and finds their other copies
     const placed = await rpc("add_files", files, false);
@@ -72,6 +78,40 @@ export async function run(app, params) {
     await drag([300, 380], [400, 380]);
     const arrow = store.items().find((i) => i.type === "line");
     check(arrow?.arrow_end?.type === "triangle", "arrow drawn with a head");
+
+    // Curving it: drag the hollow handle halfway along the arrow
+    store.select([arrow.id]);
+    const [ea, eb] = store.item(arrow.id).points.map((p) => p.slice());
+    const mid = [(ea[0] + eb[0]) / 2, (ea[1] + eb[1]) / 2];
+    await drag(mid, [mid[0], mid[1] - 30], { metaKey: true, ctrlKey: true });
+    let bent = store.item(arrow.id);
+    check(bent.points.length === 3 && bent.curve === "smooth" && Math.abs(bent.points[1][1] - (mid[1] - 30)) < 0.6,
+      "dragging the middle handle bends the arrow into a curve", JSON.stringify(bent.points));
+    const d = canvas.els.get(arrow.id)?.g.querySelector("path")?.getAttribute("d") || "";
+    check(d.includes("C"), "the engine draws it as a curve", d.slice(0, 60));
+    await drag(bent.points[1], [bent.points[1][0] + 10, bent.points[1][1] - 10], { metaKey: true, ctrlKey: true });
+    bent = store.item(arrow.id);
+    check(Math.abs(bent.points[1][0] - (mid[0] + 10)) < 0.6 && bent.points.length === 3, "the bend point follows the pointer");
+    const m2 = lineMidpoints(bent)[1].at;
+    await drag(m2, [m2[0] + 5, m2[1] + 20], { metaKey: true, ctrlKey: true });
+    check(store.item(arrow.id).points.length === 4, "another hollow handle adds a second point (S-curve)");
+    const rp = store.item(arrow.id).points[2];
+    const [sx, sy] = screenOf(...rp);
+    canvas.stage.dispatchEvent(new MouseEvent("dblclick", { clientX: sx, clientY: sy, bubbles: true }));
+    await settle();
+    check(store.item(arrow.id).points.length === 3, "double-clicking a point removes it");
+    await app.run("straighten");
+    check(store.item(arrow.id).points.length === 2, "Make straight removes the middle points");
+
+    // A PowerPoint-style arc becomes a curve with points
+    canvas.setTool("arc");
+    await drag([420, 300], [480, 360]);
+    const arcItem = store.items().find((i) => i.geom === "arc");
+    store.select([arcItem.id]);
+    await app.run("shapeToCurve");
+    const conv = store.item(arcItem.id);
+    check(conv?.type === "line" && conv.curve === "smooth" && conv.points.length === 3,
+      "an arc turns into an editable curve", JSON.stringify(conv?.points));
     canvas.setTool("label");
     await drag([5, 5], [5, 5]);
     const label = store.items().find((i) => i.text?.paragraphs?.[0]?.runs?.[0]?.t === "a");
@@ -102,6 +142,9 @@ export async function run(app, params) {
     app.run("undo");
 
     // Keyboard: nudge, cycle selection, duplicate, delete
+    const openDialog = document.querySelector("dialog[open]");
+    check(!openDialog && !canvas.editing, "no dialog or text editor in the way of the keyboard",
+      openDialog ? openDialog.textContent.slice(0, 200) : `editing=${!!canvas.editing}`);
     store.select([rect.id]);
     const rx = store.item(rect.id).frame[0];
     key("ArrowRight");
@@ -176,6 +219,11 @@ export async function run(app, params) {
     }
     store.select([]);
     canvas.fit();
+    if (params.get("finalSelect") === "curve") {
+      // Leave a curve selected so a screenshot shows its handles
+      const curve = store.items().find((i) => i.type === "line" && i.curve === "smooth" && i.points.length > 2);
+      if (curve) { store.select([curve.id]); canvas.setZoom(3, ...canvas.toScreen(curve.points[1][0], curve.points[1][1])); }
+    }
     await settle();
   } catch (err) {
     log(false, "self-test crashed", `${err.message} ${err.stack}`);

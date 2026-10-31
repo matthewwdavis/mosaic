@@ -46,6 +46,11 @@ activated). A no-command-line installer is planned.
 - **Draw** with Text (T), Panel label (P: adds a, b, c… in order), Line (L), Arrow (A),
   Rectangle (R), Rounded rectangle (U), Ellipse (O), Triangle, Arc and Bracket.
   Shift keeps straight lines, squares and proportions.
+- **Curve an arrow (or line):** select it and drag the hollow handle halfway along it; the
+  arrow bends into a smooth curve through that point and the head follows. Drag other hollow
+  handles to add more points (S-curves), drag points to reshape, double-click a point to
+  remove it. The properties panel lists every point's position and switches between smooth
+  curves and straight segments. Arcs imported from PowerPoint have a "Make editable curve" button.
 - **Edit** in the properties panel on the right: exact positions (points), sizes, rotation,
   line width and dashes, arrowheads, fills, fonts. Double-click text to type; double-click a
   picture to crop it.

@@ -4,7 +4,7 @@
 import { rpc } from "./api.js";
 import { canvas, findDeep, shiftItem } from "./canvas.js";
 import { store } from "./store.js";
-import { GEOM_NAMES, UNIT_LABEL, announce, fmt, fromUnit, h, itemLabel, itemsBBox, toUnit } from "./util.js";
+import { GEOM_NAMES, UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, lineSamples, toUnit } from "./util.js";
 
 const DASHES = [["solid", "Solid"], ["sysDot", "Round dot"], ["sysDash", "Short dash"], ["dash", "Dash"],
   ["dashDot", "Dash dot"], ["lgDash", "Long dash"], ["lgDashDot", "Long dash dot"], ["lgDashDotDot", "Long dash dot dot"],
@@ -60,10 +60,8 @@ export const inspector = {
     const u = this.units();
     if (key === "rot") return fmt(it.rot || 0, 2);
     if (it.frame && "xywh".includes(key)) return fmt(toUnit(it.frame["xywh".indexOf(key)], u), digits(u));
-    if (it.points && /^p\d[xy]$/.test(key)) {
-      const p = key[1] === "0" ? it.points[0] : it.points[it.points.length - 1];
-      return fmt(toUnit(p[key[2] === "x" ? 0 : 1], u), digits(u));
-    }
+    const m = it.points && /^p(\d+)([xy])$/.exec(key);
+    if (m && it.points[Number(m[1])]) return fmt(toUnit(it.points[Number(m[1])][m[2] === "x" ? 0 : 1], u), digits(u));
     return undefined;
   },
 
@@ -149,12 +147,27 @@ export const inspector = {
   arrangeSection(it) {
     const u = this.units();
     if (it.type === "line") {
-      const n = it.points.length - 1;
-      const setPt = (i, axis) => (v) => this.edit("Move end", (x) => { x.points[i === 0 ? 0 : x.points.length - 1][axis] = v; });
-      return section("Position", [
-        row(numField("Start X", it.points[0][0], u, setPt(0, 0), { bind: "p0x" }), numField("Start Y", it.points[0][1], u, setPt(0, 1), { bind: "p0y" })),
-        row(numField("End X", it.points[n][0], u, setPt(1, 0), { bind: "p1x" }), numField("End Y", it.points[n][1], u, setPt(1, 1), { bind: "p1y" })),
-        h("p", { class: "hint" }, `Length ${fmt(toUnit(Math.hypot(it.points[n][0] - it.points[0][0], it.points[n][1] - it.points[0][1]), u), 2)} ${UNIT_LABEL[u]}`),
+      const n = it.points.length;
+      const samples = lineSamples(it);
+      let length = 0;
+      for (let i = 1; i < samples.length; i++) length += Math.hypot(samples[i][0] - samples[i - 1][0], samples[i][1] - samples[i - 1][1]);
+      const rows = it.points.map((p, i) => {
+        const name = i === 0 ? "Start" : i === n - 1 ? "End" : `Point ${i}`;
+        const setPt = (axis) => (v) => this.edit("Move point", (x) => { x.points[i][axis] = v; });
+        return h("div", { class: "point-row" },
+          row(numField(`${name} X`, p[0], u, setPt(0), { bind: `p${i}x` }), numField(`${name} Y`, p[1], u, setPt(1), { bind: `p${i}y` })),
+          i > 0 && i < n - 1 ? button(`Remove ${name.toLowerCase()}`, () => canvas.removePoint(it.id, i), "Remove point", "small") : null);
+      });
+      return section("Points", [
+        radioField("Path", it.curve === "smooth" ? "smooth" : "straight",
+          [["straight", "Straight segments"], ["smooth", "Smooth curve"]],
+          (v) => this.edit(v === "smooth" ? "Curve line" : "Straight segments", (x) => { x.curve = v; })),
+        ...rows,
+        h("div", { class: "button-row" },
+          button("Add a point halfway along the longest stretch", () => this.app.run("addPoint"), "Add point"),
+          n > 2 ? button("Remove the middle points to make the line straight", () => this.app.run("straighten"), "Make straight") : null),
+        h("p", { class: "hint" }, `Length ${fmt(toUnit(length, u), 2)} ${UNIT_LABEL[u]}. On the page, drag the hollow handle `
+          + "halfway along the line to bend it; double-click a point to remove it, or the line to add one."),
       ]);
     }
     if (it.type === "group") {
@@ -253,9 +266,13 @@ export const inspector = {
       this.edit("Apex", (o) => { o.adj = { adj: Math.min(Math.max(v, 0), 100) / 100 }; }), { min: 0, max: 100, step: 1 }));
     if (it.geom === "rightBracket" || it.geom === "leftBracket") kids.push(numField("End curve", (adj.adj ?? 0.08333) * 100, "%", (v) =>
       this.edit("Bracket curve", (o) => { o.adj = { adj: Math.max(v, 0) / 100 }; }), { min: 0, max: 50, step: 1 }));
-    if (it.geom === "arc") kids.push(row(
-      numField("Start angle", adj.adj1 ?? 270, "deg", (v) => this.edit("Arc start", (o) => { o.adj = { ...(o.adj || {}), adj1: ((v % 360) + 360) % 360 }; }), { step: 1 }),
-      numField("End angle", adj.adj2 ?? 0, "deg", (v) => this.edit("Arc end", (o) => { o.adj = { ...(o.adj || {}), adj2: ((v % 360) + 360) % 360 }; }), { step: 1 })));
+    if (it.geom === "arc") {
+      kids.push(row(
+        numField("Start angle", adj.adj1 ?? 270, "deg", (v) => this.edit("Arc start", (o) => { o.adj = { ...(o.adj || {}), adj1: ((v % 360) + 360) % 360 }; }), { step: 1 }),
+        numField("End angle", adj.adj2 ?? 0, "deg", (v) => this.edit("Arc end", (o) => { o.adj = { ...(o.adj || {}), adj2: ((v % 360) + 360) % 360 }; }), { step: 1 })));
+      kids.push(button("Turn this arc into a curve with points you can drag", () => this.app.run("shapeToCurve"), "Make editable curve"));
+      kids.push(h("p", { class: "hint" }, "The curve passes through points along the arc, so its shape may shift by a fraction of a point."));
+    }
     return section("Shape", kids);
   },
   fillSection(it) {
@@ -348,7 +365,7 @@ export const inspector = {
 function digits(u) { return u === "in" ? 3 : 2; }
 function kindName(it) {
   if (it.type === "picture") return "Picture";
-  if (it.type === "line") return it.arrow_start || it.arrow_end ? "Arrow" : "Line";
+  if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_start || it.arrow_end ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
   if (it.type === "group") return "Group";
   if (it.textbox) return "Text box";
   return GEOM_NAMES[it.geom] || "Shape";

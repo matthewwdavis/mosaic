@@ -174,6 +174,10 @@ class Api:
                 out.append({"id": it.get("id"), "svg": "", "bbox": None, "warnings": [str(exc)]})
         return out
 
+    def shape_to_curve(self, assets: dict, item: dict) -> dict:
+        from ..resolve import shape_to_curve
+        return shape_to_curve(item, assets)
+
     def export(self, doc: dict, options: dict) -> dict:
         from ..export.run import export_document
         base = options["base"]

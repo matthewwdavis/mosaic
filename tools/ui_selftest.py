@@ -30,13 +30,19 @@ def find_chrome() -> str | None:
 
 
 def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int = 40000) -> dict:
-    """Returns {"lines": SELFTEST lines, "errors": other console errors, "done": bool, "failed": bool}."""
+    """Returns {"lines": SELFTEST lines, "errors": other console errors, "done": bool, "failed": bool}.
+
+    Runs with its own settings folder, so it never touches ~/.figassemble (autosaves, recent
+    files, preferences).
+    """
+    if not os.environ.get("FIGASSEMBLE_HOME"):
+        os.environ["FIGASSEMBLE_HOME"] = tempfile.mkdtemp(prefix="figassemble-selftest-")
     from figassemble.app.api import Api
     from figassemble.app.server import start_server
     os.makedirs(out, exist_ok=True)
     srv = start_server(Api())
     query = urllib.parse.urlencode({"selftest": 1, "files": ",".join(os.path.abspath(f) for f in files),
-                                    "out": os.path.abspath(out)})
+                                    "out": os.path.abspath(out), "finalSelect": "curve"})
     url = srv.url + "ui/index.html?" + query
     with tempfile.TemporaryDirectory() as profile:
         cmd = [chrome, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
