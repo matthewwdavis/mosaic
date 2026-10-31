@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "figassemble"
+version = "0.1.0"
+description = "Assemble multi-panel scientific figures without lossy format conversions"
+requires-python = ">=3.10"
+dependencies = [
+    "pikepdf",
+    "pypdfium2",
+    "pillow",
+    "lxml",
+    "fonttools",
+    "numpy",
+    "pywebview>=6",
+]
+
+[project.scripts]
+figassemble = "figassemble.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["figassemble*"]
+
+[tool.setuptools.package-data]
+figassemble = ["ui/**/*", "data/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

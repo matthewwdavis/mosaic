@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.DS_Store
+
+# Test and tool outputs
+tests/output/
+tools/output/
+
+# Per-machine command log written by Claude Code's reproducibility hook
+claude-commands.log

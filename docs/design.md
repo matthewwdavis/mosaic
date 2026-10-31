@@ -1,0 +1,94 @@
+# FigAssemble design
+
+FigAssemble is a small desktop app for assembling multi-panel scientific figures:
+place plots and images on a page of any size, add text, lines, arrows and shapes,
+and export PDF, SVG, PNG or TIFF without the format conversions that degrade
+PowerPoint figures.
+
+## Core rule: never convert a file unless the output format forces it
+
+PowerPoint rewrites inserted SVGs, wraps inserted PDFs in EMF frames, and its PDF
+export draws every picture as a ~300 dpi bitmap (some JPEG). FigAssemble keeps each
+placed file in its original form and writes it once, straight into the output:
+
+| Placed file | PDF export | SVG export | PNG / TIFF export |
+|---|---|---|---|
+| PDF | page embedded unchanged as a Form XObject (qpdf/pikepdf) | PDF -> SVG conversion, only if no SVG copy exists | rendered once from the vectors (PDFium) |
+| SVG | SVG -> PDF conversion, only if no PDF copy exists | markup copied in unchanged (IDs prefixed) | rendered from the PDF copy or converted SVG |
+| PNG / JPEG / TIFF | image data embedded losslessly (JPEG bytes passed through) | embedded as a data URI, byte-identical | resampled once to the export DPI |
+
+R notebooks save every plot as PDF + SVG + PNG under one name. FigAssemble links all
+copies of a plot ("variants") and uses the matching original for each export, so the
+normal case involves no conversion at all. When a conversion is unavoidable, the
+pre-export check says so.
+
+## Decisions (2026-10-30)
+
+- **Users and platforms:** Matthew and labmates. macOS is the primary build; everything
+  stays cross-platform (Python + web UI, no Mac-only APIs) so Windows works too.
+  Helvetica falls back to Arial (identical letter widths) where it isn't installed.
+- **Linked and embedded, both by default:** a dropped file is linked (refreshes when R
+  re-saves it) and a copy is stored inside the document, so a file sent to a labmate
+  still opens complete. Option/Alt-drop embeds without a link. Pictures can be relinked,
+  unlinked or replaced later. Drag and drop is a primary way of working.
+- **Multi-page documents**, so a figure's versions can live side by side.
+- **First-version features:** pictures (PDF, SVG, PNG, JPEG, TIFF) with non-destructive
+  cropping; text boxes (Helvetica mostly 5-8 pt; bold, italic and mixed runs; rotation);
+  lines with widths, round caps, dash/dot styles and arrowheads; rectangles, rounded
+  rectangles, ellipses, arcs, brackets, triangles and freeform paths (drawing/editing
+  freeform points comes later); groups, flips, rotation, transparency.
+- **Exports:** PDF, SVG, PNG, TIFF with a DPI setting and transparent or white
+  background. CMYK, EPS and file-size limits are available but never the default.
+- **Fonts in placed PDFs:** R's `pdf()` leaves Helvetica unembedded. PowerPoint hid this
+  by rasterising every panel. PDF export embeds missing fonts without touching the
+  drawing instructions (on by default); the pre-export check reports it.
+- **PowerPoint import:** open slides from existing figure decks as editable pages
+  (positions, crops, text, lines, shapes), pulling pictures out of the deck and relinking
+  them to the R output files where they match. Grown from the test slide outwards.
+- **Accessibility, all three meanings:** easy to learn and use (labeled tools, tooltips
+  with shortcuts, PowerPoint-like behaviour, undo for everything); disability access
+  (full keyboard control, screen-reader labels and announcements, high contrast,
+  colour-blind-safe interface, adjustable interface text size, reduced motion); easy
+  to install for labmates on Mac and Windows without the command line.
+- **Units:** positions, sizes, font sizes and line widths in points by default; page
+  sizes in millimetres. Anyone can switch.
+- **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
+  tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
+  "FigAssemble" is a working name; a fun name comes later.
+- **Acceptance test for the first version:** rebuild the last slide of
+  `Bushy_Top/Figures/Paper_Figures/genomic_instabilities_figure.pptx` (identical to slide 7
+  of `nature_submission_figures.pptx`, "figure3" in `~/Desktop/test_figure_print`) and match
+  or beat `compose_vector_figures.py`'s output (`figure3_pdf.pdf`, `figure3_svg.pdf`), using
+  PowerPoint's own export (`figure3_powerpoint.pdf`) as the layout reference.
+
+## Architecture
+
+```
+figassemble/
+  model.py        document JSON: defaults, validation, ids
+  docfile.py      .figasm container (zip: document.json + embedded assets)
+  assets.py       linked/embedded files, sibling variants, intrinsic sizes, change detection
+  geometry.py     matrices, paths, DrawingML-compatible preset shapes, arrowheads, dashes
+  fonts.py        font discovery and fallback; metrics
+  textlayout.py   paragraphs/runs -> positioned glyph runs (PowerPoint-compatible)
+  resolve.py      items -> drawing primitives in page space (shared by every writer and the UI)
+  export/         pdfwriter (+ font embedding), svgwriter, raster, conversions, preflight
+  importers/      PowerPoint (.pptx) slides -> pages; relinking media to originals
+  app/            local HTTP server + JSON-RPC, pywebview window, native drag and drop
+  ui/             HTML/CSS/JS editor (no build step, no framework)
+  cli.py          `figassemble` (GUI), `figassemble export|import-pptx|preflight`
+```
+
+- **Python is the single source of geometry and text layout.** The UI sends items to the
+  engine and draws the SVG fragments it returns, so what is on screen and what is exported
+  come from the same code. During drags the UI previews with transforms and refreshes from
+  the engine afterwards.
+- **The UI holds the document state** (JSON) and undo history; the engine is stateless
+  apart from an asset cache. Save, export and preflight send the whole document.
+- **Coordinates:** points (1/72 in), page space, origin top-left, y down. Rotation is
+  clockwise about the frame centre; flips apply before rotation (same as PowerPoint).
+- **Document file:** `.figasm`, a zip holding `document.json` (stored uncompressed, readable
+  with `unzip -p`) and `assets/<sha256>.<ext>` copies of every placed file and its variants.
+- **Shapes follow DrawingML** (PowerPoint's model): preset names, adjust values, line
+  ends, dash presets and text-box insets, so imported slides render the same and the
+  behaviour is familiar.
