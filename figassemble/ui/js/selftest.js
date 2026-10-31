@@ -594,16 +594,39 @@ export async function run(app, params) {
     await settle();
     check(store.item(rect.id).outline.opacity === 0.5 && canvas.els.get(rect.id)?.g.innerHTML.includes('opacity="0.5"'),
       "outline transparency fades the contour as one piece", JSON.stringify(store.item(rect.id).outline));
-    // Outline types: Both sides of the line goes over the fill and under the line
+    // Outline types: only the ones that look different here. A filled shape with a solid line
+    // offers Outside and Both sides of the line, which goes over the fill and under the line
+    const outlineChoices = () => [...(fieldByLabel("Outline type")?.options || [])].map((o) => o.value).join();
+    check(!fieldByLabel("Outline type"), "a solid line with no fill has no outline type to choose", outlineChoices());
     store.update("Fill for the test", (doc) => { findItem(doc, rect.id).fill = { color: "#cfe3ff", opacity: 1 }; });
+    await settle();
+    check(outlineChoices() === "outside,both", "a filled shape with a solid line offers two outline types", outlineChoices());
     await choose("Outline type", "both");
     await settle();
     const layered = [...(canvas.els.get(rect.id)?.g.querySelectorAll("path") || [])].map((p) => p.getAttribute("style") || "");
     check(store.item(rect.id).outline.type === "both" && layered.length === 3 && layered[0].includes("fill:#cfe3ff")
       && layered[1].includes("stroke:#ffffff"), "Both sides of the line draws the outline over the fill, under the line",
       layered.join(" | "));
-    await choose("Outline type", "outside");
+    // A dashed line adds the gap choices; Both sides, gaps filled outlines the line drawn whole
+    await choose("Dash", "dash");
+    await settle();
+    check(outlineChoices() === "outside,outside_gaps,both,both_filled" && fieldByLabel("Outline type").value === "both",
+      "a dashed line adds the gap choices, keeping the type chosen", outlineChoices());
+    await choose("Outline type", "both_filled");
+    await settle();
+    const gapsFilled = [...(canvas.els.get(rect.id)?.g.querySelectorAll("path") || [])];
+    const subpaths = (p) => ((p?.getAttribute("d") || "").match(/M/g) || []).length;
+    check(store.item(rect.id).outline.type === "both_filled" && gapsFilled.length === 3
+      && (gapsFilled[1].getAttribute("style") || "").includes("stroke:#ffffff") && subpaths(gapsFilled[1]) === 1 && subpaths(gapsFilled[2]) > 1,
+      "Both sides, gaps filled draws one unbroken outline between the fill and the dashes",
+      gapsFilled.map((p) => `${subpaths(p)} ${p.getAttribute("style")}`).join(" | "));
+    // With no fill only gaps empty or filled is left to choose
     store.update("Unfill", (doc) => { findItem(doc, rect.id).fill = null; });
+    await settle();
+    check(outlineChoices() === "outside,both_filled" && fieldByLabel("Outline type").value === "both_filled",
+      "a dashed line with no fill offers just gaps empty or gaps filled", outlineChoices());
+    await choose("Outline type", "outside");
+    await choose("Dash", "solid");
 
     // Gradient fills: linear, then radial from a corner; stops can be added and reversed
     store.select([rect.id]);

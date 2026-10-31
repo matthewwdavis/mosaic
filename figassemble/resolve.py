@@ -140,7 +140,9 @@ def with_outline(prims: list, spec: dict | None) -> list:
     - "both": around the line on both sides, between each fill and its line, so it shows inside
       a filled shape too, and only round the dashes of a dashed line;
     - "outside_gaps": underneath, like "outside", but leaving the gaps of a dashed line empty
-      (no band along the fill's edge).
+      (no band along the fill's edge);
+    - "both_filled": round the whole line on both sides, running on through a dashed line's
+      gaps (the line drawn whole, outlined, between the fill and the dashes).
 
     A shape with no line has only its outside to outline, whatever the type."""
     if not spec or float(spec.get("width", 1.0)) <= 0:
@@ -148,13 +150,20 @@ def with_outline(prims: list, spec: dict | None) -> list:
     kind = spec.get("type", "outside")
     body = {id(p) for p in prims if isinstance(p, DrawPath) and p.fill is not None and p.meta.get("role") == "body"}
     strokes = {id(p) for p in prims if isinstance(p, DrawPath) and p.stroke is not None}
-    if kind == "both" and body and strokes:
-        # Arrowheads' outlines underneath; each line's outline over the fill drawn before it
-        out = outline_prims([p for p in prims if id(p) not in body | strokes], spec)
-        for p in prims:
-            if id(p) in strokes:
-                out += outline_prims([p], spec)
-            out.append(p)
+    if strokes and (kind == "both_filled" or (kind == "both" and body)):
+        # Each line with its arrowheads drawn over their outline, which goes over the fill drawn
+        # before them; a line's open head comes after it, so its outline must not cut the line
+        whole = _undashed if kind == "both_filled" else (lambda p: p)
+        out, run = [], []
+        for p in prims + [None]:
+            if p is not None and id(p) not in body:
+                run.append(p)
+                continue
+            if run:
+                out += outline_prims([whole(q) if id(q) in strokes else q for q in run], spec) + run
+                run = []
+            if p is not None:
+                out.append(p)
         return out
     if kind == "outside_gaps" and any(_dashed(p) for p in prims if id(p) in strokes):
         return outline_prims([p for p in prims if id(p) not in body], spec) + prims
@@ -176,8 +185,9 @@ def make_stroke(d: dict | None) -> Stroke | None:
 
 def even_dashes(prim):
     """A dashed stroke with its dashes laid out to fit corners and ends (dashes.py), drawn
-    solid; the layout stays in meta for outlines. Square caps become flat ones on dashes
-    lengthened by half the width, which PDF and SVG draw alike even for dots."""
+    solid; the layout stays in meta for outlines, with the line as it was before dashing.
+    Square caps become flat ones on dashes lengthened by half the width, which PDF and SVG
+    draw alike even for dots."""
     s = getattr(prim, "stroke", None)
     if not isinstance(prim, DrawPath) or s is None or not s.dash or not s.even_dashes or prim.fill is not None:
         return prim
@@ -186,7 +196,14 @@ def even_dashes(prim):
         return prim
     extend = s.width / 2 if s.cap == "square" else 0.0
     stroke = replace(s, dash=None, dash_phase=0.0, cap="flat" if s.cap == "square" else s.cap)
-    return DrawPath(layout.path(extend), stroke=stroke, meta={**prim.meta, "dashes": (layout, extend)})
+    return DrawPath(layout.path(extend), stroke=stroke, meta={**prim.meta, "dashes": (layout, extend), "undashed": prim})
+
+
+def _undashed(prim) -> DrawPath:
+    """A dashed line drawn whole, for an outline that runs on through its gaps."""
+    whole = prim.meta.get("undashed", prim)
+    return DrawPath(whole.path, stroke=replace(whole.stroke, dash=None, dash_phase=0.0),
+                    meta={k: v for k, v in whole.meta.items() if k not in ("dashes", "undashed")})
 
 
 def make_fill(d: dict | None) -> Fill | None:
