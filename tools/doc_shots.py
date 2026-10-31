@@ -32,7 +32,7 @@ SCENES = {
     "swatches": (420, 40, 1020, 880), "isolation": (200, 98, 1180, 640), "cropshape": (420, 98, 1440, 640), "zoominset": (200, 300, 1180, 820), "brackets": (200, 98, 1440, 700),
 }
 # Numbered callouts on the window tour: (x, y) in window pixels, in the order the tutorial lists them
-TOUR = [(248, 22), (588, 62), (1042, 18), (78, 120), (238, 738), (304, 450), (1262, 124), (1038, 884)]
+TOUR = [(412, 22), (838, 62), (1042, 18), (78, 120), (238, 738), (304, 450), (1262, 124), (1038, 884)]
 
 
 def shoot(chrome: str, server_url: str, scene: str, tmp: str) -> str:

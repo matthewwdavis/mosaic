@@ -22,8 +22,10 @@ Open FigAssemble. Here's the window with a finished figure in it:
 
 ![The FigAssemble window, numbered](images/window-tour.png)
 
-1. **Tabs**, like PowerPoint's ribbon: **Home** (files, undo, clipboard, pages), **Arrange**
-   (align, distribute, group, order) and **View** (zoom, rulers, grid, guides).
+1. **Tabs**, like PowerPoint's ribbon: **Home** (files, undo, clipboard, pages, swatches and
+   styles), **Arrange** (align, distribute, match sizes, group, order), **Figure** (scale bars,
+   zoom insets, significance brackets), **Combine** (Pathfinder, clipping masks) and **View**
+   (zoom, rulers, grid, guides, colour vision preview).
 2. **The tab's commands**, in labelled groups.
 3. **Always in view:** **Snap** (switches snapping on and off), **Check** (looks for problems
    before exporting), **Export**, **Settings** (units, themes and more) and **Help** (all keyboard
@@ -191,9 +193,11 @@ If FigAssemble ever closes unexpectedly, it offers your unsaved work back the ne
 
 ## Where next
 
-- The **[user guide](guide.md)** covers everything else: cropping pictures, text styles, curved
-  arrows, the Shapes menu, gradient fills, outline types, area fills, guides and the grid,
-  themes, resizing the side panels, opening PowerPoint slides, and all the keyboard shortcuts.
+- The **[user guide](guide.md)** covers everything else: cropping pictures (to a shape too),
+  scale bars, zoom insets, significance brackets, swatches and text styles, copying a style,
+  curved arrows, the Shapes menu, gradient fills, outlines, area fills, combining shapes,
+  clipping masks, editing inside groups, guides and the grid, checking colours for colour-blind
+  readers, themes, opening PowerPoint slides, and all the keyboard shortcuts.
 - Try it with your own figures, and **tell us what's confusing or missing**:
   [report a problem](https://github.com/matthewwdavis/FigAssemble/issues/new?template=problem.yml)
   or [suggest an idea](https://github.com/matthewwdavis/FigAssemble/issues/new?template=idea.yml).

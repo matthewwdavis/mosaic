@@ -235,11 +235,11 @@ body.resizing-panel { cursor: col-resize; user-select: none; }
   background: var(--panel); min-height: 2rem; }
 .field.check { flex-direction: row; align-items: center; gap: 0.45rem; }
 .field.check input { width: 1.1rem; height: 1.1rem; }
-.color-row { display: flex; gap: 0.3rem; align-items: center; min-width: 0; }
-.field.color input[type=color] { flex: 0 0 2.4rem; height: 2rem; padding: 0.1rem; border: 1px solid var(--line);
+.color-row { display: flex; gap: 0.25rem; align-items: center; min-width: 0; }
+.field.color input[type=color] { flex: 0 0 1.9rem; height: 2rem; padding: 0.1rem; border: 1px solid var(--line);
   border-radius: 0.3rem; background: var(--panel); }
-.field.color input.hex { flex: 1; min-width: 0; padding: 0.3rem 0.4rem; border: 1px solid var(--line); border-radius: 0.3rem;
-  background: var(--panel); min-height: 2rem; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem;
+.field.color input.hex { flex: 1; min-width: 0; padding: 0.3rem 0.25rem; border: 1px solid var(--line); border-radius: 0.3rem;
+  background: var(--panel); min-height: 2rem; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8rem;
   text-transform: uppercase; }
 .with-unit { display: flex; align-items: center; gap: 0.25rem; }
 .with-unit input { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
@@ -382,8 +382,8 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 .chip { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 0.2rem; border: 1px solid var(--line);
   vertical-align: -0.12rem; margin-right: 0.4rem; }
 .chips .chip { width: 0.6rem; height: 0.8rem; margin: 0 1px 0 0; border-radius: 0.1rem; }
-.swatch-btn { padding: 0.15rem 0.3rem; }
-.swatch-btn svg { width: 1rem; height: 1rem; }
+.swatch-btn { padding: 0.1rem 0.2rem; flex: 0 0 auto; }
+.swatch-btn svg { width: 0.9rem; height: 0.9rem; }
 .swatch-link { font-size: 0.8rem; color: var(--muted, inherit); margin-top: 0.15rem; }
 .swatch-list { list-style: none; padding: 0; margin: 0.3rem 0; }
 .swatch-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; }
