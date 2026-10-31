@@ -17,6 +17,7 @@ import { splitters } from "./splitters.js";
 import { store } from "./store.js";
 import { applyStyle, styleOf } from "./styles.js";
 import { colourHolders, swatchById } from "./swatches.js";
+import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, setFormat } from "./textstyles.js";
 import {
   MOD, announce, clone, describeItem, display, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints, shapeCatalog, uid,
 } from "./util.js";
@@ -287,7 +288,74 @@ const app = {
   async deletePalette(name) {
     await this.savePrefs({ swatch_library: (this.prefs.swatch_library || []).filter((p) => p.name !== name) });
   },
-  // Fonts: every run in that font, on every page, in another (the Fonts dialog)
+  // Text styles (textstyles.js): named formats; text using one follows it, except where changed
+
+  async newTextStyle() {
+    const it = store.selected().find((x) => x.text?.paragraphs?.length);
+    if (!it) { announce("Select some text to make a style from"); return; }
+    const name = await panels.promptDialog("New text style", "Style name", "", "For example: Panel label, Axis note");
+    if (!name) return;
+    const style = { id: uid("ts"), name, ...formatOf(it) };
+    store.update("New text style", (doc) => {
+      doc.text_styles = [...(doc.text_styles || []), style];
+      for (const id of store.selection) {
+        const t = findDeep(doc.pages[store.pageIndex].items, id);
+        if (t?.text) applyTextStyle(t, style);
+      }
+    });
+    announce(`Made the text style ${name}`);
+  },
+  applyTextStyle(id) {
+    const style = (store.doc.text_styles || []).find((x) => x.id === id);
+    store.update(style ? "Text style" : "No text style", (doc) => {
+      for (const sid of store.selection) {
+        const t = findDeep(doc.pages[store.pageIndex].items, sid);
+        if (!t?.text) continue;
+        if (style) applyTextStyle(t, style);
+        else for (const p of t.text.paragraphs) delete p.style;
+      }
+    });
+  },
+  // The style takes this text's format; text using it follows, keeping its own changes
+  redefineTextStyle(id, item) {
+    store.update("Update text style", (doc) => {
+      const st = (doc.text_styles || []).find((x) => x.id === id);
+      if (!st) return;
+      const old = clone(st), f = formatOf(item);
+      for (const k of [...RUN_FORMAT, ...PARA_FORMAT]) setFormat(st, k, f[k]);
+      restyle(doc, old, st);
+    });
+    announce("Updated the style, and the text using it");
+  },
+  // Back to the style, everywhere in the selected text
+  clearTextChanges() {
+    store.update("Clear text changes", (doc) => {
+      for (const sid of store.selection) {
+        const t = findDeep(doc.pages[store.pageIndex].items, sid);
+        for (const p of t?.text?.paragraphs || []) {
+          const st = p.style && (doc.text_styles || []).find((x) => x.id === p.style);
+          if (st) applyToParagraph(p, st);
+        }
+      }
+    });
+  },
+  renameTextStyle(id, name) {
+    store.update("Rename text style", (doc) => { const st = (doc.text_styles || []).find((x) => x.id === id); if (st) st.name = name; });
+  },
+  // The text keeps its format; only the link goes
+  deleteTextStyle(id) {
+    store.update("Delete text style", (doc) => {
+      doc.text_styles = (doc.text_styles || []).filter((x) => x.id !== id);
+      for (const pg of doc.pages) {
+        const walk = (items) => items.forEach((it) => {
+          if (it.type === "group") walk(it.items);
+          for (const p of it.text?.paragraphs || []) if (p.style === id) delete p.style;
+        });
+        walk(pg.items);
+      }
+    });
+  },
+  // Fonts: every run (and text style) in that font, on every page, in another (the Fonts dialog)
   replaceFont(from, to) {
     let n = 0;
     const walk = (items) => {
@@ -296,7 +364,10 @@ const app = {
         for (const p of it.text?.paragraphs || []) for (const r of p.runs || []) if (r.font === from) { r.font = to; n++; }
       }
     };
-    store.update("Replace font", (doc) => doc.pages.forEach((pg) => walk(pg.items)));
+    store.update("Replace font", (doc) => {
+      doc.pages.forEach((pg) => walk(pg.items));
+      for (const st of doc.text_styles || []) if (st.font === from) st.font = to;
+    });
     announce(`Replaced ${from} with ${to}${n ? "" : " (nothing used it)"}`);
   },
   // Match sizes: the other selected objects take the key object's width (or height), keeping
@@ -968,6 +1039,7 @@ app.commands = {
   duplicate: cmd("Duplicate", () => app.duplicate(), `${M}D`, key("d"), "Duplicate"),
   fonts: cmd("Fonts in this figure: see and replace them", () => panels.fontsDialog(), null, null, "Fonts"),
   swatches: cmd("Swatches: the figure's named colours, and palettes", () => panels.swatchesDialog(), null, null, "Swatches"),
+  textStyles: cmd("Text styles: the figure's named text formats", () => panels.textStylesDialog(), null, null, "Text styles"),
   sameWidth: cmd("Same width: make the selected objects as wide as the key object (or the first selected), keeping "
     + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
   sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the first selected), keeping "

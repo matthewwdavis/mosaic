@@ -20,7 +20,7 @@ export const PALETTES = [
 ];
 
 // Every colour in the document that can be linked to a swatch: objects with a `color` (and maybe
-// a `swatch`): lines, fills and their gradient stops, outlines, and text
+// a `swatch`): lines, fills and their gradient stops, outlines, text and text styles
 export function colourHolders(doc) {
   const out = [];
   const walk = (items) => {
@@ -35,6 +35,7 @@ export function colourHolders(doc) {
     }
   };
   for (const pg of doc.pages || []) walk(pg.items);
+  for (const st of doc.text_styles || []) out.push(st);   // text styles' colours too
   return out;
 }
 

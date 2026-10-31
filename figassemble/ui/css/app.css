@@ -390,3 +390,4 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 .swatch-row input[type="text"] { flex: 1; min-width: 6rem; }
 .palettes .btn { display: inline-flex; align-items: center; gap: 0.3rem; }
 .swatch-row .hint { min-width: 4.4rem; text-align: right; }
+.style-sample { font-size: 1.1rem; min-width: 2rem; text-align: center; }

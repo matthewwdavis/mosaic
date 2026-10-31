@@ -5,6 +5,7 @@ import { canvas } from "./canvas.js";
 import { alignToField, button, colourVisionField, gapField, numField, selectField } from "./inspector.js";
 import { store } from "./store.js";
 import { PALETTES, colourHolders } from "./swatches.js";
+import { describeFormat, differs, paragraphs } from "./textstyles.js";
 import { contextMenu } from "./contextmenu.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, s, shapeName, toUnit } from "./util.js";
 
@@ -29,6 +30,7 @@ const ICONS = {
   again: "M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3",
   sameWidth: "M5 6h14M5 4v4M19 4v4M5 15h14M5 13v4M19 13v4", sameHeight: "M6 5v14M4 5h4M4 19h4M15 5v14M13 5h4M13 19h4",
   swatches: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+  textStyles: "M5 5h14M12 5v14M8 19h8M4 12h3M17 12h3",
   fonts: "M4 19l5-14h1l5 14M6 14h7M15 19l3-8h.5l3 8M16 16.5h4",
   brush: "M20 3l-7 7M11 9l4 4M10.5 10.5l3 3-3 3a3 3 0 01-4.2 0l-.3-.3a3 3 0 010-4.2zM6.6 16.6C6 18.6 4.6 20 3 20.5c2 .6 4.4.2 5.8-1.4",
   eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 110 6 3 3 0 010-6z",
@@ -201,7 +203,7 @@ export const panels = {
         group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste"), this.painterButton()),
         group("Objects", t("duplicate", "duplicate"), t("transformAgain", "again"), t("delete", "trash")),
         group("Page", t("addPage", "plus"), t("fitPage", "fit")),
-        group("Styles", t("swatches", "swatches"), t("fonts", "fonts")),
+        group("Styles", t("swatches", "swatches"), t("textStyles", "textStyles"), t("fonts", "fonts")),
       ]],
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
       ["view", "View", [
@@ -964,6 +966,49 @@ export const panels = {
     };
     render();
     this.dialog("Swatches", body);
+  },
+
+  // Text styles: rename or delete them, with what each looks like and how much text uses it
+  // (changes to a style's format come from text: "Update the style to match" on the Text tab)
+  textStylesDialog() {
+    const body = h("div", {});
+    const render = () => {
+      const all = store.doc.text_styles || [], paras = paragraphs(store.doc);
+      const rows = all.map((st) => {
+        const name = h("input", { type: "text", value: st.name, "aria-label": `${st.name}: name` });
+        name.addEventListener("change", () => { if (name.value.trim()) this.app.renameTextStyle(st.id, name.value.trim()); });
+        const using = paras.filter(([p]) => p.style === st.id), objects = new Set(using.map(([, it]) => it.id)).size;
+        const changed = using.filter(([p]) => differs(p, st)).length;
+        const sample = h("span", { class: "style-sample", style: { fontFamily: `"${st.font || "Helvetica"}"`, fontWeight: st.bold ? "700" : "400",
+          fontStyle: st.italic ? "italic" : "normal", color: st.color || "#000000" } }, "Aa");
+        return h("li", { class: "swatch-row" }, sample, name,
+          h("span", { class: "hint" }, `${describeFormat(st)}; ${objects} text object${objects === 1 ? "" : "s"}`
+            + (changed ? `, ${changed} changed` : "")),
+          button(`Delete ${st.name} (text keeps its format)`, () => { this.app.deleteTextStyle(st.id); render(); }, "Delete"));
+      });
+      body.replaceChildren(
+        all.length ? h("ul", { class: "swatch-list" }, ...rows)
+          : h("p", {}, "No text styles yet. Select some text, then New style from this text on the Text tab."),
+        h("p", { class: "hint" }, "Text using a style follows it. To change a style, format one text as you want it and click "
+          + "Update the style to match on its Text tab; text you've changed by hand keeps those changes. A style named "
+          + "Panel label is used for new panel labels."));
+    };
+    render();
+    this.dialog("Text styles", body);
+  },
+  // A question with a typed answer (null if cancelled)
+  promptDialog(title, labelText, value = "", placeholder = "") {
+    return new Promise((resolve) => {
+      const id = `prompt-${Date.now()}`;
+      const input = h("input", { type: "text", id, value, placeholder, style: { width: "100%" } });
+      const ok = h("button", { type: "button", class: "btn primary" }, "OK");
+      const dlg = this.dialog(title, h("div", {}, h("label", { for: id }, labelText), input), [ok]);
+      let answered = false;
+      ok.addEventListener("click", () => { answered = true; resolve(input.value.trim() || null); dlg.close(); });
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); ok.click(); } });
+      dlg.addEventListener("close", () => { if (!answered) resolve(null); });
+      input.focus();
+    });
   },
 
   reportDialog(title, lines) {

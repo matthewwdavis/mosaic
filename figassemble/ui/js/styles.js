@@ -2,8 +2,8 @@
 // the target can take, as with PowerPoint's Format Painter. "No line" and "no fill" are copied too.
 import { clone, shapeCatalog } from "./util.js";
 
-const RUN_KEYS = ["font", "size", "bold", "italic", "color", "underline"];
-const PARA_KEYS = ["align", "line_spacing", "space_before", "space_after"];
+const RUN_KEYS = ["font", "size", "bold", "italic", "color", "swatch", "underline"];
+const PARA_KEYS = ["align", "line_spacing", "space_before", "space_after", "style"];   // with swatch and text style links
 
 const takesEnds = (it) => it.type === "line" || it.geom === "custom" || !!shapeCatalog.shapes[it.geom]?.open;
 const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o[k] !== undefined).map((k) => [k, clone(o[k])]));

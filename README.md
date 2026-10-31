@@ -22,9 +22,9 @@ FigAssemble does the job people usually do in PowerPoint, without PowerPoint's d
   your R code saved, where they can be found, instead of PowerPoint's copies.
 - **Drawing tools like PowerPoint's, and more:** PowerPoint's shapes, arrows whose ends attach to
   objects and follow them, gradient fills, outlines, and fills for areas that lines enclose.
-- **Consistent colours and styles:** linked swatches (change one and every object using it
-  follows), colour-blind-safe palettes, a colour vision preview, and copying a style from one
-  object to others.
+- **Consistent colours and styles:** linked swatches and text styles (change one and everything
+  using it follows), colour-blind-safe palettes, a colour vision preview, and copying a style from
+  one object to others.
 
 > **Status: early version, for collaborators' feedback.** "FigAssemble" is a working name.
 > Developed and tested on a Mac; Windows should work but hasn't been tried on a real Windows

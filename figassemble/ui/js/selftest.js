@@ -808,6 +808,50 @@ export async function run(app, params) {
       JSON.stringify(store.item(rect.id).stroke));
     store.update("Black line again", (doc) => { findItem(doc, rect.id).stroke.color = "#000000"; });
 
+    // Text styles: one made from a text and given to another, which follows it except where changed
+    const styledText = (id, x, size, bold) => ({ id, type: "shape", geom: "rect", textbox: true, frame: [x, 200, 50, 10], rot: 0,
+      stroke: null, fill: null, text: { paragraphs: [{ align: "l", runs: [{ t: id, font: "Helvetica", size, bold, italic: false,
+        color: "#000000" }] }], insets: [0, 0, 0, 0], wrap: false, anchor: "t", autofit: "shape" } });
+    store.update("Texts for styles", (doc) => doc.pages[store.pageIndex].items.push(styledText("tsA", 40, 7, false), styledText("tsB", 120, 11, true)));
+    store.select(["tsA"]);
+    const making = app.newTextStyle();
+    await settle();
+    const promptDlg = [...document.querySelectorAll("dialog[open]")].pop();
+    promptDlg.querySelector("input").value = "Note";
+    [...promptDlg.querySelectorAll("button")].find((b) => b.textContent === "OK").click();
+    await making;
+    const noteStyle = (store.doc.text_styles || []).find((x) => x.name === "Note");
+    check(noteStyle && noteStyle.size === 7 && store.item("tsA").text.paragraphs[0].style === noteStyle.id,
+      "New style from this text makes a style with its format, and links the text", JSON.stringify(noteStyle));
+    store.select(["tsB"]);
+    await choose("Text style", noteStyle.id);
+    const runOfB = () => store.item("tsB").text.paragraphs[0].runs[0];
+    check(runOfB().size === 7 && !runOfB().bold && store.item("tsB").text.paragraphs[0].style === noteStyle.id,
+      "choosing a text style gives the text its format", JSON.stringify(runOfB()));
+    store.update("Bigger B", (doc) => { findItem(doc, "tsB").text.paragraphs[0].runs[0].size = 9; });
+    store.update("Bold A", (doc) => { findItem(doc, "tsA").text.paragraphs[0].runs[0].bold = true; });
+    app.redefineTextStyle(noteStyle.id, store.item("tsA"));
+    check(runOfB().bold === true && runOfB().size === 9 && (store.doc.text_styles.find((x) => x.id === noteStyle.id) || {}).bold === true,
+      "updating the style changes the text using it, keeping what was changed by hand", JSON.stringify(runOfB()));
+    store.select(["tsB"]);
+    inspector.render();
+    check(document.querySelector("#inspector").textContent.includes("This text differs from Note"),
+      "the Text tab says when text differs from its style");
+    app.clearTextChanges();
+    check(runOfB().size === 7, "Clear changes puts it back to the style", JSON.stringify(runOfB()));
+    // A style called Panel label is used for new labels
+    app.renameTextStyle(noteStyle.id, "Panel label");
+    canvas.setTool("label");
+    await drag([330, 60], [330, 60]);
+    const newLabel = store.selected()[0];
+    check(newLabel?.text?.paragraphs[0].style === noteStyle.id && newLabel.text.paragraphs[0].runs[0].size === 7,
+      "new panel labels take the style called Panel label", JSON.stringify(newLabel?.text?.paragraphs[0]));
+    app.deleteTextStyle(noteStyle.id);
+    check(!store.item("tsA").text.paragraphs[0].style && store.item("tsA").text.paragraphs[0].runs[0].bold === true,
+      "deleting a style keeps the text's format", JSON.stringify(store.item("tsA").text.paragraphs[0]));
+    store.select(["tsA", "tsB", newLabel.id]);
+    await app.run("delete");
+
     // Gradient fills: linear, then radial from a corner; stops can be added and reversed
     store.select([rect.id]);
     await choose("Fill", "linear");

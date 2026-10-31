@@ -7,6 +7,7 @@ import { icon } from "./panels.js";
 import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
 import { linked, swatchById } from "./swatches.js";
+import { differs } from "./textstyles.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, shapeCatalog,
   shapeName, toUnit,
@@ -656,7 +657,22 @@ export const inspector = {
     const setRuns = (label, fn) => this.edit(label, (o) => { if (o.text) allRuns(o).forEach(fn); });
     const fontList = h("datalist", { id: "font-list" }, ...(this.app.fonts || []).map((f) => h("option", { value: f })));
     const align = body.paragraphs[0]?.align || "l";
+    // Its text style: the one its paragraphs use, whether this text has been changed from it
+    const styles = store.doc.text_styles || [];
+    const st = styles.find((x) => body.paragraphs.some((p) => p.style === x.id));
+    const changed = st && body.paragraphs.some((p) => p.style === st.id && differs(p, st));
+    const styleKids = [selectField("Text style", st ? st.id : "", [["", "None"], ...styles.map((x) => [x.id, x.name])],
+      (v) => this.app.applyTextStyle(v))];
+    if (changed) {
+      styleKids.push(h("p", { class: "hint" }, `This text differs from ${st.name}.`), h("div", { class: "button-row" },
+        button(`Put this text back to ${st.name}`, () => this.app.clearTextChanges(), "Clear changes"),
+        button(`Change ${st.name} to look like this text, with the text using it`, () => this.app.redefineTextStyle(st.id, store.item(it.id)),
+          "Update the style to match")));
+    }
+    styleKids.push(h("div", { class: "button-row" }, button("Make a new text style from this text", () => this.app.newTextStyle(),
+      "New style from this text…")));
     return section("Text", [
+      ...styleKids,
       button("Edit text", () => canvas.startEdit(it.id), "Edit text…"),
       fontList,
       textField("Font", first.font || "Helvetica", (v) => setRuns("Font", (r) => { r.font = v; }), { list: "font-list" }),

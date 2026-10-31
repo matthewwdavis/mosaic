@@ -32,7 +32,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 
 1. **Tabs** across the top, like PowerPoint's ribbon:
    - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; Duplicate, Again, Delete; Add page,
-     Fit page; Swatches, Fonts.
+     Fit page; Swatches, Text styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group, Order (see
      [Align and distribute](#align-and-distribute)).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
@@ -139,6 +139,16 @@ For screen readers, give each picture a **Description** in the Object section.
 - **Panel label (P):** click to add the next free letter (a, b, c…) in bold 8 pt Helvetica.
   Settings changes the size and case.
 - Any shape can hold text: double-click it to type.
+- **Text styles** keep text alike: **New style from this text…** on the Text tab names the selected
+  text's format (font, size, colour, bold, italic, underline, alignment, spacing), and **Text
+  style** gives a style to other text. Text using a style follows it:
+  - To change a style, format one text the way you want and click **Update the style to match**.
+    Every text using the style changes, but anything you changed by hand in a text (say, one label
+    made bigger) stays. The Text tab says when a text differs from its style; **Clear changes**
+    puts it back.
+  - A style named **Panel label** is used for new panel labels.
+  - **Text styles** (Home tab) renames and deletes styles, with what each looks like and how much
+    text uses it. Deleting a style keeps the text's format.
 - **Fonts** (Home tab, or **Fonts…** in Check) lists every font the figure's text uses, how many
   text objects use each, and whether it's on this computer (one that isn't is drawn with a
   stand-in). Type another font beside one and click **Replace** to swap it on every page, e.g.

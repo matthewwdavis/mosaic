@@ -33,6 +33,9 @@ stroke {color, width, dash (preset or list of widths), cap: flat|round|square,
         join: round|miter|bevel, opacity, even_dashes: false for PowerPoint's dash spacing
         (absent or true: a dash on every corner and end, evenly spaced; dashes.py)}
 fill   {color, opacity}
+text_styles (on the document) [{id, name, font, size, bold, italic, underline, color, swatch, align,
+        line_spacing, space_before, space_after}]: named text formats; a paragraph using one has
+        style: id and its runs keep the format themselves (the editor updates them)
 text   {paragraphs: [{align: l|ctr|r, line_spacing {pct} | {pts}, space_before,
         space_after, end_size, runs: [{t, font, size, bold, italic, color, baseline,
         underline}]}], insets [l, t, r, b], wrap, anchor: t|ctr|b, autofit: none|shape}

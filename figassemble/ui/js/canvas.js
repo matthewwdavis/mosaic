@@ -3,6 +3,7 @@
 
 import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
+import { applyTextStyle } from "./textstyles.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, frameMatrix, h, hitItem, invert, isMac, itemBBox,
   itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s,
@@ -1322,6 +1323,9 @@ export const canvas = {
         frame: boxed ? frame : [ax, ay, 10, 10],
         text: { paragraphs: [{ align: "l", runs: [run] }], insets: boxed ? [7.2, 3.6, 7.2, 3.6] : [0, 0, 0, 0],
           wrap: boxed, anchor: "t", autofit: "shape" } };
+      // A figure with a text style called Panel label gives it to new labels
+      const labelStyle = lab && (store.doc.text_styles || []).find((x) => x.name.trim().toLowerCase() === "panel label");
+      if (labelStyle) applyTextStyle(item, labelStyle);
       store.update(lab ? "Add panel label" : "Add text", (doc) => doc.pages[store.pageIndex].items.push(item), { select: [item.id] });
       this.setTool("select");
       if (!lab) setTimeout(() => this.startEdit(item.id, true), 30);
