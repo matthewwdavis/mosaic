@@ -210,9 +210,16 @@ def with_outline(prims: list, spec: dict | None, interior: list | None = None) -
             if p is not None:
                 out.append(p)
         return out
-    if kind == "outside_gaps" and dashed:
-        return outline_prims([p for p in prims if id(p) not in body], spec) + prims
-    return outline_prims(prims, spec) + prims
+    parts = [p for p in prims if id(p) not in body] if kind == "outside_gaps" and dashed else prims
+    if body and interior and any(_see_through(p.fill) for p in prims if id(p) in body):
+        # A fill that can be seen through would show the outline underneath it: keep it off
+        # the fill's area (an opaque fill hides it already, and is drawn as it always was)
+        return _faded(_contours(parts, spec), spec, _outside_clip(interior, prims, spec)) + prims
+    return outline_prims(parts, spec) + prims
+
+
+def _see_through(fill) -> bool:
+    return fill.opacity < 1.0 or (fill.gradient is not None and fill.gradient.has_alpha)
 
 
 def _edge_band(interior: list, spec: dict) -> list:

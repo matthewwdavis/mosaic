@@ -183,3 +183,24 @@ def test_transparent_outline_is_one_group():
         prims = Resolver({"assets": {}}).resolve(item).prims
         # A line has no inside: both sides draw as Outside, the outline one see-through group under it
         assert isinstance(prims[0], DrawGroup) and not any(isinstance(p, DrawGroup) for p in prims[1:]), (t, head)
+
+
+def test_a_see_through_fill_doesnt_show_the_outline_through_it():
+    def prims_with(fill, t="outside", dash="solid"):
+        item = {"id": "s", "type": "shape", "geom": "rect", "frame": [10, 10, 80, 60], "rot": 0, "fill": fill,
+                "stroke": {"color": "#1f3a93", "width": 3, "dash": dash, "cap": "round", "join": "round"},
+                "outline": {"color": "#ff9900", "width": 2, "opacity": 1, "type": t}}
+        return Resolver({"assets": {}}).resolve(item).prims
+    # Kept off the fill's area: a box round it all with the rectangle cut out
+    prims = prims_with({"color": "#cfe3ff", "opacity": 0.4})
+    assert layers(prims) == ["clipped(outline outline)", "fill", "line"]
+    (clip, even_odd), = prims[0].clip
+    assert even_odd and len(clip.subpaths()) == 2
+    # Gaps empty leaves out the band along the fill's edge, as before
+    assert layers(prims_with({"color": "#cfe3ff", "opacity": 0.4}, "outside_gaps", "dash")) == ["clipped(outline)", "fill", "line"]
+    # A gradient with a see-through stop counts too
+    fade = {"color": "#cfe3ff", "opacity": 1, "gradient": {"type": "linear", "angle": 0,
+            "stops": [{"pos": 0, "color": "#cfe3ff", "opacity": 1}, {"pos": 1, "color": "#cfe3ff", "opacity": 0}]}}
+    assert layers(prims_with(fade))[0].startswith("clipped(")
+    # An opaque fill hides the outline already, and draws as it always has
+    assert kinds(prims_with({"color": "#cfe3ff", "opacity": 1})) == ["outline-fill", "outline-line", "fill", "line"]
