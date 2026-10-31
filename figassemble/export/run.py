@@ -20,6 +20,12 @@ def _slug(text: str) -> str:
     return s or "page"
 
 
+def _on_page(bbox, page: dict) -> bool:
+    if bbox is None:
+        return False
+    return bbox[2] > 0 and bbox[3] > 0 and bbox[0] < float(page["width"]) and bbox[1] < float(page["height"])
+
+
 def page_filename(base: str, page: dict, index: int, n_pages: int, ext: str) -> str:
     if n_pages == 1:
         return f"{base}.{ext}"
@@ -37,7 +43,8 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
     cache = cache or get_cache()
     sel = [doc["pages"][i] for i in (pages if pages is not None else range(len(doc["pages"])))]
     resolver = Resolver(doc, fonts)
-    resolved = [resolver.resolve_page(p) for p in sel]
+    # Items parked entirely off the page (PowerPoint's pasteboard habit) aren't exported
+    resolved = [[r for r in resolver.resolve_page(p) if _on_page(r.bbox, p)] for p in sel]
     os.makedirs(os.path.dirname(os.path.abspath(base)) or ".", exist_ok=True)
     files: list[str] = []
     warnings: list[str] = []

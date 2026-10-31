@@ -640,10 +640,47 @@ class Stroke:
 
 
 @dataclass
+class Gradient:
+    """A linear gradient defined in a unit square, mapped onto the page by `matrix`."""
+
+    stops: list[tuple[float, str, float]]          # (position 0..1, colour, opacity)
+    p0: tuple[float, float]                        # axis start, unit-square coordinates
+    p1: tuple[float, float]
+    matrix: Matrix = field(default_factory=Matrix)
+
+    @property
+    def has_alpha(self) -> bool:
+        return any(op < 1.0 for _, _, op in self.stops)
+
+
+def linear_gradient(spec: dict, w: float, h: float, frame_m: Matrix) -> Gradient:
+    """DrawingML linear gradient over a w x h shape whose local box maps to the page by frame_m.
+
+    `angle` turns clockwise from +x. With `scaled`, the angle is set in a unit square that is
+    then stretched over the shape; otherwise it is measured in the shape's own proportions.
+    The axis runs through the centre and spans the box projected onto it.
+    """
+    theta = math.radians(spec.get("angle", 0.0))
+    dx, dy = math.cos(theta), math.sin(theta)
+    stops = [(float(s["pos"]), s["color"], float(s.get("opacity", 1.0))) for s in spec.get("stops", [])]
+    stops = stops or [(0.0, "#000000", 1.0)]
+    if spec.get("scaled", True):
+        extent = abs(dx) + abs(dy)
+        p0 = (0.5 - dx * extent / 2, 0.5 - dy * extent / 2)
+        p1 = (0.5 + dx * extent / 2, 0.5 + dy * extent / 2)
+        return Gradient(stops, p0, p1, frame_m @ Matrix.scale(max(w, 1e-9), max(h, 1e-9)))
+    extent = w * abs(dx) + h * abs(dy)
+    p0 = (w / 2 - dx * extent / 2, h / 2 - dy * extent / 2)
+    p1 = (w / 2 + dx * extent / 2, h / 2 + dy * extent / 2)
+    return Gradient(stops, p0, p1, frame_m)
+
+
+@dataclass
 class Fill:
     color: str = "#000000"
     opacity: float = 1.0
     even_odd: bool = False
+    gradient: Gradient | None = None
 
 
 @dataclass

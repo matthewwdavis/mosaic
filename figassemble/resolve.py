@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from .fonts import FontIndex
 from .geometry import (OPEN_PRESETS, DrawPath, Fill, Matrix, Path, Stroke, arrowhead, dash_array,
-                       frame_matrix, preset_paths, preset_text_rect)
+                       frame_matrix, linear_gradient, preset_paths, preset_text_rect)
 from .textlayout import GlyphRun, TextLayout, layout_text
 
 
@@ -104,34 +104,91 @@ def line_end_trim(spec: dict, width: float) -> float:
     return max(length - width, 0.0)
 
 
+def chord_point(path: Path, distance: float, from_end: bool):
+    """First point along a path whose straight-line distance from its start (or end) is
+    `distance`. Returns (point, arc length to it) or None if the path is too short."""
+    p = path.reversed() if from_end else path
+    from .geometry import _bezier_point
+    start = cur = None
+    walked = 0.0
+    prev = None
+    for s in p.segs:
+        if s[0] == "M":
+            start = cur = prev = (s[1], s[2])
+            continue
+        if s[0] == "L":
+            samples = [(s[1], s[2])]
+            # Lines may be long: subdivide so the crossing is found precisely
+            n = 64
+            samples = [(cur[0] + (s[1] - cur[0]) * k / n, cur[1] + (s[2] - cur[1]) * k / n) for k in range(1, n + 1)]
+        elif s[0] == "C":
+            bez = [cur, (s[1], s[2]), (s[3], s[4]), (s[5], s[6])]
+            samples = [_bezier_point(bez, k / 128) for k in range(1, 129)]
+        else:
+            continue
+        for q in samples:
+            dq = math.dist(q, start)
+            if dq >= distance:
+                # Interpolate within the last small step
+                dp = math.dist(prev, start)
+                t = (distance - dp) / (dq - dp) if dq > dp else 1.0
+                pt = (prev[0] + (q[0] - prev[0]) * t, prev[1] + (q[1] - prev[1]) * t)
+                return pt, walked + math.dist(prev, pt)
+            walked += math.dist(prev, q)
+            prev = q
+        cur = (s[-2], s[-1])
+    return None
+
+
 def stroke_with_ends(path: Path, stroke: Stroke, start: dict | None, end: dict | None) -> list[DrawPath]:
-    """An open path with optional line ends: the (shortened) line plus its heads."""
-    out: list[DrawPath] = []
+    """An open path with optional line ends: the line plus its heads.
+
+    PowerPoint's rule, measured from its own PDF export: a head points at the spot on the
+    path one head-length from the tip, so it follows curves. The line is cut at that spot
+    and continues straight along the head's axis, stopping one line-width short of the
+    head's length so its cap stays hidden inside the head.
+    """
+    from .geometry import ARROW_MIN_BASE_WIDTH, ARROW_SIZE
     heads: list[DrawPath] = []
-    original = path
-    trim_s = line_end_trim(start, stroke.width) if start else 0.0
-    trim_e = line_end_trim(end, stroke.width) if end else 0.0
-    body = path.trimmed(trim_s, trim_e) if (trim_s or trim_e) else path
     head_fill = Fill(color=stroke.color, opacity=stroke.opacity)
     head_stroke = Stroke(color=stroke.color, width=stroke.width, cap=stroke.cap, join="miter",
                          opacity=stroke.opacity)
+    body = path
+    plan = []
     for spec, at_end in ((start, False), (end, True)):
         if not spec or spec.get("type") in (None, "none"):
             continue
-        tan = original.end_tangent() if at_end else original.start_tangent()
+        tan = path.end_tangent() if at_end else path.start_tangent()
         if tan is None:
             continue
-        tip, direction = tan
-        # The head points along the chord from where the line now stops to the tip
-        stop = (body.end_tangent() if at_end else body.start_tangent())
-        if stop is not None and (trim_e if at_end else trim_s) > 0:
-            dx, dy = tip[0] - stop[0][0], tip[1] - stop[0][1]
-            n = math.hypot(dx, dy)
-            if n > 1e-9:
-                direction = (dx / n, dy / n)
-        for sp in arrowhead(tip, direction, stroke.width, spec)[0]:
+        tip = tan[0]
+        length = ARROW_SIZE.get(spec.get("len", "med"), 3.0) * max(stroke.width, ARROW_MIN_BASE_WIDTH)
+        found = chord_point(path, length, from_end=at_end)
+        if found is not None:
+            q, arc = found
+            ax = ((q[0] - tip[0]) / length, (q[1] - tip[1]) / length)   # from the tip into the path
+        else:   # path shorter than the head: point along the end tangent
+            travel = tan[1] if at_end else (-tan[1][0], -tan[1][1])
+            ax, q, arc = (-travel[0], -travel[1]), None, 0.0
+        plan.append((spec, at_end, tip, ax, q, arc, line_end_trim(spec, stroke.width)))
+        for sp in arrowhead(tip, (-ax[0], -ax[1]), stroke.width, spec)[0]:
             heads.append(DrawPath(sp.path, stroke=head_stroke if sp.stroke else None,
                                   fill=head_fill if sp.fill else None, meta={"role": "line-end"}))
+    # Cut the line under the heads that hide its end, and bridge to the head's axis
+    cut_s = next(((tip, ax, q, arc, trim) for spec, at_end, tip, ax, q, arc, trim in plan
+                  if not at_end and trim > 0 and q is not None), None)
+    cut_e = next(((tip, ax, q, arc, trim) for spec, at_end, tip, ax, q, arc, trim in plan
+                  if at_end and trim > 0 and q is not None), None)
+    if cut_s or cut_e:
+        body = path.trimmed(cut_s[3] if cut_s else 0.0, cut_e[3] if cut_e else 0.0)
+        if cut_s:
+            tip, ax, q, _arc, trim = cut_s
+            stub = Path().move_to(tip[0] + ax[0] * trim, tip[1] + ax[1] * trim).line_to(*q)
+            body = Path(stub.segs + [s for s in body.segs if s[0] != "M"][0:])
+        if cut_e:
+            tip, ax, q, _arc, trim = cut_e
+            body = Path(body.segs + [("L", tip[0] + ax[0] * trim, tip[1] + ax[1] * trim)])
+    out: list[DrawPath] = []
     if not body.is_empty:
         out.append(DrawPath(body, stroke=stroke))
     return out + heads
@@ -201,6 +258,8 @@ class Resolver:
         geom = item.get("geom", "rect")
         stroke = make_stroke(item.get("stroke"))
         fill = make_fill(item.get("fill"))
+        if fill is not None and (item.get("fill") or {}).get("gradient"):
+            fill.gradient = linear_gradient(item["fill"]["gradient"], w, h, m)
         if geom == "custom":
             shape_paths = custom_paths(item.get("path") or {}, w, h)
         else:
@@ -220,8 +279,11 @@ class Resolver:
         if body and body.get("paragraphs"):
             tx0, ty0, tx1, ty1 = preset_text_rect(geom, w, h, item.get("adj"))
             layout = layout_text(body, tx1 - tx0, ty1 - ty0, self.fonts)
+            # Like PowerPoint, text is never mirrored: a horizontal flip leaves it alone and a
+            # vertical flip turns it 180 degrees
+            tm = frame_matrix(item["frame"], item.get("rot", 0.0) + (180.0 if item.get("flip_v") else 0.0))
             if layout.runs:
-                r.prims.append(DrawText(layout.runs, m @ Matrix.translate(tx0, ty0), meta={"item": item.get("id")}))
+                r.prims.append(DrawText(layout.runs, tm @ Matrix.translate(tx0, ty0), meta={"item": item.get("id")}))
             if body.get("autofit") == "shape":
                 new_h = layout.autofit_height + (h - (ty1 - ty0))
                 new_w = w if body.get("wrap", True) else layout.autofit_width + (w - (tx1 - tx0))

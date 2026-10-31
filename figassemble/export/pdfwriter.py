@@ -64,7 +64,7 @@ class PdfWriter:
     def add_page(self, page: dict, resolved: list[Resolved]) -> None:
         w, h = float(page["width"]), float(page["height"])
         pg = self.pdf.add_blank_page(page_size=(w, h))
-        res: dict[str, dict] = {"/XObject": {}, "/Font": {}, "/ExtGState": {}}
+        res: dict[str, dict] = {"/XObject": {}, "/Font": {}, "/ExtGState": {}, "/Shading": {}}
         self._names: dict = {}
         ops = [f"1 0 0 -1 0 {_n(h)} cm"]   # everything below is in y-down page coordinates
         if page.get("background"):
@@ -120,10 +120,68 @@ class PdfWriter:
 
     # Primitives ------------------------------------------------------------------------
 
+    def _function(self, stops: list[tuple[float, list[float]]]):
+        """PDF function interpolating colour stops linearly (stitched Type 2 pieces)."""
+        pts = sorted(stops, key=lambda s: s[0])
+        if pts[0][0] > 0:
+            pts.insert(0, (0.0, pts[0][1]))
+        if pts[-1][0] < 1:
+            pts.append((1.0, pts[-1][1]))
+        if len(pts) == 1:
+            pts.append((1.0, pts[0][1]))
+        # Bounds must increase; nudge stops that share a position
+        fixed = [pts[0]]
+        for p, c in pts[1:]:
+            fixed.append((max(p, fixed[-1][0] + 1e-6), c))
+        pts = fixed
+        funcs = [Dictionary(FunctionType=2, Domain=Array([0, 1]), C0=Array(c0), C1=Array(c1), N=1)
+                 for (_, c0), (_, c1) in zip(pts, pts[1:])]
+        if len(funcs) == 1:
+            return funcs[0]
+        span = pts[-1][0] - pts[0][0]
+        return Dictionary(FunctionType=3, Domain=Array([0, 1]), Functions=Array(funcs),
+                          Bounds=Array([(p - pts[0][0]) / span for p, _ in pts[1:-1]]),
+                          Encode=Array([0, 1] * len(funcs)))
+
+    def _shading(self, g, gray_alpha: float | None = None):
+        def comps(color, opacity):
+            if gray_alpha is not None:
+                return [round(opacity * gray_alpha, 6)]
+            return [float(v) for v in _rgb(color).split()]
+        func = self._function([(pos, comps(c, op)) for pos, c, op in g.stops])
+        return self.pdf.make_indirect(Dictionary(
+            ShadingType=2, ColorSpace=Name.DeviceGray if gray_alpha is not None else Name.DeviceRGB,
+            Coords=Array([g.p0[0], g.p0[1], g.p1[0], g.p1[1]]), Function=func,
+            Extend=Array([True, True])))
+
+    def _gradient_fill(self, prim: DrawPath, res: dict) -> list[str]:
+        g, f = prim.fill.gradient, prim.fill
+        name = self._name(res, "/Shading", "Sh", self._shading(g))
+        ops = ["q"]
+        if g.has_alpha or f.opacity < 1:
+            # Transparency comes from a luminosity soft mask painted with the alpha values
+            mask_sh = self._shading(g, gray_alpha=f.opacity)
+            form = pikepdf.Stream(self.pdf, ("q " + _cm(g.matrix) + " /A sh Q").encode())
+            form.Type, form.Subtype = Name.XObject, Name.Form
+            form.BBox = Array([-1e5, -1e5, 1e5, 1e5])
+            form.Group = Dictionary(S=Name.Transparency, CS=Name.DeviceGray)
+            form.Resources = Dictionary(Shading=Dictionary(A=mask_sh))
+            gs = self.pdf.make_indirect(Dictionary(
+                Type=Name.ExtGState, SMask=Dictionary(Type=Name.Mask, S=Name.Luminosity,
+                                                      G=self.pdf.make_indirect(form))))
+            ops.append(f"/{self._name(res, '/ExtGState', 'GS', gs)} gs")
+        ops += [prim.path.to_pdf(), "W* n" if f.even_odd else "W n", _cm(g.matrix), f"/{name} sh", "Q"]
+        return ops
+
     def _path(self, prim: DrawPath, res: dict) -> list[str]:
         s, f = prim.stroke, prim.fill
         if s is None and f is None:
             return []
+        if f is not None and f.gradient is not None:
+            out = self._gradient_fill(prim, res)
+            if s is not None:
+                out += self._path(DrawPath(prim.path, stroke=s), res)
+            return out
         ops = ["q"]
         gs = self._gstate(res, s.opacity if s else 1.0, f.opacity if f else 1.0)
         if gs:
