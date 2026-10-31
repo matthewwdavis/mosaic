@@ -83,6 +83,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .toolbox { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.35rem 0.25rem; background: var(--panel);
   border-right: 1px solid var(--line); overflow-y: auto; min-height: 0; scrollbar-width: thin; }
 .tool-sep { height: 1px; flex: none; background: var(--line); margin: 0.2rem 0.35rem; }
+/* A little less padding than the ribbon's buttons, so every tool fits down the side of a
+   900 px window, Linux's taller default font included */
+.toolbox .tool { min-height: 0; padding-top: 0.2rem; padding-bottom: 0.2rem; }
 .status-zoom { display: inline-flex; align-items: center; gap: 0.1rem; }
 .status-zoom .zoom-label { min-width: 2.8rem; }
 
