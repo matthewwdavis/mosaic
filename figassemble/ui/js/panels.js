@@ -29,6 +29,7 @@ const ICONS = {
   plus: "M12 5v14M5 12h14", duplicate: "M8 8h11v11H8zM5 5h11v3M5 5v11h3", trash: "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13",
   again: "M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3",
   sameWidth: "M5 6h14M5 4v4M19 4v4M5 15h14M5 13v4M19 13v4", sameHeight: "M6 5v14M4 5h4M4 19h4M15 5v14M13 5h4M13 19h4",
+  scalebar: "M4 16h16v3H4zM7 9h10", measure: "M3 17L17 3l4 4L7 21zM7 13l2 2M10 10l2 2M13 7l2 2",
   unite: "M4 4h10v6h6v10H10v-6H4z", minusFront: "M4 4h10v6h-4v4H4zM12 12h8v8h-8z",
   intersect: "M4 4h10v10H4zM10 10h10v10H10zM10 10h4v4h-4zM11 12h2M12 11v2", exclude: "M4 4h10v6h-4v4H4zM14 10h6v10H10v-6h4z",
   clip: "M4 4h16v16H4zM12 7a5 5 0 110 10 5 5 0 010-10z", unclip: "M4 4h9M4 4v9M20 20h-9M20 20v-9M14 4h6v6M4 14v6h6",
@@ -209,6 +210,9 @@ export const panels = {
         group("Styles", t("swatches", "swatches"), t("textStyles", "textStyles"), t("fonts", "fonts")),
       ]],
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
+      ["figure", "Figure", [
+        group("Scale", t("addScaleBar", "scalebar"), t("measureScale", "measure")),
+      ]],
       ["combine", "Combine", [
         group("Pathfinder", t("unite", "unite"), t("minusFront", "minusFront"), t("intersect", "intersect"), t("exclude", "exclude")),
         group("Clipping mask", t("makeClipMask", "clip"), t("releaseClipMask", "unclip")),

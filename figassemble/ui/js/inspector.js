@@ -8,6 +8,7 @@ import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
 import { linked, swatchById } from "./swatches.js";
 import { differs } from "./textstyles.js";
+import { UNITS, anchorFor, convert, niceLength, pxPerPt, scaleText } from "./scalebar.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, shapeCatalog,
   shapeName, toUnit,
@@ -285,7 +286,9 @@ export const inspector = {
   // [key, tab name, sections] for one object
   itemTabs(it) {
     const arrange = ["arrange", "Arrange", [this.objectSection(it), this.arrangeSection(it), ...this.alignSections(1)]];
-    if (it.type === "picture") return [arrange, ["picture", "Picture", [this.pictureSection(it)]]];
+    if (it.type === "picture") return [arrange, ["picture", "Picture", [this.pictureSection(it), this.scaleSection(it)]]];
+    if (it.type === "scalebar") return [["arrange", "Arrange", [this.objectSection(it), ...this.alignSections(1)]],
+      ["scalebar", "Scale bar", [this.scalebarSection(it)]]];
     if (it.type === "line") {
       arrange[2].splice(2, 0, this.linkSection(it));
       return [arrange, ["style", "Style", [this.strokeSection(it), this.endsSection(it), this.outlineSection(it)]]];
@@ -500,6 +503,63 @@ export const inspector = {
     if (!it?.mask) return;
     const stored = await rpc("clamp_adjust", { geom: it.mask.geom, frame: it.frame, adj: it.mask.adj }, a.name, v);
     this.edit(a.label, (o) => { o.mask = { ...o.mask, adj: { ...(o.mask.adj || {}), [a.name]: stored } }; });
+  },
+  // A picture's scale, for scale bars: a pixel's size typed (a point of a PDF's or SVG's), a known
+  // length measured on it, or what the file says (ImageJ, OME-TIFF)
+  scaleSection(it) {
+    const a = store.doc.assets[it.asset], ppp = pxPerPt(a), sc = it.scale;
+    const cal = a.variants?.[a.primary]?.calibration, unit = sc?.unit || cal?.unit || "µm";
+    const id = `f${++fieldId}`;
+    const size = h("input", { id, type: "number", inputmode: "decimal", min: 0, step: "any", placeholder: "e.g. 0.65",
+      value: sc ? +(ppp ? sc.per_pt / ppp : sc.per_pt).toPrecision(6) : "" });
+    size.addEventListener("change", () => {
+      const v = parseFloat(size.value);
+      this.app.setPictureScale(it.id, v > 0 ? (ppp ? v * ppp : v) : 0, unit, "typed");
+    });
+    size.addEventListener("keydown", (e) => { if (e.key === "Enter") size.blur(); keepFieldKeys(e); });
+    const kids = [row(h("div", { class: "field" }, label(ppp ? "Size of one pixel" : "Length of one point of the original", id), size),
+      selectField("Scale unit", unit, UNITS.map(([u]) => [u, u]), (u) => { if (sc) this.app.setPictureScale(it.id, convert(sc.per_pt, sc.unit, u), u, sc.how); }))];
+    const how = { typed: "typed", measured: "measured", file: "from the file" }[sc?.how] || "";
+    kids.push(h("p", { class: "hint" }, sc ? `Scale${how ? ` (${how})` : ""}: ${scaleText(it, a)}.` : "No scale yet."));
+    const fileScale = cal && ppp ? cal.per_px * ppp : null;
+    if (fileScale && Math.abs((sc?.per_pt || 0) - fileScale) > fileScale * 1e-9) {
+      kids.push(h("p", { class: "hint" }, `The file says one pixel is ${+cal.per_px.toPrecision(6)} ${cal.unit} (${cal.from}).`),
+        button("Use the scale saved in the file", () => this.app.setPictureScale(it.id, fileScale, cal.unit, "file"), "Use the file's scale"));
+    }
+    kids.push(h("div", { class: "button-row" },
+      button("Measure a known length on the picture", () => canvas.startMeasure(it.id), "Measure…"),
+      sc ? button("Add a scale bar to this picture", () => this.app.addScaleBar(it.id), "Add scale bar") : null));
+    kids.push(h("p", { class: "hint" }, "Measure: drag along something of known length in the picture, then type its length. "
+      + "Scale bars stay right when the picture is resized or cropped."));
+    return section("Scale", kids);
+  },
+  // A scale bar: its length and look, and which corner of its picture it stays with
+  scalebarSection(it) {
+    const pic = store.item(it.picture), a = pic && store.doc.assets[pic.asset];
+    const set = (label, fn) => this.edit(label, fn);
+    const kids = [h("p", { class: "hint" }, !pic ? "Its picture has gone, so it no longer follows a scale."
+      : !pic.scale ? `${itemLabel(pic, store.doc)} has no scale any more: give it one in its Picture tab.`
+        : `On ${itemLabel(pic, store.doc)} (${scaleText(pic, a)}).`)];
+    kids.push(row(numField("Length", it.length, "", (v) => set("Scale bar length", (o) => { o.length = Math.max(v, 1e-9); }), { min: 0, step: "any" }),
+      selectField("Length unit", it.unit, UNITS.map(([u]) => [u, u]), (v) => set("Scale bar unit", (o) => { o.unit = v; }))));
+    if (pic?.scale) {
+      kids.push(button("A round length about a fifth of the picture's width", () => set("Scale bar length", (o) => {
+        o.length = niceLength(pic, a, o.unit);
+      }), "Round length"));
+    }
+    kids.push(radioField("Label", it.label || "above", [["above", "Above"], ["below", "Below"], ["none", "None"]],
+      (v) => set("Scale bar label", (o) => { o.label = v; })));
+    kids.push(row(colorField("Colour", it.color || "#ffffff", (v, sw) => set("Scale bar colour", (o) => { linked(o, sw).color = v; }), it.swatch),
+      numField("Thickness", it.thickness ?? 2, "pt", (v) => set("Scale bar thickness", (o) => { o.thickness = Math.max(v, 0.1); }), { min: 0.1, step: 0.5 })));
+    kids.push(row(numField("Text size", it.size ?? 6, "pt", (v) => set("Scale bar text size", (o) => { o.size = Math.max(v, 1); }), { min: 1, step: 0.5 }),
+      h("div", { class: "button-row inline" }, toggle("Bold", !!it.bold, (on) => set("Bold", (o) => { o.bold = on; }), "B", "bold"))));
+    if (pic) {
+      kids.push(selectField("Stays with its picture's", it.anchor?.corner || "br", [["tl", "Top left corner"], ["tr", "Top right corner"],
+        ["bl", "Bottom left corner"], ["br", "Bottom right corner"]], (v) => set("Scale bar corner", (o) => { o.anchor = anchorFor(o, pic, v); })));
+    }
+    kids.push(h("p", { class: "hint" }, "Drag it to place it; it moves with its picture, and its length follows the picture's "
+      + "size and crop."));
+    return section("Scale bar", kids);
   },
   async updateLinkStatus(asset, assetId, el) {
     try {
@@ -763,7 +823,7 @@ export const inspector = {
 
 // Which tab opens first for each kind of object (until another is chosen)
 const DEFAULT_TAB = { shape: "style", textbox: "text", line: "style", picture: "picture", group: "arrange", multi: "arrange",
-  region: "style" };
+  region: "style", scalebar: "scalebar" };
 function kindKey(it) { return it.geom === "region" ? "region" : it.type === "shape" && it.textbox ? "textbox" : it.type; }
 
 // Field builders ---------------------------------------------------------------------------

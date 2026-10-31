@@ -16,6 +16,7 @@ import { rulers } from "./rulers.js";
 import { splitters } from "./splitters.js";
 import { store } from "./store.js";
 import { applyStyle, styleOf } from "./styles.js";
+import { barFrame, niceLength, pageScale, pxPerPt, scaleText } from "./scalebar.js";
 import { colourHolders, swatchById } from "./swatches.js";
 import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, setFormat } from "./textstyles.js";
 import {
@@ -150,6 +151,9 @@ const app = {
       const [w, h] = r.asset.page_sizes ? r.asset.page_sizes[0] : r.asset.size_pt;
       const it = { id: uid("it"), type: "picture", name: r.asset.name, asset: r.asset_id, page_index: 0,
         frame: [x, y, w, h], crop: [0, 0, 0, 0], rot: 0, flip_h: false, flip_v: false, opacity: 1, source: "auto" };
+      // A microscope image's own scale (ImageJ, OME-TIFF), for scale bars
+      const cal = r.asset.variants[r.asset.primary]?.calibration, ppp = pxPerPt(r.asset);
+      if (cal && ppp) it.scale = { per_pt: cal.per_px * ppp, unit: cal.unit, how: "file" };
       x += 12; y += 12;
       return it;
     });
@@ -402,6 +406,56 @@ const app = {
       }
     }, { select: kids });
     announce("Released: the shape and what it clipped are separate again");
+  },
+  // Scale bars (scalebar.js) ---------------------------------------------------------------
+
+  // A picture's scale: the real length of one point of its source (a raster's pixel size, typed,
+  // converts to it); scale bars on it follow
+  setPictureScale(id, perPt, unit, how) {
+    store.update("Picture scale", (doc) => {
+      const p = findDeep(doc.pages[store.pageIndex].items, id);
+      if (!p) return;
+      if (perPt > 0) p.scale = { per_pt: perPt, unit, how };
+      else delete p.scale;
+    });
+    const pic = store.item(id);
+    if (pic?.scale) announce(`Scale: ${scaleText(pic, store.doc.assets[pic.asset])}`);
+  },
+  // A bar a round length long, just inside the picture's bottom right corner, white on a
+  // photograph or micrograph and black on a plot
+  addScaleBar(picId = store.selected().find((it) => it.type === "picture")?.id) {
+    const pic = picId && store.item(picId), asset = pic && store.doc.assets[pic.asset];
+    if (!pic) { announce("Select a picture to add a scale bar to"); return; }
+    if (!pic.scale?.per_pt) { announce("Give the picture a scale first, in its Picture tab: type a pixel's size or measure a known length"); return; }
+    const unit = pic.scale.unit, length = niceLength(pic, asset, unit);
+    const inset = Math.min(pic.frame[2], pic.frame[3]) * 0.05;
+    const bar = { id: uid("it"), type: "scalebar", picture: pic.id, length, unit, thickness: 2, size: 6, label: "above", bold: false,
+      color: pxPerPt(asset) ? "#ffffff" : "#000000", anchor: { corner: "br", dx: -inset, dy: -inset }, frame: [0, 0, 1, 1] };
+    bar.frame = barFrame(bar, pic, asset);
+    store.update("Add scale bar", (doc) => {
+      const items = store.container(doc), at = items.findIndex((it) => it.id === pic.id);
+      items.splice(at < 0 ? items.length : at + 1, 0, bar);   // just above its picture
+    }, { select: [bar.id] });
+    announce(`Added a ${length} ${unit} scale bar to ${itemLabel(pic, store.doc)}`);
+  },
+  measureScale() {
+    const pic = store.selected().find((it) => it.type === "picture");
+    if (!pic) { announce("Select a picture to measure on"); return; }
+    canvas.startMeasure(pic.id);
+  },
+  // A line drawn on a picture along something of known length: its real length sets the scale
+  async measured(picId, lenPage) {
+    const pic = store.item(picId), asset = pic && store.doc.assets[pic.asset];
+    if (!pic) return;
+    const answer = await panels.promptDialog("How long is the line you drew?", "Its real length", "",
+      `For example 100 µm (or just a number, in ${pic.scale?.unit || "µm"})`);
+    if (!answer) return;
+    const m = /^\s*([0-9]*[.,]?[0-9]+(?:e[-+]?\d+)?)\s*(nm|µm|um|micron|microns|mm|cm|m)?\s*$/i.exec(answer);
+    const value = m && parseFloat(m[1].replace(",", "."));
+    if (!(value > 0)) { announce(`“${answer}” isn't a length: type a number and a unit, such as 100 µm`); return; }
+    const said = m[2]?.toLowerCase();
+    const unit = { um: "µm", micron: "µm", microns: "µm" }[said] || said || pic.scale?.unit || "µm";
+    this.setPictureScale(pic.id, value / (lenPage / pageScale(pic, asset)), unit, "measured");
   },
   // Pathfinder, as in Illustrator: the selected shapes combined into one freeform shape, curves
   // kept exactly (pathfinder.py); it takes the top shape's place
@@ -1103,6 +1157,9 @@ app.commands = {
     + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
   sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the first selected), keeping "
     + "their proportions", () => app.matchSize("h"), null, null, "Same height"),
+  addScaleBar: cmd("Scale bar: add one to the selected picture (it needs a scale)", () => app.addScaleBar(), null, null, "Scale bar"),
+  measureScale: cmd("Measure a known length on the selected picture, to give it a scale", () => app.measureScale(), null, null,
+    "Measure"),
   unite: cmd("Unite: join the selected shapes into one", () => app.pathfinder("unite"), null, null, "Unite"),
   minusFront: cmd("Minus front: cut the shapes on top out of the bottom one", () => app.pathfinder("minus_front"), null, null,
     "Minus front"),
@@ -1370,6 +1427,7 @@ async function start() {
   canvas.onKeyClick = (id) => app.toggleKeyObject(id);
   canvas.onTransform = (t) => app.noteTransform(t);
   canvas.onPaint = (hit, keyboard) => app.paintStyle(hit, keyboard);
+  canvas.onMeasure = (id, len) => app.measured(id, len);
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.onFillArea = (p) => app.fillArea(p);
   canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);

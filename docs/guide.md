@@ -35,6 +35,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
      Fit page; Swatches, Text styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group, Order (see
      [Align and distribute](#align-and-distribute)).
+   - **Figure**: scale bars (Scale bar, Measure).
    - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
      Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
@@ -136,6 +137,29 @@ or grown. Its buttons:
 
 The Arrange tab has its position, size (proportions kept), rotation, flips and **Transparency**.
 For screen readers, give each picture a **Description** in the Object section.
+
+## Scale bars
+
+A scale bar shows a real length on a photograph or micrograph, and stays right when the picture is
+resized or cropped.
+
+1. **Give the picture a scale** in its Picture tab's **Scale** section, in any of three ways:
+   - **From the file:** microscope images saved by ImageJ/Fiji or as OME-TIFF carry their pixel
+     size, and FigAssemble uses it when you place them (the section says "from the file").
+   - **Type it:** the size of one pixel (e.g. 0.65 µm) and its unit. For a PDF or SVG, it's the
+     length of one point of the original.
+   - **Measure it:** click **Measure…** (or **Measure** on the Figure tab), drag along something of
+     known length in the picture (a scale bar already in it, a ruler, a stage micrometer), and type
+     its real length, such as `100 µm`.
+2. **Add the bar:** **Add scale bar** (Picture tab), or **Scale bar** on the Figure tab with the
+   picture selected. It starts a round length (1, 2 or 5 times a power of ten) about a fifth of the
+   picture's width, just inside its bottom right corner: white on photographs and micrographs,
+   black on plots.
+
+The bar's own tab sets its length and unit (**Round length** picks one for you), the label above,
+below or none, its colour (swatches too), thickness, text size and bold. Drag it where you want
+it: it moves with its picture, keeping its place relative to the corner it's set to stay with,
+and its length follows the picture's size, crop and scale.
 
 ## Text and panel labels
 

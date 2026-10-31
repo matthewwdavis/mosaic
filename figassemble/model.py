@@ -13,6 +13,10 @@ Every item has an `id` and a `type`:
 - line     {points [[x, y], ...], curve: straight|smooth, stroke, arrow_start, arrow_end, outline,
             start_link, end_link}: a link {item, site} attaches that end to another object's
             connection point (connect.py), and the editor keeps the end there
+- scalebar {picture, length, unit, frame, anchor {corner: tl|tr|bl|br, dx, dy}, thickness, size,
+            label: above|below|none, color, swatch, bold}: a bar `length` long on its picture, which
+            has scale {per_pt, unit, how}: the real length of one point of its source. The editor
+            keeps the frame in step with the picture (scalebar.js); the engine draws the frame
 - group    {items: [...], clip}   children keep page coordinates; with clip true it's a clipping
             mask: its last item, a shape, clips the others and isn't drawn
 

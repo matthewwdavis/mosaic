@@ -119,6 +119,10 @@ def probe(path: str, kind: str | None = None) -> dict:
         with Image.open(path) as im:
             px = im.size
             dpi = im.info.get("dpi")
+            cal = image_calibration(im)
+            # ImageJ keeps pixels per micron (or per mm…) in the resolution tags: not a print size
+            if cal and cal["from"] == "ImageJ":
+                dpi = None
             if not dpi or not dpi[0] or float(dpi[0]) < 2:
                 dpi = (DEFAULT_RASTER_DPI, DEFAULT_RASTER_DPI)
                 info["dpi_assumed"] = True
@@ -128,10 +132,43 @@ def probe(path: str, kind: str | None = None) -> dict:
             info["px"] = list(px)
             info["dpi"] = list(dpi)
             info["mode"] = im.mode
+            if cal:
+                info["calibration"] = cal
             info["size_pt"] = [px[0] / dpi[0] * 72.0, px[1] / dpi[1] * 72.0]
     else:
         raise ValueError(f"unsupported file type: {path}")
     return info
+
+
+# Length units a calibration may name, as FigAssemble writes them
+LENGTH_UNITS = {"nm": "nm", "nanometer": "nm", "nanometers": "nm", "µm": "µm", "um": "µm", "micron": "µm", "microns": "µm",
+                "micrometer": "µm", "micrometers": "µm", "\\u00b5m": "µm", "mm": "mm", "millimeter": "mm", "cm": "cm",
+                "centimeter": "cm", "m": "m", "meter": "m"}
+
+
+def image_calibration(im) -> dict | None:
+    """The real size of a pixel as microscopes and ImageJ/Fiji save it in a TIFF: OME-XML's
+    PhysicalSizeX, or ImageJ's unit with the resolution as pixels per unit. A plain TIFF's
+    resolution is the print resolution, not a measurement, so it isn't used."""
+    tags = getattr(im, "tag_v2", None)
+    if not tags:
+        return None
+    desc = tags.get(270) or ""
+    if isinstance(desc, bytes):
+        desc = desc.decode("utf-8", "replace")
+    size = re.search(r'PhysicalSizeX="([0-9.eE+-]+)"', desc)
+    if size:
+        unit = re.search(r'PhysicalSizeXUnit="([^"]+)"', desc)
+        u = LENGTH_UNITS.get((unit.group(1) if unit else "µm").strip().lower())
+        if u and float(size.group(1)) > 0:
+            return {"per_px": float(size.group(1)), "unit": u, "from": "OME-TIFF"}
+    if desc.startswith("ImageJ="):
+        unit = re.search(r"^unit=(.+)$", desc, re.M)
+        u = LENGTH_UNITS.get(unit.group(1).strip().lower()) if unit else None
+        res = tags.get(282)
+        if u and res and float(res) > 0:
+            return {"per_px": 1.0 / float(res), "unit": u, "from": "ImageJ"}
+    return None
 
 
 def display_box(page):

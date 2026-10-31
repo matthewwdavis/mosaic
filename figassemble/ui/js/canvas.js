@@ -3,6 +3,7 @@
 
 import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
+import { followScaleBars } from "./scalebar.js";
 import { applyTextStyle } from "./textstyles.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, frameMatrix, h, hitItem, invert, isMac, itemBBox, itemLabel,
@@ -425,6 +426,11 @@ export const canvas = {
       this.drawSites(o);
       return;
     }
+    if (this.op?.type === "measure") {
+      const [a, b] = [this.toScreen(...this.op.start), this.toScreen(...this.op.cur)];
+      o.append(s("line", { class: "measure-line", x1: a[0], y1: a[1], x2: b[0], y2: b[1] }));
+      return;
+    }
     this.drawSnapGuides(o);
     this.drawSites(o);
     if (this.op?.type === "guide") this.drawGuideLabel(o);
@@ -474,6 +480,7 @@ export const canvas = {
       return [...pts, ...mids];
     }
     if (it.type === "group" || it.geom === "region") return [];   // an area fill takes its shape from its lines
+    if (it.type === "scalebar") return [];   // its length comes from its picture's scale
     const m = frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v);
     const [, , w, h] = it.frame;
     const pts = { nw: [0, 0], n: [w / 2, 0], ne: [w, 0], e: [w, h / 2], se: [w, h], s: [w / 2, h], sw: [0, h], w: [0, h / 2] };
@@ -585,6 +592,7 @@ export const canvas = {
     if (isMac && e.ctrlKey && !e.metaKey) return;   // Control-click is a right-click: its menu opens from the contextmenu event
     if (this.tool === "fill") { this.onFillArea?.(p); return; }
     if (this.tool === "painter") { this.onPaint?.(this.itemAt(p)); return; }
+    if (this.tool === "measure") { this.op = { type: "measure", start: p, cur: p }; return; }
     if (this.tool !== "select") return this.startDraw(p, e);
     const hd = this.handleAt(pt);
     if (hd) return this.startHandle(hd, p, e);
@@ -625,6 +633,7 @@ export const canvas = {
       return this.applyView();
     }
     if (op.type === "marquee") { op.cur = pt; return this.drawOverlay(); }
+    if (op.type === "measure") { op.cur = p; return this.drawOverlay(); }
     if (op.type === "move") return this.moveTo(p, e);
     if (op.type === "resize") return this.resizeTo(p, e);
     if (op.type === "rotate") return this.rotateTo(p, e);
@@ -665,6 +674,13 @@ export const canvas = {
       return;
     }
     this.sitePointer = this.siteActive = null;
+    if (op.type === "measure") {   // a known length drawn on a picture, for its scale
+      this.setTool("select");
+      this.drawOverlay();
+      const len = Math.hypot(op.cur[0] - op.start[0], op.cur[1] - op.start[1]);
+      if (!cancelled && len * this.k > 3) this.onMeasure?.(this.measuring, len);
+      return;
+    }
     if (cancelled) { store.cancelLive(); return; }
     if (op.type === "draw") return this.finishDraw(op);
     if (op.type === "end" && op.moved) {
@@ -748,6 +764,12 @@ export const canvas = {
     if (hit.type === "group") this.enterGroup(hit.id);
     else if (hit.type === "picture") this.startCrop(hit.id);
     else if (hit.type === "shape") this.startEdit(hit.id);
+  },
+  // Measure a known length on a picture (for its scale): the next drag draws it
+  startMeasure(id) {
+    this.measuring = id;
+    this.setTool("measure");
+    announce("Drag along something of known length in the picture: a scale bar already in it, a ruler, a stage micrometer");
   },
   enterGroup(id) {
     const g = store.item(id);
@@ -1248,6 +1270,7 @@ export const canvas = {
   followLinks(doc) {
     const items = doc.pages[store.pageIndex]?.items;
     if (!items) return;
+    followScaleBars(items, doc.assets);   // scale bars keep their length and place on their pictures
     const lines = allLines(items).filter((l) => l.start_link || l.end_link);
     for (let pass = 0; pass < 3 && lines.length; pass++) {   // a few rounds for lines attached to lines
       let moved = false;
@@ -1641,6 +1664,9 @@ function resizeCursor(dir, it) {
 }
 
 export function shiftItem(it, orig, dx, dy) {
+  if (it.type === "scalebar") {   // its place is an offset from its picture's corner
+    it.anchor = { ...(orig.anchor || {}), dx: (orig.anchor?.dx || 0) + dx, dy: (orig.anchor?.dy || 0) + dy };
+  }
   if (it.type === "group") {
     it.items.forEach((c, i) => shiftItem(c, orig.items[i], dx, dy));
   } else if (it.type === "line") {
@@ -1714,6 +1740,12 @@ export function copyItems(items) {
       else delete line[key];
     }
   }
+  // A scale bar copied with its picture belongs to the copy
+  const walk = (its) => its.forEach((it) => {
+    if (it.type === "group") walk(it.items);
+    if (it.type === "scalebar" && ids.has(it.picture)) it.picture = ids.get(it.picture);
+  });
+  walk(copies);
   const oldId = new Map([...ids].map(([o, n]) => [n, o]));
   for (const it of allRegions(copies)) {
     const lines = (it.region.items || []).map((id) => ids.get(id));

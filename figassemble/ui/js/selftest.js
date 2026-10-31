@@ -5,6 +5,7 @@ import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { store } from "./store.js";
+import { pageScale } from "./scalebar.js";
 import { itemBBox, lengthText, lineMidpoints } from "./util.js";
 
 const MMPT = 72 / 25.4;
@@ -86,7 +87,7 @@ export async function run(app, params) {
     });
     openTab.click();
     const toolbox = document.getElementById("toolbox");
-    check(ribbonTabs.length === 4 && tabRows.every((n) => n === 1) && toolbox.scrollHeight <= toolbox.clientHeight + 1
+    check(ribbonTabs.length === 5 && tabRows.every((n) => n === 1) && toolbox.scrollHeight <= toolbox.clientHeight + 1
       && document.body.scrollWidth <= window.innerWidth + 1, "each ribbon tab fits on one row and the tools fit down the side",
     `rows ${tabRows}; tools ${toolbox.scrollHeight}/${toolbox.clientHeight}; width ${document.body.scrollWidth}`);
     check(near(store.page().width, 210 * MMPT) && near(store.page().height, 297 * MMPT), "new pages are A4", pageSize());
@@ -936,6 +937,51 @@ export async function run(app, params) {
     check(store.item("pfA") && store.item("pfB") && !store.item(united.id), "and Undo brings back the shapes");
     store.select(["mkRect", "mkOval", "pfA", "pfB"]);
     await app.run("delete");
+
+    // Scale bars: a picture given a scale, and a bar that follows its size, crop and place
+    const sbWas = JSON.parse(JSON.stringify(store.item(pics[0].id)));
+    store.select([pics[0].id]);
+    inspector.render();
+    const scaleLabel = [...document.querySelectorAll("#inspector label")].find((l) => /^(Size of one pixel|Length of one point of the original)$/.test(l.textContent));
+    const scaleInput = scaleLabel && document.getElementById(scaleLabel.htmlFor);
+    scaleInput.value = "2";
+    scaleInput.dispatchEvent(new Event("change", { bubbles: true }));
+    const sbPic = () => store.item(pics[0].id), sbAsset = store.doc.assets[sbPic().asset];
+    check(sbPic().scale?.unit === "µm" && sbPic().scale.how === "typed", "typing a size gives the picture a scale", JSON.stringify(sbPic().scale));
+    document.querySelector('#rpanel-figure [data-cmd="addScaleBar"]').click();
+    const sbar = store.selected()[0], sbId = sbar?.id;
+    const sbW = () => store.item(sbId).frame[2], sbWant = () => (store.item(sbId).length / sbPic().scale.per_pt) * pageScale(sbPic(), sbAsset);
+    check(sbar?.type === "scalebar" && near(sbW(), sbWant(), 1e-6)
+      && near(sbar.frame[0] + sbar.frame[2], sbPic().frame[0] + sbPic().frame[2] + sbar.anchor.dx, 1e-6),
+    "Add scale bar puts a bar a round length long just inside the picture's corner", JSON.stringify(sbar));
+    const w0 = sbW();
+    store.update("Wider picture", (doc) => { const pp = findItem(doc, pics[0].id); pp.frame[2] *= 2; pp.frame[3] *= 2; });
+    const sbF = () => store.item(sbId).frame;
+    check(near(sbW(), w0 * 2, 1e-6) && near(sbF()[0] + sbF()[2], sbPic().frame[0] + sbPic().frame[2] + sbar.anchor.dx, 1e-6),
+      "the bar's length follows the picture's size, and it keeps its corner", `${w0} -> ${sbW()}`);
+    store.update("Crop it", (doc) => { findItem(doc, pics[0].id).crop = [0.25, 0, 0, 0]; });
+    check(near(sbW(), (w0 * 2) / 0.75, 1e-6), "and the picture's crop", `${sbW()}`);
+    store.select([sbId]);
+    app.nudge(-10, 0);
+    const sbX = sbF()[0];
+    store.update("Move the picture", (doc) => { findItem(doc, pics[0].id).frame[0] += 20; });
+    check(near(sbF()[0], sbX + 20, 1e-6), "a bar stays where it was put on its picture, and goes with it", `${sbX} -> ${sbF()[0]}`);
+    // Measure: a line drawn along something of known length sets the scale
+    canvas.startMeasure(pics[0].id);
+    const mf = sbPic().frame;
+    await drag([mf[0] + 10, mf[1] + 10], [mf[0] + 110, mf[1] + 10]);
+    await until(() => [...document.querySelectorAll("dialog[open] input")].length);
+    const measureDlg = [...document.querySelectorAll("dialog[open]")].pop();
+    measureDlg.querySelector("input").value = "50 µm";
+    [...measureDlg.querySelectorAll("button")].find((b) => b.textContent === "OK").click();
+    await until(() => sbPic().scale?.how === "measured");
+    check(sbPic().scale?.how === "measured" && near(sbPic().scale.per_pt, 50 / (100 / pageScale(sbPic(), sbAsset)), 1e-6),
+      "Measure: a 100 pt line said to be 50 µm sets the scale", JSON.stringify(sbPic().scale));
+    store.update("Picture back", (doc) => {
+      const items = doc.pages[store.pageIndex].items;
+      items.splice(items.findIndex((i) => i.id === pics[0].id), 1, sbWas);
+      items.splice(items.findIndex((i) => i.id === sbId), 1);
+    }, { select: [] });
 
     // Gradient fills: linear, then radial from a corner; stops can be added and reversed
     store.select([rect.id]);

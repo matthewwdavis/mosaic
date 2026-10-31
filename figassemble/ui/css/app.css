@@ -398,3 +398,6 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   padding: 0.3rem 0.4rem 0.3rem 0.8rem; border: 2px solid var(--sel); border-radius: 0.5rem; background: var(--panel);
   color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); max-width: 60%; }
 .scope-note[hidden] { display: none; }
+
+/* The Measure tool's line */
+.measure-line { stroke: var(--sel); stroke-width: 2; stroke-dasharray: 6 4; }

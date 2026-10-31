@@ -32,6 +32,7 @@ export function colourHolders(doc) {
         for (const stop of it[k].gradient?.stops || []) out.push(stop);
       }
       for (const p of it.text?.paragraphs || []) for (const r of p.runs || []) out.push(r);
+      if (it.type === "scalebar") out.push(it);
     }
   };
   for (const pg of doc.pages || []) walk(pg.items);

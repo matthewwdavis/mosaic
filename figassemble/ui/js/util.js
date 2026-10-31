@@ -235,6 +235,7 @@ export function describeItem(it, doc) {
     return `${kind[0].toUpperCase()}${kind.slice(1)} from ${n(a[0])}, ${n(a[1])} to ${n(b[0])}, ${n(b[1])}${via}`;
   }
   if (it.type === "group") return `Group of ${it.items.length} objects`;
+  if (it.type === "scalebar") return `Scale bar, ${+Number(it.length).toPrecision(6)} ${it.unit}, at ${n(it.frame[0])}, ${n(it.frame[1])} ${unit}`;
   const text = itemText(it);
   if (text) return `Text "${text.slice(0, 60)}", at ${n(it.frame[0])}, ${n(it.frame[1])} ${unit}`;
   return `${shapeName(it.geom)}, ${n(it.frame[2])} by ${n(it.frame[3])} ${unit} at ${n(it.frame[0])}, ${n(it.frame[1])}`;
@@ -256,6 +257,7 @@ export function itemLabel(it, doc) {
     return (generic ? doc.assets[it.asset]?.name : it.name) || "Picture";
   }
   if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_end || it.arrow_start ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
+  if (it.type === "scalebar") return `Scale bar, ${+Number(it.length).toPrecision(6)} ${it.unit}`;
   if (it.type === "group" && it.clip) return it.name || `Clipping mask (${it.items.length - 1})`;
   if (it.type === "group") return it.name && !/^Group \d+$/.test(it.name) ? it.name : `Group (${it.items.length})`;
   const t = itemText(it);

@@ -324,6 +324,14 @@ def flat_prims(prims: list):
             yield p
 
 
+SCALEBAR_GAP = 0.3   # between a scale bar and its label, in text sizes
+
+
+def scalebar_label(item: dict) -> str:
+    """What a scale bar says: its length and unit, e.g. "50 µm"."""
+    return f"{float(item.get('length', 1)):g} {item.get('unit', 'µm')}"
+
+
 def make_stroke(d: dict | None) -> Stroke | None:
     if not d:
         return None
@@ -525,6 +533,8 @@ class Resolver:
             r = self._shape(item)
         elif kind == "line":
             r = self._line(item)
+        elif kind == "scalebar":
+            r = self._scalebar(item)
         elif kind == "group":
             r = Resolved(item.get("id", ""))
             kids = item.get("items", [])
@@ -631,6 +641,28 @@ class Resolver:
                 new_w = w if body.get("wrap", True) else layout.autofit_width + (w - (tx1 - tx0))
                 if abs(new_h - h) > 0.005 or abs(new_w - w) > 0.005:
                     r.autofit_frame = [x, y, new_w, new_h]
+        return r
+
+    def _scalebar(self, item: dict) -> Resolved:
+        """A scale bar: a bar as long as its frame, the length written above or below it. The
+        editor keeps the frame in step with the picture's scale (scalebar.js)."""
+        r = Resolved(item.get("id", ""))
+        x, y, w, h = item["frame"]
+        t, size = float(item.get("thickness", 2.0)), float(item.get("size", 6.0))
+        color, label = item.get("color", "#ffffff"), item.get("label", "above")
+        bar_y = y + h - t if label == "above" else y
+        bar = Path().move_to(x, bar_y).line_to(x + w, bar_y).line_to(x + w, bar_y + t).line_to(x, bar_y + t).close()
+        r.prims.append(DrawPath(bar, fill=Fill(color=color), meta={"item": item.get("id")}))
+        if label != "none":
+            run = {"t": scalebar_label(item), "font": item.get("font", "Helvetica"), "size": size,
+                   "bold": bool(item.get("bold")), "italic": False, "color": color}
+            body = {"paragraphs": [{"align": "ctr", "runs": [run]}], "insets": [0.0, 0.0, 0.0, 0.0], "wrap": False,
+                    "anchor": "t", "autofit": "none"}
+            gap = size * SCALEBAR_GAP
+            layout = layout_text(body, w, max(h - t - gap, size), self.fonts)
+            if layout.runs:
+                ty = y if label == "above" else bar_y + t + gap
+                r.prims.append(DrawText(layout.runs, Matrix.translate(x, ty), meta={"item": item.get("id")}))
         return r
 
     def _line(self, item: dict) -> Resolved:
