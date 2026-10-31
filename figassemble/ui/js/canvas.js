@@ -521,6 +521,7 @@ export const canvas = {
     if (e.button !== 0) return;
     if (isMac && e.ctrlKey && !e.metaKey) return;   // Control-click is a right-click: its menu opens from the contextmenu event
     if (this.tool === "fill") { this.onFillArea?.(p); return; }
+    if (this.tool === "painter") { this.onPaint?.(this.itemAt(p)); return; }
     if (this.tool !== "select") return this.startDraw(p, e);
     const hd = this.handleAt(pt);
     if (hd) return this.startHandle(hd, p, e);
@@ -1234,7 +1235,7 @@ export const canvas = {
     if (this.editing) this.commitEdit();
     if (tool === "shape" && geom) this.shapeGeom = geom;
     this.tool = tool;
-    this.stage.style.cursor = tool === "select" ? "default" : "crosshair";
+    this.stage.style.cursor = tool === "select" ? "default" : tool === "painter" ? "copy" : "crosshair";
     if (this.onToolChange) this.onToolChange(tool);
   },
   startDraw(p, e) {
@@ -1291,6 +1292,7 @@ export const canvas = {
   // Enter with a drawing tool: one object in the middle of the view, on the page
   placeDefault() {
     if (this.tool === "fill") return announce("Click inside an area that lines and shapes enclose to fill it");
+    if (this.tool === "painter") return this.onPaint?.(null, true);   // Enter paints what's selected
     const r = this.stage.getBoundingClientRect(), page = store.page();
     const [x, y] = this.toPage(r.width / 2, r.height / 2);
     const c = [clamp(x, 0, page.width), clamp(y, 0, page.height)];

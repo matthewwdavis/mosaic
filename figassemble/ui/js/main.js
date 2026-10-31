@@ -15,6 +15,7 @@ import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
 import { splitters } from "./splitters.js";
 import { store } from "./store.js";
+import { applyStyle, styleOf } from "./styles.js";
 import {
   MOD, announce, clone, describeItem, display, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints, shapeCatalog, uid,
 } from "./util.js";
@@ -439,6 +440,8 @@ const app = {
     return [
       c("cut"), c("copy"), ...this.pasteEntries(clip, at), c("duplicate"), c("delete"),
       "-",
+      c("copyStyle", { disabled: !sel.length }), c("pasteStyle", { disabled: !this.styleClipboard || locked }),
+      "-",
       c("group", { disabled: sel.length < 2 }), c("ungroup", { disabled: !sel.some((it) => it.type === "group") }),
       "-",
       c("bringToFront"), c("bringForward"), c("sendBackward"), c("sendToBack"),
@@ -663,6 +666,40 @@ const app = {
     this.lastDuplicate = { originals: ids, copies: store.selection.slice() };
     announce(`Duplicated ${items.length} object${items.length === 1 ? "" : "s"}`);
   },
+  // Styles: Copy style (⌘⇧C) takes the selected object's look; Paste style (⌘⇧V) puts it on
+  // what's selected; the Format Painter takes it and paints it on the next object clicked
+  copyStyle() {
+    const src = store.selected()[0];
+    const style = src && styleOf(src);
+    if (!style) { announce("Select an object to copy its style"); return false; }
+    this.styleClipboard = style;
+    announce(`Copied the style of ${itemLabel(src, store.doc)}`);
+    return true;
+  },
+  pasteStyle(ids = store.selection) {
+    if (!this.styleClipboard) { announce("Copy a style first"); return; }
+    const targets = ids.map((id) => store.item(id)).filter((it) => it && !it.locked);
+    if (!targets.length) return;
+    store.update("Paste style", (doc) => {
+      for (const t of targets) applyStyle(findDeep(doc.pages[store.pageIndex].items, t.id), this.styleClipboard);
+    });
+    announce(targets.length === 1 ? `Pasted the style onto ${itemLabel(store.item(targets[0].id), store.doc)}`
+      : `Pasted the style onto ${targets.length} objects`);
+  },
+  // A click on the button paints once; a double-click keeps painting until Escape
+  formatPainter(keep = false) {
+    if (canvas.tool === "painter" && !keep) { canvas.setTool("select"); return; }
+    if (!this.copyStyle()) return;
+    this.painterKeeps = keep;
+    canvas.setTool("painter");
+    announce(keep ? "Click objects to paint the style on them; Escape stops" : "Click an object to paint the style on it");
+  },
+  // A click paints the object under it; Enter (from the keyboard) paints what's selected
+  paintStyle(hit, keyboard = false) {
+    if (keyboard) this.pasteStyle();
+    else if (hit && !hit.locked) this.pasteStyle([hit.id]);
+    if (!this.painterKeeps) canvas.setTool("select");
+  },
   // Transform Again (⌘⇧D), as in Illustrator: the last move, resize or turn, done again to what's
   // selected now; a move made by Option-dragging a copy makes another copy
   noteTransform(t) { this.lastTransform = t; },
@@ -836,6 +873,10 @@ app.commands = {
   copy: cmd("Copy", () => app.copy(), `${M}C`, key("c"), "Copy"),
   paste: cmd("Paste", () => app.paste(), `${M}V`, key("v"), "Paste"),
   duplicate: cmd("Duplicate", () => app.duplicate(), `${M}D`, key("d"), "Duplicate"),
+  copyStyle: cmd("Copy style", () => app.copyStyle(), `${M}${S}C`, key("c", { shift: true }), "Copy style"),
+  pasteStyle: cmd("Paste style", () => app.pasteStyle(), `${M}${S}V`, key("v", { shift: true }), "Paste style"),
+  formatPainter: cmd("Format painter: click it, then click an object to give it the selected object's style "
+    + "(double-click it to keep painting)", () => app.formatPainter(), null, null, "Painter"),
   transformAgain: cmd("Transform again: repeat the last move, resize or turn", () => app.transformAgain(), `${M}${S}D`,
     key("d", { shift: true }), "Again"),
   delete: cmd("Delete", () => app.deleteSelection(), "Delete", (e) => plain(e) && (e.key === "Delete" || e.key === "Backspace"), "Delete"),
@@ -1088,6 +1129,7 @@ async function start() {
   canvas.init(document.getElementById("stage"));
   canvas.onKeyClick = (id) => app.toggleKeyObject(id);
   canvas.onTransform = (t) => app.noteTransform(t);
+  canvas.onPaint = (hit, keyboard) => app.paintStyle(hit, keyboard);
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.onFillArea = (p) => app.fillArea(p);
   canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);

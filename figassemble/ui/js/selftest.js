@@ -5,7 +5,7 @@ import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { store } from "./store.js";
-import { lengthText, lineMidpoints } from "./util.js";
+import { itemBBox, lengthText, lineMidpoints } from "./util.js";
 
 const MMPT = 72 / 25.4;
 const near = (a, b, tol = 0.05) => Math.abs(a - b) < tol;
@@ -694,6 +694,52 @@ export async function run(app, params) {
     const afterResize = store.item(dupB.id).frame;
     check(near(afterResize[2], beforeResize[2] * 2, 1e-6) && near(afterResize[0], beforeResize[0], 1e-6) && near(afterResize[3], beforeResize[3], 1e-6),
       "and the last resize, keeping the same side still", `${JSON.stringify(beforeResize)} -> ${JSON.stringify(afterResize)}`);
+    // Copy style / Paste style (⌘⇧C / ⌘⇧V): everything the target can take
+    const jsonOf = (v) => JSON.stringify(v ?? null);
+    store.update("Style the copies", (doc) => {
+      for (const id of [dupA.id, dupB.id]) {
+        const d = findItem(doc, id);
+        d.stroke = { color: "#d62728", width: 3, dash: "dash", cap: "round", join: "round", opacity: 1 };
+        d.fill = { color: "#ffd166", opacity: 1 };
+        delete d.outline;
+      }
+    });
+    store.select([rect.id]);
+    await app.run("copyStyle");
+    store.select([dupB.id]);
+    await app.run("pasteStyle");
+    const styleFrom = store.item(rect.id), styleTo = store.item(dupB.id);
+    check(jsonOf(styleTo.stroke) === jsonOf(styleFrom.stroke) && jsonOf(styleTo.outline) === jsonOf(styleFrom.outline)
+      && jsonOf(styleTo.fill) === jsonOf(styleFrom.fill), "Paste style gives another shape the line, fill and outline copied",
+    `${jsonOf(styleTo.stroke)} ${jsonOf(styleTo.fill)}`);
+    // From a line: its line and outline, and the shape keeps its fill
+    store.update("Fill it again", (doc) => { findItem(doc, dupB.id).fill = { color: "#ffd166", opacity: 1 }; });
+    store.select([arrow.id]);
+    await app.run("copyStyle");
+    store.select([dupB.id]);
+    await app.run("pasteStyle");
+    check(jsonOf(store.item(dupB.id).stroke) === jsonOf(store.item(arrow.id).stroke) && store.item(dupB.id).fill?.color === "#ffd166",
+      "a line's style gives a shape its line and leaves its fill", jsonOf(store.item(dupB.id).stroke));
+    // The Format Painter: click it, then the object to paint
+    const painterBtn = document.querySelector('#rpanel-home [data-cmd="formatPainter"]');
+    const centreOf = (id) => { const b = itemBBox(store.item(id)); return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]; };
+    store.select([rect.id]);
+    painterBtn.click();
+    check(canvas.tool === "painter" && painterBtn.getAttribute("aria-pressed") === "true",
+      "the Format Painter picks up the selected object's style and waits for a click", canvas.tool);
+    await drag(centreOf(dupA.id), centreOf(dupA.id));
+    check(jsonOf(store.item(dupA.id).stroke) === jsonOf(store.item(rect.id).stroke) && !store.item(dupA.id).fill && canvas.tool === "select",
+      "a click paints it on, and the painter puts itself away", `${jsonOf(store.item(dupA.id).stroke)} ${canvas.tool}`);
+    // Double-clicked, it keeps painting until Escape
+    store.select([arrow.id]);
+    painterBtn.click();
+    painterBtn.click();
+    painterBtn.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    await drag(centreOf(dupB.id), centreOf(dupB.id));
+    check(canvas.tool === "painter" && jsonOf(store.item(dupB.id).stroke) === jsonOf(store.item(arrow.id).stroke),
+      "double-clicked, the Format Painter keeps painting", canvas.tool);
+    key("Escape");
+    check(canvas.tool === "select" && painterBtn.getAttribute("aria-pressed") === "false", "and Escape puts it away", canvas.tool);
     store.select([dupA.id, dupB.id]);
     await app.run("delete");
 

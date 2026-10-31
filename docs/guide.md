@@ -31,7 +31,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 ![The FigAssemble window, numbered](images/window-tour.png)
 
 1. **Tabs** across the top, like PowerPoint's ribbon:
-   - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste; Duplicate, Again, Delete; Add page,
+   - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; Duplicate, Again, Delete; Add page,
      Fit page.
    - **Arrange**: Align, Distribute, Spacing, Align to, Group, Order (see
      [Align and distribute](#align-and-distribute)).
@@ -272,13 +272,30 @@ the object when it moves, resizes or rotates.
 - **Lock** stops an object being selected or moved on the page; **Hide** hides it (it isn't
   exported). Both are in the Object section, the Objects list and the right-click menu.
 
+## Copying a style
+
+Give objects the same look in one go, as with PowerPoint's Format Painter:
+
+- **Copy style (⌘⇧C)** takes the selected object's style; **Paste style (⌘⇧V)** puts it on
+  everything selected. Both are in the right-click menu too.
+- **Painter** (Home tab) takes the selected object's style; then click an object to paint it on.
+  Double-click Painter to paint several objects, one click each, until you press Escape. From the
+  keyboard, Tab to an object and press Enter to paint it.
+
+A style is everything the object it's pasted onto can take: the line (colour, thickness, dashes,
+ends and corners), the fill (gradients included), the outline, arrowheads, corner rounding and
+text formatting (font, size, bold, italic, colour, alignment and spacing). "No fill" and "no line"
+are copied too, except that a line never loses its own line. A line's style gives a shape its line
+and outline and leaves the shape's fill alone; a picture's style is its transparency.
+
 ## Right-click menus
 
 Right-click (or Control-click on a Mac) for a menu of what you can do, with each command's
 shortcut beside it:
 
-- **An object:** Cut, Copy, Paste, Duplicate, Delete; Group, Ungroup; the four Order commands;
-  Lock position, Hide. A picture adds Crop, Replace and Show the picture's file; a text box or
+- **An object:** Cut, Copy, Paste, Duplicate, Delete; Copy style, Paste style; Group, Ungroup;
+  the four Order commands; Lock position, Hide. A picture adds Crop, Replace and Show the
+  picture's file; a text box or
   shape adds Edit text; a line attached to objects adds Detach the ends.
   - Right-clicking an object that isn't selected selects it.
   - Right-clicking one of several selected objects keeps them all selected, so **Group** groups
@@ -422,6 +439,7 @@ Press **?** in FigAssemble for this list.
 | Undo, Redo | ⌘Z, ⌘⇧Z | Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z |
 | Cut, Copy, Paste, Duplicate | ⌘X, ⌘C, ⌘V, ⌘D | Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+D |
 | Transform again (repeat the last move, resize or turn) | ⌘⇧D | Ctrl+Shift+D |
+| Copy style, Paste style | ⌘⇧C, ⌘⇧V | Ctrl+Shift+C, Ctrl+Shift+V |
 | Delete | Delete | Delete or Backspace |
 | Select all | ⌘A | Ctrl+A |
 | Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |
