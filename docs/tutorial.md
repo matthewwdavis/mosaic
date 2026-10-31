@@ -35,7 +35,9 @@ Open FigAssemble. Here's the window with a finished figure in it:
 6. **The page**, with rulers along the top and left.
 7. **Properties** of whatever is selected, in tabs (Arrange, Style, Text, Picture). With nothing
    selected, it shows the page. Click a section's heading to fold it away.
-8. **Zoom.** Pinch, or ⌘ + scroll, also zooms; scroll or Space + drag moves around.
+8. **Zoom.** Pinch, or ⌘ + scroll, also zooms; scroll or Space + drag moves around. While the
+   whole page fits in the view, it stays centred; after zooming in, the **Centre** button (⌘⇧0)
+   brings it back to the middle.
 
 Every button has a tooltip with its keyboard shortcut. Press **?** for the full list. Right-click
 an object or the page (Control-click on a Mac) for a menu of what you can do with it.
@@ -190,8 +192,8 @@ If FigAssemble ever closes unexpectedly, it offers your unsaved work back the ne
 ## Where next
 
 - The **[user guide](guide.md)** covers everything else: cropping pictures, text styles, curved
-  arrows, the Shapes menu, guides and the grid, outlines, opening PowerPoint slides, and all the
-  keyboard shortcuts.
+  arrows, the Shapes menu, gradient fills, outline types, area fills, guides and the grid,
+  themes, resizing the side panels, opening PowerPoint slides, and all the keyboard shortcuts.
 - Try it with your own figures, and **tell us what's confusing or missing**:
   [report a problem](https://github.com/matthewwdavis/FigAssemble/issues/new?template=problem.yml)
   or [suggest an idea](https://github.com/matthewwdavis/FigAssemble/issues/new?template=idea.yml).
