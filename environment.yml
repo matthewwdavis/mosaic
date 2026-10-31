@@ -11,6 +11,7 @@ dependencies:
   - fonttools      # font metrics and embedding
   - numpy
   - shapely>=2.1   # areas enclosed by lines and shapes (live area fills)
+  - skia-pathops>=0.8   # Pathfinder: combining shapes with exact curves
   - pytest
   - ghostscript    # optional: EPS export, CMYK PDF
   - librsvg        # optional: SVG -> PDF when a plot has no PDF copy

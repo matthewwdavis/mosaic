@@ -327,6 +327,11 @@ class Api:
         path, even_odd = clip_path(area)
         return {"d": path.to_svg(3), "even_odd": bool(even_odd)}
 
+    def pathfinder(self, items: list[dict], how: str) -> dict:
+        """Shapes (bottom to top) combined into one freeform shape (pathfinder.combine)."""
+        from ..pathfinder import combine
+        return combine(items, how)
+
     def drag_handle(self, item: dict, index: int, point: list[float]) -> dict:
         """Adjust values that put a shape's handle `index` nearest a frame point."""
         return presets.drag_handle(item["geom"], item["frame"][2], item["frame"][3], item.get("adj"),

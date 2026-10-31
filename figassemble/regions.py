@@ -257,9 +257,10 @@ def _flat(items: list[dict]) -> list[dict]:
     return out
 
 
-def custom_path(path: Path, frame: list[float]) -> dict:
+def custom_path(path: Path, frame: list[float], stroke: bool = False) -> dict:
     """A path as a freeform shape's own path (resolve.custom_paths), relative to its frame: for
-    turning an area fill into an ordinary shape that no longer follows its lines."""
+    turning an area fill into an ordinary shape that no longer follows its lines (no line of its
+    own), or a Pathfinder result (stroke: it can have one)."""
     x0, y0, w, h = frame
     cmds = []
     for seg in path.segs:
@@ -267,4 +268,4 @@ def custom_path(path: Path, frame: list[float]) -> dict:
             cmds.append(["Z"])
         else:
             cmds.append([seg[0], *[round(v - (x0 if k % 2 == 0 else y0), 4) for k, v in enumerate(seg[1:])]])
-    return {"subpaths": [{"w": w, "h": h, "cmds": cmds, "fill": True, "stroke": False}]}
+    return {"subpaths": [{"w": w, "h": h, "cmds": cmds, "fill": True, "stroke": stroke}]}

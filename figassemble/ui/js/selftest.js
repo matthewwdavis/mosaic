@@ -922,7 +922,19 @@ export async function run(app, params) {
     await app.run("releaseClipMask");
     check(store.items().some((it) => it.id === "mkOval") && !store.items().some((it) => it.id === clipGroup.id)
       && canvas.els.get("mkOval")?.g.style.display !== "none", "Release separates the shape and what it clipped", store.selection.join());
-    store.select(["mkRect", "mkOval"]);
+    // Pathfinder: Unite joins overlapping shapes into one freeform shape, in the top one's place
+    store.update("Shapes to combine", (doc) => doc.pages[store.pageIndex].items.push(maskPart("pfA", "rect", [60, 560, 60, 40]),
+      maskPart("pfB", "ellipse", [90, 570, 60, 40])));
+    store.select(["pfA", "pfB"]);
+    document.querySelector('#rpanel-combine [data-cmd="unite"]').click();
+    await until(() => store.selected()[0]?.geom === "custom", 4000);
+    const united = store.selected()[0];
+    check(united?.geom === "custom" && !store.item("pfA") && !store.item("pfB") && near(united.frame[2], 90, 0.01)
+      && (united.path?.subpaths?.[0]?.cmds || []).some((c) => c[0] === "C"),
+    "Unite joins the shapes into one freeform shape, its curves kept", JSON.stringify(united?.frame));
+    await app.run("undo");
+    check(store.item("pfA") && store.item("pfB") && !store.item(united.id), "and Undo brings back the shapes");
+    store.select(["mkRect", "mkOval", "pfA", "pfB"]);
     await app.run("delete");
 
     // Gradient fills: linear, then radial from a corner; stops can be added and reversed

@@ -35,7 +35,8 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
      Fit page; Swatches, Text styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group, Order (see
      [Align and distribute](#align-and-distribute)).
-   - **Combine**: clipping masks (Make mask, Release).
+   - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
+     Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
      a colour vision preview (Check colours).
 2. Each tab's commands, in labelled groups.
@@ -239,6 +240,20 @@ can choose its colour, or a gradient, in the Style tab.
 - **Make an ordinary shape** (Arrange tab or right-click) turns it into a plain shape of the area
   as it is, which stays put when the lines move. Copied on its own, without its lines, a fill
   becomes one of these.
+
+## Combining shapes
+
+The **Combine** tab's **Pathfinder** buttons, as in Illustrator, make one freeform shape from the
+selected shapes:
+
+- **Unite** joins them; **Intersect** keeps only where they all overlap; **Exclude** keeps where
+  they don't overlap (where an odd number of them are).
+- **Minus front** cuts the shapes on top out of the bottom one.
+
+Curves stay true curves, so the result is as smooth as the shapes were and can be resized and
+restyled like any shape. It takes the top shape's style (for Minus front, the bottom one's) and
+its place in the stacking order. Text in the shapes isn't kept. An area fill can be combined once
+it's an ordinary shape (**Make an ordinary shape** in its Arrange tab).
 
 ## Dashes
 

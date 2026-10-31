@@ -403,6 +403,29 @@ const app = {
     }, { select: kids });
     announce("Released: the shape and what it clipped are separate again");
   },
+  // Pathfinder, as in Illustrator: the selected shapes combined into one freeform shape, curves
+  // kept exactly (pathfinder.py); it takes the top shape's place
+  async pathfinder(how) {
+    const ids = new Set(store.selection);
+    const sel = store.scopeItems().filter((it) => ids.has(it.id));   // bottom to top
+    const names = { unite: "Unite", minus_front: "Minus front", intersect: "Intersect", exclude: "Exclude" };
+    if (sel.length < 2) { announce("Select two or more shapes to combine"); return; }
+    if (sel.some((it) => it.type !== "shape" || it.geom === "region")) {
+      announce("Pathfinder combines shapes (an area fill can be made an ordinary shape first)");
+      return;
+    }
+    let shape;
+    try { shape = await rpc("pathfinder", sel, how); } catch (err) { announce(err.message); return; }
+    shape.id = uid("it");
+    store.update(names[how], (doc) => {
+      const items = store.container(doc);
+      const at = Math.max(...items.map((it, i) => (ids.has(it.id) ? i : -1)));
+      const rest = items.filter((it) => !ids.has(it.id) || it === items[at]);
+      rest.splice(rest.indexOf(items[at]), 1, shape);
+      items.splice(0, items.length, ...rest);
+    }, { select: [shape.id] });
+    announce(`${names[how]}: ${sel.length} shapes are now one`);
+  },
   // Match sizes: the other selected objects take the key object's width (or height), keeping
   // their proportions and their top-left corners. Line widths don't scale, so the box grows in a
   // straight line with the factor: one trial scale gives the exact one
@@ -1080,6 +1103,11 @@ app.commands = {
     + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
   sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the first selected), keeping "
     + "their proportions", () => app.matchSize("h"), null, null, "Same height"),
+  unite: cmd("Unite: join the selected shapes into one", () => app.pathfinder("unite"), null, null, "Unite"),
+  minusFront: cmd("Minus front: cut the shapes on top out of the bottom one", () => app.pathfinder("minus_front"), null, null,
+    "Minus front"),
+  intersect: cmd("Intersect: keep only where the selected shapes overlap", () => app.pathfinder("intersect"), null, null, "Intersect"),
+  exclude: cmd("Exclude: keep where the shapes don't overlap", () => app.pathfinder("exclude"), null, null, "Exclude"),
   makeClipMask: cmd("Make clipping mask: the top selected shape clips the objects under it", () => app.makeClipMask(),
     `${M}7`, key("7"), "Make mask"),
   releaseClipMask: cmd("Release clipping mask: separate the shape and what it clips", () => app.releaseClipMask(), null, null, "Release"),
