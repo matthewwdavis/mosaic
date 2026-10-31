@@ -21,7 +21,10 @@ outline {color, width, opacity, type}: a contour of `width` points in another co
         everything the item draws; its opacity applies to the contour as a whole. type:
         outside (default; underneath, so it shows only outside a filled shape), both (round
         the line on both sides, over the fill), outside_gaps (underneath, leaving a dashed
-        line's gaps empty), both_filled (both sides, running on through a dashed line's gaps)
+        line's gaps empty), both_filled (both sides, running on through a dashed line's gaps),
+        inside / inside_gaps (outside / outside_gaps kept to the shape's area, over the fill),
+        outside_only / outside_only_gaps (outside / outside_gaps kept off the area of an
+        unfilled shape too); the editor offers these as Sides and Gaps (resolve.with_outline)
 
 stroke {color, width, dash (preset or list of widths), cap: flat|round|square,
         join: round|miter|bevel, opacity, even_dashes: false for PowerPoint's dash spacing

@@ -73,6 +73,51 @@ def _path(face: Polygon) -> Path:
     return path
 
 
+def _covered(areas: list):
+    """The area several closed paths [(path, even_odd)] cover together (shapely)."""
+    covered = []
+    for path, _even_odd in areas:
+        area = None
+        for pts in flatten(path, PER_CURVE):
+            pts = [p for i, p in enumerate(pts) if i == 0 or math.dist(p, pts[i - 1]) > GRID]
+            if len(pts) < 3:
+                continue
+            ring = shapely.make_valid(Polygon(pts))
+            area = ring if area is None else area.symmetric_difference(ring)   # holes, as drawn
+        if area is not None:
+            covered.append(area)
+    # Only the areas: making a ring valid can leave stray lines and points
+    faces = [g for g in shapely.get_parts(shapely.unary_union(covered)) if isinstance(g, Polygon)] if covered else []
+    return shapely.unary_union(faces) if faces else Polygon()
+
+
+def union_path(areas: list) -> Path:
+    """The area several closed paths [(path, even_odd)] cover together, as one path of straight
+    edges, to fill or clip even-odd (a shape whose area is several paths, like a cube's faces)."""
+    out = Path()
+    for face in shapely.get_parts(_covered(areas)):
+        if isinstance(face, Polygon) and face.area > GRID:
+            out.segs += _path(face).segs
+    return out
+
+
+def edge_traced(areas: list, lines: list, tol: float) -> bool:
+    """Whether lines run along the whole edge of the area the closed paths [(path, even_odd)]
+    cover, to within tol: a can's line goes all the way round it, a bracket pair's doesn't."""
+    edge = _covered(areas).boundary
+    pieces = []
+    for path in lines:
+        for sub in path.subpaths():
+            pts = flatten(sub, PER_CURVE)[0] if sub.segs else []
+            if sub.is_closed() and pts:
+                pts = [*pts, pts[0]]   # the closing edge
+            if len(pts) >= 2:
+                pieces.append(LineString(pts))
+    if edge.is_empty or not pieces:
+        return False
+    return edge.difference(shapely.unary_union(pieces).buffer(tol)).length <= 0.01 * edge.length
+
+
 def area_at(items: list[dict], point) -> dict | None:
     """The area enclosed round `point` by `items` (a page's items): {items: ids of those round it,
     seed: [u, v], frame: its box}, or None if nothing encloses that point."""

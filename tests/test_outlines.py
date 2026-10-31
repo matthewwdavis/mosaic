@@ -1,10 +1,16 @@
 """Outline types: where an item's outline goes among what it draws (resolve.with_outline)."""
+import pikepdf
+from lxml import etree
+
+from figassemble import presets
+from figassemble.export.run import export_document
+from figassemble.export.svgwriter import fragment
 from figassemble.geometry import DrawPath
 from figassemble.resolve import DrawGroup, Resolver
 
 
-def drawn(outline_type, dash="solid", stroke=True, fill=True):
-    item = {"id": "s", "type": "shape", "geom": "rect", "frame": [10, 10, 80, 60], "rot": 0,
+def drawn(outline_type, dash="solid", stroke=True, fill=True, geom="rect"):
+    item = {"id": "s", "type": "shape", "geom": geom, "frame": [10, 10, 80, 60], "rot": 0,
             "stroke": {"color": "#1f3a93", "width": 3, "dash": dash, "cap": "round", "join": "round"} if stroke else None,
             "fill": {"color": "#cfe3ff"} if fill else None,
             "outline": {"color": "#ff9900", "width": 2, "opacity": 1, "type": outline_type}}
@@ -74,6 +80,99 @@ def test_an_open_arrowhead_never_has_an_outline_over_its_line():
         prims = Resolver({"assets": {}}).resolve(dict(item, outline={"color": "#fff", "width": 2, "type": t})).prims
         roles = [p.meta.get("role") for p in prims if p.meta.get("role") != "body"]
         assert roles == ["outline", "outline", None, "line-end"], (item["id"], t, roles)
+
+
+def layers(prims):
+    """Like kinds, with a clipped outline group as clipped(...its contents...): a band along the
+    area's edge is twice the outline's width (4 pt in drawn), a line's outline wider."""
+    out = []
+    for p in prims:
+        if isinstance(p, DrawGroup) and p.clip:
+            out.append("clipped(" + " ".join("band" if q.fill is None and q.stroke.width == 4.0 else "outline"
+                                             for q in p.prims) + ")")
+        else:
+            out += kinds([p])
+    return out
+
+
+def test_inside_is_kept_to_the_shape_over_its_fill():
+    # Over the fill and under the line, clipped to the rectangle, with a band along its edge
+    # that runs through the gaps of a dashed line (Inside, gaps filled)
+    prims = drawn("inside", dash="dash")
+    assert layers(prims) == ["fill", "clipped(band outline)", "line"]
+    (clip, even_odd), = prims[1].clip
+    assert clip.segs == prims[0].path.segs and not even_odd
+    # Gaps empty: only round each dash; a solid line has no gaps, so the band stays
+    assert layers(drawn("inside_gaps", dash="dash")) == ["fill", "clipped(outline)", "line"]
+    assert layers(drawn("inside_gaps")) == layers(drawn("inside"))
+    # A fill with no line: a band just inside its edge
+    assert layers(drawn("inside", stroke=False)) == ["fill", "clipped(band)"]
+    # No fill: kept inside the area the shape's own line goes round
+    assert layers(drawn("inside", fill=False)) == ["clipped(band outline)", "line"]
+
+
+def test_outside_only_keeps_off_an_unfilled_shapes_inside():
+    # Everything but the rectangle: a box round it with the rectangle cut out, even-odd
+    prims = drawn("outside_only", fill=False, dash="dash")
+    assert layers(prims) == ["clipped(band outline)", "line"]
+    assert layers(drawn("outside_only_gaps", fill=False, dash="dash")) == ["clipped(outline)", "line"]
+    (clip, even_odd), = prims[0].clip
+    assert even_odd and len(clip.subpaths()) == 2
+    # A fill already hides the inside: the same as Outside
+    assert layers(drawn("outside_only", dash="dash")) == layers(drawn("outside", dash="dash"))
+    assert layers(drawn("outside_only_gaps", dash="dash")) == layers(drawn("outside_gaps", dash="dash"))
+
+
+def test_a_line_with_no_inside_keeps_its_gaps_choice():
+    line = {"id": "l", "type": "line", "points": [[0, 0], [50, 0], [50, 40]], "stroke": {"color": "#000", "width": 2, "dash": "dash"}}
+
+    def with_type(item, t):
+        return layers(Resolver({"assets": {}}).resolve(dict(item, outline={"color": "#fff", "width": 2, "type": t})).prims)
+    brackets = {"id": "b", "type": "shape", "geom": "bracketPair", "frame": [0, 0, 80, 60], "rot": 0,
+                "stroke": {"color": "#000", "width": 2, "dash": "dash"}, "fill": None}
+    for item in (line, brackets):
+        for t in ("inside", "outside_only"):
+            assert with_type(item, t) == with_type(item, "both_filled"), (item["id"], t)
+        for t in ("inside_gaps", "outside_only_gaps"):
+            assert with_type(item, t) == with_type(item, "both"), (item["id"], t)
+
+
+def test_which_shapes_lines_go_all_the_way_round():
+    for geom in ("rect", "ellipse", "star5", "can", "cube", "foldedCorner", "curvedRightArrow"):
+        assert presets.encloses(geom), geom
+    for geom in ("line", "arc", "bracketPair", "leftBrace", "chartPlus", "callout1", "bentConnector3"):
+        assert not presets.encloses(geom), geom
+    assert presets.catalog()["shapes"]["can"]["closed"] is True
+
+
+def test_an_area_of_several_paths_is_clipped_to_their_union():
+    # A cube's three faces: one even-odd clip round all of them
+    prims = drawn("inside", fill=False, geom="cube")
+    (group,) = [p for p in prims if isinstance(p, DrawGroup)]
+    (clip, even_odd), = group.clip
+    assert even_odd and len(clip.subpaths()) == 1
+
+
+def test_clipped_outlines_in_svg_pdf_and_the_editor(tmp_path):
+    from figassemble.app.api import Api
+    doc = Api().new_document()
+    item = {"id": "r", "type": "shape", "geom": "rect", "frame": [20, 20, 120, 60], "rot": 0, "fill": None,
+            "stroke": {"color": "#000", "width": 2, "dash": "dash"},
+            "outline": {"color": "#ff9900", "width": 2, "opacity": 0.5, "type": "outside_only"}}
+    doc["pages"][0]["items"] = [item]
+    export_document(doc, str(tmp_path / "o"), ["svg", "pdf"])
+    ns = "{http://www.w3.org/2000/svg}"
+    svg = etree.parse(str(tmp_path / "o.svg"))
+    (cp,) = svg.findall(f".//{ns}clipPath")
+    assert cp[0].get("clip-rule") == "evenodd"
+    clipped = [g for g in svg.iter(f"{ns}g") if f"url(#{cp.get('id')})" in (g.get("style") or "")]
+    assert len(clipped) == 1 and clipped[0][0].get("opacity") == "0.5"
+    pdf = pikepdf.open(str(tmp_path / "o.pdf"))
+    content = pdf.pages[0].Contents.read_bytes().decode("latin-1")
+    assert "\nW*\nn\n" in content
+    # The editor's copy gives the clip its own id, so items don't share one
+    frag = fragment(Resolver({"assets": {}}).resolve(item), "it7")
+    assert 'id="it7-fa-clip1"' in frag and "url(#it7-fa-clip1)" in frag
 
 
 def test_transparent_outline_is_one_group():

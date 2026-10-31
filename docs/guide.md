@@ -184,16 +184,15 @@ real text in PDF and SVG exports, with the fonts embedded.
   from PowerPoint slides come in as they were.
 - **Outline around it**: a band in a second colour around everything the object draws, e.g. a white
   edge that keeps a black arrow visible on a photo. You set its thickness and transparency, and
-  its type where types would look different. The list shows only the types that differ on the
+  where it goes with two lists, each showing only the choices that look different on the
   selected object:
-  - **Outside** or **Both sides of the line** (filled shapes with a line): underneath the shape,
-    so the band shows only outside it, or along both sides of the line, over the fill too;
-  - **Gaps filled** or **Gaps empty** (dashed or dotted lines): the band runs on through the gaps
-    between dashes, or goes only round each dash or dot.
-
-  A filled shape with a dashed or dotted line has all four: **Outside, gaps filled**, **Outside,
-  gaps empty**, **Both sides, gaps empty** and **Both sides, gaps filled**. A solid line, or a
-  shape with no line, has nothing to choose: every type looks the same there.
+  - **Sides**: **Outside** (only outside the shape), **Inside** (only inside it, over any fill)
+    or **Both sides** (along both sides of the line). A shape whose line goes all the way round
+    it has all three, filled or not. A fill with no line has Outside and Inside (a band just
+    inside its edge). A line, or an open shape such as an arc or a bracket, has no inside, so it
+    has no Sides list.
+  - **Gaps** (dashed or dotted lines only): **Filled**, the band runs on through the gaps
+    between dashes, or **Empty**, it goes only round each dash or dot.
 - **Make editable curve** (arcs): turns an arc into a curve with points you can drag.
 
 ## Area fills

@@ -17,27 +17,38 @@ const HEADS = [["none", "None"], ["triangle", "Triangle"], ["stealth", "Stealth"
   ["oval", "Circle"], ["diamond", "Diamond"]];
 const SIZES = [["sm", "Small"], ["med", "Medium"], ["lg", "Large"]];
 const ROUNDED_HEADS = ["triangle", "stealth", "arrow", "diamond"];   // heads whose corners can be rounded
-// The outline types that look different on this object: gap choices only for a dashed or dotted
-// line, and sides only where a fill hides the line's inner side; none where every type looks alike
-function outlineTypes(it) {
-  const st = it.stroke;
-  if (!st || (st.width ?? 1) <= 0) return null;
-  const dashed = !!st.dash && st.dash !== "solid", filled = it.type === "shape" && !!it.fill;
-  if (filled && dashed) {
-    return [["outside", "Outside, gaps filled"], ["outside_gaps", "Outside, gaps empty"], ["both", "Both sides, gaps empty"],
-      ["both_filled", "Both sides, gaps filled"]];
-  }
-  if (filled) return [["outside", "Outside"], ["both", "Both sides of the line"]];
-  if (dashed) return [["outside", "Gaps empty"], ["both_filled", "Gaps filled"]];
+// What decides which outline choices look different on an object: its fill, its line, and
+// whether that line goes all the way round an area (presets.encloses; a freeform's closed line)
+function outlineKind(it) {
+  const st = it.stroke, lined = !!st && (st.width ?? 1) > 0;
+  const encloses = it.type === "shape" && (it.geom === "custom"
+    ? (it.path?.subpaths || []).some((s) => s.stroke !== false && (s.cmds || []).some((c) => c[0] === "Z"))
+    : !!shapeCatalog.shapes[it.geom]?.closed);
+  return { filled: it.type === "shape" && !!it.fill, lined, dashed: lined && !!st.dash && st.dash !== "solid", encloses };
+}
+// The outline's Sides choices on this object: none for a line, which has no inside
+function outlineSides(k) {
+  if (k.filled && !k.lined) return [["outside", "Outside"], ["inside", "Inside"]];
+  if (k.lined && (k.filled || k.encloses)) return [["outside", "Outside"], ["inside", "Inside"], ["both", "Both sides"]];
   return null;
 }
-// A type not offered here is shown as the offered one it looks like here (a solid line has no
-// gaps; with no fill both sides show anyway)
-function shownOutlineType(type, kinds) {
-  const t = type || "outside", has = (k) => kinds.some(([v]) => v === k);
-  if (has(t)) return t;
-  if (t === "both" || t === "both_filled") return has("both") ? "both" : "outside";
-  return "outside";
+const OUTLINE_GAPS = [["filled", "Filled"], ["empty", "Empty"]];
+// An outline type as the Sides and Gaps it looks like on this object (resolve.with_outline).
+// The first types, drawn underneath, show on both sides of a line with no fill to hide one
+function outlineLook(type, k) {
+  let t = type || "outside";
+  if (!k.filled && !k.encloses && /^(inside|outside_only)/.test(t)) t = t.endsWith("_gaps") ? "both" : "both_filled";
+  let sides = t.startsWith("inside") ? "inside" : t.startsWith("both") ? "both" : "outside";
+  let gaps = ["outside", "outside_only", "inside", "both_filled"].includes(t) ? "filled" : "empty";
+  if (!k.filled && (t === "outside" || t === "outside_gaps")) [sides, gaps] = ["both", "empty"];
+  if (!k.lined && sides === "both") sides = "outside";
+  return { sides, gaps };
+}
+// The type that keeps to the chosen Sides and Gaps, whatever the fill becomes later
+function outlineType(sides, gaps) {
+  if (sides === "inside") return gaps === "empty" ? "inside_gaps" : "inside";
+  if (sides === "both") return gaps === "empty" ? "both" : "both_filled";
+  return gaps === "empty" ? "outside_only_gaps" : "outside_only";
 }
 // Where a radial gradient starts: its centre as fractions of the shape's box
 const CENTRES = [["middle", [0.5, 0.5], "The middle"], ["tl", [0, 0], "Top left corner"], ["tr", [1, 0], "Top right corner"],
@@ -568,8 +579,7 @@ export const inspector = {
   },
   // A contour in a second colour around the whole arrow or shape (lines, heads and fill)
   outlineSection(it) {
-    const o = it.outline, kinds = o ? outlineTypes(it) : null;
-    const offers = (k) => !!kinds && kinds.some(([v]) => v === k);
+    const o = it.outline, k = outlineKind(it), sides = o ? outlineSides(k) : null, gaps = !!o && k.dashed;
     const kids = [checkField("Outline around it", !!o, (on) => this.edit(on ? "Add outline" : "Remove outline", (x) => {
       x.outline = on ? { color: contrastingOutline(x), width: 1, opacity: 1 } : null;
     }))];
@@ -578,12 +588,18 @@ export const inspector = {
       kids.push(row(colorField("Outline colour", o.color, set("Outline colour", "color")),
         numField("Outline thickness", o.width ?? 1, "pt", (v) => set("Outline thickness", "width")(Math.max(v, 0.05)), { min: 0.05, step: 0.25 })));
       kids.push(transparencyField("Outline transparency", o.opacity, (op) => set("Outline transparency", "opacity")(op)));
-      if (kinds) kids.push(selectField("Outline type", shownOutlineType(o.type, kinds), kinds, set("Outline type", "type")));
+      // Sides and Gaps each change only their half of the type
+      const look = outlineLook(o.type, k);
+      const pick = (label, part) => (v) => set(label, "type")(outlineType(part === "sides" ? v : look.sides, part === "gaps" ? v : look.gaps));
+      const lists = [sides ? selectField("Sides", look.sides, sides, pick("Outline sides", "sides")) : null,
+        gaps ? selectField("Gaps", look.gaps, OUTLINE_GAPS, pick("Outline gaps", "gaps")) : null].filter(Boolean);
+      if (lists.length) kids.push(row(...lists));
     }
     kids.push(h("p", { class: "hint" }, "A band of another colour around everything it draws, e.g. a white edge that keeps a black arrow "
       + "visible on a photo."
-      + (offers("both") ? " Outside: only outside the shape. Both sides: inside it too, over the fill." : "")
-      + (offers("both_filled") ? " Gaps filled: the outline runs on through the line's gaps. Gaps empty: it goes only round each dash or dot." : "")));
+      + (!sides ? "" : sides.length === 2 ? " Outside: a band round the fill. Inside: a band just inside its edge."
+        : ` Outside: only outside the shape. Inside: only inside it${k.filled ? ", over the fill" : ""}. Both sides: along both sides of the line.`)
+      + (gaps ? " Gaps filled: the outline runs on through the line's gaps. Gaps empty: it goes only round each dash or dot." : "")));
     return section("Outline", kids);
   },
   endsSection(it) {

@@ -93,3 +93,17 @@ def test_drawn_and_exported_with_its_page(tmp_path):
     plain.pop("region")
     box = Resolver(doc).resolve(plain).bbox
     assert [round(v, 3) for v in box] == [20, 20, 200, 150]
+
+
+def test_an_area_fill_can_be_outlined_just_inside_its_edge():
+    from figassemble.resolve import DrawGroup
+    items = triangle()
+    found = regions.area_at(items, [100, 120])
+    fill = {"id": "f", "type": "shape", "geom": "region", "region": {"items": found["items"], "seed": found["seed"]},
+            "frame": found["frame"], "rot": 0, "stroke": None, "fill": {"color": "#ffd166", "opacity": 1},
+            "outline": {"color": "#ffffff", "width": 2, "opacity": 1, "type": "inside"}}
+    r = Resolver({"assets": {}})
+    r.use_page([fill] + items)
+    area, band = r.resolve(fill).prims
+    # Over the fill, clipped to the area (even-odd, as the area is drawn)
+    assert isinstance(band, DrawGroup) and band.clip == [(area.path, True)]

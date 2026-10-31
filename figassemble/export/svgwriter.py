@@ -164,10 +164,17 @@ class SvgWriter:
         elif isinstance(prim, DrawPicture) and pictures:
             self._picture(parent, prim)
         elif isinstance(prim, DrawGroup):
-            # A faded group fades as one, so its parts don't double up where they overlap
-            g = etree.SubElement(parent, _q("g"))
-            if prim.opacity < 1:
-                g.set("opacity", _fmt(prim.opacity, 4))
+            # A faded group fades as one, so its parts don't double up where they overlap; a
+            # clipped one is drawn inside each of its clip paths (style, so the editor's id
+            # prefixes reach it)
+            g = parent
+            for path, even_odd in prim.clip:
+                g = etree.SubElement(g, _q("g"))
+                g.set("style", f"clip-path:url(#{self._clip_path(path, even_odd)})")
+            if prim.opacity < 1 or not prim.clip:
+                g = etree.SubElement(g, _q("g"))
+                if prim.opacity < 1:
+                    g.set("opacity", _fmt(prim.opacity, 4))
             for p in prim.prims:
                 self._prim(g, p, pictures)
 
@@ -261,6 +268,18 @@ class SvgWriter:
         rect = etree.SubElement(cp, _q("rect"))
         for k, v in (("x", x), ("y", y), ("width", w), ("height", h)):
             rect.set(k, _fmt(v, 6))
+        return cid
+
+    def _clip_path(self, path, even_odd: bool) -> str:
+        self._clip += 1
+        cid = f"fa-clip{self._clip}"
+        cp = etree.SubElement(self._defs, _q("clipPath"))
+        cp.set("id", cid)
+        cp.set("clipPathUnits", "userSpaceOnUse")
+        el = etree.SubElement(cp, _q("path"))
+        el.set("d", path.to_svg(3))
+        if even_odd:
+            el.set("clip-rule", "evenodd")
         return cid
 
     def _picture(self, parent, prim: DrawPicture) -> None:

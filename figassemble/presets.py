@@ -236,6 +236,17 @@ def is_open(geom: str) -> bool:
 
 
 @functools.lru_cache(maxsize=None)
+def encloses(geom: str) -> bool:
+    """Whether the shape's own line runs all the way round its area, so with no fill its outline
+    can still keep inside or outside that area (resolve.shape_interior)."""
+    if not is_preset(geom) or is_open(geom):
+        return False
+    from .regions import edge_traced
+    paths = [sp for sp in shape_paths(geom, 100.0, 60.0) if not sp.path.is_empty]
+    return edge_traced([(sp.path, False) for sp in paths if sp.fill], [sp.path for sp in paths if sp.stroke], 0.5)
+
+
+@functools.lru_cache(maxsize=None)
 def has_corners(geom: str) -> bool:
     """Whether the shape's outline has corners between straight edges, which Corner rounding
     rounds (an arc's filled wedge doesn't count)."""
@@ -563,7 +574,7 @@ def catalog() -> dict:
     in_menu = {g for _, names in GALLERY for g in names.split()}
     for geom in _presets():
         shapes[geom] = {"name": display_name(geom), "adjust": _adjust_info(geom), "corners": has_corners(geom),
-                        "open": is_open(geom)}
+                        "open": is_open(geom), "closed": encloses(geom)}
         if geom in in_menu:
             shapes[geom]["icon"] = icon_path(geom)
             shapes[geom]["box"] = icon_box(geom)

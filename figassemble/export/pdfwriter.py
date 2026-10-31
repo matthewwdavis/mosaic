@@ -142,9 +142,12 @@ class PdfWriter:
         return []
 
     def _group(self, prim: DrawGroup, res: dict) -> list[str]:
-        """Draw primitives together; a faded group becomes a transparency group (Form XObject)."""
+        """Draw primitives together; a faded group becomes a transparency group (Form XObject),
+        and a clipped one is drawn inside each of its clip paths."""
+        clip = [op for path, even_odd in prim.clip for op in (path.to_pdf(), "W*" if even_odd else "W", "n")]
         if prim.opacity >= 1.0:
-            return [op for p in prim.prims for op in self._prim(p, res)]
+            ops = [op for p in prim.prims for op in self._prim(p, res)]
+            return ["q", *clip, *ops, "Q"] if clip else ops
         inner: dict[str, dict] = {"/XObject": {}, "/Font": {}, "/ExtGState": {}, "/Shading": {}}
         saved, self._names = self._names, {}
         ops = [op for p in prim.prims for op in self._prim(p, inner)]
@@ -156,7 +159,7 @@ class PdfWriter:
         form.Resources = Dictionary({k: Dictionary(v) for k, v in inner.items() if v})
         name = self._name(res, "/XObject", "Fm", self.pdf.make_indirect(form))
         gs = self._gstate(res, prim.opacity, prim.opacity)
-        return ["q", f"/{gs} gs", f"/{name} Do", "Q"]
+        return ["q", *clip, f"/{gs} gs", f"/{name} Do", "Q"]
 
     def _function(self, stops: list[tuple[float, list[float]]]):
         """PDF function interpolating colour stops linearly (stitched Type 2 pieces)."""
