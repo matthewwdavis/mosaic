@@ -20,6 +20,9 @@ Every item has an `id` and a `type`:
             label: above|below|none, color, swatch, bold}: a bar `length` long on its picture, which
             has scale {per_pt, unit, how}: the real length of one point of its source. The editor
             keeps the frame in step with the picture (scalebar.js); the engine draws the frame
+- bracket  {frame, label, dir: up|down|left|right (the label's side), tick (upright ones), size, font,
+            bold, color, swatch, line_width}: a significance bracket; across, its ticks are as long
+            as the frame leaves below (or above) the label's room (resolve._bracket)
 - group    {items: [...], clip}   children keep page coordinates; with clip true it's a clipping
             mask: its last item, a shape, clips the others and isn't drawn
 

@@ -1010,6 +1010,25 @@ export async function run(app, params) {
     store.update("Move the picture", (doc) => { findItem(doc, pics[0].id).frame[0] += 30; });
     check(near(zBoxItem().frame[0], boxXBefore + 30, 1e-6) && near(cropOf()[0], cropBefore[0], 1e-6),
       "moving the picture takes its box along, so the inset shows the same area", `${zBoxItem().frame[0]} ${JSON.stringify(cropOf())}`);
+    // Significance brackets: drag across bars for one; its label; several stacked in tidy levels
+    document.querySelector('#rpanel-figure [data-cmd="toolSigBracket"]').click();
+    await drag([300, 400], [360, 402], { metaKey: true, ctrlKey: true });
+    const brA = store.selected()[0];
+    check(brA?.type === "bracket" && brA.dir === "up" && near(brA.frame[2], 60, 0.01) && near(brA.frame[1] + 9, 400, 0.01),
+      "dragging across makes a bracket over that span, its bar at the drag's height", JSON.stringify(brA));
+    await choose("Label", "***");
+    check(store.item(brA.id).label === "***" && near(store.item(brA.id).frame[1] + 9, 400, 0.01), "its label changes, the bar staying put",
+      JSON.stringify(store.item(brA.id)));
+    await until(() => canvas.els.get(brA.id)?.g.textContent.includes("***") || canvas.els.get(brA.id)?.g.querySelector("path"), 3000);
+    const brB = { ...JSON.parse(JSON.stringify(store.item(brA.id))), id: "brB", frame: [290, 398, 120, 13] };
+    const brC = { ...JSON.parse(JSON.stringify(store.item(brA.id))), id: "brC", frame: [420, 396, 40, 13] };
+    store.update("More brackets", (doc) => doc.pages[store.pageIndex].items.push(brB, brC));
+    store.select([brA.id, "brB", "brC"]);
+    await app.run("stackBrackets");
+    const fB = store.item("brB").frame, fA = store.item(brA.id).frame, fC = store.item("brC").frame;
+    check(near(fA[1] + fA[3], fC[1] + fC[3], 0.01) && fB[1] + fB[3] <= fA[1] - 1.99,
+      "Stack puts brackets that don't overlap on one level, and a wider one above", `${JSON.stringify(fA)} ${JSON.stringify(fB)} ${JSON.stringify(fC)}`);
+    await app.run("delete");
     store.update("Zoom gone, picture back", (doc) => {
       const items = doc.pages[store.pageIndex].items, gone = new Set([zBoxItem().id, zInset().id, ...zLines().map((l) => l.id)]);
       items.splice(0, items.length, ...items.filter((i) => !gone.has(i.id)));

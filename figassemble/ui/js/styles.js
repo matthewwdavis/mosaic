@@ -11,7 +11,7 @@ const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o[k] !== undefin
 // An object's style; a group's is its first part's that has one
 export function styleOf(it) {
   if (it.type === "group") return it.items.map(styleOf).find(Boolean) || null;
-  if (it.type === "scalebar") return null;
+  if (it.type === "scalebar" || it.type === "bracket") return null;
   if (it.type === "picture") return { opacity: it.opacity ?? 1 };
   const st = {};
   if (it.geom !== "region") st.stroke = clone(it.stroke ?? null);   // an area fill has no line to copy
@@ -31,7 +31,7 @@ export function styleOf(it) {
 
 // Paints a style onto an object (a group's parts each)
 export function applyStyle(it, st) {
-  if (it.type === "scalebar") return;   // a scale bar's look is set in its own tab
+  if (it.type === "scalebar" || it.type === "bracket") return;   // their look is set in their own tab
   if (it.type === "group") {
     it.items.forEach((k) => applyStyle(k, st));
     return;

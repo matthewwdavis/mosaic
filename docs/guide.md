@@ -35,7 +35,8 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
      Fit page; Swatches, Text styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group, Order (see
      [Align and distribute](#align-and-distribute)).
-   - **Figure**: scale bars (Scale bar, Measure) and zoom insets.
+   - **Figure**: scale bars (Scale bar, Measure), zoom insets and significance brackets (Bracket,
+     Stack).
    - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
      Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
@@ -180,6 +181,25 @@ around the area to enlarge.
 - **The lines** join the corners on the outside of the box and the inset, wherever you put them.
 - All three start in Okabe-Ito orange, which shows on dark images and white pages alike; change
   each one's colour and thickness as usual. A scale bar works on an inset too.
+
+## Significance brackets
+
+A significance bracket marks a comparison: a bar with a tick at each end and a label beyond it.
+Click **Bracket** on the Figure tab and drag across the bars it compares; the bar goes at the
+height you drag at, with the label above. Drag upright instead for one with its label to the right
+(for a chart with horizontal bars).
+
+![Brackets over a bar chart: two on one level, a wider one above them](images/brackets.png)
+
+- **Its tab:** the **Label** (`*`, `**`, `***`, `****`, `ns`, or **Other text…** such as a
+  p-value), the side the label is on, the end ticks' length, colour (swatches too), line
+  thickness, text size and bold. The ends are round and the corners square, and the bar stays put
+  when the label or its size changes.
+- **On the page:** drag its side handles to span other bars, and the top or bottom handle to
+  lengthen the ticks.
+- **Stack** (Figure tab, or the panel with several selected) tidies brackets pointing up into
+  levels: the narrowest lowest, brackets that don't overlap side by side on one level, and each
+  level just above the one below. Their ends stay where they are.
 
 ## Text and panel labels
 

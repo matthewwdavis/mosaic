@@ -236,6 +236,7 @@ export function describeItem(it, doc) {
   }
   if (it.type === "group") return `Group of ${it.items.length} objects`;
   if (it.type === "scalebar") return `Scale bar, ${+Number(it.length).toPrecision(6)} ${it.unit}, at ${n(it.frame[0])}, ${n(it.frame[1])} ${unit}`;
+  if (it.type === "bracket") return `Significance bracket “${it.label || ""}”, ${n(it.frame[2])} ${unit} across, at ${n(it.frame[0])}, ${n(it.frame[1])}`;
   const text = itemText(it);
   if (text) return `Text "${text.slice(0, 60)}", at ${n(it.frame[0])}, ${n(it.frame[1])} ${unit}`;
   return `${shapeName(it.geom)}, ${n(it.frame[2])} by ${n(it.frame[3])} ${unit} at ${n(it.frame[0])}, ${n(it.frame[1])}`;
@@ -258,6 +259,7 @@ export function itemLabel(it, doc) {
   }
   if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_end || it.arrow_start ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
   if (it.type === "scalebar") return `Scale bar, ${+Number(it.length).toPrecision(6)} ${it.unit}`;
+  if (it.type === "bracket") return `Bracket “${it.label || ""}”`;
   if (it.type === "group" && it.clip) return it.name || `Clipping mask (${it.items.length - 1})`;
   if (it.type === "group") return it.name && !/^Group \d+$/.test(it.name) ? it.name : `Group (${it.items.length})`;
   const t = itemText(it);

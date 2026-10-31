@@ -325,6 +325,7 @@ def flat_prims(prims: list):
 
 
 SCALEBAR_GAP = 0.3   # between a scale bar and its label, in text sizes
+BRACKET_GAP, BRACKET_LINE = 0.3, 1.2   # a bracket's label: its gap and line height, in text sizes
 
 
 def scalebar_label(item: dict) -> str:
@@ -535,6 +536,8 @@ class Resolver:
             r = self._line(item)
         elif kind == "scalebar":
             r = self._scalebar(item)
+        elif kind == "bracket":
+            r = self._bracket(item)
         elif kind == "group":
             r = Resolved(item.get("id", ""))
             kids = item.get("items", [])
@@ -669,6 +672,43 @@ class Resolver:
             if layout.runs:
                 ty = y if label == "above" else bar_y + t + gap
                 r.prims.append(DrawText(layout.runs, Matrix.translate(x, ty), meta={"item": item.get("id")}))
+        return r
+
+    def _bracket(self, item: dict) -> Resolved:
+        """A significance bracket: a bar with an end tick at each side and its label (asterisks,
+        "ns", a p-value) beyond the bar. dir is the side the label is on: up (ticks down, over bars),
+        down, left or right. Across, the ticks are as long as the frame leaves below the label;
+        upright, they're `tick` long. Round ends and mitred corners, as in Matthew's figures."""
+        r = Resolved(item.get("id", ""))
+        x, y, w, h = item["frame"]
+        size, text, d = float(item.get("size", 6.0)), str(item.get("label", "*")), item.get("dir", "up")
+        color = item.get("color", "#000000")
+        room = size * (BRACKET_LINE + BRACKET_GAP) if text else 0.0
+        gap = size * BRACKET_GAP
+        stroke = Stroke(color=color, width=float(item.get("line_width", 0.75)), cap="round", join="miter")
+        if d in ("left", "right"):
+            tick = min(float(item.get("tick", 4.0)), w)
+            bar = x + tick if d == "right" else x + w - tick
+            end = x if d == "right" else x + w
+            path = Path().move_to(end, y).line_to(bar, y).line_to(bar, y + h).line_to(end, y + h)
+            box = (bar + gap, y, max(x + w - bar - gap, size), h) if d == "right" else (x, y, max(bar - gap - x, size), h)
+            align, anchor = ("l" if d == "right" else "r"), "ctr"
+        else:
+            tick = max(h - room, 0.0)
+            bar = y + room if d == "up" else y + h - room
+            end = bar + tick if d == "up" else bar - tick
+            path = Path().move_to(x, end).line_to(x, bar).line_to(x + w, bar).line_to(x + w, end)
+            box = (x, y, w, max(room - gap, size)) if d == "up" else (x, bar + gap, w, max(room - gap, size))
+            align, anchor = "ctr", ("b" if d == "up" else "t")
+        r.prims.append(DrawPath(path, stroke=stroke, meta={"item": item.get("id")}))
+        if text:
+            run = {"t": text, "font": item.get("font", "Helvetica"), "size": size, "bold": bool(item.get("bold")),
+                   "italic": False, "color": color}
+            body = {"paragraphs": [{"align": align, "runs": [run]}], "insets": [0.0, 0.0, 0.0, 0.0], "wrap": False,
+                    "anchor": anchor, "autofit": "none"}
+            layout = layout_text(body, box[2], box[3], self.fonts)
+            if layout.runs:
+                r.prims.append(DrawText(layout.runs, Matrix.translate(box[0], box[1]), meta={"item": item.get("id")}))
         return r
 
     def _line(self, item: dict) -> Resolved:

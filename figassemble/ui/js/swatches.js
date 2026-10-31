@@ -32,7 +32,7 @@ export function colourHolders(doc) {
         for (const stop of it[k].gradient?.stops || []) out.push(stop);
       }
       for (const p of it.text?.paragraphs || []) for (const r of p.runs || []) out.push(r);
-      if (it.type === "scalebar") out.push(it);
+      if (it.type === "scalebar" || it.type === "bracket") out.push(it);
       if (it.border) out.push(it.border);   // a picture's border
     }
   };

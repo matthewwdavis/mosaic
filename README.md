@@ -22,6 +22,9 @@ FigAssemble does the job people usually do in PowerPoint, without PowerPoint's d
   your R code saved, where they can be found, instead of PowerPoint's copies.
 - **Drawing tools like PowerPoint's, and more:** PowerPoint's shapes, arrows whose ends attach to
   objects and follow them, gradient fills, outlines, and fills for areas that lines enclose.
+- **Figure tools:** scale bars that stay right when a picture is resized (the scale typed,
+  measured, or read from ImageJ and OME-TIFF files), zoom insets, significance brackets, crop to
+  shape, clipping masks and Pathfinder.
 - **Consistent colours and styles:** linked swatches and text styles (change one and everything
   using it follows), colour-blind-safe palettes, a colour vision preview, and copying a style from
   one object to others.

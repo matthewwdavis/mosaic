@@ -5,6 +5,7 @@ import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
 import { followScaleBars } from "./scalebar.js";
 import { followZooms } from "./zoom.js";
+import { labelRoom } from "./brackets.js";
 import { applyTextStyle } from "./textstyles.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, frameMatrix, h, hitItem, invert, isMac, itemBBox, itemLabel,
@@ -1417,6 +1418,10 @@ export const canvas = {
     const op = this.op;
     const [ax, ay] = this.toScreen(...op.start), [bx, by] = this.toScreen(...op.cur);
     if (["line", "arrow"].includes(op.tool)) o.append(s("line", { class: "draw-preview", x1: ax, y1: ay, x2: bx, y2: by }));
+    else if (op.tool === "sigbracket") {   // the span it will cover, across or upright
+      const upright = Math.abs(by - ay) > Math.abs(bx - ax);
+      o.append(s("line", { class: "draw-preview", x1: ax, y1: ay, x2: upright ? ax : bx, y2: upright ? by : ay }));
+    }
     else {
       const box = [Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay)];
       o.append(s("rect", { class: "draw-preview", x: box[0], y: box[1], width: box[2], height: box[3] }));
@@ -1446,7 +1451,7 @@ export const canvas = {
     if (!op.moved && !["text", "label"].includes(op.tool)) {
       // A click (or Enter) without dragging: a 2 cm object from the click, or centred on the view
       const half = op.centred ? DEFAULT_SIZE / 2 : 0;
-      const line = ["line", "arrow"].includes(op.tool);
+      const line = ["line", "arrow", "sigbracket"].includes(op.tool);
       [ax, ay] = [ax - half, line ? ay : ay - half];
       [bx, by] = [ax + DEFAULT_SIZE, line ? ay : ay + DEFAULT_SIZE];
     }
@@ -1469,6 +1474,19 @@ export const canvas = {
       store.update(lab ? "Add panel label" : "Add text", (doc) => store.container(doc).push(item), { select: [item.id] });
       this.setTool("select");
       if (!lab) setTimeout(() => this.startEdit(item.id, true), 30);
+      return;
+    }
+    if (tool === "sigbracket") {
+      // A significance bracket over the span dragged: across (bar at the drag's height, label
+      // above) or, dragged upright, with its label to the right
+      const upright = Math.abs(by - ay) > Math.abs(bx - ax);
+      item = { id: uid("it"), type: "bracket", label: "*", size: 6, bold: false, line_width: 0.75, color: "#000000", rot: 0,
+        dir: upright ? "right" : "up", tick: 4 };
+      item.frame = upright ? [ax, Math.min(ay, by), 4 + 6 * 1.5 + 6, Math.max(Math.abs(by - ay), 1)]
+        : [Math.min(ax, bx), ay - labelRoom(item), Math.max(Math.abs(bx - ax), 1), labelRoom(item) + 4];
+      store.update("Add bracket", (doc) => store.container(doc).push(item), { select: [item.id] });
+      announce("Added a significance bracket: choose its label in its own tab");
+      this.setTool("select");
       return;
     }
     if (tool === "line" || tool === "arrow") {

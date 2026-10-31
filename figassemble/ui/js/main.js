@@ -17,6 +17,7 @@ import { splitters } from "./splitters.js";
 import { store } from "./store.js";
 import { applyStyle, styleOf } from "./styles.js";
 import { barFrame, niceLength, pageScale, pxPerPt, scaleText } from "./scalebar.js";
+import { stackLevels } from "./brackets.js";
 import { colourHolders, swatchById } from "./swatches.js";
 import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, setFormat } from "./textstyles.js";
 import {
@@ -484,6 +485,19 @@ const app = {
       items.push(...lines, inset);
     }, { select: [inset.id] });
     announce("Added a zoom inset: drag the box to show another area, or the inset to place it");
+  },
+  // Significance brackets (brackets.js) stacked in tidy levels
+  stackBrackets() {
+    const sel = store.selected().filter((it) => it.type === "bracket" && (it.dir || "up") === "up");
+    if (sel.length < 2) { announce("Select two or more brackets pointing up to stack them"); return; }
+    const tops = stackLevels(sel);
+    store.update("Stack brackets", (doc) => {
+      for (const b of sel) {
+        const it = findDeep(doc.pages[store.pageIndex].items, b.id);
+        it.frame = [it.frame[0], tops.get(b.id), it.frame[2], it.frame[3]];
+      }
+    });
+    announce(`Stacked ${sel.length} brackets`);
   },
   // Pathfinder, as in Illustrator: the selected shapes combined into one freeform shape, curves
   // kept exactly (pathfinder.py); it takes the top shape's place
@@ -1190,6 +1204,9 @@ app.commands = {
     "Measure"),
   zoomInset: cmd("Zoom inset: drag a box on a picture to show that area enlarged beside it", () => canvas.startZoom(), null, null,
     "Zoom inset"),
+  toolSigBracket: cmd("Significance bracket: drag across the bars it compares (or upright)", () => canvas.setTool("sigbracket"),
+    null, null, "Bracket"),
+  stackBrackets: cmd("Stack the selected brackets in tidy levels, the narrowest lowest", () => app.stackBrackets(), null, null, "Stack"),
   unite: cmd("Unite: join the selected shapes into one", () => app.pathfinder("unite"), null, null, "Unite"),
   minusFront: cmd("Minus front: cut the shapes on top out of the bottom one", () => app.pathfinder("minus_front"), null, null,
     "Minus front"),

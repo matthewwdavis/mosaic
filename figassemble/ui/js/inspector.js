@@ -9,6 +9,7 @@ import { store } from "./store.js";
 import { linked, swatchById } from "./swatches.js";
 import { differs } from "./textstyles.js";
 import { UNITS, anchorFor, convert, niceLength, pxPerPt, scaleText } from "./scalebar.js";
+import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, shapeCatalog,
   shapeName, toUnit,
@@ -292,6 +293,7 @@ export const inspector = {
     }
     if (it.type === "scalebar") return [["arrange", "Arrange", [this.objectSection(it), ...this.alignSections(1)]],
       ["scalebar", "Scale bar", [this.scalebarSection(it)]]];
+    if (it.type === "bracket") return [arrange, ["bracket", "Bracket", [this.bracketSection(it)]]];
     if (it.type === "line") {
       arrange[2].splice(2, 0, this.linkSection(it));
       return [arrange, ["style", "Style", [this.strokeSection(it), this.endsSection(it), this.outlineSection(it)]]];
@@ -570,6 +572,33 @@ export const inspector = {
       + "Scale bars stay right when the picture is resized or cropped."));
     return section("Scale", kids);
   },
+  // A significance bracket: its label (asterisks, ns or any text), which side it's on, its ticks
+  // and look; the bar stays put when the label changes
+  bracketSection(it) {
+    const set = (label, fn) => this.edit(label, (o) => keepBar(o, fn));
+    const preset = BRACKET_LABELS.some(([v]) => v === it.label);
+    const kids = [row(selectField("Label", preset ? it.label : "custom", [...BRACKET_LABELS, ["custom", "Other text…"]], (v) => {
+      set("Bracket label", (o) => { o.label = v === "custom" ? "p = 0.05" : v; });   // other text starts as a p-value to edit
+    }), preset ? null : textField("Label text", it.label || "", (v) => set("Bracket label", (o) => { o.label = v; }), {}))];
+    const sides = across(it) ? [["up", "Above"], ["down", "Below"]] : [["right", "Right"], ["left", "Left"]];
+    kids.push(radioField("Label side", it.dir || "up", sides, (v) => this.edit("Bracket side", (o) => { o.dir = v; })));
+    if (across(it)) {
+      kids.push(numField("End ticks", Math.max(it.frame[3] - (it.label ? (it.size ?? 6) * 1.5 : 0), 0), "pt", (v) => this.edit("Bracket ticks", (o) => {
+        const room = o.label ? (o.size ?? 6) * 1.5 : 0, t0 = Math.max(o.frame[3] - room, 0), t1 = Math.max(v, 0);
+        o.frame = [o.frame[0], (o.dir || "up") === "up" ? o.frame[1] : o.frame[1] + t0 - t1, o.frame[2], room + t1];
+      }), { min: 0, step: 0.5 }));
+    } else {
+      kids.push(numField("End ticks", it.tick ?? 4, "pt", (v) => this.edit("Bracket ticks", (o) => { o.tick = Math.max(v, 0); }), { min: 0, step: 0.5 }));
+    }
+    kids.push(row(colorField("Colour", it.color || "#000000", (v, sw) => this.edit("Bracket colour", (o) => { linked(o, sw).color = v; }), it.swatch),
+      numField("Line thickness", it.line_width ?? 0.75, "pt", (v) => this.edit("Bracket line", (o) => { o.line_width = Math.max(v, 0.1); }),
+        { min: 0.1, step: 0.25 })));
+    kids.push(row(numField("Text size", it.size ?? 6, "pt", (v) => set("Bracket text size", (o) => { o.size = Math.max(v, 1); }), { min: 1, step: 0.5 }),
+      h("div", { class: "button-row inline" }, toggle("Bold", !!it.bold, (on) => this.edit("Bold", (o) => { o.bold = on; }), "B", "bold"))));
+    kids.push(h("p", { class: "hint" }, "Drag its side handles to span other bars, and the top or bottom handle to lengthen "
+      + "the ticks. Several brackets selected can be stacked in tidy levels (Stack, Figure tab)."));
+    return section("Bracket", kids);
+  },
   // A scale bar: its length and look, and which corner of its picture it stays with
   scalebarSection(it) {
     const pic = store.item(it.picture), a = pic && store.doc.assets[pic.asset];
@@ -837,7 +866,10 @@ export const inspector = {
     return [["arrange", "Arrange", [...this.alignSections(sel.length), section("Objects", [
       h("p", { class: "hint" }, sel.map((it) => itemLabel(it, store.doc)).slice(0, 6).join(", ") + (sel.length > 6 ? "…" : "")),
       h("div", { class: "button-row" }, button("Group", () => this.app.run("group"), "Group"),
-        button("Delete", () => this.app.run("delete"), "Delete"))])]]];
+        button("Delete", () => this.app.run("delete"), "Delete"))]),
+    sel.every((it) => it.type === "bracket") ? section("Brackets", [
+      button("Stack the brackets in tidy levels, the narrowest lowest", () => this.app.run("stackBrackets"), "Stack"),
+      h("p", { class: "hint" }, "Brackets that don't overlap share a level; each level sits just above the one below.")]) : null]]];
   },
   // Align, distribute and spacing, as in the ribbon's Arrange tab (one object aligns to the page)
   alignSections(n) {
@@ -860,7 +892,7 @@ export const inspector = {
 
 // Which tab opens first for each kind of object (until another is chosen)
 const DEFAULT_TAB = { shape: "style", textbox: "text", line: "style", picture: "picture", group: "arrange", multi: "arrange",
-  region: "style", scalebar: "scalebar" };
+  region: "style", scalebar: "scalebar", bracket: "bracket" };
 function kindKey(it) { return it.geom === "region" ? "region" : it.type === "shape" && it.textbox ? "textbox" : it.type; }
 
 // Field builders ---------------------------------------------------------------------------
@@ -884,7 +916,9 @@ function kindName(it) {
   if (it.geom === "region") return "Area fill";
   if (it.type === "picture") return "Picture";
   if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_start || it.arrow_end ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
-  if (it.type === "group") return "Group";
+  if (it.type === "group") return it.clip ? "Clipping mask" : "Group";
+  if (it.type === "scalebar") return "Scale bar";
+  if (it.type === "bracket") return "Significance bracket";
   if (it.textbox) return "Text box";
   return shapeName(it.geom);
 }
