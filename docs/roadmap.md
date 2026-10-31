@@ -62,7 +62,7 @@ Matthew's choices are in brackets.
 - [x] Pathfinder: unite, minus front, intersect, exclude, with exact curves (skia-pathops) [exact]
 - [x] Scale bars that stay right when the picture is resized or cropped; scale typed as a pixel
       size, measured from a known length, or read from TIFF / ImageJ / OME metadata [all three]
-- [ ] Zoom insets: a box on a picture, an enlarged copy of that area, lines between, kept in step
+- [x] Zoom insets: a box on a picture, an enlarged copy of that area, lines between, kept in step
 - [ ] Significance brackets: a bracket with asterisks or a p-value, tidy heights and gaps
 
 ## Acceptance test (test slide)

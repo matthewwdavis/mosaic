@@ -77,3 +77,14 @@ def test_the_editor_gets_the_clip_in_the_frame_or_on_the_page():
     page = api.area_path({"type": "shape", "geom": "rect", "frame": [10, 10, 80, 60], "rot": 0}, False)
     assert page["d"].startswith("M10 10")
     assert api.area_path({"type": "line", "points": [[0, 0], [5, 5]]}) is None
+
+
+def test_a_border_round_a_picture_or_the_shape_its_cropped_to(fixtures, cache):
+    doc, pic = masked_picture(fixtures, cache)
+    plain = {k: v for k, v in pic.items() if k != "mask"} | {"border": {"color": "#ff0000", "width": 2}}
+    edge = Resolver(doc).resolve(plain).prims[-1]
+    x, y, w, h = pic["frame"]
+    assert edge.stroke.width == 2 and edge.fill is None and edge.path.bbox() == (x, y, x + w, y + h)
+    # Cropped to an ellipse: the border follows the ellipse, outside the clip so it isn't cut
+    prims = Resolver(doc).resolve(pic | {"border": {"color": "#ff0000", "width": 2}}).prims
+    assert isinstance(prims[0], DrawGroup) and any(s[0] == "C" for s in prims[-1].path.segs)

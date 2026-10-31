@@ -35,7 +35,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
      Fit page; Swatches, Text styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group, Order (see
      [Align and distribute](#align-and-distribute)).
-   - **Figure**: scale bars (Scale bar, Measure).
+   - **Figure**: scale bars (Scale bar, Measure) and zoom insets.
    - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
      Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
@@ -129,6 +129,8 @@ or grown. Its buttons:
   shape clips the picture in every export, which still uses the picture's own PDF or SVG.
 
   ![A plot cropped to a rounded rectangle, with its Picture tab](images/cropshape.png)
+- **Border** draws a line round the picture (round its crop shape, if it has one), in any colour
+  and thickness.
 - **Export from** forces one copy (always the PDF, say) instead of the best copy for each format.
 - **Replace…** swaps in another file, keeping the position and scale. Shift-drop a file onto a
   picture does the same.
@@ -160,6 +162,24 @@ The bar's own tab sets its length and unit (**Round length** picks one for you),
 below or none, its colour (swatches too), thickness, text size and bold. Drag it where you want
 it: it moves with its picture, keeping its place relative to the corner it's set to stay with,
 and its length follows the picture's size, crop and scale.
+
+## Zoom insets
+
+A zoom inset shows part of a picture enlarged beside it, joined to a box on the picture by two
+lines. Select the picture, click **Zoom inset** on the Figure tab, and drag a box on the picture
+around the area to enlarge.
+
+![A dose-response plot with its steep part boxed and enlarged beside it](images/zoominset.png)
+
+- **The inset** is a copy of the picture showing what's in the box, three times as big, to the
+  picture's right (or below it when the page has no room). It's the picture's own PDF or SVG,
+  so it stays sharp in every export. Drag it anywhere; resize it to enlarge more or less. Its
+  height always follows the box's shape, so the picture is never stretched.
+- **The box** can be dragged or resized to show another area, and the inset follows. When the
+  picture moves, is resized or is cropped, the box stays over the same part of it.
+- **The lines** join the corners on the outside of the box and the inset, wherever you put them.
+- All three start in Okabe-Ito orange, which shows on dark images and white pages alike; change
+  each one's colour and thickness as usual. A scale bar works on an inset too.
 
 ## Text and panel labels
 

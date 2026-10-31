@@ -7,7 +7,10 @@ Every item has an `id` and a `type`:
 
 - picture  {asset, page_index, frame [x, y, w, h], crop [l, t, r, b] (fractions), rot,
             flip_h, flip_v, opacity, source: auto|pdf|svg|png, mask {geom, adj, rounding}: cropped to
-            that shape, fitted to the frame}
+            that shape, fitted to the frame; border {color, width, swatch}; scale (see scalebar);
+            inset {box}: a zoom inset showing what's in that box (zoom.js)}
+            A zoom inset's box is a shape with zoom {picture, seen}, and its two lines have zoomline
+            {box, inset, which}; the editor keeps the three in step
 - shape    {geom (DrawingML preset name or "custom"), adj, frame, rot, flip_h, flip_v,
             stroke, fill, arrow_start, arrow_end, path (custom), text, textbox, outline, rounding}
 - line     {points [[x, y], ...], curve: straight|smooth, stroke, arrow_start, arrow_end, outline,

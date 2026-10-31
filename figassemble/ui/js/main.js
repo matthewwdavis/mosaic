@@ -457,6 +457,34 @@ const app = {
     const unit = { um: "µm", micron: "µm", microns: "µm" }[said] || said || pic.scale?.unit || "µm";
     this.setPictureScale(pic.id, value / (lenPage / pageScale(pic, asset)), unit, "measured");
   },
+  // Zoom insets (zoom.js): a box on a picture, the area enlarged beside it, and two lines between
+  // them, all in one colour (Okabe-Ito's orange shows on dark images and white pages alike)
+  addZoomInset(picId, rect) {
+    const pic = store.item(picId);
+    if (!pic) return;
+    const [px, py, pw, ph] = pic.frame;
+    const x0 = Math.max(rect[0], px), y0 = Math.max(rect[1], py);
+    const box = [x0, y0, Math.min(rect[0] + rect[2], px + pw) - x0, Math.min(rect[1] + rect[3], py + ph) - y0];
+    if (!(box[2] > 0.5 && box[3] > 0.5)) return;
+    const page = store.page(), colour = "#e69f00";
+    const iw = Math.min(box[2] * 3, Math.max(pw, box[2] * 1.5)), ih = (iw * box[3]) / box[2];
+    let [ix, iy] = [px + pw + 12, py];   // to its right if the page has room, or else below it
+    if (ix + iw > page.width) [ix, iy] = [px, py + ph + 12];
+    const stroke = (w) => ({ color: colour, width: w, dash: "solid", cap: "round", join: "miter", opacity: 1 });
+    const boxItem = { id: uid("it"), type: "shape", geom: "rect", frame: box, rot: 0, flip_h: false, flip_v: false, fill: null,
+      stroke: stroke(1), zoom: { picture: pic.id } };
+    const inset = { ...clone(pic), id: uid("it"), name: `${itemLabel(pic, store.doc)}, enlarged`, frame: [ix, iy, iw, ih],
+      inset: { box: boxItem.id }, border: { color: colour, width: 1 } };
+    delete inset.mask;
+    const lines = [0, 1].map((which) => ({ id: uid("it"), type: "line", points: [[0, 0], [1, 1]], stroke: stroke(0.75),
+      arrow_start: null, arrow_end: null, zoomline: { box: boxItem.id, inset: inset.id, which } }));
+    store.update("Zoom inset", (doc) => {
+      const items = store.container(doc), at = items.findIndex((it) => it.id === pic.id);
+      items.splice(at < 0 ? items.length : at + 1, 0, boxItem);   // the box just above its picture
+      items.push(...lines, inset);
+    }, { select: [inset.id] });
+    announce("Added a zoom inset: drag the box to show another area, or the inset to place it");
+  },
   // Pathfinder, as in Illustrator: the selected shapes combined into one freeform shape, curves
   // kept exactly (pathfinder.py); it takes the top shape's place
   async pathfinder(how) {
@@ -1160,6 +1188,8 @@ app.commands = {
   addScaleBar: cmd("Scale bar: add one to the selected picture (it needs a scale)", () => app.addScaleBar(), null, null, "Scale bar"),
   measureScale: cmd("Measure a known length on the selected picture, to give it a scale", () => app.measureScale(), null, null,
     "Measure"),
+  zoomInset: cmd("Zoom inset: drag a box on a picture to show that area enlarged beside it", () => canvas.startZoom(), null, null,
+    "Zoom inset"),
   unite: cmd("Unite: join the selected shapes into one", () => app.pathfinder("unite"), null, null, "Unite"),
   minusFront: cmd("Minus front: cut the shapes on top out of the bottom one", () => app.pathfinder("minus_front"), null, null,
     "Minus front"),
@@ -1428,6 +1458,7 @@ async function start() {
   canvas.onTransform = (t) => app.noteTransform(t);
   canvas.onPaint = (hit, keyboard) => app.paintStyle(hit, keyboard);
   canvas.onMeasure = (id, len) => app.measured(id, len);
+  canvas.onZoomBox = (id, box) => app.addZoomInset(id, box);
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.onFillArea = (p) => app.fillArea(p);
   canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);

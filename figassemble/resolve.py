@@ -597,6 +597,12 @@ class Resolver:
         area = item_area(item)   # cropped to a shape
         if area:
             r.prims = [DrawGroup(r.prims, 1.0, meta={"role": "clipped", "item": item.get("id")}, clip=[clip_path(area)])]
+        border = item.get("border") or {}
+        if float(border.get("width", 0)) > 0:   # round the frame, or the shape it's cropped to
+            edge = clip_path(area)[0] if area else Path().move_to(0, 0).line_to(w, 0).line_to(w, h).line_to(0, h).close().transformed(
+                frame_matrix(item["frame"], item.get("rot", 0.0), item.get("flip_h", False), item.get("flip_v", False)))
+            r.prims.append(DrawPath(edge, stroke=Stroke(color=border.get("color", "#000000"), width=float(border["width"]),
+                                                        cap="flat", join="miter"), meta={"item": item.get("id")}))
         return r
 
     def _shape(self, item: dict) -> Resolved:

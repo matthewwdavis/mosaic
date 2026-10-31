@@ -132,6 +132,16 @@ export async function run(app, params) {
     return finish();
   }
 
+  if (scene === "zoominset") {
+    // The dose-response plot's steep part boxed and shown enlarged beside it
+    const f = fr(c);
+    store.update("Narrower", (doc) => { const it = doc.pages[0].items.find((i) => i.id === c); it.frame[2] *= 0.6; it.frame[3] *= 0.6; });
+    const g = fr(c);
+    app.addZoomInset(c, [g[0] + g[2] * 0.42, g[1] + g[3] * 0.25, g[2] * 0.2, g[3] * 0.45]);
+    await settle();
+    void f;
+    return finish();
+  }
   if (scene === "cropshape") {
     // The bar chart cropped to a rounded rectangle, with its Picture tab
     store.update("Crop to shape", (doc) => { doc.pages[0].items.find((i) => i.id === b).mask = { geom: "roundRect", adj: { adj: 0.3 } }; },

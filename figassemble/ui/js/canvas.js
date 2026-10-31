@@ -4,6 +4,7 @@
 import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
 import { followScaleBars } from "./scalebar.js";
+import { followZooms } from "./zoom.js";
 import { applyTextStyle } from "./textstyles.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, frameMatrix, h, hitItem, invert, isMac, itemBBox, itemLabel,
@@ -233,7 +234,7 @@ export const canvas = {
     const asset = store.doc.assets[it.asset];
     if (!asset) return;
     const key = JSON.stringify([it.frame, it.crop, it.rot, it.flip_h, it.flip_v, it.opacity, it.page_index,
-      asset.variants, this.previewBucket(it), it.mask]);
+      asset.variants, this.previewBucket(it), it.mask, it.border]);
     if (e.key === key) return;
     e.key = key;
     const [sw, sh] = (asset.page_sizes && asset.page_sizes[it.page_index || 0]) || asset.size_pt;
@@ -248,18 +249,32 @@ export const canvas = {
     e.g.replaceChildren(inner);
     e.g.setAttribute("transform", svgMatrix(m));
     e.g.setAttribute("opacity", it.opacity ?? 1);
-    this.clipTo(e, it.id, it.mask ? it : null, true);   // cropped to a shape, in its own frame
+    // A border round the frame, or round the shape it's cropped to (once the engine sends it)
+    e.borderEl = null;
+    if (it.border?.width > 0) {
+      e.borderEl = s(it.mask ? "path" : "rect", { class: "picture-border", fill: "none", stroke: it.border.color || "#000000",
+        "stroke-width": it.border.width, x: 0, y: 0, width: it.frame[2], height: it.frame[3] });
+      e.g.append(e.borderEl);
+    }
+    this.clipTo(e, it.id, it.mask ? it : null, true, inner);   // cropped to a shape, in its own frame
   },
   // A clip from the engine (area_path): a picture's crop shape in its frame, or a clipping
   // mask's shape on the page. Asked for again only when the shape changes
-  clipTo(e, id, source, local) {
+  clipTo(e, id, source, local, target = e.g) {
     const key = source ? JSON.stringify([local, source.type, source.geom, source.frame, source.rot, source.flip_h, source.flip_v,
       source.adj, source.rounding, source.path, source.mask, source.fill?.even_odd]) : null;
-    if (e.clipKey === key) return;
-    e.clipKey = key;
     const cid = `fa-area-${id}`;
+    if (e.clipKey === key) {   // the same clip, put back on a redrawn picture
+      if (key && e.clipD) {
+        target.setAttribute("clip-path", `url(#${cid})`);
+        if (e.borderEl?.tagName === "path") e.borderEl.setAttribute("d", e.clipD);
+      }
+      return;
+    }
+    e.clipKey = key;
+    e.clipD = null;
     if (!key) {
-      e.g.removeAttribute("clip-path");
+      target.removeAttribute("clip-path");
       this.defs.querySelector(`[id="${cid}"]`)?.remove();
       return;
     }
@@ -273,7 +288,9 @@ export const canvas = {
       }
       cp.firstChild.setAttribute("d", res?.d || "M0 0");
       cp.firstChild.setAttribute("clip-rule", res?.even_odd ? "evenodd" : "nonzero");
-      e.g.setAttribute("clip-path", `url(#${cid})`);
+      e.clipD = res?.d || "M0 0";
+      target.setAttribute("clip-path", `url(#${cid})`);
+      if (e.borderEl?.tagName === "path") e.borderEl.setAttribute("d", e.clipD);
     }).catch((err) => console.error(err));
   },
   previewVariant(asset) {
@@ -429,6 +446,12 @@ export const canvas = {
     if (this.op?.type === "measure") {
       const [a, b] = [this.toScreen(...this.op.start), this.toScreen(...this.op.cur)];
       o.append(s("line", { class: "measure-line", x1: a[0], y1: a[1], x2: b[0], y2: b[1] }));
+      return;
+    }
+    if (this.op?.type === "zoombox") {
+      const [a, b] = [this.toScreen(...this.op.start), this.toScreen(...this.op.cur)];
+      o.append(s("rect", { class: "measure-line", x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]),
+        width: Math.abs(b[0] - a[0]), height: Math.abs(b[1] - a[1]), fill: "none" }));
       return;
     }
     this.drawSnapGuides(o);
@@ -593,6 +616,12 @@ export const canvas = {
     if (this.tool === "fill") { this.onFillArea?.(p); return; }
     if (this.tool === "painter") { this.onPaint?.(this.itemAt(p)); return; }
     if (this.tool === "measure") { this.op = { type: "measure", start: p, cur: p }; return; }
+    if (this.tool === "zoom") {   // a box dragged on a picture, for a zoom inset
+      const pic = this.itemAt(p);
+      if (pic?.type !== "picture") { announce("Drag on a picture to box the area to enlarge"); return; }
+      this.op = { type: "zoombox", pic: pic.id, start: p, cur: p };
+      return;
+    }
     if (this.tool !== "select") return this.startDraw(p, e);
     const hd = this.handleAt(pt);
     if (hd) return this.startHandle(hd, p, e);
@@ -633,7 +662,7 @@ export const canvas = {
       return this.applyView();
     }
     if (op.type === "marquee") { op.cur = pt; return this.drawOverlay(); }
-    if (op.type === "measure") { op.cur = p; return this.drawOverlay(); }
+    if (op.type === "measure" || op.type === "zoombox") { op.cur = p; return this.drawOverlay(); }
     if (op.type === "move") return this.moveTo(p, e);
     if (op.type === "resize") return this.resizeTo(p, e);
     if (op.type === "rotate") return this.rotateTo(p, e);
@@ -674,6 +703,14 @@ export const canvas = {
       return;
     }
     this.sitePointer = this.siteActive = null;
+    if (op.type === "zoombox") {
+      this.setTool("select");
+      this.drawOverlay();
+      const box = [Math.min(op.start[0], op.cur[0]), Math.min(op.start[1], op.cur[1]),
+        Math.abs(op.cur[0] - op.start[0]), Math.abs(op.cur[1] - op.start[1])];
+      if (!cancelled && box[2] * this.k > 4 && box[3] * this.k > 4) this.onZoomBox?.(op.pic, box);
+      return;
+    }
     if (op.type === "measure") {   // a known length drawn on a picture, for its scale
       this.setTool("select");
       this.drawOverlay();
@@ -764,6 +801,11 @@ export const canvas = {
     if (hit.type === "group") this.enterGroup(hit.id);
     else if (hit.type === "picture") this.startCrop(hit.id);
     else if (hit.type === "shape") this.startEdit(hit.id);
+  },
+  // A zoom inset: the next drag boxes the area of a picture to enlarge
+  startZoom() {
+    this.setTool("zoom");
+    announce("Drag a box on a picture around the area to enlarge");
   },
   // Measure a known length on a picture (for its scale): the next drag draws it
   startMeasure(id) {
@@ -1270,6 +1312,7 @@ export const canvas = {
   followLinks(doc) {
     const items = doc.pages[store.pageIndex]?.items;
     if (!items) return;
+    followZooms(items, doc.assets);       // zoom insets show what's in their boxes
     followScaleBars(items, doc.assets);   // scale bars keep their length and place on their pictures
     const lines = allLines(items).filter((l) => l.start_link || l.end_link);
     for (let pass = 0; pass < 3 && lines.length; pass++) {   // a few rounds for lines attached to lines
@@ -1740,10 +1783,15 @@ export function copyItems(items) {
       else delete line[key];
     }
   }
-  // A scale bar copied with its picture belongs to the copy
+  // A scale bar copied with its picture belongs to the copy, and so do zoom boxes, insets and lines
+  const remap = (o, key) => { if (o && ids.has(o[key])) o[key] = ids.get(o[key]); };
   const walk = (its) => its.forEach((it) => {
     if (it.type === "group") walk(it.items);
-    if (it.type === "scalebar" && ids.has(it.picture)) it.picture = ids.get(it.picture);
+    if (it.type === "scalebar") remap(it, "picture");
+    remap(it.zoom, "picture");
+    remap(it.inset, "box");
+    remap(it.zoomline, "box");
+    remap(it.zoomline, "inset");
   });
   walk(copies);
   const oldId = new Map([...ids].map(([o, n]) => [n, o]));

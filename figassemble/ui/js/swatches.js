@@ -33,6 +33,7 @@ export function colourHolders(doc) {
       }
       for (const p of it.text?.paragraphs || []) for (const r of p.runs || []) out.push(r);
       if (it.type === "scalebar") out.push(it);
+      if (it.border) out.push(it.border);   // a picture's border
     }
   };
   for (const pg of doc.pages || []) walk(pg.items);

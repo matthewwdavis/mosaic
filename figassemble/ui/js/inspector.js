@@ -286,7 +286,10 @@ export const inspector = {
   // [key, tab name, sections] for one object
   itemTabs(it) {
     const arrange = ["arrange", "Arrange", [this.objectSection(it), this.arrangeSection(it), ...this.alignSections(1)]];
-    if (it.type === "picture") return [arrange, ["picture", "Picture", [this.pictureSection(it), this.scaleSection(it)]]];
+    if (it.type === "picture") {
+      return [arrange, ["picture", "Picture", [this.pictureSection(it), this.borderSection(it), it.inset ? this.insetSection(it) : null,
+        this.scaleSection(it)]]];
+    }
     if (it.type === "scalebar") return [["arrange", "Arrange", [this.objectSection(it), ...this.alignSections(1)]],
       ["scalebar", "Scale bar", [this.scalebarSection(it)]]];
     if (it.type === "line") {
@@ -316,6 +319,7 @@ export const inspector = {
         button("Ungroup", () => this.app.run("ungroup"), "Ungroup")]));
       return [arrange];
     }
+    if (it.zoom) arrange[2].push(this.zoomBoxSection(it));
     const boxed = !it.textbox || it.fill || it.stroke;
     const style = ["style", "Style", [
       it.textbox ? null : this.geometrySection(it),
@@ -503,6 +507,39 @@ export const inspector = {
     if (!it?.mask) return;
     const stored = await rpc("clamp_adjust", { geom: it.mask.geom, frame: it.frame, adj: it.mask.adj }, a.name, v);
     this.edit(a.label, (o) => { o.mask = { ...o.mask, adj: { ...(o.mask.adj || {}), [a.name]: stored } }; });
+  },
+  // A border round a picture (round the shape it's cropped to, if it is)
+  borderSection(it) {
+    const b = it.border;
+    const kids = [checkField("Border round it", !!b?.width, (on) => this.edit(on ? "Add border" : "Remove border", (o) => {
+      if (on) o.border = { color: "#000000", width: 1 };
+      else delete o.border;
+    }))];
+    if (b?.width) {
+      kids.push(row(colorField("Border colour", b.color || "#000000", (v, sw) => this.edit("Border colour", (o) => {
+        o.border = linked({ ...o.border, color: v }, sw);
+      }), b.swatch), numField("Border thickness", b.width, "pt", (v) => this.edit("Border thickness", (o) => {
+        o.border = { ...o.border, width: Math.max(v, 0.1) };
+      }), { min: 0.1, step: 0.25 })));
+    }
+    return section("Border", kids);
+  },
+  // A zoom inset (zoom.js) shows what's in its box; the box says where its inset is
+  insetSection(it) {
+    const box = store.item(it.inset.box), pic = box?.zoom && store.item(box.zoom.picture);
+    return section("Zoom inset", [
+      h("p", { class: "hint" }, box && pic ? `It shows the area in its box on ${itemLabel(pic, store.doc)}, enlarged, and follows `
+        + "the box. Resize it to enlarge it more or less." : "Its box has gone, so it stays as it is."),
+      box ? button("Select its box on the picture", () => store.select([box.id]), "Select the box") : null]);
+  },
+  zoomBoxSection(it) {
+    const all = [], walk = (its) => its.forEach((x) => { all.push(x); if (x.type === "group") walk(x.items); });
+    walk(store.items());
+    const inset = all.find((x) => x.inset?.box === it.id);
+    return section("Zoom inset", [
+      h("p", { class: "hint" }, inset ? "Its area is shown enlarged in the inset, which follows it: drag or resize the box to show "
+        + "another area. It stays over the same part of its picture when the picture moves." : "Its inset has gone."),
+      inset ? button("Select the enlarged copy", () => store.select([inset.id]), "Select the inset") : null]);
   },
   // A picture's scale, for scale bars: a pixel's size typed (a point of a PDF's or SVG's), a known
   // length measured on it, or what the file says (ImageJ, OME-TIFF)

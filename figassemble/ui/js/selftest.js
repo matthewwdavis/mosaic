@@ -891,14 +891,14 @@ export async function run(app, params) {
     // Crop to shape: a picture shown only inside a shape fitted to its frame
     store.select([pics[0].id]);
     await choose("Crop to shape", "ellipse");
-    await until(() => canvas.els.get(pics[0].id)?.g.getAttribute("clip-path"), 4000);
-    const picClip = canvas.els.get(pics[0].id)?.g.getAttribute("clip-path") || "";
+    await until(() => canvas.els.get(pics[0].id)?.g.querySelector("svg")?.getAttribute("clip-path"), 4000);
+    const picClip = canvas.els.get(pics[0].id)?.g.querySelector("svg")?.getAttribute("clip-path") || "";
     const picClipPath = document.querySelector(`[id="${picClip.slice(5, -1)}"] path`)?.getAttribute("d") || "";
     check(store.item(pics[0].id).mask?.geom === "ellipse" && picClip && picClipPath.includes("C"),
       "Crop to shape crops the picture to an ellipse, on the page too",
       `geom=${store.item(pics[0].id).mask?.geom} clip=${picClip} d=${picClipPath.slice(0, 30)} sel=${store.selection.join()}`);
     await choose("Crop to shape", "");
-    check(!store.item(pics[0].id).mask && !canvas.els.get(pics[0].id)?.g.getAttribute("clip-path"), "and None takes the shape away");
+    check(!store.item(pics[0].id).mask && !canvas.els.get(pics[0].id)?.g.querySelector("svg")?.getAttribute("clip-path"), "and None takes the shape away");
     // Clipping masks: the top shape clips what's under it (⌘7), and isn't drawn itself
     const maskPart = (id, geom, frame) => ({ id, type: "shape", geom, frame, rot: 0, flip_h: false, flip_v: false,
       stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 }, fill: { color: "#ffd166", opacity: 1 } });
@@ -981,6 +981,39 @@ export async function run(app, params) {
       const items = doc.pages[store.pageIndex].items;
       items.splice(items.findIndex((i) => i.id === pics[0].id), 1, sbWas);
       items.splice(items.findIndex((i) => i.id === sbId), 1);
+    }, { select: [] });
+
+    // Zoom insets: a box dragged on a picture; the area enlarged beside it, joined by two lines
+    store.select([pics[0].id]);
+    document.querySelector('#rpanel-figure [data-cmd="zoomInset"]').click();
+    const zp = store.item(pics[0].id).frame, zcrop = store.item(pics[0].id).crop || [0, 0, 0, 0];
+    const zBox = [zp[0] + zp[2] * 0.2, zp[1] + zp[3] * 0.3, zp[2] * 0.25, zp[3] * 0.2];
+    check(canvas.tool === "zoom", "Zoom inset waits for a box to be dragged on a picture", canvas.tool);
+    await drag([zBox[0], zBox[1]], [zBox[0] + zBox[2], zBox[1] + zBox[3]]);
+    const zAll = () => store.items();
+    const zBoxItem = () => zAll().find((it) => it.zoom?.picture === pics[0].id);
+    const zInset = () => zAll().find((it) => it.inset?.box === zBoxItem()?.id);
+    const zLines = () => zAll().filter((it) => it.zoomline?.box === zBoxItem()?.id);
+    const cropOf = () => zInset()?.crop || [];
+    const wantCrop = (b, f) => [zcrop[0] + (b[0] - f[0]) / f[2] * (1 - zcrop[0] - zcrop[2]), zcrop[1] + (b[1] - f[1]) / f[3] * (1 - zcrop[1] - zcrop[3])];
+    check(zBoxItem() && zInset() && zLines().length === 2 && near(cropOf()[0], wantCrop(zBoxItem().frame, zp)[0], 1e-6)
+      && near(cropOf()[1], wantCrop(zBoxItem().frame, zp)[1], 1e-6)
+      && near(zInset().frame[3] / zInset().frame[2], zBoxItem().frame[3] / zBoxItem().frame[2], 1e-6)
+      && zLines().every((l) => l.points.length === 2),
+    "dragging a box makes the box, the area enlarged beside the picture and two lines joining them",
+    `${JSON.stringify(cropOf())} ${JSON.stringify(zBoxItem()?.frame)}`);
+    // Moving the box shows another area; moving the picture takes the box along
+    store.select([zBoxItem().id]);
+    app.nudge(10, 0);
+    check(near(cropOf()[0], wantCrop(zBoxItem().frame, zp)[0], 1e-6), "moving the box changes the area shown in the inset", JSON.stringify(cropOf()));
+    const cropBefore = cropOf().slice(), boxXBefore = zBoxItem().frame[0];
+    store.update("Move the picture", (doc) => { findItem(doc, pics[0].id).frame[0] += 30; });
+    check(near(zBoxItem().frame[0], boxXBefore + 30, 1e-6) && near(cropOf()[0], cropBefore[0], 1e-6),
+      "moving the picture takes its box along, so the inset shows the same area", `${zBoxItem().frame[0]} ${JSON.stringify(cropOf())}`);
+    store.update("Zoom gone, picture back", (doc) => {
+      const items = doc.pages[store.pageIndex].items, gone = new Set([zBoxItem().id, zInset().id, ...zLines().map((l) => l.id)]);
+      items.splice(0, items.length, ...items.filter((i) => !gone.has(i.id)));
+      items.splice(items.findIndex((i) => i.id === pics[0].id), 1, sbWas);
     }, { select: [] });
 
     // Gradient fills: linear, then radial from a corner; stops can be added and reversed
