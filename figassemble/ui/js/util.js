@@ -1,0 +1,174 @@
+// Small shared helpers: DOM building, units, matrices, hit testing, announcements.
+
+export const PT_PER = { pt: 1, mm: 72 / 25.4, cm: 72 / 2.54, in: 72, px: 0.75 };
+export const UNIT_LABEL = { pt: "pt", mm: "mm", cm: "cm", in: "in", px: "px" };
+export const PX_PER_PT = 4 / 3;   // CSS px per point at 100% zoom: 100% is true size
+
+export const toUnit = (pt, unit) => pt / PT_PER[unit];
+export const fromUnit = (v, unit) => v * PT_PER[unit];
+
+export function fmt(v, digits = 2) {
+  if (v === null || v === undefined || Number.isNaN(v)) return "";
+  const s = Number(v).toFixed(digits).replace(/\.?0+$/, "");
+  return s === "-0" ? "0" : s;
+}
+
+export function uid(prefix) {
+  const bytes = crypto.getRandomValues(new Uint8Array(5));
+  return `${prefix}_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+
+export const clone = (o) => JSON.parse(JSON.stringify(o));
+export const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+export const isMac = navigator.platform.toUpperCase().includes("MAC") || /Mac/.test(navigator.userAgent);
+export const MOD = isMac ? "⌘" : "Ctrl+";
+
+// Element builder: h("button", {class: "x", onclick: fn, "aria-label": "..."}, "text", child)
+export function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === undefined || v === null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k === "style" && typeof v === "object") Object.assign(el.style, v);
+    else if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2), v);
+    else if (k === "value") el.value = v;
+    else if (k === "checked") el.checked = !!v;
+    else if (k === "html") el.innerHTML = v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of children.flat()) {
+    if (c === null || c === undefined || c === false) continue;
+    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+export function s(tag, attrs = {}) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) if (v !== undefined && v !== null) el.setAttribute(k, v);
+  return el;
+}
+
+// Matrices [a b c d e f], same convention as the Python engine
+export const I = [1, 0, 0, 1, 0, 0];
+export function mul(m, n) {
+  return [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3],
+    m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+}
+export const apply = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+export function invert(m) {
+  const det = m[0] * m[3] - m[1] * m[2];
+  const a = m[3] / det, b = -m[1] / det, c = -m[2] / det, d = m[0] / det;
+  return [a, b, c, d, -(a * m[4] + c * m[5]), -(b * m[4] + d * m[5])];
+}
+export const translate = (x, y) => [1, 0, 0, 1, x, y];
+export const scale = (sx, sy = sx) => [sx, 0, 0, sy, 0, 0];
+export function rotate(deg) {
+  const q = deg / 90;
+  let c, s;
+  if (Math.abs(q - Math.round(q)) < 1e-12) [c, s] = [[1, 0], [0, 1], [-1, 0], [0, -1]][((Math.round(q) % 4) + 4) % 4];
+  else { const r = (deg * Math.PI) / 180; c = Math.cos(r); s = Math.sin(r); }
+  return [c, s, -s, c, 0, 0];
+}
+export function frameMatrix(frame, rot = 0, fh = false, fv = false) {
+  const [x, y, w, h] = frame;
+  return [translate(x + w / 2, y + h / 2), rotate(rot), scale(fh ? -1 : 1, fv ? -1 : 1), translate(-w / 2, -h / 2)]
+    .reduce((acc, m) => mul(acc, m), I);
+}
+export const svgMatrix = (m) => `matrix(${m.map((v) => +v.toFixed(6)).join(" ")})`;
+
+// Geometry of items for selection and hit testing
+export function itemCorners(it) {
+  if (it.type === "line") return it.points.map((p) => [p[0], p[1]]);
+  if (it.type === "group") return groupBBoxCorners(it);
+  const m = frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v);
+  const [, , w, h] = it.frame;
+  return [[0, 0], [w, 0], [w, h], [0, h]].map(([x, y]) => apply(m, x, y));
+}
+function groupBBoxCorners(g) {
+  const b = itemsBBox(g.items);
+  return b ? [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]] : [[0, 0], [0, 0], [0, 0], [0, 0]];
+}
+export function itemBBox(it) {
+  const pts = itemCorners(it);
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  let b = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  if (it.type === "line" && it.stroke) {
+    const pad = (it.stroke.width || 1) / 2;
+    b = [b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad];
+  }
+  return b;
+}
+export function itemsBBox(items) {
+  const boxes = items.filter((i) => !i.hidden).map(itemBBox);
+  if (!boxes.length) return null;
+  return [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1])),
+    Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))];
+}
+export function pointInPoly([x, y], poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-12) + xi) inside = !inside;
+  }
+  return inside;
+}
+export function distToSegment([px, py], [ax, ay], [bx, by]) {
+  const dx = bx - ax, dy = by - ay;
+  const t = clamp(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+export function hitItem(it, p, tol) {
+  if (it.hidden) return false;
+  if (it.type === "line") {
+    const w = (it.stroke?.width || 1) / 2 + tol;
+    for (let i = 1; i < it.points.length; i++) if (distToSegment(p, it.points[i - 1], it.points[i]) <= w) return true;
+    return false;
+  }
+  if (it.type === "group") return it.items.some((c) => hitItem(c, p, tol));
+  const poly = itemCorners(it);
+  if (pointInPoly(p, poly)) {
+    // Open shapes without fill or text (arcs, brackets) are only hit near their frame edge
+    return true;
+  }
+  return poly.some((q, i) => distToSegment(p, q, poly[(i + 1) % poly.length]) <= tol);
+}
+
+// Screen-reader announcements through the polite live region
+let announceTimer = null;
+export function announce(msg) {
+  const el = document.getElementById("live");
+  if (!el) return;
+  clearTimeout(announceTimer);
+  el.textContent = "";
+  announceTimer = setTimeout(() => { el.textContent = msg; }, 60);
+}
+
+export function describeItem(it, doc) {
+  const n = (v) => fmt(v, 1);
+  if (it.type === "picture") {
+    const a = doc.assets[it.asset];
+    return `Picture ${it.name || a?.name || ""}, ${n(it.frame[2])} by ${n(it.frame[3])} points at ${n(it.frame[0])}, ${n(it.frame[1])}`;
+  }
+  if (it.type === "line") {
+    const [a, b] = [it.points[0], it.points[it.points.length - 1]];
+    return `${it.arrow_end || it.arrow_start ? "Arrow" : "Line"} from ${n(a[0])}, ${n(a[1])} to ${n(b[0])}, ${n(b[1])}`;
+  }
+  if (it.type === "group") return `Group of ${it.items.length} objects`;
+  const text = itemText(it);
+  if (text) return `Text "${text.slice(0, 60)}", at ${n(it.frame[0])}, ${n(it.frame[1])}`;
+  return `${GEOM_NAMES[it.geom] || "Shape"}, ${n(it.frame[2])} by ${n(it.frame[3])} points at ${n(it.frame[0])}, ${n(it.frame[1])}`;
+}
+export const GEOM_NAMES = { rect: "Rectangle", roundRect: "Rounded rectangle", ellipse: "Ellipse", triangle: "Triangle",
+  rtTriangle: "Right triangle", arc: "Arc", rightBracket: "Right bracket", leftBracket: "Left bracket", custom: "Freeform" };
+export function itemText(it) {
+  return (it.text?.paragraphs || []).map((p) => (p.runs || []).map((r) => r.t).join("")).join(" ").trim();
+}
+export function itemLabel(it, doc) {
+  if (it.type === "picture") return it.name || doc.assets[it.asset]?.name || "Picture";
+  if (it.type === "line") return it.arrow_end || it.arrow_start ? "Arrow" : "Line";
+  if (it.type === "group") return it.name && !/^Group \d+$/.test(it.name) ? it.name : `Group (${it.items.length})`;
+  const t = itemText(it);
+  return t ? `“${t.slice(0, 40)}”` : (GEOM_NAMES[it.geom] || "Shape");
+}

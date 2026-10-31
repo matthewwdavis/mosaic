@@ -342,6 +342,32 @@ class SvgWriter:
             g.append(child)
 
 
+def fragment(resolved: Resolved, id_prefix: str) -> str:
+    """SVG markup for an item's shapes and text (pictures are drawn by the editor itself).
+
+    The editor shows exactly what SVG export writes, from the same code.
+    """
+    w = SvgWriter(sources=None)   # type: ignore[arg-type]
+    g = etree.Element(_q("g"), nsmap={None: SVG_NS})
+    w._defs = etree.SubElement(g, _q("defs"))
+    w._clip = 0
+    for prim in resolved.prims:
+        if isinstance(prim, DrawPath):
+            w._path(g, prim)
+        elif isinstance(prim, DrawText):
+            w._text(g, prim)
+    for el in g.iter():
+        if isinstance(el.tag, str):
+            if el.get("id"):
+                el.set("id", f"{id_prefix}-{el.get('id')}")
+            st = el.get("style")
+            if st and "url(#" in st:
+                el.set("style", st.replace("url(#", f"url(#{id_prefix}-"))
+    if not len(w._defs):
+        g.remove(w._defs)
+    return "".join(etree.tostring(child, encoding="unicode") for child in g)
+
+
 def write_svg(page: dict, resolved: list[Resolved], path: str, sources: SourceResolver) -> list[str]:
     w = SvgWriter(sources)
     data = w.page(page, resolved)
