@@ -6,9 +6,9 @@ outputs share one geometry and one text layout.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
-from . import presets
+from . import dashes, presets
 from .fonts import FontIndex
 from .geometry import (DrawPath, Fill, Matrix, Path, Stroke, arrowhead, dash_array, frame_matrix, head_outline,
                        line_end_inside, linear_gradient, round_shape_paths, sample_path, smooth_path)
@@ -104,7 +104,12 @@ def outline_prims(prims: list, spec: dict | None) -> list:
         if p.stroke is not None:
             s = p.stroke
             path, dash = p.path, s.dash
-            if s.cap == "flat" and not path.is_closed():
+            laid_out = p.meta.get("dashes")
+            if laid_out:
+                # The same dashes; flat ends don't grow with the width, so lengthen each by t
+                layout, extend = laid_out
+                path = layout.path(extend + (t if s.cap == "flat" else 0.0))
+            elif s.cap == "flat" and not path.is_closed():
                 # Flat ends don't grow with the width: continue the line by t at each end and
                 # lengthen each dash by t either side (the gaps shrink to match)
                 path = path.extended(t, t)
@@ -131,7 +136,23 @@ def make_stroke(d: dict | None) -> Stroke | None:
     cap = d.get("cap", "flat")
     return Stroke(color=d.get("color", "#000000"), width=width,
                   dash=dash_array(d.get("dash", "solid"), width, cap), cap=cap,
-                  join=d.get("join", "round"), opacity=float(d.get("opacity", 1.0)))
+                  join=d.get("join", "round"), opacity=float(d.get("opacity", 1.0)),
+                  even_dashes=d.get("even_dashes", True) is not False)
+
+
+def even_dashes(prim):
+    """A dashed stroke with its dashes laid out to fit corners and ends (dashes.py), drawn
+    solid; the layout stays in meta for outlines. Square caps become flat ones on dashes
+    lengthened by half the width, which PDF and SVG draw alike even for dots."""
+    s = getattr(prim, "stroke", None)
+    if not isinstance(prim, DrawPath) or s is None or not s.dash or not s.even_dashes or prim.fill is not None:
+        return prim
+    layout = dashes.layout(prim.path, s.dash)
+    if layout is None:
+        return prim
+    extend = s.width / 2 if s.cap == "square" else 0.0
+    stroke = replace(s, dash=None, dash_phase=0.0, cap="flat" if s.cap == "square" else s.cap)
+    return DrawPath(layout.path(extend), stroke=stroke, meta={**prim.meta, "dashes": (layout, extend)})
 
 
 def make_fill(d: dict | None) -> Fill | None:
@@ -347,6 +368,7 @@ class Resolver:
                     r.prims += stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))
                 else:
                     r.prims.append(DrawPath(path, stroke=stroke))
+        r.prims = [even_dashes(p) for p in r.prims]
         if item.get("outline"):
             r.prims = outline_prims(r.prims, item["outline"]) + r.prims
         body = item.get("text")
@@ -377,7 +399,7 @@ class Resolver:
             path = Path().move_to(*pts[0])
             for p in pts[1:]:
                 path.line_to(*p)
-        drawn = stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))
+        drawn = [even_dashes(p) for p in stroke_with_ends(path, stroke, item.get("arrow_start"), item.get("arrow_end"))]
         r.prims += outline_prims(drawn, item.get("outline")) + drawn
         return r
 

@@ -90,6 +90,18 @@ pre-export check says so.
   centres, equal gaps between objects (PowerPoint-style smart guides, with the gap's size shown),
   guides, then the grid, which only counts when nothing chosen on purpose is near. Resizing doesn't
   snap (not chosen). Keyboard nudges and typed values never snap.
+- **Even dash spacing (2026-10-31):** PowerPoint runs a dash pattern continuously along a path,
+  so dashes straddling a corner sit closer than anywhere else (up to ~30% for dots) and closed
+  outlines have a squeezed seam; Matthew asked for this to be fixed. Like Illustrator's "align
+  dashes to corners", a dash is centred on every corner (a dot sits on it), including bends in
+  lines and the middles of rounded corners (curves between straight stretches turning 45 degrees or
+  more); lines start and end on a whole dash; each stretch holds a whole number of repeats, dashes
+  and gaps scaled together (his choice); closed curves fit whole repeats, so no seam; gaps are
+  measured straight across, so dots on tight curves don't bunch. On for every dashed stroke,
+  imported ones too, with a per-object "Even dashes" tick box (`stroke.even_dashes: false`) for
+  PowerPoint's spacing. Exports carry each dash as its own subpath with a solid stroke (dots are
+  0.001 pt round-capped strokes; square caps become flat ones on lengthened dashes, which PDF and
+  SVG draw alike); outlines re-cut the same dashes.
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.
@@ -108,6 +120,7 @@ figassemble/
   assets.py       linked/embedded files, sibling variants, intrinsic sizes, change detection
   geometry.py     matrices, paths, corner rounding, arrowheads, dashes
   presets.py      PowerPoint's 187 preset shapes from their formulas; handles; the Shapes menu
+  dashes.py       even dash spacing: dashes fitted to corners, ends and closed curves
   data/           presets.json (from the standard's presetShapeDefinitions.xml)
   fonts.py        font discovery and fallback; metrics
   textlayout.py   paragraphs/runs -> positioned glyph runs (PowerPoint-compatible)

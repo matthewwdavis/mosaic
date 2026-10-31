@@ -18,7 +18,7 @@
 - [x] Accessibility, first pass: labelled controls, keyboard operation of the page and lists,
       screen-reader announcements, interface text size, light/dark/high-contrast, reduced motion
 - [x] Mac launcher app (`packaging/macos/make_app.py`)
-- [x] Editor self-test in headless Chrome and in the app's WebKit window (now 110 checks)
+- [x] Editor self-test in headless Chrome and in the app's WebKit window (now 113 checks)
 - [x] Curved arrows and lines: smooth curve through draggable points (centripetal Catmull-Rom),
       add/remove points on the page or in the panel, straight-segment mode, PowerPoint arcs
       convertible on demand ("Make editable curve")
@@ -29,6 +29,8 @@
 - [x] Corner rounding for every straight-edged shape; rounded arrowheads (tip stays on the end point)
 - [x] Rulers, a grid and per-page guides; snapping to guides, the grid, objects and equal gaps,
       with a Snap button, ⌘/Ctrl-drag and Escape to override it
+- [x] Even dashes: a dash or dot on every corner, bend and line end, whole repeats between them,
+      no seams on curves (PowerPoint's corner crowding fixed); per-object switch back
 - [ ] Matthew's first real use: feedback round (in progress)
 - [ ] Windows: test the app window on a real machine; no-command-line installer (PyInstaller via CI)
 

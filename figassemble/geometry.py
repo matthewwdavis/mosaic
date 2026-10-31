@@ -885,6 +885,7 @@ class Stroke:
     opacity: float = 1.0
     miter_limit: float = 8.0
     dash_phase: float = 0.0
+    even_dashes: bool = False   # lay the dashes out to fit corners and ends (dashes.py)
 
 
 @dataclass

@@ -19,7 +19,8 @@ outline {color, width, opacity}: a contour of `width` points in another colour a
         everything the item draws, underneath it; its opacity applies to the contour as a whole
 
 stroke {color, width, dash (preset or list of widths), cap: flat|round|square,
-        join: round|miter|bevel, opacity}
+        join: round|miter|bevel, opacity, even_dashes: false for PowerPoint's dash spacing
+        (absent or true: a dash on every corner and end, evenly spaced; dashes.py)}
 fill   {color, opacity}
 text   {paragraphs: [{align: l|ctr|r, line_spacing {pct} | {pts}, space_before,
         space_after, end_size, runs: [{t, font, size, bold, italic, color, baseline,

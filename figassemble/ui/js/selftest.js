@@ -311,6 +311,27 @@ export async function run(app, params) {
     hex.dispatchEvent(new Event("change"));
     check(store.item(rect.id).stroke.color === "#d62728" && hex.value === "#D62728", "an invalid hex code is refused", hex.value);
 
+    // Even dashes: a dotted outline gets a dot on every corner and even spacing along each side;
+    // unticked, PowerPoint's pattern runs on regardless of corners
+    await choose("Dash", "sysDot");
+    await settle();
+    const dotsD = [...(canvas.els.get(rect.id)?.g.querySelectorAll("path") || [])].pop()?.getAttribute("d") || "";
+    const dotAt = [...dotsD.matchAll(/M\s*(-?[\d.]+)[ ,]+(-?[\d.]+)/g)].map((m) => [parseFloat(m[1]), parseFloat(m[2])]);
+    const rf = store.item(rect.id).frame;
+    const rectCorners = [[rf[0], rf[1]], [rf[0] + rf[2], rf[1]], [rf[0] + rf[2], rf[1] + rf[3]], [rf[0], rf[1] + rf[3]]];
+    check(!canvas.els.get(rect.id)?.g.innerHTML.includes("stroke-dasharray")
+      && rectCorners.every((c) => dotAt.some((p) => Math.hypot(p[0] - c[0], p[1] - c[1]) < 0.05)),
+    "a dotted outline has a dot on every corner", `${dotAt.length} dots; corners ${JSON.stringify(rectCorners)}`);
+    const topXs = dotAt.filter((p) => Math.abs(p[1] - rf[1]) < 0.01).map((p) => p[0]).sort((a, b) => a - b);
+    const topSteps = topXs.slice(1).map((x, i) => x - topXs[i]);
+    check(topSteps.length > 3 && Math.max(...topSteps) - Math.min(...topSteps) < 0.02, "with the dots evenly spaced along each side",
+      topSteps.map((v) => v.toFixed(3)).join(","));
+    fieldByLabel("Even dashes: one on every corner and end")?.click();
+    await settle();
+    check(store.item(rect.id).stroke.even_dashes === false && canvas.els.get(rect.id)?.g.innerHTML.includes("stroke-dasharray"),
+      "unticking Even dashes gives PowerPoint's spacing", JSON.stringify(store.item(rect.id).stroke));
+    await choose("Dash", "solid");
+
     // Text: create, type, commit
     canvas.setTool("text");
     await drag([250, 100], [250, 100]);

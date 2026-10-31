@@ -398,6 +398,16 @@ export const inspector = {
       kids.push(row(colorField("Line colour", st.color || "#000000", set("Line colour", "color")),
         numField("Line width", st.width ?? 1, "pt", set("Line width", "width", (v) => Math.max(v, 0)), { min: 0, step: 0.25 })));
       kids.push(selectField("Dash", typeof st.dash === "string" ? st.dash : "solid", DASHES, set("Dash", "dash")));
+      // Dashed lines get a dash (or dot) on every corner and end, evenly spaced between them;
+      // unticked, the pattern runs on regardless of corners, as in PowerPoint
+      if (st.dash && st.dash !== "solid") {
+        kids.push(checkField("Even dashes: one on every corner and end", st.even_dashes !== false, (on) =>
+          this.edit(on ? "Even dashes" : "PowerPoint dash spacing", (o) => {
+            o.stroke = { ...o.stroke };
+            if (on) delete o.stroke.even_dashes;
+            else o.stroke.even_dashes = false;
+          })));
+      }
       kids.push(row(selectField("Ends", st.cap || "flat", [["round", "Round"], ["flat", "Flat"], ["square", "Square"]], set("Line ends", "cap")),
         selectField("Corners", st.join || "round", [["round", "Round"], ["miter", "Sharp"], ["bevel", "Bevelled"]], set("Corners", "join"))));
       kids.push(transparencyField("Line transparency", st.opacity, (op) => this.edit("Line transparency", (o) => { o.stroke = { ...o.stroke, opacity: op }; })));

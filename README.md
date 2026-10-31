@@ -56,6 +56,10 @@ activated). A no-command-line installer is planned.
   stars, block arrows and any other straight-edged shape; 100% is as round as the shape
   allows. Each arrowhead has its own rounding too; the rounded tip still ends on the line's
   end point.
+- **Even dashes:** dashed and dotted lines put a dash (or dot) on every corner, bend and line
+  end, rounded corners included, and space the stretches between them evenly, so corners don't
+  crowd the way they do in PowerPoint and curved outlines have no squeezed spot where they close.
+  Shapes from PowerPoint decks get it too; untick "Even dashes" on an object for PowerPoint's spacing.
 - **Curve an arrow (or line):** select it and drag the hollow handle halfway along it; the
   arrow bends into a smooth curve through that point and the head follows. Drag other hollow
   handles to add more points (S-curves), drag points to reshape, double-click a point to

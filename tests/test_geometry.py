@@ -123,8 +123,9 @@ def test_outline_sits_under_line_and_head():
 
 def test_outline_of_flat_dashed_line_wraps_dash_ends():
     from figassemble.resolve import Resolver
+    # PowerPoint's continuous dash pattern (even spacing switched off; see test_dashes.py)
     item = {"id": "d", "type": "line", "points": [[0, 0], [100, 0]],
-            "stroke": {"width": 1, "color": "#000000", "cap": "flat", "dash": "dash"},
+            "stroke": {"width": 1, "color": "#000000", "cap": "flat", "dash": "dash", "even_dashes": False},
             "outline": {"color": "#ffffff", "width": 1.0}}
     outline = Resolver({"assets": {}}).resolve(item).prims[0]
     assert outline.stroke.dash == [6.0, 1.0]            # dash 4 + 2, gap 3 - 2
