@@ -37,10 +37,15 @@ def draw_icon(size: int):
     bw = (s - 2 * m - gap) // 2
     d.rectangle((m, m + top_h + gap, m + bw, s - m), fill=orange)
     d.rectangle((m + bw + gap, m + top_h + gap, s - m, s - m), fill=green)
-    try:
-        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", round(s * 0.22), index=1)
-    except OSError:
-        font = ImageFont.load_default()
+    font = None
+    for path, index in (("/System/Library/Fonts/Helvetica.ttc", 1), ("arialbd.ttf", 0)):   # Mac, Windows
+        try:
+            font = ImageFont.truetype(path, round(s * 0.22), index=index)
+            break
+        except OSError:
+            pass
+    if font is None:
+        font = ImageFont.load_default(round(s * 0.22))
     d.text((m + round(s * 0.04), m + round(s * 0.01)), "a", font=font, fill=(255, 255, 255, 255))
     return im
 

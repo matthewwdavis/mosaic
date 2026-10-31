@@ -30,7 +30,7 @@ if not defined CONDA (
 )
 if not defined CONDA (
   echo.
-  echo ==^> Installing conda ^(Miniforge^) into %USERPROFILE%\miniforge3
+  echo ==^> Installing conda ^(Miniforge^) into !USERPROFILE!\miniforge3
   if exist "%USERPROFILE%\miniforge3" (
     set "WHY=%USERPROFILE%\miniforge3 exists but has no conda in it; move it aside and try again"
     goto failed
@@ -40,7 +40,7 @@ if not defined CONDA (
     set "WHY=Miniforge couldn't be downloaded; check the internet connection"
     goto failed
   )
-  start "" /wait "%TEMP%\Miniforge3-Windows-x86_64.exe" /InstallationType=JustMe /RegisterPython=0 /AddToPath=0 /S /D=%USERPROFILE%\miniforge3
+  start "" /wait "%TEMP%\Miniforge3-Windows-x86_64.exe" /InstallationType=JustMe /RegisterPython=0 /AddToPath=0 /S /D=!USERPROFILE!\miniforge3
   del "%TEMP%\Miniforge3-Windows-x86_64.exe" >nul 2>nul
   set "CONDA=%USERPROFILE%\miniforge3\Scripts\conda.exe"
   if not exist "!CONDA!" (
@@ -66,11 +66,19 @@ if errorlevel 1 (
   set "WHY=the conda environment couldn't be made (the messages above say why)"
   goto failed
 )
+rem The environment's folder, from its own Python (it isn't always inside conda's folder); read
+rem back from a file, since a for /f around this command would need its quotes and brackets escaped
 set "PREFIX="
-rem (the extra quotes survive cmd stripping the outer pair from a quoted command)
-for /f "delims=" %%P in ('""%CONDA%" run -n "%ENV_NAME%" python -c "import sys; print(sys.prefix)""') do set "PREFIX=%%P"
+set "PREFIX_FILE=%TEMP%\figassemble-prefix.txt"
+"%CONDA%" run -n "%ENV_NAME%" python -c "import sys; print(sys.prefix)" > "%PREFIX_FILE%"
+if exist "%PREFIX_FILE%" set /p PREFIX=<"%PREFIX_FILE%"
+del "%PREFIX_FILE%" >nul 2>nul
 if not defined PREFIX (
   set "WHY=the new environment's Python couldn't be found"
+  goto failed
+)
+if not exist "%PREFIX%\python.exe" (
+  set "WHY=the new environment's Python isn't in %PREFIX%"
   goto failed
 )
 
