@@ -5,6 +5,8 @@ import io
 import os
 import re
 
+import pikepdf
+
 from ..assets import AssetCache, SourceResolver, get_cache
 from ..fonts import FontIndex
 from ..resolve import Resolver
@@ -35,7 +37,7 @@ def page_filename(base: str, page: dict, index: int, n_pages: int, ext: str) -> 
 def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | None = None, dpi: float = 600.0,
                     transparent: bool = True, cmyk: bool = False, cmyk_profile: str | None = None,
                     doc_dir: str | None = None, cache: AssetCache | None = None,
-                    fonts: FontIndex | None = None) -> dict:
+                    fonts: FontIndex | None = None, embed_fonts: bool = True) -> dict:
     """Write the chosen pages in each format. `base` is the output path without extension.
 
     PDF holds all chosen pages in one file; other formats write one file per page.
@@ -62,10 +64,10 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
             for page, rp in zip(sel, resolved):
                 w.add_page(page, rp)
             buf = io.BytesIO()
-            warnings.extend(w.fonts.finalize())
-            w.pdf.save(buf, compress_streams=True, recompress_flate=False, deterministic_id=True)
-            for s in w._open.values():
-                s.close()
+            w.finish(embed_fonts)
+            w.pdf.save(buf, compress_streams=True, recompress_flate=False, deterministic_id=True,
+                       object_stream_mode=pikepdf.ObjectStreamMode.generate)
+            w.close_sources()
             warnings.extend(w.warnings + src.notes)
             pdf_bytes = buf.getvalue()
         return pdf_bytes

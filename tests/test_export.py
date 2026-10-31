@@ -122,6 +122,38 @@ def test_document_round_trip_embeds_assets(fixtures, cache, tmp_path):
         assert var["src_rel"] == os.path.join("Figures", f"plot.{kind}")
 
 
+def test_unembedded_fonts_in_placed_pdfs_get_embedded(cache, tmp_path):
+    # A plot like R's pdf() writes: Type1 Helvetica, WinAnsi + Differences, no font program
+    src = pikepdf.new()
+    page = src.add_blank_page(page_size=(80, 30))
+    enc = pikepdf.Dictionary(Type=pikepdf.Name.Encoding, BaseEncoding=pikepdf.Name.WinAnsiEncoding,
+                             Differences=pikepdf.Array([45, pikepdf.Name.minus]))
+    font = src.make_indirect(pikepdf.Dictionary(Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1,
+                                                BaseFont=pikepdf.Name.Helvetica, Encoding=enc))
+    page.obj.Resources = pikepdf.Dictionary(Font=pikepdf.Dictionary(F1=font))
+    content = b"BT /F1 12 Tf 5 10 Td (Copy -1) Tj ET"
+    page.obj.Contents = src.make_stream(content)
+    path = str(tmp_path / "rplot.pdf")
+    src.save(path)
+    doc = model.new_document()
+    aid, asset, _ = assets.new_asset(path, cache)
+    doc["assets"][aid] = asset
+    doc["pages"][0]["items"].append(model.picture_item(aid, asset, 0, 0))
+    out = export_document(doc, str(tmp_path / "out"), ["pdf"], cache=cache)
+    assert any("embedded fonts" in w for w in out["warnings"])
+    pdf = pikepdf.open(out["files"][0])
+    form = next(iter(pdf.pages[0].Resources.XObject.values()))
+    assert form.read_bytes() == content                       # drawing instructions untouched
+    f = form.Resources.Font.F1
+    assert f.FontDescriptor.FontFile3.Subtype == "/Type1C"
+    assert f.Encoding.Differences[1] == "/minus"               # codes keep their meaning
+    widths = dict(zip(range(int(f.FirstChar), int(f.LastChar) + 1), [float(w) for w in f.Widths]))
+    face, _ = resolve_face("Helvetica")                        # Arial/Liberation stand in on CI
+    assert widths[ord("C")] == round(face.advance(face.gid("C")) * 1000)
+    if face.ref.family in ("Helvetica", "Arial", "Liberation Sans"):
+        assert widths[ord("C")] == pytest.approx(722, abs=1)  # standard Helvetica metrics
+
+
 def test_autofit_height_follows_powerpoint_model():
     from figassemble.resolve import Resolver
     face, _ = resolve_face("Helvetica")

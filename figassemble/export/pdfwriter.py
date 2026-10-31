@@ -83,8 +83,23 @@ class PdfWriter:
         pg.obj.Contents = self.pdf.make_stream("\n".join(ops).encode("latin-1"))
         pg.obj.Resources = Dictionary({k: Dictionary(v) for k, v in res.items() if v})
 
-    def save(self, path: str) -> list[str]:
+    def finish(self, embed_fonts: bool = True) -> None:
+        """Build font subsets and (by default) embed fonts the placed PDFs lack."""
         self.warnings += self.fonts.finalize()
+        if embed_fonts and self._forms:
+            from .pdffix import embed_missing_fonts
+            self.warnings += embed_missing_fonts(self.pdf, [form for form, _ in self._forms.values()])
+        self.pdf.docinfo[Name.Producer] = pikepdf.String("FigAssemble")
+        if self.title:
+            self.pdf.docinfo[Name.Title] = pikepdf.String(self.title)
+
+    def close_sources(self) -> None:
+        for src in self._open.values():
+            src.close()
+        self._open.clear()
+
+    def save(self, path: str, embed_fonts: bool = True) -> list[str]:
+        self.finish(embed_fonts)
         self.pdf.docinfo[Name.Producer] = pikepdf.String("FigAssemble")
         if self.title:
             self.pdf.docinfo[Name.Title] = pikepdf.String(self.title)
