@@ -1,36 +1,93 @@
 # FigAssemble
 
 A small, fast app for assembling multi-panel scientific figures: set a page size, drop in
-plots and images, add text, lines, arrows and shapes, and export PDF, SVG, PNG or TIFF at
-any resolution.
+plots and images, add text, panel labels, lines, arrows and shapes, and export PDF, SVG,
+PNG or TIFF at any resolution.
 
 Unlike PowerPoint, FigAssemble never converts a placed file through an intermediate
 format. A placed PDF goes into the exported PDF unchanged, a placed SVG goes into the
-exported SVG unchanged, and PNG/TIFF exports are rendered once, straight from the
-vectors. When a plot was saved as PDF + SVG + PNG under one name (as R's ggsave workflow
-does), FigAssemble finds the copies and uses the matching one for each export.
+exported SVG unchanged, and PNG/TIFF exports are rendered once, straight from the vectors.
+When a plot was saved as PDF + SVG + PNG under one name (as R's ggsave workflow does),
+FigAssemble finds the copies and uses the matching one for each export. Fonts that R's
+`pdf()` leaves out (Helvetica) are embedded on export.
 
-> Status: early development (first version in progress). See [docs/design.md](docs/design.md)
-> for decisions and architecture, and [docs/roadmap.md](docs/roadmap.md) for progress.
+> Status: first version. Decisions and architecture: [docs/design.md](docs/design.md);
+> progress: [docs/roadmap.md](docs/roadmap.md).
 
-## Install (development)
+## Install
+
+You need [conda](https://docs.conda.io) (Anaconda, Miniconda or Miniforge).
 
 ```sh
+git clone git@github.com:matthewwdavis/FigAssemble.git
+cd FigAssemble
 conda env create -f environment.yml
 conda activate figassemble
 pip install -e .
 ```
 
-## Use
+**Mac:** build a double-clickable app, then drag `dist/FigAssemble.app` into Applications:
+
+```sh
+python packaging/macos/make_app.py
+```
+
+**Windows:** start it with `figassemble` from the Anaconda Prompt (with the environment
+activated). A no-command-line installer is planned.
+
+## Using it
+
+- **Place figures** by dragging files (PDF, SVG, PNG, JPEG, TIFF) onto the page, or with
+  Picture (I). They land at true size, so 6 pt text stays 6 pt.
+  - Placed files stay **linked**: re-run your R code and the panel updates by itself.
+    A copy is also stored in the document, so it opens complete on a labmate's computer.
+  - Hold **Option (Alt)** while dropping to store a copy without the link.
+  - Hold **Shift** while dropping a file onto a picture to replace it (position and scale kept).
+- **Draw** with Text (T), Panel label (P: adds a, b, c… in order), Line (L), Arrow (A),
+  Rectangle (R), Rounded rectangle (U), Ellipse (O), Triangle, Arc and Bracket.
+  Shift keeps straight lines, squares and proportions.
+- **Edit** in the properties panel on the right: exact positions (points), sizes, rotation,
+  line width and dashes, arrowheads, fills, fonts. Double-click text to type; double-click a
+  picture to crop it.
+- **Arrange:** drag to move (objects snap to edges, centres and the page; hold ⌘/Ctrl to
+  stop snapping), align and distribute several objects, group (⌘G), bring forward (⌘]).
+- **Pages:** one document can hold many pages, e.g. versions of a figure. Page sizes are in
+  millimetres (journal presets included); "Fit to content" crops the page to the figure.
+- **Check** lists the smallest text after scaling, low-resolution images, conversions that
+  will be needed and files that can't be found.
+- **Export** (⌘E): PDF, SVG, PNG, TIFF at 300/600/1200 dpi or any other, transparent or
+  white. More options: JPEG, EPS, CMYK (only when a journal asks).
+- **PowerPoint:** Open a `.pptx` to turn its slides into pages, with pictures relinked to the
+  original figure files where they can be found.
+
+Documents are saved as `.figasm` files. Unsaved work is autosaved every minute and offered
+back after a crash.
+
+### Accessibility
+
+- Every tool and setting is a labelled control reachable with the keyboard; press **?** for
+  all shortcuts. On the page: Tab moves between objects, arrow keys move them (Shift: 10 pt,
+  Option/Alt: 0.1 pt), Enter edits text or crops, Escape finishes.
+- Screen readers hear what's selected, where it is and what each action did; pictures can
+  carry a description.
+- Settings: interface text size, light/dark/high-contrast appearance, toolbar labels,
+  reduced motion. The system's high-contrast and reduced-motion settings are followed too.
+
+## Command line
 
 ```sh
 figassemble                                   # open the app
+figassemble figure.figasm                     # open a document
 figassemble export figure.figasm -f pdf,svg,png --dpi 600
-figassemble import-pptx deck.pptx --slides 13 # open PowerPoint slides as pages
+figassemble import-pptx deck.pptx --slides 13 # PowerPoint slides -> figure.figasm
+figassemble --browser                         # use a web browser instead of the app window
 ```
 
-## Test
+## Development
 
 ```sh
-python -m pytest -q
+python -m pytest -q                           # engine tests + editor self-test (needs Chrome)
+python tools/ui_selftest.py plot.svg plot.pdf # the editor self-test on your own files
+python tools/serve.py                         # serve the editor for any browser
+python tools/compare_renders.py a.pdf b.pdf   # pixel comparison of two exports
 ```

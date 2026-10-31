@@ -333,7 +333,7 @@ export const canvas = {
     this.stage.focus({ preventScroll: true });
     const pt = this.eventPoint(e);
     const p = this.toPage(...pt);
-    this.stage.setPointerCapture(e.pointerId);
+    try { this.stage.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
     if (e.button === 1 || this.spaceDown) {
       this.op = { type: "pan", start: pt, pan: [this.panX, this.panY] };
       return;

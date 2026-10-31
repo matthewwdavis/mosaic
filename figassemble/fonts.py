@@ -14,6 +14,10 @@ from dataclasses import dataclass
 
 from fontTools.ttLib import TTCollection, TTFont
 
+# Apple's fonts trip harmless fontTools warnings ("timestamp seems very low"); keep logs clean
+import logging
+logging.getLogger("fontTools").setLevel(logging.ERROR)
+
 FONT_EXTS = {".ttf", ".otf", ".ttc", ".otc"}
 DEFAULT_FAMILY = "Helvetica"
 

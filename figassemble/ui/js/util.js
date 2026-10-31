@@ -166,7 +166,11 @@ export function itemText(it) {
   return (it.text?.paragraphs || []).map((p) => (p.runs || []).map((r) => r.t).join("")).join(" ").trim();
 }
 export function itemLabel(it, doc) {
-  if (it.type === "picture") return it.name || doc.assets[it.asset]?.name || "Picture";
+  if (it.type === "picture") {
+    // PowerPoint's default names ("Graphic 4") say less than the file name
+    const generic = !it.name || /^(Graphic|Picture|Image|Content Placeholder) \d+$/.test(it.name);
+    return (generic ? doc.assets[it.asset]?.name : it.name) || "Picture";
+  }
   if (it.type === "line") return it.arrow_end || it.arrow_start ? "Arrow" : "Line";
   if (it.type === "group") return it.name && !/^Group \d+$/.test(it.name) ? it.name : `Group (${it.items.length})`;
   const t = itemText(it);
