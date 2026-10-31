@@ -228,6 +228,28 @@ const app = {
     if (!resize) this.noteTransform({ kind: "move", dx, dy });
     if (sel.length === 1) announce(describeItem(store.selected()[0], store.doc));
   },
+  // Match sizes: the other selected objects take the key object's width (or height), keeping
+  // their proportions and their top-left corners. Line widths don't scale, so the box grows in a
+  // straight line with the factor: one trial scale gives the exact one
+  matchSize(axis) {
+    const sel = store.selected().filter((it) => !it.locked && it.geom !== "region");
+    const key = this.keyObject();
+    if (sel.length < 2 || !key) { announce("Select two or more objects: the others match the key object, or the first selected"); return; }
+    const span = (it) => { const b = itemBBox(it); return axis === "w" ? b[2] - b[0] : b[3] - b[1]; };
+    const want = span(key), others = sel.filter((it) => it.id !== key.id);
+    store.update(axis === "w" ? "Same width" : "Same height", (doc) => {
+      for (const o of others) {
+        const it = findDeep(doc.pages[store.pageIndex].items, o.id);
+        const have = span(it);
+        if (!(have > 0) || Math.abs(have - want) < 1e-9) continue;
+        const trial = clone(it), k1 = want / have;
+        scaleItem(trial, k1, k1, [0, 0]);
+        const slope = (span(trial) - have) / (k1 - 1), k = Math.abs(slope) > 1e-12 ? 1 + (want - have) / slope : k1;
+        if (k > 0) scaleItem(it, k, k, [0, 0]);
+      }
+    });
+    announce(`Made ${others.length} object${others.length === 1 ? "" : "s"} as ${axis === "w" ? "wide" : "tall"} as ${itemLabel(key, store.doc)}`);
+  },
   // Align and distribute, as in Illustrator: to the selection, a key object or the page. One
   // object on its own always goes to the page. In key mode the key object stays put; it's the one
   // last clicked among the selected objects, or the first selected.
@@ -873,6 +895,10 @@ app.commands = {
   copy: cmd("Copy", () => app.copy(), `${M}C`, key("c"), "Copy"),
   paste: cmd("Paste", () => app.paste(), `${M}V`, key("v"), "Paste"),
   duplicate: cmd("Duplicate", () => app.duplicate(), `${M}D`, key("d"), "Duplicate"),
+  sameWidth: cmd("Same width: make the selected objects as wide as the key object (or the first selected), keeping "
+    + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
+  sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the first selected), keeping "
+    + "their proportions", () => app.matchSize("h"), null, null, "Same height"),
   copyStyle: cmd("Copy style", () => app.copyStyle(), `${M}${S}C`, key("c", { shift: true }), "Copy style"),
   pasteStyle: cmd("Paste style", () => app.pasteStyle(), `${M}${S}V`, key("v", { shift: true }), "Paste style"),
   formatPainter: cmd("Format painter: click it, then click an object to give it the selected object's style "

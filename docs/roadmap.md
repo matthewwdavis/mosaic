@@ -52,7 +52,7 @@ Matthew's choices are in brackets.
 - [x] Colour-blind preview of the page (deuteranopia, protanopia, tritanopia, greyscale), never exported
 - [x] Smart duplicate on ⌘D (a moved copy sets the offset for the next) and Transform Again on ⌘⇧D [both]
 - [x] Copy style / Paste style (⌘⇧C / ⌘⇧V) and a Format Painter button [everything that applies]
-- [ ] Match sizes: same width / height / size, keeping proportions
+- [x] Match sizes: same width / height / size, keeping proportions
 - [ ] Find and replace fonts
 - [ ] Document swatches, linked (editing one recolours its objects), saved in the figure plus a
       personal library; colour-blind-safe palettes (Okabe-Ito, Paul Tol) [linked; figure + library]

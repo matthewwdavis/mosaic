@@ -33,7 +33,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 1. **Tabs** across the top, like PowerPoint's ribbon:
    - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; Duplicate, Again, Delete; Add page,
      Fit page.
-   - **Arrange**: Align, Distribute, Spacing, Align to, Group, Order (see
+   - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group, Order (see
      [Align and distribute](#align-and-distribute)).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
      a colour vision preview (Check colours).
@@ -328,6 +328,10 @@ Select objects and use the **Arrange** tab, or the panel on the right:
   - **Page**: lines up with the page's edges; distributing moves the outer objects to the edges.
   - **Key object**: lines up with one object that doesn't move. Click one of the selected
     objects (without dragging) to make it the key. It gets a thick outline; click it again to stop.
+- **Match size**: **Same width** or **Same height** makes the selected objects as wide (or as
+  tall) as the key object, or the first one selected, keeping their proportions and their
+  top-left corners. Use it for panels of equal height in a row. Line widths and text sizes stay
+  as they are.
 
 ## Rulers, guides, grid and snapping
 

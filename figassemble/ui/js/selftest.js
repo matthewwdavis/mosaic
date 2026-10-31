@@ -740,6 +740,16 @@ export async function run(app, params) {
       "double-clicked, the Format Painter keeps painting", canvas.tool);
     key("Escape");
     check(canvas.tool === "select" && painterBtn.getAttribute("aria-pressed") === "false", "and Escape puts it away", canvas.tool);
+    // Match size: the others take the key object's height (or width), keeping their proportions
+    store.update("Bigger copy", (doc) => { const d = findItem(doc, dupB.id); d.frame[2] *= 2; d.frame[3] *= 3; });
+    const bigWas = store.item(dupB.id).frame.slice(), keyFrame = store.item(rect.id).frame;
+    store.select([rect.id, dupB.id]);
+    document.querySelector('#rpanel-arrange [data-cmd="sameHeight"]').click();
+    const matched = store.item(dupB.id).frame;
+    check(near(matched[3], keyFrame[3], 1e-6) && near(matched[2] / matched[3], bigWas[2] / bigWas[3], 1e-6)
+      && near(matched[0], bigWas[0], 1e-6) && near(matched[1], bigWas[1], 1e-6),
+    "Same height makes the others as tall as the first selected, keeping their proportions and corner",
+    `${JSON.stringify(bigWas)} -> ${JSON.stringify(matched)} (key ${JSON.stringify(keyFrame)})`);
     store.select([dupA.id, dupB.id]);
     await app.run("delete");
 
