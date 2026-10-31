@@ -503,7 +503,7 @@ export const panels = {
     root.append(h("div", { class: "panel-head" }, h("h2", {}, "Objects"),
       h("span", { class: "hint" }, "front to back")), this.layerList);
     this.layerList.addEventListener("keydown", (e) => {
-      const items = store.items();
+      const items = store.scopeItems();
       if (!items.length) return;
       const order = [...items].reverse();
       const cur = order.findIndex((it) => store.selection.includes(it.id));
@@ -522,7 +522,7 @@ export const panels = {
   },
   renderLayers() {
     if (!store.doc) return;
-    const order = [...store.items()].reverse();
+    const order = [...store.scopeItems()].reverse();   // inside a group being edited, its parts
     if (!order.length) {
       this.layerList.replaceChildren(h("li", { class: "empty" }, "Nothing on this page yet."));
       return;

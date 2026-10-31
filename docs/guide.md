@@ -283,6 +283,14 @@ the object when it moves, resizes or rotates.
   the unit in Settings), plus flips.
 - **Group (⌘G), Ungroup (⌘⇧G)**; **Order**: bring to front (⌘⇧]), forward (⌘]), backward
   (⌘[), to back (⌘⇧[).
+- **Editing inside a group**, as in Illustrator: double-click a group (or select it and press
+  Enter) to work on its parts without ungrouping it. The rest of the page fades and can't be
+  picked, and a note over the page names the group. Click a part to select it on its own; move,
+  resize, restyle, add or delete parts; anything you draw or paste goes into the group. Double-click
+  a group inside it to go deeper. **Escape** (with nothing selected), a double-click outside the
+  group or **Leave group** brings you back out, with the group selected.
+
+  ![Editing inside a group: the bar chart picked on its own, the rest of the page faded](images/isolation.png)
 - **Lock** stops an object being selected or moved on the page; **Hide** hides it (it isn't
   exported). Both are in the Object section, the Objects list and the right-click menu.
 
@@ -332,13 +340,13 @@ shortcut beside it:
 
 - **An object:** Cut, Copy, Paste, Duplicate, Delete; Copy style, Paste style; Group, Ungroup;
   the four Order commands; Lock position, Hide. A picture adds Crop, Replace and Show the
-  picture's file; a text box or
-  shape adds Edit text; a line attached to objects adds Detach the ends.
+  picture's file; a text box or shape adds Edit text; a line attached to objects adds Detach
+  the ends; a group adds Edit inside the group.
   - Right-clicking an object that isn't selected selects it.
   - Right-clicking one of several selected objects keeps them all selected, so **Group** groups
     the lot.
 - **Empty page:** Paste, Select all, Insert picture, Fit page to content, and the Rulers, Grid,
-  Guides and Snap switches.
+  Guides and Snap switches; Leave the group while editing inside one.
 - **Paste** from a right-click puts things where you clicked. When the clipboard holds both text
   and a picture, **Paste as picture** appears beside it (see [Pictures](#pictures)).
 - **A page in the Pages list:** Add, Duplicate, Delete, Move up or down, Rename.

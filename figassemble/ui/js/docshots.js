@@ -132,6 +132,15 @@ export async function run(app, params) {
     return finish();
   }
 
+  if (scene === "isolation") {
+    // The top two plots grouped, then edited inside: the bar chart picked on its own, the rest faded
+    store.select([a, b]);
+    await app.run("group");
+    canvas.enterGroup(store.selection[0]);
+    store.select([b]);
+    return finish();
+  }
+
   // Step 4: panel labels a, b, c
   store.update("Labels", (doc) => doc.pages[0].items.push(label("la", "a", 4, 4), label("lb", "b", 217, 4), label("lc", "c", 4, 153)),
     { select: [] });

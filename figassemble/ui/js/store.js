@@ -10,7 +10,8 @@ export const store = {
   path: null,
   dirty: false,
   pageIndex: 0,
-  selection: [],          // ids of selected top-level items on the current page
+  selection: [],          // ids of selected items at the working level: the page's, or a group's being edited
+  scope: [],              // the groups being edited inside (isolation mode), outermost first
   history: [],
   future: [],
   listeners: new Set(),
@@ -26,6 +27,7 @@ export const store = {
     this.dirty = false;
     this.pageIndex = 0;
     this.selection = [];
+    this.scope = [];
     this.history = [];
     this.future = [];
     this.autosaveKey = `doc-${Date.now().toString(36)}`;
@@ -34,9 +36,54 @@ export const store = {
   },
 
   page() { return this.doc.pages[this.pageIndex]; },
+  // Everything on the page (groups whole); any object on it, at any depth
   items() { return this.page().items; },
-  item(id) { return this.items().find((it) => it.id === id); },
+  item(id) { return findItem(this.items(), id); },
   selected() { return this.selection.map((id) => this.item(id)).filter(Boolean); },
+  // The working level: the page's objects, or the parts of the group being edited inside. New
+  // objects go here (container(doc) while changing the document), and only these can be picked
+  scopeItems(doc = this.doc) {
+    let items = doc.pages[this.pageIndex].items;
+    for (const id of this.scope) {
+      const g = items.find((it) => it.id === id && it.type === "group");
+      if (!g) break;
+      items = g.items;
+    }
+    return items;
+  },
+  container(doc) { return this.scopeItems(doc); },
+  // Isolation mode: work inside a group (groups within groups too), the rest faded
+  enterGroup(id) {
+    if (!this.scopeItems().some((it) => it.id === id && it.type === "group")) return false;
+    this.scope = [...this.scope, id];
+    this.selection = [];
+    this.emit("doc", {});
+    this.emit("selection");
+    return true;
+  },
+  // Out one level, with the group selected; a group left empty goes, as in Illustrator
+  exitGroup() {
+    if (!this.scope.length) return false;
+    const id = this.scope.pop();
+    const here = this.scopeItems(), at = here.findIndex((it) => it.id === id);
+    if (at >= 0 && !here[at].items.length) this.silent(() => here.splice(at, 1));
+    this.selection = here.some((it) => it.id === id) ? [id] : [];
+    this.emit("doc", {});
+    this.emit("selection");
+    return true;
+  },
+  // A group that's gone (after an undo, say) can't be edited inside
+  fixScope() {
+    let items = this.doc.pages[this.pageIndex].items;
+    const ok = [];
+    for (const id of this.scope) {
+      const g = items.find((it) => it.id === id && it.type === "group");
+      if (!g) break;
+      ok.push(id);
+      items = g.items;
+    }
+    this.scope = ok;
+  },
 
   // Snapshot-based undo: take a snapshot, mutate, record it
   snapshot() { return JSON.stringify({ doc: this.doc, pageIndex: this.pageIndex, selection: this.selection }); },
@@ -74,7 +121,8 @@ export const store = {
     const s = JSON.parse(snap);
     this.doc = s.doc;
     this.pageIndex = Math.min(s.pageIndex, this.doc.pages.length - 1);
-    this.selection = s.selection.filter((id) => this.item(id));
+    this.fixScope();
+    this.selection = s.selection.filter((id) => this.scopeItems().some((it) => it.id === id));
     this.emit("doc", {});
     this.emit("selection");
   },
@@ -98,12 +146,14 @@ export const store = {
   silent(fn) { fn(this.doc); this.afterChange?.(this.doc); },
 
   select(ids) {
-    this.selection = [...new Set(ids)].filter((id) => this.item(id));
+    const here = new Set(this.scopeItems().map((it) => it.id));
+    this.selection = [...new Set(ids)].filter((id) => here.has(id));
     this.emit("selection");
   },
   setPage(i) {
     this.pageIndex = Math.max(0, Math.min(i, this.doc.pages.length - 1));
     this.selection = [];
+    this.scope = [];
     this.emit("page");
     this.emit("doc", {});
     this.emit("selection");

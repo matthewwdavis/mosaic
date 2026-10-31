@@ -852,6 +852,41 @@ export async function run(app, params) {
     store.select(["tsA", "tsB", newLabel.id]);
     await app.run("delete");
 
+    // Isolation mode: double-click a group to work on its parts, the rest faded; Escape leaves
+    const isoBox = (id, x) => ({ id, type: "shape", geom: "rect", frame: [x, 420, 40, 30], rot: 0, flip_h: false, flip_v: false,
+      stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 }, fill: { color: "#cfe3ff", opacity: 1 } });
+    store.update("Boxes to group", (doc) => doc.pages[store.pageIndex].items.push(isoBox("isoA", 60), isoBox("isoB", 130)));
+    store.select(["isoA", "isoB"]);
+    await app.run("group");
+    const isoGroup = store.selected()[0];
+    const dblAt = (pt) => { const [sx, sy] = screenOf(...pt); canvas.stage.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, clientX: sx, clientY: sy })); };
+    dblAt([80, 435]);
+    await settle();
+    const outsideFaded = canvas.els.get(rect.id)?.g.classList.contains("outside-scope");
+    check(store.scope.join() === isoGroup.id && store.selection.length === 0 && !document.querySelector(".scope-note").hidden && outsideFaded,
+      "double-clicking a group edits inside it, with the rest of the page faded and a note", `${store.scope} ${outsideFaded}`);
+    await drag([150, 435], [150, 435]);
+    check(store.selection.join() === "isoB", "a click inside picks one part", store.selection.join());
+    app.nudge(10, 0);
+    check(store.item("isoB").frame[0] === 140 && store.item(isoGroup.id)?.items.length === 2, "a part moves on its own, still in its group",
+      JSON.stringify(store.item("isoB").frame));
+    canvas.setTool("rect");
+    await drag([210, 425], [240, 445], { metaKey: true, ctrlKey: true });
+    check(store.item(isoGroup.id).items.length === 3, "something drawn inside the group goes into it", `${store.item(isoGroup.id).items.length}`);
+    await app.run("selectAll");
+    check(store.selection.length === 3 && store.selection.every((id) => store.item(isoGroup.id).items.some((c) => c.id === id)),
+      "Select all picks the group's parts only", store.selection.join());
+    key("Escape");
+    key("Escape");
+    check(!store.scope.length && store.selection.join() === isoGroup.id && !canvas.els.get(rect.id)?.g.classList.contains("outside-scope"),
+      "Escape (with nothing selected) leaves the group, selecting it", `${store.scope} ${store.selection}`);
+    key("Enter");
+    check(store.scope.join() === isoGroup.id, "Enter on a selected group edits inside it too", store.scope.join());
+    document.querySelector(".scope-note button").click();
+    check(!store.scope.length && document.querySelector(".scope-note").hidden, "the note's Leave group button leaves it", store.scope.join());
+    store.select([isoGroup.id]);
+    await app.run("delete");
+
     // Gradient fills: linear, then radial from a corner; stops can be added and reversed
     store.select([rect.id]);
     await choose("Fill", "linear");

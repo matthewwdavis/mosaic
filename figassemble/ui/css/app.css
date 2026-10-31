@@ -391,3 +391,10 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 .palettes .btn { display: inline-flex; align-items: center; gap: 0.3rem; }
 .swatch-row .hint { min-width: 4.4rem; text-align: right; }
 .style-sample { font-size: 1.1rem; min-width: 2rem; text-align: center; }
+
+/* Isolation mode: the rest of the page faded while a group is edited inside, and a note naming it */
+.outside-scope { opacity: 0.3; }
+.scope-note { position: absolute; top: 0.6rem; left: 0.6rem; z-index: 3; display: flex; gap: 0.6rem; align-items: center;
+  padding: 0.3rem 0.4rem 0.3rem 0.8rem; border: 2px solid var(--sel); border-radius: 0.5rem; background: var(--panel);
+  color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); max-width: 60%; }
+.scope-note[hidden] { display: none; }

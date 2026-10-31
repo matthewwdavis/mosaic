@@ -5,7 +5,7 @@ import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
 import { applyTextStyle } from "./textstyles.js";
 import {
-  PX_PER_PT, announce, apply, clamp, describeItem, frameMatrix, h, hitItem, invert, isMac, itemBBox,
+  PX_PER_PT, announce, apply, clamp, describeItem, frameMatrix, h, hitItem, invert, isMac, itemBBox, itemLabel,
   itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s,
   shapeCatalog, svgMatrix, translate, uid,
 } from "./util.js";
@@ -70,7 +70,8 @@ export const canvas = {
     this.svg.append(defs, this.view, this.overlay);
     stage.append(this.svg);
     this.cvdNote = h("div", { class: "cvd-note", role: "status", hidden: true });
-    stage.append(this.cvdNote);
+    this.scopeNote = h("div", { class: "scope-note", role: "status", hidden: true });
+    stage.append(this.cvdNote, this.scopeNote);
     this.setRulers(this.defaults?.show_rulers !== false);
     store.afterChange = (doc) => this.followLinks(doc);
     this.editor = h("div", { class: "text-editor", contenteditable: "true", spellcheck: "false", hidden: true,
@@ -174,11 +175,32 @@ export const canvas = {
     const seen = new Set();
     this.syncChildren(this.itemsLayer, page.items, seen);
     for (const id of [...this.els.keys()]) if (!seen.has(id)) { this.els.get(id).g.remove(); this.els.delete(id); }
+    this.markScope();
     this.flushResolve();
     this.drawGrid();
     this.drawGuides();
     this.drawOverlay();
     if (this.cropping) this.drawGhost();
+  },
+  // Inside a group being edited (isolation mode), everything outside it is faded, and a note
+  // over the page names the group, with a button to leave it
+  markScope() {
+    for (const e of this.els.values()) e.g.classList.remove("outside-scope");
+    let items = store.page().items;
+    const names = [];
+    for (const id of store.scope) {
+      for (const it of items) if (it.id !== id) this.els.get(it.id)?.g.classList.add("outside-scope");
+      const g = items.find((it) => it.id === id);
+      if (!g) break;
+      names.push(itemLabel(g, store.doc));
+      items = g.items;
+    }
+    this.scopeNote.hidden = !names.length;
+    if (names.length && this.scopeNote.dataset.path !== store.scope.join("/")) {
+      this.scopeNote.dataset.path = store.scope.join("/");
+      this.scopeNote.replaceChildren(`Editing inside ${names.join(" › ")} `, h("button", { type: "button", class: "btn",
+        onclick: () => { store.exitGroup(); announce("Left the group"); } }, "Leave group"));
+    } else if (!names.length) this.scopeNote.dataset.path = "";
   },
   syncChildren(parent, items, seen) {
     items.forEach((it, i) => {
@@ -484,7 +506,7 @@ export const canvas = {
   },
   itemAt(p) {
     const tol = 4 / this.k;
-    const items = store.items();
+    const items = store.scopeItems();   // inside a group being edited, only its parts
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];
       if (!it.locked && (it.geom === "region" ? this.inArea(it, p) : hitItem(it, p, tol))) return it;
@@ -584,7 +606,7 @@ export const canvas = {
       const [ax, ay] = this.toPage(...op.start), [bx, by] = this.toPage(...op.cur);
       const box = [Math.min(ax, bx), Math.min(ay, by), Math.max(ax, bx), Math.max(ay, by)];
       if (box[2] - box[0] > 1e-6 || box[3] - box[1] > 1e-6) {
-        const inside = store.items().filter((it) => {
+        const inside = store.scopeItems().filter((it) => {
           if (it.locked || it.hidden) return false;
           const b = itemBBox(it);
           return b[0] >= box[0] && b[1] >= box[1] && b[2] <= box[2] && b[3] <= box[3];
@@ -679,9 +701,19 @@ export const canvas = {
       if (!hd && hitItem(sel[0], p, 4 / this.k)) return this.insertPoint(sel[0].id, p);
     }
     const hit = this.itemAt(p);
-    if (!hit) return;
-    if (hit.type === "picture") this.startCrop(hit.id);
+    if (!hit) {   // a double-click outside the group being edited leaves it
+      if (store.scope.length && store.exitGroup()) announce("Left the group");
+      return;
+    }
+    if (hit.type === "group") this.enterGroup(hit.id);
+    else if (hit.type === "picture") this.startCrop(hit.id);
     else if (hit.type === "shape") this.startEdit(hit.id);
+  },
+  enterGroup(id) {
+    const g = store.item(id);
+    if (g && store.enterGroup(id)) {
+      announce(`Editing inside ${itemLabel(g, store.doc)}: its parts can be picked on their own; Escape or a double-click outside leaves`);
+    }
   },
 
   // Moving -------------------------------------------------------------------------
@@ -694,7 +726,7 @@ export const canvas = {
     if (e.altKey) {
       // Option/Alt-drag duplicates, like PowerPoint (an area fill with its lines and shapes)
       const copies = copyItems(items);
-      store.silent((doc) => doc.pages[store.pageIndex].items.push(...copies));
+      store.silent((doc) => store.container(doc).push(...copies));
       store.selection = copies.slice(0, sel.length).map((c) => c.id);
       items = copies;
     }
@@ -733,7 +765,9 @@ export const canvas = {
       for (const v of page.guides?.x || []) xs.push({ v, span: null });
       for (const v of page.guides?.y || []) ys.push({ v, span: null });
     }
-    for (const it of store.items()) {
+    // Inside a group being edited: its other parts, and the rest of the page (not the group itself)
+    const pool = store.scope.length ? [...store.scopeItems(), ...store.items().filter((it) => it.id !== store.scope[0])] : store.items();
+    for (const it of pool) {
       if (excludeIds.includes(it.id) || it.hidden) continue;
       const b = itemBBox(it);
       boxes.push(b);
@@ -1326,7 +1360,7 @@ export const canvas = {
       // A figure with a text style called Panel label gives it to new labels
       const labelStyle = lab && (store.doc.text_styles || []).find((x) => x.name.trim().toLowerCase() === "panel label");
       if (labelStyle) applyTextStyle(item, labelStyle);
-      store.update(lab ? "Add panel label" : "Add text", (doc) => doc.pages[store.pageIndex].items.push(item), { select: [item.id] });
+      store.update(lab ? "Add panel label" : "Add text", (doc) => store.container(doc).push(item), { select: [item.id] });
       this.setTool("select");
       if (!lab) setTimeout(() => this.startEdit(item.id, true), 30);
       return;
@@ -1342,7 +1376,7 @@ export const canvas = {
       item = { id: uid("it"), type: "shape", geom, frame, rot: 0, flip_h: false, flip_v: false, stroke,
         fill: null, arrow_start: null, arrow_end: null };
     }
-    store.update("Draw", (doc) => doc.pages[store.pageIndex].items.push(item), { select: [item.id] });
+    store.update("Draw", (doc) => store.container(doc).push(item), { select: [item.id] });
     announce(`Added ${describeItem(item, store.doc)}`);
     this.setTool("select");
   },
@@ -1544,7 +1578,7 @@ export const canvas = {
     const empty = paragraphs.every((p) => p.runs.every((r) => !r.t.trim()));
     if (empty && it.textbox) {
       store.update(ed.isNew ? "Add text" : "Delete text", (doc) => {
-        const items = doc.pages[store.pageIndex].items;
+        const items = store.container(doc);
         items.splice(items.findIndex((i) => i.id === ed.id), 1);
       }, { select: [] });
       return;

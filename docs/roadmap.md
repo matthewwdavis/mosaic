@@ -57,7 +57,7 @@ Matthew's choices are in brackets.
 - [x] Document swatches, linked (editing one recolours its objects), saved in the figure plus a
       personal library; colour-blind-safe palettes (Okabe-Ito, Paul Tol) [linked; figure + library]
 - [x] Text styles, linked, with changes to one text kept as overrides [linked]
-- [ ] Isolation mode: double-click a group to edit inside it, nested too [Illustrator's way]
+- [x] Isolation mode: double-click a group to edit inside it, nested too [Illustrator's way]
 - [ ] Crop pictures to a shape, and clipping masks for any objects [both]
 - [ ] Pathfinder: unite, minus front, intersect, exclude, with exact curves (skia-pathops) [exact]
 - [ ] Scale bars that stay right when the picture is resized or cropped; scale typed as a pixel

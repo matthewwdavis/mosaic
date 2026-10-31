@@ -155,7 +155,7 @@ const app = {
     });
     store.update(`Place ${ok.length === 1 ? ok[0].asset.name : `${ok.length} pictures`}`, (doc) => {
       for (const r of ok) doc.assets[r.asset_id] = r.asset;
-      doc.pages[store.pageIndex].items.push(...items);
+      store.container(doc).push(...items);
     }, { select: items.map((i) => i.id) });
     const warnings = ok.flatMap((r) => r.warnings || []).concat(errors);
     const copies = ok.map((r) => Object.keys(r.asset.variants).map((k) => k.toUpperCase()).join("+"));
@@ -513,7 +513,7 @@ const app = {
     const ids = new Set(store.selection);
     if (!ids.size) return;
     store.update("Arrange", (doc) => {
-      const items = doc.pages[store.pageIndex].items;
+      const items = store.container(doc);
       const sel = items.filter((it) => ids.has(it.id));
       const rest = items.filter((it) => !ids.has(it.id));
       if (how === "front") items.splice(0, items.length, ...rest, ...sel);
@@ -536,7 +536,7 @@ const app = {
     if (ids.size < 2) return announce("Select two or more objects to group");
     const g = { id: uid("it"), type: "group", name: "", items: [] };
     store.update("Group", (doc) => {
-      const items = doc.pages[store.pageIndex].items;
+      const items = store.container(doc);
       const top = Math.max(...items.map((it, i) => (ids.has(it.id) ? i : -1)));
       g.items = items.filter((it) => ids.has(it.id));
       const rest = items.filter((it) => !ids.has(it.id) || it === items[top]);
@@ -551,7 +551,7 @@ const app = {
     if (!groups.length) return;
     const childIds = [];
     store.update("Ungroup", (doc) => {
-      const items = doc.pages[store.pageIndex].items;
+      const items = store.container(doc);
       for (const g of groups) {
         const i = items.findIndex((it) => it.id === g.id);
         const gg = items[i];
@@ -619,6 +619,7 @@ const app = {
       one?.type === "shape" && one.geom !== "region" && { label: "Edit text", keys: "Enter", run: () => canvas.startEdit(one.id) },
       one?.geom === "region" && { label: "Make an ordinary shape", run: () => this.detachArea() },
       one?.type === "line" && (one.start_link || one.end_link) && { label: "Detach the ends", run: () => this.detachEnds() },
+      one?.type === "group" && { label: "Edit inside the group", keys: "Enter", run: () => canvas.enterGroup(one.id) },
     ];
   },
   // For the page itself, where nothing was under the pointer
@@ -626,6 +627,8 @@ const app = {
     const c = (name, opts) => this.menuEntry(name, opts);
     const show = (name, pref, label) => c(name, { label, checked: !!this.prefs[pref] });
     return [
+      store.scope.length && { label: "Leave the group", keys: "Escape", run: () => { store.exitGroup(); announce("Left the group"); } },
+      store.scope.length && "-",
       ...this.pasteEntries(clip, at), c("selectAll"),
       "-",
       c("insertPicture", { label: "Insert picture…" }), c("fitPage"),
@@ -695,7 +698,7 @@ const app = {
       if (it.geom === "region" && !(it.region?.items || []).some(left)) ids.add(it.id);
     }
     store.update("Delete", (doc) => {
-      const items = doc.pages[store.pageIndex].items;
+      const items = store.container(doc);
       items.splice(0, items.length, ...items.filter((it) => !ids.has(it.id)));
     }, { select: [] });
     announce(`Deleted ${asked} object${asked === 1 ? "" : "s"}${ids.size > asked ? ", and the area fills between them" : ""}`);
@@ -709,7 +712,7 @@ const app = {
     const fill = { id: uid("it"), type: "shape", geom: "region", name: "", region: { items: found.items, seed: found.seed },
       frame: found.frame, rot: 0, stroke: null, fill: { color: "#d9d9d9", opacity: 1 } };
     store.update("Fill area", (doc) => {
-      const items = doc.pages[store.pageIndex].items;
+      const items = store.container(doc);
       const holds = (it, id) => it.id === id || (it.type === "group" && it.items.some((c) => holds(c, id)));
       const at = Math.min(...found.items.map((id) => items.findIndex((it) => holds(it, id))).filter((i) => i >= 0));
       items.splice(Number.isFinite(at) ? at : items.length, 0, fill);
@@ -785,7 +788,7 @@ const app = {
       Object.assign(doc.assets, clip.assets);
       for (const it of items) {
         if (offset) shiftItem(it, clone(it), offset, offset);
-        doc.pages[store.pageIndex].items.push(it);
+        store.container(doc).push(it);
       }
     }, { select: items.map((i) => i.id) });
     clip.page = store.page().id;
@@ -808,7 +811,7 @@ const app = {
     }
     const item = { id: uid("it"), type: "shape", geom: "rect", textbox: true, stroke: null, fill: null, rot: 0,
       frame: [x, y, w, 10], text: { paragraphs: paras, insets: [0, 0, 0, 0], wrap, anchor: "t", autofit: "shape" } };
-    store.update("Paste text", (doc) => doc.pages[store.pageIndex].items.push(item), { select: [item.id] });
+    store.update("Paste text", (doc) => store.container(doc).push(item), { select: [item.id] });
     announce(`Pasted text: ${paras.length} paragraph${paras.length === 1 ? "" : "s"}, in ${base.font} ${base.size} pt`);
   },
   // Duplicate, as in PowerPoint: the copy goes 10 pt down and right, but once a copy has been
@@ -826,7 +829,7 @@ const app = {
     }
     const items = copyItems(sel);
     for (const c of items) shiftItem(c, clone(c), dx, dy);
-    store.update("Duplicate", (doc) => doc.pages[store.pageIndex].items.push(...items), { select: items.map((i) => i.id) });
+    store.update("Duplicate", (doc) => store.container(doc).push(...items), { select: items.map((i) => i.id) });
     this.lastDuplicate = { originals: ids, copies: store.selection.slice() };
     announce(`Duplicated ${items.length} object${items.length === 1 ? "" : "s"}`);
   },
@@ -875,7 +878,7 @@ const app = {
     if (t.kind === "move" && t.copy) {
       const items = copyItems(withRegionLines(sel));
       for (const c of items) shiftItem(c, clone(c), t.dx, t.dy);
-      store.update("Transform again", (doc) => doc.pages[store.pageIndex].items.push(...items),
+      store.update("Transform again", (doc) => store.container(doc).push(...items),
         { select: items.slice(0, sel.length).map((i) => i.id) });
       announce(`Copied and moved ${lengthText(Math.hypot(t.dx, t.dy), this.prefs.units)} again`);
       return;
@@ -931,14 +934,14 @@ const app = {
     for (const [id, a] of Object.entries(store.doc.assets)) assets[id] = { size_pt: a.size_pt, page_sizes: a.page_sizes };
     const line = await rpc("shape_to_curve", assets, it);
     store.update("Make editable curve", (doc) => {
-      const items = doc.pages[store.pageIndex].items;
+      const items = store.container(doc);
       items[items.findIndex((x) => x.id === it.id)] = line;
     }, { select: [line.id] });
     announce(`Now a curve through ${line.points.length} points: drag them to reshape it`);
   },
 
   cycleSelection(back) {
-    const items = store.items().filter((it) => !it.hidden);
+    const items = store.scopeItems().filter((it) => !it.hidden);
     if (!items.length) return;
     const cur = items.findIndex((it) => it.id === store.selection[store.selection.length - 1]);
     const next = items[(cur + (back ? -1 : 1) + items.length) % items.length] || items[0];
@@ -1051,7 +1054,7 @@ app.commands = {
   transformAgain: cmd("Transform again: repeat the last move, resize or turn", () => app.transformAgain(), `${M}${S}D`,
     key("d", { shift: true }), "Again"),
   delete: cmd("Delete", () => app.deleteSelection(), "Delete", (e) => plain(e) && (e.key === "Delete" || e.key === "Backspace"), "Delete"),
-  selectAll: cmd("Select all", () => { store.select(store.items().filter((i) => !i.locked).map((i) => i.id)); announce(`${store.selection.length} objects selected`); }, `${M}A`, key("a")),
+  selectAll: cmd("Select all", () => { store.select(store.scopeItems().filter((i) => !i.locked).map((i) => i.id)); announce(`${store.selection.length} objects selected`); }, `${M}A`, key("a")),
   group: cmd("Group", () => app.group(), `${M}G`, key("g"), "Group"),
   ungroup: cmd("Ungroup", () => app.ungroup(), `${M}${S}G`, key("g", { shift: true }), "Ungroup"),
   bringToFront: cmd("Bring to front", () => app.reorder("front"), `${M}${S}]`, (e) => mod(e) && e.shiftKey && (e.key === "]" || e.key === "}"), "To front"),
@@ -1165,6 +1168,7 @@ document.addEventListener("keydown", (e) => {
     else if (canvas.cropping) canvas.endCrop();
     else if (canvas.tool !== "select") canvas.setTool("select");
     else if (store.selection.length) { store.select([]); announce("Nothing selected"); }
+    else if (store.scope.length && store.exitGroup()) announce("Left the group");
     return;
   }
   if (e.key === "Enter" && canvas.tool !== "select" && onCanvas) {
@@ -1179,9 +1183,10 @@ document.addEventListener("keydown", (e) => {
     if (canvas.cropping) canvas.endCrop();
     else if (it.type === "picture") canvas.startCrop(it.id);
     else if (it.type === "shape") canvas.startEdit(it.id);
+    else if (it.type === "group") canvas.enterGroup(it.id);
     return;
   }
-  if (e.key === "Tab" && onCanvas && store.items().length) {
+  if (e.key === "Tab" && onCanvas && store.scopeItems().length) {
     e.preventDefault();
     app.cycleSelection(e.shiftKey);
     return;
