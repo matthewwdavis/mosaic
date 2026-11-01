@@ -31,7 +31,8 @@ Open FigAssemble. Here's the window with a finished figure in it:
    before exporting), **Export**, **Settings** (units, themes and more) and **Help** (all keyboard
    shortcuts).
 4. **Pages and Objects.** A document can have several pages; Objects lists everything on the
-   current page, front to back, with buttons to hide or lock each one.
+   current page, front to back, with buttons to hide or lock each one. Drag a row up or down to
+   put that object in front of or behind the others.
 5. **Drawing tools:** Select, Text, panel Label, Line, Arrow, shapes, the **Shapes** menu of
    PowerPoint's shapes, **Fill area** (fills a space lines enclose) and Picture.
 6. **The page**, with rulers along the top and left.

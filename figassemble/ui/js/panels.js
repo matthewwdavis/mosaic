@@ -3,12 +3,14 @@
 import { rpc } from "./api.js";
 import { canvas } from "./canvas.js";
 import { alignToField, button, colourVisionField, gapField, numField, selectField } from "./inspector.js";
-import { store } from "./store.js";
+import { findItem, store } from "./store.js";
 import { PALETTES, colourHolders } from "./swatches.js";
 import { copiesOf } from "./symbols.js";
 import { describeLook, differs as looksDiffer, styledObjects } from "./objectstyles.js";
 import { describeFormat, differs, paragraphs } from "./textstyles.js";
 import { contextMenu } from "./contextmenu.js";
+import { listDrag } from "./listdrag.js";
+import { intoPlace, locate, moveItems, moveToPage, slotPlaces, treeRows } from "./layers.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, s, shapeName, toUnit } from "./util.js";
 
 // 24 x 24 stroke icons
@@ -72,6 +74,7 @@ const ICONS = {
   ruler: "M3 8h18v8H3zM7 8v3M11 8v4.5M15 8v3M19 8v4.5", grid: "M4 4h16v16H4zM9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16",
   guides: "M9 8v13M8 15h13M6.5 3h5L9 6zM3 12.5v5l3-2.5z",
   magnet: "M5 4h4.5v7.5a2.5 2.5 0 005 0V4H19v7.5a7 7 0 01-14 0zM5 8h4.5M14.5 8H19",
+  closed: "M9 6l6 6-6 6", open: "M6 9l6 6 6-6",
 };
 
 // Which text objects (and pages) use each font; text in symbols counts, on no page of its own
@@ -458,13 +461,31 @@ export const panels = {
         this.renamePage(store.pageIndex);
       }
     });
+    // Drag a page up or down the list to move it (listdrag.js)
+    let from = null;
+    listDrag(this.pageList, {
+      rows: "li[data-index]",
+      scroller: root.closest(".sidebar"),
+      start: (li) => {
+        from = Number(li.dataset.index);
+        li.classList.add("drag-hidden");
+        return { row: li, depth: 0, count: 1 };
+      },
+      places: (rows) => Array.from({ length: rows.length + 1 }, (_, k) => [{ depth: 0, place: k }]),
+      drop: (t) => {
+        this.app.movePage(from, t.place);
+        this.renderPages();
+        announce(`Page ${store.pageIndex + 1} of ${store.doc.pages.length}: ${store.page().name}`);
+      },
+      cancel: () => this.renderPages(),
+    });
   },
   renderPages() {
-    if (!store.doc) return;
+    if (!store.doc || this.layerDrag) return;   // mid-drag the lists are the drag's
     const pu = this.app.prefs.page_units || "mm";
     this.pageList.replaceChildren(...store.doc.pages.map((p, i) => {
       const li = h("li", { role: "option", id: `page-opt-${i}`, "aria-selected": i === store.pageIndex ? "true" : "false",
-        class: i === store.pageIndex ? "current" : "", draggable: "true", "data-index": i },
+        class: i === store.pageIndex ? "current" : "", "data-index": i },
       h("span", { class: "page-num" }, i + 1),
       h("span", { class: "page-name" }, p.name),
       h("span", { class: "page-size" }, `${fmt(toUnit(p.width, pu), 1)} × ${fmt(toUnit(p.height, pu), 1)} ${UNIT_LABEL[pu]}`));
@@ -474,15 +495,6 @@ export const panels = {
         if (e.target.closest("input")) return;   // the name being typed keeps its own menu
         e.preventDefault();
         this.pageMenu(i, e.clientX, e.clientY);
-      });
-      li.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/x-fa-page", String(i)); });
-      li.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("text/x-fa-page")) e.preventDefault(); });
-      li.addEventListener("drop", (e) => {
-        const from = Number(e.dataTransfer.getData("text/x-fa-page"));
-        if (Number.isNaN(from) || e.dataTransfer.files.length) return;
-        e.preventDefault();
-        e.stopPropagation();
-        this.app.movePage(from, i);
       });
       return li;
     }));
@@ -523,67 +535,225 @@ export const panels = {
   },
 
   // Objects on the page ------------------------------------------------------------------
+  // A tree (layers.js): the page's objects front to back, and under each open group its parts.
+  // Picking a part works inside its group, as double-clicking it on the page does. Drag rows to
+  // move objects in front of or behind others, into or out of groups (the row's indent follows
+  // the pointer across), or onto a page in the Pages list; the page shows the new order as it
+  // goes, and Escape puts it back (listdrag.js).
 
   buildLayers() {
     const root = document.getElementById("layers");
-    this.layerList = h("ul", { class: "layer-list", role: "listbox", "aria-label": "Objects on this page, front to back",
+    this.openGroups = new Set();
+    this.layerList = h("ul", { class: "layer-list", role: "tree", "aria-label": "Objects on this page, front to back",
       "aria-multiselectable": "true", tabindex: 0 });
     root.append(h("div", { class: "panel-head" }, h("h2", {}, "Objects"),
       h("span", { class: "hint" }, "front to back")), this.layerList);
-    this.layerList.addEventListener("keydown", (e) => {
-      const items = store.scopeItems();
-      if (!items.length) return;
-      const order = [...items].reverse();
-      const cur = order.findIndex((it) => store.selection.includes(it.id));
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const d = e.key === "ArrowDown" ? 1 : -1;
-        if (e.altKey && cur >= 0) { this.app.run(d > 0 ? "sendBackward" : "bringForward"); return; }
-        const j = Math.min(Math.max((cur < 0 ? -1 : cur) + d, 0), order.length - 1);
-        store.select([order[j].id]);
-        announce(itemLabel(order[j], store.doc));
-      } else if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault();
-        this.app.run("delete");
-      }
+    this.layerList.addEventListener("keydown", (e) => this.layerKey(e));
+    const indent = (depth) => depth * parseFloat(getComputedStyle(document.documentElement).fontSize || "16");   // 1rem a level
+    listDrag(this.layerList, {
+      rows: "li[data-key]",
+      scroller: root,
+      start: (li) => this.startLayerDrag(li.dataset.key),
+      places: (rows) => {
+        const left = rows.map((li) => this.rows.get(li.dataset.key));
+        return Array.from({ length: left.length + 1 }, (_, k) => slotPlaces(this.layerDrag.items, left, k, this.layerDrag.moving));
+      },
+      into: (li) => intoPlace(this.rows.get(li.dataset.key), this.layerDrag.moving),
+      open: (li) => {
+        this.openGroups.add(li.dataset.key);
+        this.drawLayers(this.layerDrag.items);
+        return true;
+      },
+      indent,
+      outside: (el) => {
+        const li = el.closest?.(".page-list li[data-index]"), i = li ? Number(li.dataset.index) : -1;
+        return i >= 0 && i !== store.pageIndex ? { el: li, target: { page: i } } : null;
+      },
+      preview: (t) => this.previewLayerDrag(t),
+      drop: (t) => this.dropLayerDrag(t),
+      cancel: () => this.endLayerDrag(false),
     });
   },
+  // The rows as the page is now (or as it was when a drag began); the groups being worked inside
+  // are open
+  layerRows(items = store.items()) {
+    for (const id of store.scope) this.openGroups.add(id);
+    return treeRows(items, (g) => this.openGroups.has(g.id));
+  },
   renderLayers() {
-    if (!store.doc) return;
-    const order = [...store.scopeItems()].reverse();   // inside a group being edited, its parts
-    if (!order.length) {
+    if (!store.doc || this.layerDrag) return;   // mid-drag the list is the drag's
+    this.drawLayers();
+  },
+  drawLayers(items = store.items()) {
+    const rows = this.layerRows(items);
+    this.rows = new Map(rows.map((r) => [r.it.id, r]));
+    if (!rows.length) {
       this.layerList.replaceChildren(h("li", { class: "empty" }, "Nothing on this page yet."));
       return;
     }
-    this.layerList.replaceChildren(...order.map((it) => {
-      const selected = store.selection.includes(it.id);
-      const li = h("li", { role: "option", id: `layer-opt-${it.id}`, "aria-selected": selected ? "true" : "false",
-        class: selected ? "selected" : "" },
-        h("span", { class: "layer-name" }, itemLabel(it, store.doc)),
-        button(it.hidden ? "Show" : "Hide", (e) => {
-          e.stopPropagation();
-          store.update(it.hidden ? "Show" : "Hide", (d) => { d.pages[store.pageIndex].items.find((x) => x.id === it.id).hidden = !it.hidden; });
-        }, icon(it.hidden ? "eyeoff" : "eye"), "icon-btn small"),
-        button(it.locked ? "Unlock" : "Lock", (e) => {
-          e.stopPropagation();
-          store.update(it.locked ? "Unlock" : "Lock", (d) => { d.pages[store.pageIndex].items.find((x) => x.id === it.id).locked = !it.locked; });
-        }, icon(it.locked ? "lock" : "unlock"), "icon-btn small"));
-      li.addEventListener("click", (e) => {
-        // (On a Mac, Control-click is a right-click)
-        if (e.shiftKey || e.metaKey || (e.ctrlKey && !isMac)) {
-          store.select(selected ? store.selection.filter((x) => x !== it.id) : [...store.selection, it.id]);
-        } else store.select([it.id]);
-      });
-      li.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        if (!store.selection.includes(it.id)) store.select([it.id]);
-        this.app.objectListMenu(e.clientX, e.clientY);
-      });
+    // Rows being dragged (and their parts) are out of the list until they're dropped
+    const away = this.layerDrag ? new Set(this.layerDrag.ids) : null;
+    const sizes = new Map();
+    for (const r of rows) sizes.set(r.path.join("/"), (sizes.get(r.path.join("/")) || 0) + 1);
+    const seen = new Map();
+    this.layerList.replaceChildren(...rows.map((r) => {
+      const at = r.path.join("/");
+      seen.set(at, (seen.get(at) || 0) + 1);
+      const li = this.layerRow(r, sizes.get(at), seen.get(at));
+      if (away && (away.has(r.it.id) || r.path.some((id) => away.has(id)))) li.classList.add("drag-hidden");
       return li;
     }));
     const active = store.selection[store.selection.length - 1];
-    if (active) this.layerList.setAttribute("aria-activedescendant", `layer-opt-${active}`);
+    if (active && this.rows.has(active)) this.layerList.setAttribute("aria-activedescendant", `layer-opt-${active}`);
     else this.layerList.removeAttribute("aria-activedescendant");
+  },
+  layerRow(r, setSize, pos) {
+    const { it } = r, group = it.type === "group";
+    const here = r.path.join("/") === store.scope.join("/"), selected = here && store.selection.includes(it.id);
+    // Inside a group being worked on, the rest of the page is faded here as on the page
+    const inside = store.scope.every((id, i) => r.path[i] === id) || store.scope.includes(it.id);
+    const li = h("li", { role: "treeitem", id: `layer-opt-${it.id}`, "data-key": it.id, "aria-level": r.depth + 1,
+      "aria-setsize": setSize, "aria-posinset": pos, "aria-selected": selected ? "true" : "false",
+      "aria-expanded": group ? String(r.open) : null, style: `--depth: ${r.depth}`,
+      class: [selected && "selected", !inside && "outside-scope", r.mask && "mask"].filter(Boolean).join(" ") },
+      h("span", { class: "twisty", "aria-hidden": "true",
+        onclick: (e) => { e.stopPropagation(); if (group) this.toggleGroup(it.id); } }, group ? icon(r.open ? "open" : "closed") : null),
+      h("span", { class: "layer-name" }, itemLabel(it, store.doc)),
+      r.mask ? h("span", { class: "hint", title: "A clipping mask's shape: what's below it shows only inside it" }, "clips") : null,
+      button(it.hidden ? "Show" : "Hide", (e) => {
+        e.stopPropagation();
+        store.update(it.hidden ? "Show" : "Hide", (d) => { findItem(d.pages[store.pageIndex].items, it.id).hidden = !it.hidden; });
+      }, icon(it.hidden ? "eyeoff" : "eye"), "icon-btn small"),
+      button(it.locked ? "Unlock" : "Lock", (e) => {
+        e.stopPropagation();
+        store.update(it.locked ? "Unlock" : "Lock", (d) => { findItem(d.pages[store.pageIndex].items, it.id).locked = !it.locked; });
+      }, icon(it.locked ? "lock" : "unlock"), "icon-btn small"));
+    li.addEventListener("click", (e) => this.pickRow(r, e));
+    li.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      if (!selected) this.pickRow(r);
+      this.app.objectListMenu(e.clientX, e.clientY);
+    });
+    return li;
+  },
+  toggleGroup(id, open = !this.openGroups.has(id)) {
+    if (open) this.openGroups.add(id);
+    else if (!store.scope.includes(id)) this.openGroups.delete(id);   // a group being worked inside stays open
+    this.renderLayers();
+  },
+  // Pick a row: its object alone, or (Shift or ⌘) added or taken away. A row in another group
+  // works inside that group, out of the one before
+  pickRow(r, e = null) {
+    const id = r.it.id;
+    if (r.path.join("/") !== store.scope.join("/")) {
+      store.setScope(r.path);
+      store.select([id]);
+    } else if (e && (e.shiftKey || e.metaKey || (e.ctrlKey && !isMac))) {
+      // (On a Mac, Control-click is a right-click)
+      store.select(store.selection.includes(id) ? store.selection.filter((x) => x !== id) : [...store.selection, id]);
+    } else store.select([id]);
+  },
+  layerKey(e) {
+    if (!store.doc) return;
+    const rows = this.layerRows();
+    if (!rows.length) return;
+    const last = store.selection[store.selection.length - 1], cur = rows.findIndex((r) => r.it.id === last), r = rows[cur];
+    const go = (j) => {
+      const to = rows[Math.min(Math.max(j, 0), rows.length - 1)];
+      this.pickRow(to);
+      announce(`${itemLabel(to.it, store.doc)}${to.depth ? `, in ${itemLabel(to.parent, store.doc)}` : ""}`);
+    };
+    const arrow = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+    if (arrow && e.altKey) {
+      e.preventDefault();
+      if (cur >= 0) this.app.run(arrow > 0 ? "sendBackward" : "bringForward");
+    } else if (arrow) {
+      e.preventDefault();
+      go(cur < 0 ? 0 : cur + arrow);
+    } else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && e.altKey) {
+      e.preventDefault();
+      if (e.key === "ArrowRight") this.app.moveIntoGroupAbove();
+      else this.app.moveOutOfGroup();
+    } else if (e.key === "ArrowRight" && r?.it.type === "group") {
+      // Open a group; once open, on to its first part
+      e.preventDefault();
+      if (!r.open) { this.toggleGroup(r.it.id, true); announce(`Opened ${itemLabel(r.it, store.doc)}`); }
+      else if (rows[cur + 1]?.depth > r.depth) go(cur + 1);
+    } else if (e.key === "ArrowLeft" && r) {
+      // Close a group; from a part, back to its group
+      e.preventDefault();
+      if (r.open && !store.scope.includes(r.it.id)) { this.toggleGroup(r.it.id, false); announce(`Closed ${itemLabel(r.it, store.doc)}`); }
+      else if (r.depth) go(rows.findIndex((x) => x.it.id === r.path[r.path.length - 1]));
+    } else if (e.key === "Home" || e.key === "End") {
+      e.preventDefault();
+      go(e.key === "Home" ? 0 : rows.length - 1);
+    } else if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      this.app.run("delete");
+    }
+  },
+
+  // Dragging in the Objects list: the selection moves (the pressed row alone if it isn't
+  // selected). The drag works on a copy of the page as it was, put back for each new place
+  startLayerDrag(id) {
+    let r = this.rows.get(id);
+    if (!r || r.mask) return null;   // a clipping mask's shape stays on top
+    if (r.path.join("/") !== store.scope.join("/") || !store.selection.includes(id)) this.pickRow(r);
+    r = this.rows.get(id);
+    const ids = store.selection.filter((x) => this.rows.has(x) && !this.rows.get(x).mask);
+    if (!r || !ids.length) return null;
+    const pages = JSON.stringify(store.doc.pages), items = JSON.parse(pages)[store.pageIndex].items;
+    this.layerDrag = { ids, pages, items, moving: ids.map((x) => locate(items, x)?.it).filter(Boolean), scope: store.scope.slice() };
+    store.beginLive();
+    canvas.reordering = true;   // nothing faded while the order is shown
+    this.drawLayers(items);
+    return { row: document.getElementById(`layer-opt-${id}`), depth: r.depth, count: ids.length };
+  },
+  // The page as it would be with the objects dropped there (or as it was)
+  applyLayerDrag(t) {
+    const drag = this.layerDrag;
+    store.doc.pages = JSON.parse(drag.pages);
+    if (t?.place) return moveItems(store.doc.pages[store.pageIndex].items, drag.ids, t.place);
+    if (t?.outside) return moveToPage(store.doc, store.pageIndex, t.outside.page, drag.ids);
+    return null;
+  },
+  previewLayerDrag(t) {
+    this.applyLayerDrag(t);
+    store.live();
+  },
+  dropLayerDrag(t) {
+    const drag = this.layerDrag, moved = this.applyLayerDrag(t);
+    if (!moved || JSON.stringify(store.doc.pages) === drag.pages) return this.endLayerDrag(false);
+    const what = moved.length === 1 ? itemLabel(moved[0], store.doc) : `${moved.length} objects`;
+    let said;
+    if (t.place) {
+      // The moved objects stay selected, worked on where they are now
+      store.scope = t.place.path.slice();
+      store.selection = moved.map((it) => it.id);
+      said = `Moved ${what} ${this.app.placeText(t.place, store.doc.pages[store.pageIndex].items)}`;
+    } else {
+      store.selection = [];
+      const p = store.doc.pages[t.outside.page];
+      said = `Moved ${what} to page ${t.outside.page + 1}, ${p.name}`;
+    }
+    store.fixScope();
+    store.afterChange?.(store.doc);   // a symbol being edited goes back once it's been left
+    this.endLayerDrag(true, t.place ? "Move in the Objects list" : "Move to another page");
+    announce(said);
+  },
+  endLayerDrag(keep, label) {
+    const drag = this.layerDrag;
+    if (!drag) return;
+    this.layerDrag = null;
+    canvas.reordering = false;
+    if (keep) store.endLive(label);
+    else {
+      store.cancelLive();
+      store.scope = drag.scope;
+    }
+    store.emit("selection");
+    this.renderPages();
+    this.renderLayers();
   },
 
   // Status bar ----------------------------------------------------------------------------
@@ -961,6 +1131,10 @@ export const panels = {
           + "drag it back onto the ruler to remove it. With nothing selected, the Page panel lists them to type positions"),
         h("li", {}, "Space + drag, or scroll: move around; ⌘/Ctrl + scroll or pinch: zoom. While the whole page fits "
           + "in the view it stays centred"),
+        h("li", {}, "Objects list: drag a row to put the object in front of or behind others, into or out of a group, "
+          + "or onto a page in the Pages list (Escape puts it back). With the list focused, Option/Alt + ↑ or ↓ moves the "
+          + "selection forward or backward, Option/Alt + → into the group above it, Option/Alt + ← out of its group; "
+          + "→ and ← open and close groups"),
         h("li", {}, "Drag a side panel's inner edge to make it wider or narrower; double-click the edge to put it back"))));
   },
 

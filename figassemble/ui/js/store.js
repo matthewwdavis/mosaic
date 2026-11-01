@@ -61,6 +61,15 @@ export const store = {
     this.emit("selection");
     return true;
   },
+  // Work at another level (the Objects list picks objects anywhere): out of the groups not on
+  // the way there, then in
+  setScope(path) {
+    let same = 0;
+    while (same < this.scope.length && same < path.length && this.scope[same] === path[same]) same++;
+    while (this.scope.length > same) this.exitGroup();
+    for (const id of path.slice(this.scope.length)) if (!this.enterGroup(id)) return false;
+    return true;
+  },
   // Out one level, with the group selected; a group left empty goes, as in Illustrator
   exitGroup() {
     if (!this.scope.length) return false;

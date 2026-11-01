@@ -24,6 +24,7 @@ import { stackLevels } from "./brackets.js";
 import { colourHolders, swatchById } from "./swatches.js";
 import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, setFormat } from "./textstyles.js";
 import { KEYS as LOOK, applyObjectStyle, formatOf as lookOf, restyle as restyleObjects } from "./objectstyles.js";
+import { canMove, containerAt, moveItems } from "./layers.js";
 import {
   MOD, announce, clone, describeItem, display, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints, shapeCatalog, uid,
 } from "./util.js";
@@ -744,6 +745,9 @@ const app = {
     if (!ids.size) return;
     store.update("Arrange", (doc) => {
       const items = store.container(doc);
+      // Inside a clipping mask its shape stays the top part, so it goes on clipping the rest
+      const group = store.scope.length && findDeep(doc.pages[store.pageIndex].items, store.scope[store.scope.length - 1]);
+      const mask = group?.clip && items.length > 1 ? items.pop() : null;
       const sel = items.filter((it) => ids.has(it.id));
       const rest = items.filter((it) => !ids.has(it.id));
       if (how === "front") items.splice(0, items.length, ...rest, ...sel);
@@ -758,8 +762,49 @@ const app = {
           [items[i], items[j]] = [items[j], items[i]];
         }
       }
+      if (mask) items.push(mask);
     });
     announce({ front: "Brought to front", back: "Sent to back", forward: "Brought forward", backward: "Sent backward" }[how]);
+  },
+  // The Objects list's Option+arrows: into the group just above the selection in the list, as its
+  // back part (so the page looks the same), or out of the group it's in, just behind that group
+  groupAbove() {
+    const list = store.scopeItems(), top = Math.max(-1, ...store.selection.map((id) => list.findIndex((it) => it.id === id)));
+    const g = top >= 0 ? list[top + 1] : null;
+    return g?.type === "group" ? g : null;
+  },
+  moveIntoGroupAbove() {
+    if (!store.selection.length) return announce("Select something to move into a group");
+    const g = this.groupAbove();
+    if (!g) return announce("There's no group just above it in the Objects list to move it into");
+    this.moveObjects(store.selection, { path: [...store.scope, g.id], back: true });
+  },
+  moveOutOfGroup() {
+    if (!store.selection.length) return announce("Select something to move out of its group");
+    if (!store.scope.length) return announce("It isn't in a group");
+    this.moveObjects(store.selection, { path: store.scope.slice(0, -1), behind: store.scope[store.scope.length - 1] });
+  },
+  moveObjects(ids, place) {
+    const items = store.items(), to = containerAt(items, place.path)?.group;
+    if (!canMove(items, ids, place)) {
+      return announce(to?.editing_symbol ? "A symbol can't hold pictures, scale bars or zoom insets"
+        : to?.grid ? "A grid layout doesn't take panel labels; they stay with their panels" : "It can't go there");
+    }
+    let moved = [];
+    store.update("Move in the Objects list", (doc) => {
+      moved = moveItems(doc.pages[store.pageIndex].items, ids, place);
+      store.scope = place.path.slice();   // worked on where they are now (a symbol being edited goes back once left)
+    });
+    store.select(moved.map((it) => it.id));
+    announce(`Moved ${moved.length === 1 ? itemLabel(moved[0], store.doc) : `${moved.length} objects`} ${this.placeText(place, store.items())}`);
+  },
+  // Where a move put objects, in words
+  placeText(place, items) {
+    const g = containerAt(items, place.path)?.group, name = g && itemLabel(g, store.doc);
+    if (place.front) return g ? `to the front of ${name}` : "to the front";
+    if (place.back) return g ? `to the back of ${name}` : "to the back";
+    const x = containerAt(items, place.path)?.list.find((it) => it.id === place.behind);
+    return `behind ${x ? itemLabel(x, store.doc) : "the object above"}${g ? `, in ${name}` : ""}`;
   },
   group() {
     const ids = new Set(store.selection);
@@ -1058,7 +1103,11 @@ const app = {
   },
   // An object's menu from the Objects list
   objectListMenu(x, y) {
-    return this.showMenu((clip) => this.objectMenu(clip), x, y, panels.layerList);
+    const alt = isMac ? "⌥" : "Alt+";
+    return this.showMenu((clip) => [...this.objectMenu(clip), "-",
+      { label: "Move into the group above", keys: `${alt}→`, disabled: !this.groupAbove(), run: () => this.moveIntoGroupAbove() },
+      { label: "Move out of the group", keys: `${alt}←`, disabled: !store.scope.length, run: () => this.moveOutOfGroup() },
+    ], x, y, panels.layerList);
   },
   // The menu key or Shift+F10: the menu for what has the focus, beside it
   keyboardMenu(target) {

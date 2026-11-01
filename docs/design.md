@@ -134,6 +134,15 @@ pre-export check says so.
   environment, a non-editable FigAssemble and the app or shortcuts; re-running updates. Docs:
   README (install, quick start, feedback) + tutorial + user guide, with screenshots of neutral
   sample plots (his unpublished figures stay out); feedback through GitHub issue forms.
+- **Objects list (2026-11-01):** a tree of the page's objects, front to back, groups opening to
+  show their parts (Matthew's choice, over a list of one level). The selection stays at one
+  working level, as before, so picking a part of a group in the list works inside that group
+  (isolation mode), as double-clicking it on the page does. Rows drag like the Finder's: the row
+  follows the pointer and the others slide apart (his choice, over a line marking the place);
+  the depth a row goes to follows how far across it's dragged; the page draws the new order while
+  dragging (a copy of the page put back for each new place, one undo step on letting go). Rows go
+  into and out of groups and onto pages in the Pages list; a clipping mask's shape stays its top
+  part. The Pages list drags the same way (layers.js, listdrag.js).
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.

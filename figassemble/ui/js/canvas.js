@@ -53,6 +53,7 @@ export const canvas = {
   editing: null,
   spaceDown: false,
   snapGuides: [],
+  reordering: false,         // objects are being dragged in the Objects list (panels.js)
   onToolChange: null,
   defaults: null,
 
@@ -196,7 +197,8 @@ export const canvas = {
     let items = store.page().items;
     const names = [];
     for (const id of store.scope) {
-      for (const it of items) if (it.id !== id) this.els.get(it.id)?.g.classList.add("outside-scope");
+      // (Not while objects are dragged in the Objects list, so the new order shows plainly)
+      if (!this.reordering) for (const it of items) if (it.id !== id) this.els.get(it.id)?.g.classList.add("outside-scope");
       const g = items.find((it) => it.id === id);
       if (!g) break;
       names.push(itemLabel(g, store.doc));

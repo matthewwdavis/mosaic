@@ -86,6 +86,14 @@ Matthew's choices are in brackets.
 - [x] Pen tool and point editing; elbow connectors
 - [x] Export to editable PowerPoint [what PowerPoint can't draw goes in as exact SVG pictures]
 
+## Feedback (asked for 2026-11-01)
+
+Matthew's choices are in brackets.
+
+- [x] Drag objects in the Objects list to change what's in front [groups open in the list, and rows
+      drag into and out of them; the rows slide apart; the page shows the new order while dragging;
+      the Pages list drags the same way; rows dropped on a page in the Pages list move there]
+
 ## Acceptance test (test slide)
 
 - Imported all 52 objects; 8 of 9 SVGs relinked to the R originals with their PDF copies (the 9th is

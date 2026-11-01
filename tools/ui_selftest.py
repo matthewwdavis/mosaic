@@ -1,6 +1,6 @@
 """Run the editor's scripted self-test in headless Chrome and report the results.
 
-    python tools/ui_selftest.py FILE.svg [FILE2.pdf ...] [--chrome PATH] [--shot out.png]
+    python tools/ui_selftest.py FILE.svg [FILE2.pdf ...] [--chrome PATH] [--shot out.png] [--only objects]
 
 Starts the server, opens the editor with ?selftest=1 (placing the given figure files), and
 prints every SELFTEST line from the browser console. Exit status 1 if anything failed.
@@ -29,7 +29,7 @@ def find_chrome() -> str | None:
     return next((c for c in cands if c and os.path.exists(c)), None)
 
 
-def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int = 40000) -> dict:
+def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int = 40000, only: str | None = None) -> dict:
     """Returns {"lines": SELFTEST lines, "errors": other console errors, "done": bool, "failed": bool}.
 
     Runs with its own settings folder, so it never touches ~/.figassemble (autosaves, recent
@@ -44,7 +44,7 @@ def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int
     os.environ["FIGASSEMBLE_FAKE_CLIPBOARD"] = "1"
     srv = start_server(Api())
     query = urllib.parse.urlencode({"selftest": 1, "files": ",".join(os.path.abspath(f) for f in files),
-                                    "out": os.path.abspath(out), "finalSelect": "curve"})
+                                    "out": os.path.abspath(out), "finalSelect": "curve", **({"only": only} if only else {})})
     url = srv.url + "ui/index.html?" + query
     with tempfile.TemporaryDirectory() as profile:
         cmd = [chrome, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
@@ -72,11 +72,12 @@ def main() -> int:
     ap.add_argument("--shot", default="tools/output/ui_selftest.png")
     ap.add_argument("--out", default="tools/output/selftest")
     ap.add_argument("--budget", type=int, default=40000, help="virtual time budget, ms")
+    ap.add_argument("--only", help="run one part on its own, while working on it (objects: the Objects and Pages lists)")
     args = ap.parse_args()
     if not args.chrome:
         print("Chrome not found; pass --chrome PATH")
         return 1
-    res = run_selftest(args.files, args.chrome, args.shot, args.out, args.budget)
+    res = run_selftest(args.files, args.chrome, args.shot, args.out, args.budget, args.only)
     for line in res["lines"]:
         print(line)
     for e in res["errors"]:

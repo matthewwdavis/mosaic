@@ -15,6 +15,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 - [Dashes](#dashes)
 - [Connecting lines to objects](#connecting-lines-to-objects)
 - [Moving, sizing and arranging](#moving-sizing-and-arranging)
+- [The Objects list](#the-objects-list)
 - [Symbols](#symbols)
 - [Right-click menus](#right-click-menus)
 - [Align and distribute](#align-and-distribute)
@@ -48,7 +49,8 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 2. Each tab's commands, in labelled groups.
 3. **Always in view:** **Snap** (on when highlighted), **Check**, **Export**, **Settings**, **Help**.
 4. **Pages** of the document, and **Objects** on the current page, front to back. Each object has
-   buttons to hide or lock it; click one to select it.
+   buttons to hide or lock it; click one to select it, or drag it to put it in front of or behind
+   others (see [The Objects list](#the-objects-list)).
 5. **Drawing tools**, beside the page.
 6. **The page**, with rulers along the top and left.
 7. **Properties** of the selection, in tabs: **Arrange** (position, size, alignment, connections),
@@ -90,8 +92,9 @@ With nothing selected (click the grey area or press Escape), the right panel sho
 - **Background**: transparent (the default, which journals prefer) or white.
 
 **Pages:** the + button above the Pages list adds a page with the same size, background and
-guides. The other buttons duplicate or delete the current page. Drag pages to reorder them, and
-double-click a page's name to rename it. One document can hold versions of a figure side by side.
+guides. The other buttons duplicate or delete the current page. Drag a page up or down the list to
+move it (the others slide apart to make room), and double-click a page's name to rename it. One
+document can hold versions of a figure side by side.
 
 ## Pictures
 
@@ -464,7 +467,7 @@ PowerPoint and Visio:
 
   ![Plot a selected, Option held over plot b: the gap between them](images/distances.png)
 - **Group (⌘G), Ungroup (⌘⇧G)**; **Order**: bring to front (⌘⇧]), forward (⌘]), backward
-  (⌘[), to back (⌘⇧[).
+  (⌘[), to back (⌘⇧[), or drag the object's row in the [Objects list](#the-objects-list).
 - **Clipping mask (⌘7)**, as in Illustrator (Combine tab): put a shape on top of the objects it
   should clip, select them all and click **Make mask**. Only what's inside the shape shows, and
   the shape itself isn't drawn. They stay together as a clipping mask: double-click it to move
@@ -480,6 +483,37 @@ PowerPoint and Visio:
   ![Editing inside a group: the bar chart picked on its own, the rest of the page faded](images/isolation.png)
 - **Lock** stops an object being selected or moved on the page; **Hide** hides it (it isn't
   exported). Both are in the Object section, the Objects list and the right-click menu.
+
+## The Objects list
+
+The Objects list, under Pages, shows everything on the page from front to back: the top row is in
+front of everything else. A group is one row; click its triangle (or press → with the list focused)
+to open it, and its parts show under it, indented.
+
+- **Click** a row to select the object; Shift-click or ⌘-click (Ctrl-click) adds or removes one.
+  Picking a part of a group works inside that group, as double-clicking it on the page does.
+- **Drag a row** up or down to put the object in front of or behind others. The other rows slide
+  apart where it will go, and the page already draws the objects in the new order, so you can see
+  what ends up in front before you let go. **Escape** puts everything back. Several selected
+  objects move together, keeping their order.
+- **Into and out of groups:** drop a row between a group's parts to put it in the group there.
+  Below a group's last part, move the pointer left to take the row out of the group, or right to
+  keep it in; its indent shows which. Hold a row over the middle of a closed group to put it in the
+  group, in front of its parts; hold it there a moment and the group opens, so you can place it
+  among them. An object dragged into a group stays selected, worked on inside the group.
+- **To another page:** drop rows on a page in the Pages list. The objects keep their place on the
+  page and go in front of what's already there.
+- A **clipping mask**'s shape stays its top part: it doesn't drag, and nothing goes in front of
+  it. A **symbol** being edited takes only what symbols can hold, and a **grid layout** doesn't take
+  attached panel labels, which stay with their panels.
+- **From the keyboard**, with the list focused: ↑ and ↓ move through the rows, Home and End go to
+  the first and last; → opens a group (and then goes to its first part), ← closes it (or goes from
+  a part to its group). **Option+↑** and **Option+↓** (Alt) bring the selection forward or send it
+  backward; **Option+→** moves it into the group just above it in the list, as the group's back
+  part (so nothing changes on the page), and **Option+←** takes it out of its group. The last two
+  are in the list's right-click menu too.
+
+![Label c being dragged into a group, between its two plots: the rows below slide down to make room](images/objects.png)
 
 ## Copying a style
 
@@ -579,8 +613,9 @@ shortcut beside it:
 - **Paste** from a right-click puts things where you clicked. When the clipboard holds both text
   and a picture, **Paste as picture** appears beside it (see [Pictures](#pictures)).
 - **A page in the Pages list:** Add, Duplicate, Delete, Move up or down, Rename.
-- **An object in the Objects list:** the object's menu. This is the way to unlock an object,
-  since a locked one can't be clicked on the page.
+- **An object in the Objects list:** the object's menu, with Move into the group above and Move
+  out of the group. This is the way to unlock an object, since a locked one can't be clicked on
+  the page.
 
 From the keyboard, **Shift+F10** (or the menu key on a Windows keyboard) opens the menu for
 whatever has the focus: the selection, the page, or the current page or object in a list. Arrow
@@ -790,6 +825,9 @@ Press **?** in FigAssemble for this list.
 | Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |
 | Bring to front, Bring forward | ⌘⇧], ⌘] | Ctrl+Shift+], Ctrl+] |
 | Send backward, Send to back | ⌘[, ⌘⇧[ | Ctrl+[, Ctrl+Shift+[ |
+| In the Objects list: forward, backward | ⌥↑, ⌥↓ | Alt+↑, Alt+↓ |
+| In the Objects list: into the group above, out of its group | ⌥→, ⌥← | Alt+→, Alt+← |
+| In the Objects list: open or close a group | →, ← | →, ← |
 | Menu for the selection | Right-click, Control-click or Shift+F10 | Right-click, Shift+F10 or the menu key |
 | Zoom in, Zoom out, Fit page in window, True size | ⌘+, ⌘−, ⌘0, ⌘1 | Ctrl+Plus, Ctrl+Minus, Ctrl+0, Ctrl+1 |
 | Centre page (keeping the zoom) | ⌘⇧0 | Ctrl+Shift+0 |

@@ -34,6 +34,7 @@ function fieldByLabel(text) {
 
 const results = [];
 const info = {};
+const ONLY = Symbol("only");   // ?only=objects runs one part on its own
 const log = (ok, name, detail = "") => {
   results.push(ok ? { ok, name } : { ok, name, detail });
   console.log(`SELFTEST ${ok ? "PASS" : "FAIL"} ${name}${detail ? ` — ${detail}` : ""}`);
@@ -64,6 +65,168 @@ function key(k, opts = {}) {
   canvas.stage.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...opts }));
 }
 
+// The Objects list is a tree. Dragging a row moves the object: the row follows the pointer, the
+// others slide apart and the page draws the new order as it goes. Rows go into and out of groups
+// (Option+arrows too), onto a page in the Pages list, and not in front of a clipping mask's
+// shape. The Pages list drags the same way.
+async function objectsListChecks(app) {
+  const startPage = store.pageIndex, pageCount = store.doc.pages.length;
+  app.run("addPage");
+  await settle();
+  const page = store.pageIndex, olRect = (id, x, y) => ({ ...gRectFor(id, x, y, 60, 40), fill: { color: "#e69f00", opacity: 1 } });
+  store.update("Objects list parts", (doc) => doc.pages[page].items.push(olRect("olA", 40, 40), olRect("olB", 70, 60), olRect("olC", 100, 80)));
+  await settle();
+  const list = document.querySelector(".layer-list"), row = (id) => document.getElementById(`layer-opt-${id}`);
+  const ids = () => store.items().map((i) => i.id).join(), shown = () => [...list.querySelectorAll("li[data-key]")].map((li) => li.dataset.key).join();
+  const drawn = () => [...canvas.itemsLayer.children].map((g) => g.dataset.id).join();
+  const mid = (el, fy = 0.5) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height * fy]; };
+  const ptr = (el, type, [x, y], opts = {}) => el.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: y, bubbles: true,
+    cancelable: true, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerId: 1, pointerType: "mouse", ...opts }));
+  // Press a row (in its middle) and move to a point in steps, without letting go. The moves
+  // follow each other at once: a hidden window's slow timers would otherwise open a closed group
+  // held over for a moment
+  const hold = async (el, to, steps = 6) => {
+    const from = mid(el);
+    ptr(el, "pointerdown", from);
+    for (let i = 1; i <= steps; i++) ptr(list, "pointermove", [from[0] + ((to[0] - from[0]) * i) / steps, from[1] + ((to[1] - from[1]) * i) / steps]);
+  };
+  const letGo = async (to) => { ptr(list, "pointerup", to); await settle(); };
+  check(shown() === "olC,olB,olA", "the Objects list shows the page's objects front to back", shown());
+
+  // To the front: the rows slide apart, the page shows the new order, one undo step
+  const above = mid(row("olC"), -0.2);
+  await hold(row("olA"), above);
+  const gapOf = (li) => parseFloat(/translateY\(([\d.]+)px\)/.exec(li?.style.transform || "")?.[1] || 0);
+  const slid = [...list.querySelectorAll("li[data-key]")].filter((li) => Math.abs(gapOf(li) - row("olB").offsetHeight) < 1).length;
+  check(document.querySelector(".drag-held") && row("olA").classList.contains("drag-hidden") && slid === 2 && drawn() === "olB,olC,olA",
+    "dragging a row: it follows the pointer, the other rows slide apart and the page draws the new order", `slid=${slid} drawn=${drawn()}`);
+  const steps = store.history.length;
+  await letGo(above);
+  check(ids() === "olB,olC,olA" && store.history.length === steps + 1 && store.history[steps].label === "Move in the Objects list"
+    && store.selection.join() === "olA" && shown() === "olA,olC,olB" && !document.querySelector(".drag-held"),
+  "letting go there brings it to the front, in one undo step, still selected", `${ids()} ${store.history[steps]?.label}`);
+  await app.run("undo");
+  check(ids() === "olA,olB,olC", "Undo puts it back", ids());
+  // Escape cancels: as it was, with nothing to undo
+  await hold(row("olC"), mid(row("olA"), 0.9));
+  const cancelSteps = store.history.length, wasDrawn = drawn();
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  await settle();
+  check(wasDrawn === "olC,olA,olB" && ids() === "olA,olB,olC" && drawn() === "olA,olB,olC" && store.history.length === cancelSteps
+    && !document.querySelector(".drag-held") && shown() === "olC,olB,olA", "Escape cancels the drag: the order and the page as they were",
+  `${wasDrawn} ${ids()} ${drawn()}`);
+
+  // Groups open in the list; a row dragged between a group's parts goes into the group
+  store.select(["olB", "olC"]);
+  await app.run("group");
+  const gid = store.items()[1]?.id, grp = () => store.items().find((i) => i.id === gid);
+  check(row(gid)?.getAttribute("aria-expanded") === "false" && !row("olB"), "a group is one row, closed", shown());
+  row(gid).querySelector(".twisty").click();
+  check(shown() === `${gid},olC,olB,olA` && row("olC").getAttribute("aria-level") === "2", "its triangle opens it, its parts indented under it", shown());
+  const intoGap = mid(row("olB"));
+  await hold(row("olA"), intoGap);
+  await letGo(intoGap);
+  check(grp()?.items.map((i) => i.id).join() === "olB,olA,olC" && store.items().length === 1 && store.scope.join() === gid
+    && store.selection.join() === "olA" && !canvas.els.get("olA")?.g.classList.contains("outside-scope"),
+  "dragged between a group's parts, it goes into the group there, picked inside it", `${grp()?.items.map((i) => i.id)} scope=${store.scope}`);
+  // Out again: below the group's last part, and over to the left
+  const below = mid(row("olB"), 1.5);
+  await hold(row("olA"), [below[0] - 24, below[1]]);
+  await letGo([below[0] - 24, below[1]]);
+  check(ids() === `olA,${gid}` && grp()?.items.map((i) => i.id).join() === "olB,olC" && !store.scope.length && store.selection.join() === "olA",
+    "dragged below the group and to the left, it comes out, just behind the group", `${ids()} ${grp()?.items.map((i) => i.id)}`);
+  // Held over the middle of a closed group: into it, in front of its parts
+  row(gid).querySelector(".twisty").click();
+  const onGroup = mid(row(gid), 1);
+  await hold(row("olA"), onGroup);
+  const marked = row(gid)?.classList.contains("drop-into");
+  await letGo(onGroup);
+  check(marked && grp()?.items.map((i) => i.id).join() === "olB,olC,olA", "held over a closed group's middle, it goes in, in front of its parts",
+    `${marked} ${grp()?.items.map((i) => i.id)}`);
+  // Option+Left: out of its group, just behind it; Option+Right: into the group above, at its back
+  const listKey = (k, opts = {}) => { list.focus(); list.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...opts })); };
+  listKey("ArrowLeft", { altKey: true });
+  await settle();
+  check(ids() === `olA,${gid}` && !store.scope.length && store.selection.join() === "olA", "Option+Left in the list moves it out of its group", ids());
+  listKey("ArrowRight", { altKey: true });
+  await settle();
+  check(grp()?.items.map((i) => i.id).join() === "olA,olB,olC" && store.scope.join() === gid, "Option+Right moves it into the group above, at the back",
+    grp()?.items.map((i) => i.id).join());
+  // A closed group held over for a moment opens, so it can go anywhere among the parts
+  listKey("ArrowLeft", { altKey: true });
+  await settle();
+  row(gid).querySelector(".twisty").click();
+  await hold(row("olA"), mid(row(gid), 1));
+  await wait(900);
+  const opened = row(gid)?.getAttribute("aria-expanded") === "true" && row("olC") && !row("olC").classList.contains("drag-hidden");
+  const gapAt = [mid(row("olB"))[0], list.getBoundingClientRect().top + row("olB").offsetTop + row("olB").offsetHeight / 2];
+  for (let i = 1; i <= 4; i++) { ptr(list, "pointermove", gapAt); await wait(16); }
+  await letGo(gapAt);
+  check(opened && grp()?.items.map((i) => i.id).join() === "olB,olA,olC", "a closed group held over opens, and takes it among its parts",
+    `${opened} ${grp()?.items.map((i) => i.id)}`);
+
+  // A clipping mask's shape stays on top: dropped onto the mask's row, an object goes in just
+  // under the shape; no gap opens above the shape; Bring to front leaves it on top; it doesn't drag
+  store.select([]);
+  store.update("Clip parts", (doc) => doc.pages[page].items.push(olRect("olZ", 180, 190), { id: "olClip", type: "group", name: "", clip: true,
+    items: [olRect("olX", 200, 200), olRect("olY", 220, 210), { ...olRect("olM", 210, 205), geom: "ellipse" }] }));
+  await settle();
+  const clip = () => store.items().find((i) => i.id === "olClip")?.items.map((i) => i.id).join();
+  const onClip = mid(row("olClip"), 1);
+  await hold(row("olZ"), onClip);
+  await letGo(onClip);
+  check(clip() === "olX,olY,olZ,olM" && store.scope.join() === "olClip", "dropped onto a clipping mask's row, it goes in just under its shape", clip());
+  await hold(row("olX"), mid(row("olM"), 0.2));
+  const slidRow = (id) => gapOf(row(id)) > 0, aboveShape = slidRow("olM") && !slidRow("olClip");
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  await settle();
+  check(!aboveShape && clip() === "olX,olY,olZ,olM", "no gap opens above a clipping mask's shape inside it", clip());
+  store.select(["olY"]);
+  await app.run("bringToFront");
+  check(clip() === "olX,olZ,olY,olM", "Bring to front inside a clipping mask leaves its shape on top", clip());
+  await hold(row("olM"), mid(row("olX"), 1.5));
+  await letGo(mid(row("olX"), 1.5));
+  check(clip() === "olX,olZ,olY,olM" && !document.querySelector(".drag-held"), "the shape itself doesn't drag", clip());
+
+  // Onto another page in the Pages list: it goes there, in front, where it was on the page;
+  // a label attached to something left behind lets go
+  app.run("addPage");
+  await settle();
+  const other = store.pageIndex;
+  store.setPage(page);
+  await settle();
+  store.update("Label", (doc) => doc.pages[page].items.push({ ...olRect("olLabel", 30, 20), attach: { to: gid, corner: "tl", dx: -10, dy: -20 } }));
+  await settle();
+  const before = JSON.stringify(store.item("olLabel").frame), pageRow = () => document.querySelector(`.page-list li[data-index="${other}"]`);
+  await hold(row("olLabel"), mid(pageRow()), 8);
+  const target = pageRow().classList.contains("drop-target"), gone = !drawn().includes("olLabel");
+  await letGo(mid(pageRow()));
+  const moved = store.doc.pages[other].items.find((i) => i.id === "olLabel");
+  check(target && gone && moved && JSON.stringify(moved.frame) === before && !moved.attach && !store.item("olLabel") && store.pageIndex === page,
+    "dropped on another page in the Pages list, it moves there, where it was, and lets go of its panel", `${target} ${gone} ${JSON.stringify(moved)}`);
+  await app.run("undo");
+  check(store.item("olLabel") && !store.doc.pages[other].items.length, "and Undo brings it back", ids());
+
+  // The Pages list: drag a page above another
+  const names = () => store.doc.pages.map((p) => p.name).join("|"), namesBefore = names();
+  const firstRow = document.querySelector(`.page-list li[data-index="${page}"]`), onFirst = mid(firstRow, 0.2);
+  await hold(pageRow(), onFirst);
+  const pageSlid = [...document.querySelectorAll(".page-list li")].some((li) => Math.abs(gapOf(li) - firstRow.offsetHeight) < 1);
+  await letGo(onFirst);
+  const want = store.doc.pages.length === pageCount + 2 && namesBefore.split("|");
+  if (want) want.splice(page, 0, want.splice(other, 1)[0]);
+  check(pageSlid && want && names() === want.join("|") && store.pageIndex === page, "dragging a page in the Pages list moves it, the pages sliding apart",
+    `${pageSlid} ${names()}`);
+  await app.run("undo");
+  // Leave as found
+  for (const p of [...store.doc.pages].slice(pageCount).reverse()) {
+    store.setPage(store.doc.pages.indexOf(p));
+    await app.run("deletePage");
+  }
+  store.setPage(startPage);
+  await settle();
+}
+
 export async function run(app, params) {
   let keepAids = false;
   const files = (params.get("files") || "").split(",").filter(Boolean);
@@ -77,6 +240,7 @@ export async function run(app, params) {
     canvas.fit();
     await settle();
     check(store.items().length === 0, "new document is empty");
+    if (params.get("only") === "objects") { await objectsListChecks(app); throw ONLY; }   // just that part, while working on it
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -1248,6 +1412,7 @@ export async function run(app, params) {
     await app.run("releaseClipMask");
     check(store.items().some((it) => it.id === "mkOval") && !store.items().some((it) => it.id === clipGroup.id)
       && canvas.els.get("mkOval")?.g.style.display !== "none", "Release separates the shape and what it clipped", store.selection.join());
+    await objectsListChecks(app);
     // Pathfinder: Unite joins overlapping shapes into one freeform shape, in the top one's place
     store.update("Shapes to combine", (doc) => doc.pages[store.pageIndex].items.push(maskPart("pfA", "rect", [60, 560, 60, 40]),
       maskPart("pfB", "ellipse", [90, 570, 60, 40])));
@@ -2004,7 +2169,7 @@ export async function run(app, params) {
     }
     await settle();
   } catch (err) {
-    log(false, "self-test crashed", `${err.message} ${err.stack}`);
+    if (err !== ONLY) log(false, "self-test crashed", `${err.message} ${err.stack}`);
   }
   const failed = results.filter((r) => !r.ok).length;
   console.log(`SELFTEST DONE ${results.length - failed}/${results.length} passed`);

@@ -304,6 +304,28 @@ export async function run(app, params) {
     return finish();
   }
 
+  if (scene === "objects") {
+    // The Objects list: the top two plots grouped and the group opened; label c on its way into
+    // the group, between the plots, the rows sliding apart to make room for it
+    store.select([a, b]);
+    await app.run("group");
+    store.select([]);
+    const g = store.items().find((i) => i.type === "group");
+    document.getElementById(`layer-opt-${g.id}`).querySelector(".twisty").click();
+    await settle();
+    const list = document.querySelector(".layer-list"), from = document.getElementById("layer-opt-lc").getBoundingClientRect();
+    const at = [from.left + from.width / 2, from.top + from.height / 2], move = (y) => list.dispatchEvent(new PointerEvent("pointermove",
+      { clientX: at[0], clientY: y, bubbles: true, button: 0, buttons: 1, pointerId: 1, pointerType: "mouse" }));
+    document.getElementById("layer-opt-lc").dispatchEvent(new PointerEvent("pointerdown", { clientX: at[0], clientY: at[1], bubbles: true,
+      button: 0, buttons: 1, pointerId: 1, pointerType: "mouse" }));
+    // The rows where they slide to, for the picture (headless Chrome doesn't run the sliding)
+    document.head.append(Object.assign(document.createElement("style"), { textContent: ".layer-list li { transition: none !important; }" }));
+    move(at[1] + 6);
+    const to = list.getBoundingClientRect().top + document.getElementById(`layer-opt-${a}`).offsetTop + from.height / 2;
+    for (let k = 1; k <= 6; k++) { move(at[1] + 6 + ((to - at[1] - 6) * k) / 6); await wait(20); }
+    return finish();
+  }
+
   // Step 5: a note with an arrow attached to it, pointing at the curve where it crosses 50% (at
   // 1.5 µM: x 261.7, y 206.7 on the page, from the plot's scales), stopping 4 pt short
   store.update("Note", (doc) => {
