@@ -150,11 +150,14 @@ def _ink(path: str, kind: str, page_index: int, size: tuple[float, float]) -> li
     try:
         if kind == "pdf":
             import pypdfium2 as pdfium
-            doc = pdfium.PdfDocument(path)
-            try:
-                img = doc[page_index].render(scale=k, fill_color=(255, 255, 255, 255), may_draw_forms=False).to_pil()
-            finally:
-                doc.close()
+
+            from .assets import PDFIUM_LOCK
+            with PDFIUM_LOCK:
+                doc = pdfium.PdfDocument(path)
+                try:
+                    img = doc[page_index].render(scale=k, fill_color=(255, 255, 255, 255), may_draw_forms=False).to_pil().convert("RGB")
+                finally:
+                    doc.close()
         else:
             from .assets import tool_path
             exe = tool_path("rsvg-convert")

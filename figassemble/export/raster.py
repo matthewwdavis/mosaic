@@ -9,8 +9,15 @@ import os
 
 from PIL import Image, ImageCms
 
+from ..assets import PDFIUM_LOCK
+
 
 def render_pdf_bytes(pdf_bytes: bytes, dpi: float, transparent: bool = True) -> list[Image.Image]:
+    with PDFIUM_LOCK:
+        return _render(pdf_bytes, dpi, transparent)
+
+
+def _render(pdf_bytes: bytes, dpi: float, transparent: bool) -> list[Image.Image]:
     import pypdfium2 as pdfium
     doc = pdfium.PdfDocument(pdf_bytes)
     images = []

@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import uuid
 
@@ -30,6 +31,10 @@ DEFAULT_RASTER_DPI = 300.0   # used when an image file doesn't record its resolu
 SIZE_TOLERANCE = 0.05        # points: siblings must agree on size this closely
 
 # SVG length units in points
+# PDFium can't be used from two threads at once (the editor's previews are drawn on the server's
+# threads while the engine reads plots on another): every use of it holds this
+PDFIUM_LOCK = threading.RLock()
+
 _UNIT_PT = {"pt": 1.0, "px": 0.75, "in": 72.0, "mm": 72 / 25.4, "cm": 72 / 2.54, "pc": 12.0, "": 0.75}
 
 

@@ -13,7 +13,7 @@ import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from ..assets import get_cache
+from ..assets import PDFIUM_LOCK, get_cache
 
 UI_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui")
 _preview_lock = threading.Lock()
@@ -21,13 +21,14 @@ _preview_lock = threading.Lock()
 
 def render_pdf_preview(path: str, page: int, scale: float, out: str) -> None:
     import pypdfium2 as pdfium
-    doc = pdfium.PdfDocument(path)
-    try:
-        im = doc[page].render(scale=scale, fill_color=(0, 0, 0, 0), may_draw_forms=False).to_pil()
-        im.save(out + ".tmp.png", "PNG", compress_level=1)
-        os.replace(out + ".tmp.png", out)
-    finally:
-        doc.close()
+    with PDFIUM_LOCK:
+        doc = pdfium.PdfDocument(path)
+        try:
+            im = doc[page].render(scale=scale, fill_color=(0, 0, 0, 0), may_draw_forms=False).to_pil()
+            im.save(out + ".tmp.png", "PNG", compress_level=1)
+        finally:
+            doc.close()
+    os.replace(out + ".tmp.png", out)
 
 
 class Handler(BaseHTTPRequestHandler):

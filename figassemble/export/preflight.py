@@ -5,7 +5,7 @@ import ctypes
 import math
 
 from .. import vectors
-from ..assets import get_cache, resolve_link
+from ..assets import PDFIUM_LOCK, get_cache, resolve_link
 from ..geometry import DrawPath
 from ..journals import JOURNALS, MM
 from ..model import iter_items
@@ -17,6 +17,11 @@ MIN_LINE_PT = 0.25   # Nature asks for 0.25 to 1 pt, and many journals for at le
 
 def _pdf_text_sizes(path: str, page_index: int) -> list[float]:
     """Effective size (points) of every character on a PDF page."""
+    with PDFIUM_LOCK:
+        return _text_sizes(path, page_index)
+
+
+def _text_sizes(path: str, page_index: int) -> list[float]:
     import pypdfium2 as pdfium
     import pypdfium2.raw as raw
     sizes = []
