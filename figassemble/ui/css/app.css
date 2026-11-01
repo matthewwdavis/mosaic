@@ -342,7 +342,8 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .drop-hint { position: absolute; inset: 1rem; display: none; align-items: center; justify-content: center;
   border: 3px dashed var(--sel); border-radius: 0.6rem; font-size: 1.3rem; background: rgba(10, 99, 214, 0.06);
   pointer-events: none; color: var(--text); }
-body.dropping .drop-hint { display: flex; }
+body.dropping .drop-hint, body.drop-busy .drop-hint { display: flex; }
+body.drop-busy { cursor: progress; }
 
 /* Dialogs ------------------------------------------------------------------ */
 .dialog { border: 1px solid var(--line); border-radius: 0.6rem; padding: 0; background: var(--panel); color: var(--text);

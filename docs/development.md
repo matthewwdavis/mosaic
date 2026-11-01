@@ -79,15 +79,20 @@ every keyboard shortcut with real key events, through AppKit and pywebview as a 
 (`figassemble/app/keycheck.py`), since the self-test's own key presses never leave the page, and
 pastes text, a PDF, a copied file and a screenshot from the real clipboard (put back afterwards):
 `SMOKE keys: 81 of 81 passed`. Then it hands the web view drags from PowerPoint (made up, since a
-hidden window can't be dragged onto) through the drag methods `figassemble/app/macdrag.py` wraps:
-`SMOKE PowerPoint drags: 4 of 4 passed`. Last, the menu bar: its menus, the app's name, the
-shortcuts, and items run as AppKit would run them: `SMOKE menus: 8 of 8 passed`.
+hidden window can't be dragged onto) through the drag methods `figassemble/app/macdrag.py` wraps,
+and plays a slide drag to the `SlideWatch` that follows PowerPoint's real ones, with a scripted
+drag pasteboard, mouse button and pointer: `SMOKE PowerPoint drags: 8 of 8 passed`. Last, the
+menu bar: its menus, the app's name, the shortcuts, and items run as AppKit would run them:
+`SMOKE menus: 8 of 8 passed`.
 
 Slides and shapes copied in PowerPoint come from its own clipboard formats, and a slide dragged
 out of it is only a reference to the slide (see the PowerPoint decision in [design.md](design.md)).
 To see what an app puts on the Mac clipboard, read `NSPasteboard.generalPasteboard()`'s types
 with PyObjC; PowerPoint's AppleScript can copy a slide (`copy object slide 2 of presentation
-"deck.pptx"`) or a shape (`copy shape`), so this needs no clicking.
+"deck.pptx"`) or a shape (`copy shape`), so this needs no clicking. The last drag's contents stay
+on the drag pasteboard (`NSPasteboard.pasteboardWithName_(NSPasteboardNameDrag)`), and its change
+count goes up with each drag. PowerPoint refuses slide-thumbnail drags to other apps, so macOS
+sends the window no drag calls for them; only a person dragging can show what a real drag does.
 
 Paste reads the system clipboard on the Python side (`figassemble/app/clipboard.py`): AppKit on
 a Mac, the Windows clipboard API on Windows. The editor self-test sets

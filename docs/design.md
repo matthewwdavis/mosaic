@@ -160,6 +160,24 @@ pre-export check says so.
   registered for PowerPoint's and its drag methods are wrapped (macdrag.py, powerpoint.py,
   importers/gvml.py). PowerPoint also offers its copied slides as web data ("ppt/slides"), which a
   Chromium web view (Windows) may be handed for a drag; that's taken too, untested.
+- **Slide drags followed by hand; blank pages take the slide's size (2026-11-01):** a real slide
+  drag out of PowerPoint for Mac 16.114 never reached the web view: a logging copy of the window
+  got no drag calls at all, though the drag pasteboard held the slide's reference. PowerPoint lets
+  only its own windows take slide thumbnails, so macOS offers other apps nothing. Matthew chose to
+  take them anyway, over a note suggesting copy and paste. So macdrag.SlideWatch follows the drag
+  itself, needing no permission: a global monitor sees the mouse go down in another app, and until
+  it comes up the drag pasteboard is watched (its change count). Once it holds PowerPoint's slide
+  reference, the pointer is followed (CGEventGetLocation, and CGWindowListCopyWindowInfo for the
+  frontmost window there, looking through layers 100 and up such as the drag image), the editor
+  shows where the slides would go while it's over the window, and letting go there is a drop.
+  PowerPoint still animates the slide flying back. Pressing Escape over the window and then
+  letting go still counts as a drop (nothing shows that the drag ended). A drag AppKit does hand
+  the web view is left to the wrapped methods, so it isn't dropped twice. Slides added to a page
+  with no objects (guides don't count) make it the first slide, at the slide's size with its
+  objects where they were, keeping the page's name and guides; more slides become pages after it
+  (Matthew's choices, over all of them on one page, and over only pages at the default size).
+  Copied shapes don't change the page. While dragged slides are read (5.5 s the first time for
+  a large deck of figures), the drop area stays on the page saying so.
 - **Mac menu bar (2026-11-01):** macOS names an app from its main bundle, and conda's Python has
   none, so the menu bar said "python". FigAssemble.app now links the environment's Python into
   itself and runs it from there, which makes the app the main bundle (its name, icon and

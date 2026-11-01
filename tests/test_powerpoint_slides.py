@@ -187,3 +187,89 @@ def test_dragged_slides_are_found_in_open_decks(tmp_path):
     assert len(powerpoint.find_slides(refs, [DECK, str(other)])) == 2   # slide ids start at 256 in every deck
     assert powerpoint.find_slides(powerpoint.slide_refs([powerpoint.slide_ref_archive(300)]), [DECK]) == []
     assert powerpoint.slide_refs([b"not a keyed archive"]) == []
+
+
+def test_the_window_a_drag_is_over():
+    """The frontmost window at a point, from macOS's list of windows on screen (front to back):
+    the drag image, pop-up menus and invisible windows are looked through."""
+    from figassemble.app.macdrag import front_window
+
+    def win(number, x, y, w, h, layer=0, alpha=1):
+        return {"kCGWindowNumber": number, "kCGWindowLayer": layer, "kCGWindowAlpha": alpha,
+                "kCGWindowBounds": {"X": x, "Y": y, "Width": w, "Height": h}}
+    windows = [win(1, 0, 0, 120, 90, layer=500), win(2, 0, 0, 900, 900, alpha=0), win(3, 300, 0, 200, 200),
+               win(4, 0, 0, 400, 300), win(5, -1000, -500, 900, 400)]
+    assert front_window(windows, 10, 10) == 4   # FigAssemble's, under the drag image and an invisible window
+    assert front_window(windows, 350, 50) == 3   # PowerPoint's, in front of it
+    assert front_window(windows, -500, -300) == 5   # on a second display
+    assert front_window(windows, 600, 600) is None
+
+
+def test_slide_thumbnails_dragged_out_of_powerpoint_are_followed():
+    """PowerPoint lets only its own windows take slide thumbnails, so macOS hands the web view no
+    drag at all; SlideWatch follows it instead, from the drag pasteboard and the pointer."""
+    from figassemble.app.macdrag import SlideWatch
+    told = []
+
+    class View:
+        def evaluateJavaScript_completionHandler_(self, js, handler):
+            told.append(js)
+
+    class Scripted:
+        n, kinds, down, spot = 7, ["public.utf8-plain-text"], True, None
+
+        def count(self):
+            return self.n
+
+        def types(self):
+            return self.kinds
+
+        def archives(self):
+            return [powerpoint.slide_ref_archive(258)]
+
+        def button(self):
+            return self.down
+
+        def where(self, view):
+            return self.spot
+
+    s = Scripted()
+    watch = SlideWatch(View(), s)
+    watch.tick()   # a click, or a drag of something that was dragged before: nothing
+    s.n = 8
+    watch.tick()   # something else dragged
+    s.down = False
+    watch.tick()
+    assert told == [] and watch.following is None
+    # A slide thumbnail: where it would go while over the window, then the drop where it was let go
+    s.n, s.kinds, s.down = 9, [powerpoint.SLIDE_REF], True
+    watch.tick()
+    s.spot = (120.0, 80.0)
+    watch.tick()
+    watch.tick()
+    s.spot = (140.0, 90.0)
+    watch.tick()
+    s.down, s.spot = False, None
+    watch.tick()
+    assert told == ['window.FA && window.FA.onNativeDrag({"kind": "slides", "x": 120.0, "y": 80.0})',
+                    'window.FA && window.FA.onNativeDrag({"kind": "slides", "x": 140.0, "y": 90.0})',
+                    "window.FA && window.FA.onNativeDrag(null)",
+                    'window.FA && window.FA.onNativeDrop({"pptSlides": [{"doc": "{00000000-0000-0000-0000-000000000000}", '
+                    '"slide": 258}], "x": 140.0, "y": 90.0})']
+    # Over the window and away again (or a window covering it) before letting go: no drop
+    told.clear()
+    s.n, s.down, s.spot = 10, True, (120.0, 80.0)
+    watch.tick()
+    s.spot = None
+    watch.tick()
+    s.down = False
+    watch.tick()
+    assert told[-1] == "window.FA && window.FA.onNativeDrag(null)" and not any("onNativeDrop" in t for t in told)
+    # One macOS does hand the web view is dropped there, not twice
+    told.clear()
+    s.n, s.down, s.spot = 11, True, (120.0, 80.0)
+    watch.appkit = 11
+    watch.tick()
+    s.down = False
+    watch.tick()
+    assert told == [] and watch.following is None

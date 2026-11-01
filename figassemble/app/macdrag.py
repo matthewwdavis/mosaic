@@ -11,10 +11,15 @@ usual way (pywebview's file paths).
 
 Shapes dragged with their contents (a DrawingML package) wait in Api._dropped for the editor to
 take them, as Paste takes copied ones.
+
+Slide thumbnails dragged out of PowerPoint for Mac (16.114) never reach the web view, though:
+PowerPoint lets only its own windows take them, so macOS sends other apps no drag calls at all
+(a logging test window got none in November 2026). SlideWatch follows those drags itself.
 """
 from __future__ import annotations
 
 import json
+import sys
 import uuid
 
 from . import clipboard, powerpoint
@@ -24,6 +29,7 @@ SHAPES = "com.microsoft.Art--GVML-ClipFormat"
 OBJECT_DESCRIPTOR = "com.microsoft.Object-Descriptor"
 TYPES = [powerpoint.SLIDE_REF, SLIDES, SHAPES]
 COPY = 1   # NSDragOperationCopy
+TOP_LAYER = 100   # window layers from here up (pop-up menus, the drag image, the cursor) don't cover a drop
 
 
 def kind_of(types) -> str | None:
@@ -65,22 +71,161 @@ def _decks_dragged(pb) -> bool:
     return any(str(u.path() or "").lower().endswith(powerpoint.DECK_EXTENSIONS) for u in urls)
 
 
+def tell(view, name: str, value) -> None:
+    """Call window.FA[name](value) in the editor."""
+    view.evaluateJavaScript_completionHandler_(f"window.FA && window.FA.{name}({json.dumps(value)})", None)
+
+
+def front_window(windows, x: float, y: float):
+    """The number of the frontmost window at a point (global display coordinates, y down), from
+    CGWindowListCopyWindowInfo's list of windows on screen, front to back. Pop-up menus, the drag
+    image and the cursor (TOP_LAYER and up) and invisible windows are looked through."""
+    for w in windows:
+        if not 0 <= w.get("kCGWindowLayer", 0) < TOP_LAYER or w.get("kCGWindowAlpha", 1) == 0:
+            continue
+        b = w.get("kCGWindowBounds") or {}
+        if b.get("X", 0) <= x < b.get("X", 0) + b.get("Width", 0) and b.get("Y", 0) <= y < b.get("Y", 0) + b.get("Height", 0):
+            return w.get("kCGWindowNumber")
+    return None
+
+
+class Sense:
+    """What SlideWatch looks at: the drag pasteboard, the mouse and the windows on screen (none
+    of which needs a permission). The smoke test hands it a fake."""
+
+    def __init__(self):
+        import AppKit
+        self.pb = AppKit.NSPasteboard.pasteboardWithName_(AppKit.NSPasteboardNameDrag)
+
+    def count(self) -> int:
+        return int(self.pb.changeCount())
+
+    def types(self) -> list[str]:
+        return [str(t) for t in self.pb.types() or []]
+
+    def archives(self) -> list[bytes]:
+        found = [item.dataForType_(powerpoint.SLIDE_REF) for item in self.pb.pasteboardItems() or []]
+        return [bytes(d) for d in found if d is not None]
+
+    def button(self) -> bool:
+        import AppKit
+        return bool(AppKit.NSEvent.pressedMouseButtons() & 1)
+
+    def where(self, view):
+        """The pointer in the web view (CSS pixels) if it's over it with nothing covering it, else None."""
+        import AppKit
+        import Quartz
+        win = view.window()
+        if win is None:
+            return None
+        cg = Quartz.CGEventGetLocation(Quartz.CGEventCreate(None))
+        windows = Quartz.CGWindowListCopyWindowInfo(
+            Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements, Quartz.kCGNullWindowID) or []
+        if front_window(windows, cg.x, cg.y) != win.windowNumber():
+            return None
+        p = view.convertPoint_fromView_(win.convertPointFromScreen_(AppKit.NSEvent.mouseLocation()), None)
+        b = view.bounds()
+        if not AppKit.NSPointInRect(p, b):
+            return None
+        return float(p.x), float(p.y if view.isFlipped() else b.size.height - p.y)
+
+
+class SlideWatch:
+    """Slides dragged out of PowerPoint, which macOS doesn't offer to the web view (see the top).
+    From a mouse-down in another app until the button comes up, the drag pasteboard is looked at;
+    once a drag has put PowerPoint's reference to slides there, the pointer is followed, the
+    editor showing where the slides would go while it's over the window with nothing covering
+    it, and letting go there counts as a drop. PowerPoint still shows the slides flying back, as
+    for any drag it thinks was refused. A drag AppKit does hand the web view (`appkit`, its
+    pasteboard's change count) is left to the usual drop."""
+
+    TICK = 0.03   # seconds
+
+    def __init__(self, view, sense=None):
+        self.view = view
+        self.sense = sense or Sense()
+        self.seen = self.sense.count()   # the drag pasteboard as last looked at
+        self.following = None   # {"count", "at"} while following a slide drag
+        self.appkit = None
+        self.timer = None
+
+    def start(self) -> None:
+        """A mouse-down in another app: look until the button comes up."""
+        if self.timer is not None:
+            return
+        import Foundation
+        self.timer = Foundation.NSTimer.timerWithTimeInterval_repeats_block_(self.TICK, True, lambda timer: self.tick())
+        Foundation.NSRunLoop.mainRunLoop().addTimer_forMode_(self.timer, Foundation.NSRunLoopCommonModes)
+
+    def stop(self) -> None:
+        if self.timer is not None:
+            self.timer.invalidate()
+            self.timer = None
+
+    def tick(self) -> None:
+        try:
+            self._tick()
+        except Exception as exc:   # noqa: BLE001 (an exception here would end the app)
+            print(f"Following a drag from PowerPoint failed: {exc!r}", file=sys.stderr, flush=True)
+            self.following = None
+            self.stop()
+
+    def _tick(self) -> None:
+        s, down = self.sense, self.sense.button()
+        if self.following is None:
+            n = s.count()
+            if n != self.seen:
+                self.seen = n
+                if powerpoint.SLIDE_REF in s.types():
+                    self.following = {"count": n, "at": None}
+            if self.following is None:
+                if not down:
+                    self.stop()
+                return
+        f = self.following
+        mine = f["count"] != self.appkit
+        if down:
+            at = s.where(self.view) if mine else f["at"]
+            if at != f["at"]:
+                f["at"] = at
+                tell(self.view, "onNativeDrag", {"kind": "slides", "x": at[0], "y": at[1]} if at else None)
+            return
+        self.following = None
+        self.stop()
+        if not mine or f["at"] is None:
+            return
+        tell(self.view, "onNativeDrag", None)
+        refs = powerpoint.slide_refs(s.archives())
+        if refs:
+            tell(self.view, "onNativeDrop", {"pptSlides": refs, "x": f["at"][0], "y": f["at"][1]})
+
+
+_watch: SlideWatch | None = None
+_monitor = None
+
+
 def install(window, api) -> None:
-    """Wrap the web view's drag methods (once) and register it for PowerPoint's types. Call on
-    the main thread once the window exists."""
+    """Wrap the web view's drag methods (once), register it for PowerPoint's types, and start
+    watching for slide thumbnails dragged out of PowerPoint. Call on the main thread once the
+    window exists."""
+    global _watch, _monitor
+    import AppKit
     import objc
     from webview.platforms.cocoa import BrowserView
 
     host = BrowserView.WebKitHost
     view = BrowserView.instances[window.uid].webview
     view.registerForDraggedTypes_([str(t) for t in (view.registeredDraggedTypes() or [])] + TYPES)
+    if _watch is None or _watch.view is not view:
+        # Slide thumbnails dragged out of PowerPoint, which never reach the methods below
+        _watch = SlideWatch(view)
+        if _monitor is None:
+            _monitor = AppKit.NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+                AppKit.NSEventMaskLeftMouseDown, lambda event: _watch.start())
     if getattr(host, "_figassemble_drags", False):
         return
     perform = host.performDragOperation_.callable   # pywebview's: notes dropped files' paths
     sessions: dict = {}   # drag number -> "deck" while a deck file is dragged (looked at once)
-
-    def tell(self, name, value) -> None:
-        self.evaluateJavaScript_completionHandler_(f"window.FA && window.FA.{name}({json.dumps(value)})", None)
 
     def where(self, sender) -> dict:
         p = self.convertPoint_fromView_(sender.draggingLocation(), None)
@@ -92,6 +237,8 @@ def install(window, api) -> None:
     def moved(self, sender, entered):
         kind = ppt(sender)
         if kind:
+            if kind == "slide-refs":
+                _watch.appkit = int(sender.draggingPasteboard().changeCount())   # (so it isn't dropped twice)
             tell(self, "onNativeDrag", {"kind": "slides" if kind != "shapes" else "shapes", **where(self, sender)})
             return COPY
         n = sender.draggingSequenceNumber()
@@ -185,7 +332,8 @@ _FakeDrag = None
 
 def smoke(window, data_dir: str) -> dict:
     """The smoke test's check, in the app window: drags from PowerPoint, faked (a hidden window
-    can't be dragged onto) and handed to the web view's wrapped drag methods as AppKit would.
+    can't be dragged onto) and handed to the web view's wrapped drag methods as AppKit would, or
+    to a SlideWatch as it would see them.
     `data_dir`: tests/data/powerpoint. {"passed", "total", "failed": [names]}."""
     import os
     import time
@@ -222,11 +370,11 @@ def smoke(window, data_dir: str) -> dict:
     slides = fake_drag({powerpoint.SLIDE_REF: [powerpoint.slide_ref_archive(258)]}, p.x, p.y)
     entered = on_main(lambda: view.draggingEntered_(slides))
     on_main(lambda: view.draggingUpdated_(slides))
-    results["a slide dragged out of PowerPoint is taken, and the page shows it would go there"] = entered == COPY and wait(
-        "document.body.classList.contains('dropping') && document.querySelector('.drop-hint').textContent.includes('slides')", 5)
+    shown = "document.body.classList.contains('dropping') && document.querySelector('.drop-hint').textContent.includes('blank page')"
+    became = "window.FA.store.items().length === 3 && window.FA.store.page().width === 960 && !document.body.classList.contains('dropping')"
+    results["a slide dragged out of PowerPoint is taken, and the page shows it would go there"] = entered == COPY and wait(shown, 5)
     ok = on_main(lambda: view.performDragOperation_(slides))
-    results["dropped, its saved slide's objects come in at the drop point"] = bool(ok) and wait(
-        "window.FA.store.items().length === 3 && !document.body.classList.contains('dropping')")
+    results["dropped on a blank page, the page becomes its saved slide, at the slide's size"] = bool(ok) and wait(became)
     js("""(() => { for (const d of document.querySelectorAll("dialog[open]")) d.close(); return true; })()""")
     row = at("""(() => { const r = document.querySelectorAll(".page-list li[data-index]")[0].getBoundingClientRect();
       return [r.left + 20, r.top + 3]; })()""")
@@ -240,6 +388,60 @@ def smoke(window, data_dir: str) -> dict:
     ok = on_main(lambda: view.performDragOperation_(dropped))
     results["shapes dragged with their contents come in as editable shapes"] = bool(ok) and wait(
         "window.FA.store.items().length === 4 && window.FA.store.items()[3].geom === 'roundRect'")
-    js("""(() => { delete window.FA.app.testDecks; window.FA.app.autoConfirm = false;
+
+    # Slide thumbnails as PowerPoint really drags them (macOS hands the web view nothing):
+    # SlideWatch following the drag, with a scripted drag pasteboard, mouse button and pointer
+    class Scripted:
+        n, kinds, down, spot = 0, [], False, None
+
+        def count(self):
+            return self.n
+
+        def types(self):
+            return self.kinds
+
+        def archives(self):
+            return [powerpoint.slide_ref_archive(258)]
+
+        def button(self):
+            return self.down
+
+        def where(self, view):
+            return self.spot
+
+    fake = Scripted()
+    watch = SlideWatch(view, fake)
+    js("""(() => { for (const d of document.querySelectorAll("dialog[open]")) d.close(); window.FA.app.newDocument(); return true; })()""")
+    time.sleep(1)
+    spot = tuple(json.loads(js(f"JSON.stringify({page})")))
+    fake.n, fake.kinds, fake.down, fake.spot = 1, [powerpoint.SLIDE_REF], True, spot
+    on_main(watch.tick)
+    results["a slide thumbnail followed out of PowerPoint shows where it would go"] = wait(shown, 5)
+    fake.down = False
+    on_main(watch.tick)
+    results["let go over the window, the blank page becomes its saved slide"] = wait(became)
+    js("""(() => { for (const d of document.querySelectorAll("dialog[open]")) d.close(); return true; })()""")
+    fake.n, fake.down, fake.spot = 2, True, None   # let go elsewhere, or where a window covers FigAssemble's
+    on_main(watch.tick)
+    fake.down = False
+    on_main(watch.tick)
+    fake.n, fake.down, fake.spot = 3, True, spot   # handed to the web view by macOS after all
+    on_main(watch.tick)
+    watch.appkit = 3
+    fake.down = False
+    on_main(watch.tick)
+    time.sleep(1)
+    fake.down = False   # a click in another app: the button already up again
+    on_main(watch.start)
+    started = watch.timer is not None
+    time.sleep(0.5)
+    results["a mouse-down in another app starts the watch, which stops when the button is up"] = (
+        started and watch.timer is None and _monitor is not None and _watch is not None and _watch.view is view)
+    real = on_main(lambda: (lambda r: (r.count(), r.types(), r.button(), r.where(view)))(Sense()))
+    results["the drag pasteboard, mouse and windows on screen can be read (the hidden window isn't among them)"] = (
+        isinstance(real[0], int) and isinstance(real[1], list) and isinstance(real[2], bool) and real[3] is None)
+    results["let go anywhere else, or taken the usual way, nothing more comes in"] = (
+        js("window.FA.store.items().length") == 3 and watch.following is None and not js("!!document.querySelector('dialog[open]')"))
+    js("""(() => { delete window.FA.app.testDecks; window.FA.app.autoConfirm = false; window.FA.onNativeDrag(null);
       for (const d of document.querySelectorAll("dialog[open]")) d.close(); return true; })()""")
     return {"passed": sum(results.values()), "total": len(results), "failed": [k for k, v in results.items() if not v]}

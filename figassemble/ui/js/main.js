@@ -26,7 +26,8 @@ import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, re
 import { KEYS as LOOK, applyObjectStyle, formatOf as lookOf, restyle as restyleObjects } from "./objectstyles.js";
 import { canMove, containerAt, moveItems } from "./layers.js";
 import {
-  MOD, announce, clone, describeItem, display, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints, shapeCatalog, uid,
+  MOD, UNIT_LABEL, announce, clone, describeItem, display, fmt, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints,
+  shapeCatalog, toUnit, uid,
 } from "./util.js";
 
 const app = {
@@ -263,9 +264,11 @@ const app = {
     return panels.slidePicker(deck, how);
   },
   // A deck dropped on the window: its chosen slides as new pages where it was dropped in the
-  // Pages list, else their objects onto the page where it was dropped
+  // Pages list, else their objects onto the page where it was dropped (a blank page becoming the
+  // first slide)
   async addDeck(path, t) {
-    const where = t.list ? `as pages ${slideGap(t.pageAt)}` : "onto this page";
+    const where = t.list ? `as pages ${slideGap(t.pageAt)}`
+      : store.page().items.length ? "onto this page" : "onto this blank page, which takes the slide size (more slides become pages after it)";
     const numbers = await this.chooseSlides(path, { verb: "Add", where });
     if (!numbers) return;
     const got = await rpc("deck_pages", path, numbers);
@@ -274,10 +277,12 @@ const app = {
   },
   // Slides into the figure (deck_pages; or pasted or dropped, the same shape): as new pages at a
   // place in the Pages list (to.pageAt), or their objects onto this page, at a point (to.at),
-  // else where they were on the slide; several slides' objects 12 pt apart. One undo step.
+  // else where they were on the slide; several slides' objects 12 pt apart. A blank page becomes
+  // the first slide instead (slidesOntoBlankPage). One undo step.
   addSlides(got, to, verb) {
     const n = got.pages.length, s = n === 1 ? "" : "s", done = verb === "Paste" ? "Pasted" : "Added";
     if (!n) return announce("No slides to add");
+    if (to.pageAt === undefined && !store.page().items.length) return this.slidesOntoBlankPage(got, verb);
     if (to.pageAt !== undefined) {
       const pages = got.pages.map((p) => reidPage(p));
       store.update(`${verb} ${n} slide${s} as page${s}`, (doc) => {
@@ -308,6 +313,26 @@ const app = {
     }, { select: items.map((i) => i.id) });
     announce(`${done} ${items.length} object${items.length === 1 ? "" : "s"} from ${n === 1 ? "a slide" : `${n} slides`}${pictureNote(got.report)}`);
   },
+  // Slides onto a blank page (no objects; guides don't count): the page takes the first slide's
+  // size and objects, where they were on the slide, keeping its name and guides; any other
+  // slides become pages after it
+  slidesOntoBlankPage(got, verb) {
+    const [first, ...rest] = got.pages, n = got.pages.length, at = store.pageIndex;
+    const items = copyItems(first.items), pages = rest.map((p) => reidPage(p));
+    store.update(`${verb} ${n === 1 ? "slide" : `${n} slides`} from PowerPoint`, (doc) => {
+      Object.assign(doc.assets, got.assets);
+      const page = doc.pages[at];
+      Object.assign(page, { width: first.width, height: first.height }, first.origin ? { origin: first.origin } : {});
+      delete page.preset;
+      page.items.push(...items);
+      doc.pages.splice(at + 1, 0, ...pages);
+    });
+    canvas.fit();
+    const size = pageSizeText(first), done = verb === "Paste" ? "Pasted" : "Added";
+    const others = n === 2 ? `the second is page ${at + 2}` : `the rest are pages ${at + 2} to ${at + n}`;
+    announce(n === 1 ? `${done} the slide as this page, ${size}${pictureNote(got.report)}`
+      : `${done} ${n} slides: this page took the first, ${size}, and ${others}${pictureNote(got.report)}`);
+  },
   // Shapes copied (or dragged) out of PowerPoint: where they were on the slide, else at a point
   addShapes(r, at, verb) {
     const items = copyItems(r.items), b = itemsBBox(items);
@@ -330,8 +355,17 @@ const app = {
   // Slides dragged out of PowerPoint: found in the decks it has open, as last saved, and brought
   // in from there (asking which deck when several have them)
   async dropPowerPointSlides(refs, t) {
-    const { found } = await rpc("powerpoint_slides", refs, this.testDecks ?? null);
+    const what = refs.length === 1 ? "the slide" : `${refs.length} slides`;
+    this.dropBusy(`Bringing in ${what} from PowerPoint…`);
+    let found;
+    try {
+      ({ found } = await rpc("powerpoint_slides", refs, this.testDecks ?? null));
+    } catch (err) {
+      this.dropBusy(null);
+      return panels.reportDialog("Couldn't bring in the slides", [String(err.message || err)]);
+    }
     if (!found.length) {
+      this.dropBusy(null);
       return panels.reportDialog("Those slides weren't found", [
         "FigAssemble reads slides dragged out of PowerPoint from their deck as it was last saved, and no deck PowerPoint "
         + "has open has them saved yet.",
@@ -339,6 +373,7 @@ const app = {
     }
     let pick = found[0];
     if (found.length > 1) {
+      this.dropBusy(null);
       [pick] = (await panels.pickCards({
         title: "Which deck are the slides from?",
         hint: `${found.length} decks open in PowerPoint have slides like those. Choose the one you dragged from.`,
@@ -347,11 +382,28 @@ const app = {
           thumb: () => rpc("deck_thumbnail", f.path, f.numbers[0]) })),
       })) || [];
       if (!pick) return;
+      this.dropBusy(`Bringing in ${what} from ${pick.name}…`);
     }
-    const got = await rpc("deck_pages", pick.path, pick.numbers);
+    let got;
+    try {
+      got = await rpc("deck_pages", pick.path, pick.numbers);
+    } catch (err) {
+      return panels.reportDialog("Couldn't bring in the slides", [String(err.message || err)]);
+    } finally {
+      this.dropBusy(null);
+    }
     this.addSlides(got, t.list ? { pageAt: t.pageAt } : { at: t.point }, "Add");
     panels.reportDialog(`Added from ${pick.name}`, [`From ${pick.name} as last saved in PowerPoint: anything changed `
       + "since then isn't included.", ...got.report]);
+  },
+  // While dropped slides are read (a big deck takes seconds the first time), the drop area stays
+  // on the page, saying so (null: done)
+  dropBusy(words) {
+    document.body.classList.toggle("drop-busy", !!words);
+    if (!words) return;
+    const hint = document.querySelector(".drop-hint");
+    if (hint) hint.textContent = words;
+    announce(words);
   },
   // A deck dropped in the browser (no path to it, only its bytes)
   async addDeckUpload(file, t) {
@@ -373,8 +425,10 @@ const app = {
     document.body.classList.toggle("dropping", !!t && !t.list);
     const hint = document.querySelector(".drop-hint");
     if (hint) {
-      hint.textContent = info?.kind === "deck" || info?.kind === "slides" ? "Drop to put the slides' objects on this page"
-        : info?.kind === "shapes" ? "Drop to put the shapes on this page" : "Drop to place at true size";
+      const slides = info?.kind === "deck" || info?.kind === "slides";
+      hint.textContent = slides && !store.page().items.length ? "Drop to make this blank page the slide, at its size"
+        : slides ? "Drop to put the slides' objects on this page"
+          : info?.kind === "shapes" ? "Drop to put the shapes on this page" : "Drop to place at true size";
     }
     if (!t?.list) return;
     if (info.kind === "files" || info.kind === "shapes") {
@@ -1936,6 +1990,11 @@ const isDeck = (path) => /\.(pptx|pptm|potx)$/i.test(path || "");
 function slideGap(at) {
   const n = store.doc.pages.length;
   return at >= n ? `after page ${n}` : `before page ${at + 1}`;
+}
+// A page's size in the page units, as the Pages list shows it
+function pageSizeText(p) {
+  const pu = app.prefs.page_units || "mm";
+  return `${fmt(toUnit(p.width, pu), 1)} × ${fmt(toUnit(p.height, pu), 1)} ${UNIT_LABEL[pu]}`;
 }
 // What importing said about the pictures, for an announcement
 function pictureNote(report = []) {

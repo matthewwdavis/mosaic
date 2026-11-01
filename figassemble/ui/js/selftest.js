@@ -305,15 +305,57 @@ async function slidesChecks(app, ppt) {
     "double-click opens one slide, the arrow keys and Shift choose, Enter opens; cancelling opens nothing",
     `${oneByDouble}; ${byKeys}; after cancel ${names()}`);
 
-  // A deck dropped on the page: its slides' objects go there, at the drop point (one undo step)
+  // A deck dropped on a blank page: the page becomes the chosen slide, at the slide's size, with
+  // its objects where they were on the slide; more slides become pages after it
   store.setDoc(await rpc("new_document"));
   canvas.fit();
   await settle();
+  const blank = { ...store.page(), items: [] }, [slide3] = (await rpc("deck_pages", deck, [3])).pages;
+  // (where each object is: its top-left corner; text boxes fit their height to the text once drawn)
+  const boxes = (items) => items.map((it) => itemBBox(it).slice(0, 2).map((v) => v.toFixed(1)).join(" ")).join("; ");
   const [px, py] = screenOf(100, 150);
   window.FA.onNativeDrag({ kind: "deck", x: px, y: py });
-  const overPage = document.body.classList.contains("dropping") && document.querySelector(".drop-hint").textContent.includes("slides");
+  const overBlank = document.querySelector(".drop-hint").textContent;
   window.FA.onNativeDrag(null);
   let dropping = window.FA.onNativeDrop({ paths: [deck], x: px, y: py });
+  dlg = await picker();
+  const blankHint = dlg?.querySelector(".hint")?.textContent || "";
+  click(cards(dlg)[2]);
+  click(go(dlg));
+  await dropping;
+  closeAll();
+  await settle();
+  check(overBlank === "Drop to make this blank page the slide, at its size" && blankHint.includes("onto this blank page, which takes the slide size")
+    && store.page().width === 960 && store.page().height === 540 && !store.page().preset && store.page().name === blank.name
+    && boxes(store.items()) === boxes(slide3.items) && store.doc.pages.length === 1,
+  "a deck dropped on a blank page makes the page the chosen slide: its size, its objects where they were",
+  `‹${overBlank}› ‹${blankHint}› ${pageSize()} ${store.page().name} ${store.doc.pages.length} ${store.page().preset}; ${boxes(store.items())} vs ${boxes(slide3.items)}`);
+  store.undo();
+  check(store.items().length === 0 && store.page().width === blank.width && store.page().height === blank.height
+    && store.page().preset?.standard === blank.preset?.standard, "and one undo puts the blank page back", `${store.items().length}; ${pageSize()}`);
+  dropping = window.FA.onNativeDrop({ paths: [deck], x: px, y: py });
+  dlg = await picker();
+  click(cards(dlg)[1]);
+  click(cards(dlg)[3], { shiftKey: true });
+  click(go(dlg));
+  await dropping;
+  closeAll();
+  await settle();
+  check(names() === `${blank.name}, Slide 3, Slide 4` && store.pageIndex === 0 && store.items().length === 6
+    && store.doc.pages.every((p) => p.width === 960 && p.height === 540),
+  "several slides onto a blank page: it takes the first, and the rest become pages after it", `${names()} at ${store.pageIndex}; ${store.items().length}`);
+  store.undo();
+  check(names() === blank.name && store.items().length === 0, "all in one undo step", names());
+
+  // On a page with objects already: the slide's objects go there, at the drop point (one undo step)
+  store.update("A box for the test", (doc) => doc.pages[0].items.push(gRectFor("keep", 400, 600, 40, 40)));
+  canvas.fit();   // (the view was fitted to the slide-sized page)
+  await settle();
+  const before = pageSize(), [qx, qy] = screenOf(100, 150);
+  window.FA.onNativeDrag({ kind: "deck", x: qx, y: qy });
+  const overPage = document.body.classList.contains("dropping") && document.querySelector(".drop-hint").textContent.includes("slides");
+  window.FA.onNativeDrag(null);
+  dropping = window.FA.onNativeDrop({ paths: [deck], x: qx, y: qy });
   dlg = await picker();
   const hint = dlg?.querySelector(".hint")?.textContent || "";
   click(cards(dlg)[2]);
@@ -321,12 +363,13 @@ async function slidesChecks(app, ppt) {
   await dropping;
   closeAll();
   await settle();
-  const dropped = itemsBBox(store.items());
-  check(overPage && hint.includes("onto this page") && store.items().length === 3 && near(dropped[0], 100, 0.5) && near(dropped[1], 150, 0.5)
-    && store.selection.length === 3, "a deck dropped on the page puts the chosen slide's objects at the drop point, selected",
-  `hint ${overPage} "${hint}"; ${store.items().map((it) => it.type).join(",")} at ${dropped?.map((v) => v.toFixed(1))}`);
+  const dropped = itemsBBox(store.selected());
+  check(overPage && hint.includes("onto this page") && store.items().length === 4 && near(dropped[0], 100, 0.5) && near(dropped[1], 150, 0.5)
+    && store.selection.length === 3 && pageSize() === before, "a deck dropped on a page with objects puts the chosen slide's objects at the drop point, selected",
+  `hint ${overPage} ‹${hint}›; ${store.items().map((it) => it.type).join(",")} at ${dropped?.map((v) => v.toFixed(1))}; ${pageSize()} ${before}`);
   store.undo();
-  check(store.items().length === 0, "and one undo takes them away", `${store.items().length}`);
+  check(store.items().length === 1, "and one undo takes them away", `${store.items().length}`);
+  store.undo();
 
   // In the Pages list: a line shows the gap, and the slides go in there as pages
   app.addPage();
@@ -353,7 +396,8 @@ async function slidesChecks(app, ppt) {
   store.undo();
   check(names() === "Page 1, Page 2", "and one undo takes them out", names());
 
-  // Pasting slides and shapes copied in PowerPoint: objects where they were on the slide
+  // Pasting slides and shapes copied in PowerPoint: objects where they were on the slide (and on
+  // a blank page, the page takes the slide's size)
   store.setDoc(await rpc("new_document"));
   canvas.fit();
   await rpc("clipboard_fake", { slides: slidesFile, png: { size: [40, 20], dpi: 144 } });
@@ -361,8 +405,9 @@ async function slidesChecks(app, ppt) {
   await settle();
   const pastedPic = store.items().find((it) => it.type === "picture");
   check(store.items().map((it) => it.type).join() === "picture,shape,shape,line,shape,group" && near(pastedPic.frame[0], 60) && near(pastedPic.frame[1], 80)
-    && !document.querySelector("dialog[open]"), "a slide copied in PowerPoint pastes as its objects, where they were on the slide",
-  `${store.items().map((it) => it.type).join()}; picture at ${pastedPic?.frame}`);
+    && store.page().width === 960 && store.page().height === 540 && !document.querySelector("dialog[open]"),
+  "a slide copied in PowerPoint pastes as its objects, where they were on the slide, a blank page taking the slide's size",
+  `${store.items().map((it) => it.type).join()}; picture at ${pastedPic?.frame}; page ${pageSize()}`);
   const entries = app.pasteEntries(await app.clipboardKinds(), null).filter(Boolean).map((e) => e.label);
   await app.paste("picture");
   check(entries.includes("Paste as picture") && store.items().at(-1).type === "picture" && store.items().length === 7,
@@ -381,10 +426,14 @@ async function slidesChecks(app, ppt) {
   canvas.fit();
   await settle();
   app.testDecks = [deck];
-  await window.FA.onNativeDrop({ pptSlides: [{ doc: "x", slide: 258 }], x: px, y: py });
+  dropping = window.FA.onNativeDrop({ pptSlides: [{ doc: "x", slide: 258 }], x: px, y: py });
+  const busy = document.body.classList.contains("drop-busy") && document.querySelector(".drop-hint").textContent;
+  await dropping;
   const savedNote = [...document.querySelectorAll("dialog[open] li")].map((li) => li.textContent).join(" ");
   closeAll();
-  const fromSaved = store.items().length;
+  const fromSaved = store.items().length, draggedSize = pageSize();
+  check(busy === "Bringing in the slide from PowerPoint…" && !document.body.classList.contains("drop-busy"),
+    "while dragged slides are read, the page says so", `${busy}; ${document.body.className}`);
   app.testDecks = [deck, other];
   dropping = window.FA.onNativeDrop({ pptSlides: [{ doc: "x", slide: 257 }], x: px, y: py });
   dlg = await picker();
@@ -398,22 +447,24 @@ async function slidesChecks(app, ppt) {
   const notFound = [...document.querySelectorAll("dialog[open] h2")].map((h2) => h2.textContent).join();
   closeAll();
   delete app.testDecks;
-  check(fromSaved === 3 && savedNote.includes("as last saved") && question === "Which deck are the slides from?" && store.items().length === 9
-    && notFound === "Those slides weren't found", "slides dragged out of PowerPoint come from their saved deck, asking which deck if two have them",
-  `${fromSaved} "${savedNote.slice(0, 80)}"; ${question}; ${store.items().length}; ${notFound}`);
+  check(fromSaved === 3 && draggedSize === "338.7 × 190.5 mm" && savedNote.includes("as last saved") && question === "Which deck are the slides from?"
+    && store.items().length === 9 && notFound === "Those slides weren't found",
+  "slides dragged out of PowerPoint come from their saved deck (onto a blank page, at the slide's size), asking which deck if two have them",
+  `${fromSaved} ${draggedSize} "${savedNote.slice(0, 80)}"; ${question}; ${store.items().length}; ${notFound}`);
 
   // PowerPoint's web data for dragged slides (what a Chromium web view may be handed) comes in too
   store.setDoc(await rpc("new_document"));
   canvas.fit();
+  store.update("A box for the test", (doc) => doc.pages[0].items.push(gRectFor("keep", 400, 600, 40, 40)));
   await settle();
   const web = new DataTransfer(), [wx, wy] = [Math.round(px), Math.round(py)];   // (events have whole pixels)
   web.setData("ppt/slides", JSON.stringify({ isDataCompressed: "False", data: await rpc("selftest_read", slidesFile) }));
   document.dispatchEvent(new DragEvent("drop", { dataTransfer: web, clientX: wx, clientY: wy, bubbles: true, cancelable: true }));
-  await until(() => store.items().length === 6, 4000);
+  await until(() => store.items().length === 7, 4000);
   // (the slide's top-left object is a text box at 40, 60, so its picture at 60, 80 lands 20, 20 on)
   const sr = canvas.stage.getBoundingClientRect(), [ex, ey] = canvas.toPage(wx - sr.left, wy - sr.top);
   const webPic = store.items().find((it) => it.type === "picture");
-  check(store.items().length === 6 && near(webPic.frame[0], ex + 20) && near(webPic.frame[1], ey + 20),
+  check(store.items().length === 7 && near(webPic.frame[0], ex + 20) && near(webPic.frame[1], ey + 20),
     "slides dropped as PowerPoint's web data come in at the drop point", `${store.items().length}; picture at ${webPic?.frame}; drop ${ex}, ${ey}`);
   closeAll();
 }
@@ -1459,7 +1510,7 @@ export async function run(app, params) {
     const journalPick = checkDlg.querySelector("select");
     journalPick.value = "Nature";
     journalPick.dispatchEvent(new Event("change"));
-    await until(() => /Nature figures/.test(checkResults.textContent));
+    await until(() => /Nature figures/.test(checkResults.textContent) && app.prefs.check_journal === "Nature");   // (two requests)
     check(/Nature figures/.test(checkResults.textContent) && app.prefs.check_journal === "Nature",
       "and compares the page's size with the journal chosen there", checkResults.textContent);
     checkDlg.close();

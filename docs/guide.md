@@ -808,7 +808,8 @@ shape comes in as itself.
 - **Drag a deck file** from Finder or Explorer onto the window to add slides to the figure that's
   open. The same picker asks which ones.
   - Dropped on the page, the slides' objects go there, at the point you dropped them. Several
-    slides' objects land a little apart. Anything parked beside a slide stays behind.
+    slides' objects land a little apart. Anything parked beside a slide stays behind. On a blank
+    page, see **A blank page takes the slide's size** below.
   - Dropped in the Pages list, the slides become new pages there. While you drag, a line shows
     where they'll go.
 - **Copy and paste:** in PowerPoint, select slides in the slide list, or shapes on a slide, and
@@ -820,8 +821,24 @@ shape comes in as itself.
   as it was last saved, and says so. Save the deck in PowerPoint first if you've changed those
   slides. If more than one deck open in PowerPoint has slides like them, FigAssemble asks which
   deck you dragged from. On Windows, use copy and paste instead.
+  - PowerPoint lets only its own windows accept dragged slides, so FigAssemble watches the drag
+    itself. While the pointer is over FigAssemble's window, the page or the Pages list shows where
+    the slides will go. When you let go, the slide flies back to PowerPoint, as it does whenever
+    PowerPoint thinks a drop was refused, but the slides still come into FigAssemble.
+    *Bringing in the slide…* shows on the page while the deck is read, which takes a few seconds
+    the first time for a big deck.
+  - If you press Escape to cancel a drag while it's over FigAssemble's window, the slides still
+    come in when you let go. Undo (⌘Z) takes them out.
 
-Slides or shapes added to a figure come out again with one undo.
+**A blank page takes the slide's size.** Slides added to a page with no objects on it (guides don't
+count), whether pasted, dragged or picked from a dropped deck, make that page the first slide: it
+takes the slide's size, and the slide's objects sit where they were on the slide. Any other slides
+become new pages after it. The page keeps its name and guides. On a page that already has
+objects, the slides' objects are added at the point you dropped them, and the page keeps its size.
+Copied shapes, rather than whole slides, never change the page's size.
+
+Slides or shapes added to a figure come out again with one undo, which also puts back a blank
+page's size.
 
 **Pictures** are relinked to the original figure files where they can be found, so the PDF or SVG
 your R code saved is used instead of PowerPoint's copy. FigAssemble looks in the nearest folder

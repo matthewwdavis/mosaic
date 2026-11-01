@@ -101,6 +101,10 @@ Matthew's choices are in brackets.
 - [x] The Mac menu bar says FigAssemble, not python, and has the menus a Mac app has [File,
       Edit, View, Window and Help, with the shortcuts; not Insert or Arrange; Mac only, as the
       ribbon does this job on Windows]
+- [x] Slide drags out of PowerPoint actually come in: PowerPoint refuses them to other apps, so
+      FigAssemble follows the drag itself [take them anyway, though the slide flies back]
+- [x] A blank page takes the size of the slides put on it, pasted, dragged or from a dropped deck
+      [any page with no objects; it becomes the first slide, and more slides become pages after it]
 
 ## Acceptance test (test slide)
 
