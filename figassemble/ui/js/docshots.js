@@ -383,6 +383,18 @@ export async function run(app, params) {
     }, 200);
     return finish();
   }
+  if (scene === "slides") {
+    // Opening a deck of the example plots (tools/doc_shots.py makes it): the slide picker, with
+    // slides 2 and 3 chosen
+    setTimeout(async () => {
+      app.open(params.get("deck"));
+      for (let i = 0; i < 200 && !document.querySelector("dialog.picker-dialog[open]"); i++) await wait(50);
+      const cards = [...document.querySelectorAll(".slide-grid li")];
+      cards[1]?.click();
+      cards[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true, shiftKey: true }));
+    }, 200);
+    return finish();
+  }
   if (scene === "export") { setTimeout(() => app.run("export"), 200); return finish(); }
   if (scene === "themes") {
     // Settings, scrolled to the theme gallery, on the default: Match the system, Light by day, Dark at night

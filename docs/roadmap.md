@@ -93,6 +93,11 @@ Matthew's choices are in brackets.
 - [x] Drag objects in the Objects list to change what's in front [groups open in the list, and rows
       drag into and out of them; the rows slide apart; the page shows the new order while dragging;
       the Pages list drags the same way; rows dropped on a page in the Pages list move there]
+- [x] Open a chosen slide of a deck, and bring slides into an open figure [a slide picker with a
+      picture of each slide, one or several chosen; a deck dropped on the page puts the slides'
+      objects there, dropped in the Pages list makes them pages there; slides and shapes copied
+      in PowerPoint paste as objects; slides dragged out of PowerPoint (Mac) come from their deck
+      as last saved, since PowerPoint hands over only which slides they are]
 
 ## Acceptance test (test slide)
 

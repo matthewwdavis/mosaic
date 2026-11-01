@@ -4,13 +4,18 @@ Each slide becomes a page of the same size. Pictures are pulled out of the deck 
 possible, relinked to the original figure files on disk (so exports use R's own PDF/SVG).
 Shapes, lines, freeforms and text boxes keep PowerPoint's geometry, line styles and text
 layout parameters; groups are flattened into page coordinates the way PowerPoint draws them.
+
+A deck can also be the bytes PowerPoint puts on the clipboard for copied slides: a small deck
+whose parts sit under clipboard/ rather than ppt/ (found through the package's relationships).
 """
 from __future__ import annotations
 
 import collections
+import io
 import math
 import os
 import posixpath
+import re
 import zipfile
 import xml.etree.ElementTree as ET
 
@@ -28,11 +33,18 @@ _LINE_PRESETS = {"line", "straightConnector1"}
 
 
 class Package:
-    def __init__(self, path: str):
-        self.path = path
-        self.z = zipfile.ZipFile(path)
+    """An Office package: a file path, or its bytes (path None)."""
+
+    def __init__(self, source: str | bytes):
+        self.path = source if isinstance(source, str) else None
+        self.z = zipfile.ZipFile(source if isinstance(source, str) else io.BytesIO(source))
         self.names = set(self.z.namelist())
         self._xml: dict[str, ET.Element] = {}
+
+    def main_part(self, kind: str = "officeDocument", default: str | None = None) -> str | None:
+        """The part the package's own relationships point to (the presentation, or a copied
+        drawing)."""
+        return self.rel_of_type("", kind) or default
 
     def xml(self, part: str) -> ET.Element:
         if part not in self._xml:
@@ -48,6 +60,8 @@ class Package:
                 target = rel.get("Target", "")
                 if rel.get("TargetMode") == "External":
                     out[rel.get("Id")] = (target, rel.get("Type", ""))
+                elif target.startswith("/"):
+                    out[rel.get("Id")] = (target[1:], rel.get("Type", ""))
                 else:
                     out[rel.get("Id")] = (posixpath.normpath(posixpath.join(d, target)), rel.get("Type", ""))
         return out
@@ -514,23 +528,61 @@ class SlideImporter:
 
 
 class DeckImporter:
-    def __init__(self, path: str, search_dirs: list[str] | None, relink: bool, cache: AssetCache | None):
-        self.pkg = Package(path)
+    """`source`: a deck's path, or its bytes (copied slides). `index`: figure files to relink
+    pictures to, if already gathered (else from `search_dirs`, or the folders near the deck)."""
+
+    def __init__(self, source: str | bytes, search_dirs: list[str] | None, relink: bool, cache: AssetCache | None,
+                 name: str | None = None, index: CandidateIndex | None = None):
+        self.pkg = Package(source)
+        path = self.pkg.path
         self.cache = cache or get_cache()
-        self.doc = model.new_document(os.path.splitext(os.path.basename(path))[0])
+        self.doc = model.new_document(name or os.path.splitext(os.path.basename(path or "Copied slides"))[0])
         self.doc["pages"] = []
-        self.doc["meta"]["imported_from"] = os.path.abspath(path)
+        if path:
+            self.doc["meta"]["imported_from"] = os.path.abspath(path)
         self.relink = relink
-        self.index = CandidateIndex(search_dirs or default_search_dirs(path)) if relink else None
+        self.index = (index or CandidateIndex(search_dirs or (default_search_dirs(path) if path else []))) if relink else None
         self._themes: dict = {}
         self._media: dict[str, str | None] = {}
+        # What each picture's relinking said, and which pictures each slide used, so a report can
+        # be made for any of the slides
+        self._media_lines: dict[str, list[str]] = {}
+        self._slide_media: list[str] | None = None
+        self.slide_media: dict[int, list[str]] = {}
+        self.slide_lines: dict[int, list[str]] = {}
         self.report: list[str] = []
-        pres = self.pkg.xml("ppt/presentation.xml")
+        self.default_text_style = None
+        self.slides: list[str] = []
+        self.slide_ids: list[int] = []
+        self._presentation()
+
+    def _presentation(self) -> None:
+        part = self.pkg.main_part(default="ppt/presentation.xml")
+        pres = self.pkg.xml(part)
         sz = pres.find("p:sldSz", NS)
         self.width, self.height = emu(sz.get("cx")), emu(sz.get("cy"))
         self.default_text_style = pres.find("p:defaultTextStyle", NS)
-        prels = self.pkg.rels("ppt/presentation.xml")
-        self.slides = [prels[s.get(f"{{{R}}}id")][0] for s in pres.find("p:sldIdLst", NS)]
+        prels = self.pkg.rels(part)
+        lst = pres.find("p:sldIdLst", NS)
+        for s in (lst if lst is not None else []):
+            self.slides.append(prels[s.get(f"{{{R}}}id")][0])
+            self.slide_ids.append(int(s.get("id", "0")))
+
+    def slide_info(self) -> list[dict]:
+        """Each slide's number, title (its title placeholder's text, if it has one) and whether
+        it's hidden in the slide show."""
+        out = []
+        for n, part in enumerate(self.slides, 1):
+            root = self.pkg.xml(part)
+            title = ""
+            for sp in root.iter(f"{{{P}}}sp"):
+                ph = sp.find("p:nvSpPr/p:nvPr/p:ph", NS)
+                if ph is not None and ph.get("type") in ("title", "ctrTitle"):
+                    paras = ("".join(t.text or "" for t in p.iter(f"{{{NS['a']}}}t")) for p in sp.iter(f"{{{NS['a']}}}p"))
+                    title = re.sub(r"\s+", " ", " ".join(paras)).strip()
+                    break
+            out.append({"n": n, "title": title, "hidden": root.get("show") == "0"})
+        return out
 
     def theme(self, part: str | None) -> Theme:
         if part not in self._themes:
@@ -538,8 +590,11 @@ class DeckImporter:
         return self._themes[part]
 
     def media_asset(self, part: str) -> str | None:
+        if self._slide_media is not None:
+            self._slide_media.append(part)
         if part in self._media:
             return self._media[part]
+        lines = self._media_lines.setdefault(part, [])
         data = self.pkg.z.read(part)
         ext = posixpath.splitext(part)[1].lower()
         kind = {".svg": "svg", ".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".tif": "tiff",
@@ -566,14 +621,14 @@ class DeckImporter:
                 self.doc["assets"][aid] = asset
                 extra = f" (match score {info['score']}, runner-up {info['runner_up']})" if info else ""
                 variants = "+".join(sorted(asset["variants"]))
-                self.report.append(f"relinked {name} -> {orig} [{variants}]{extra}")
+                lines.append(f"relinked {name} -> {orig} [{variants}]{extra}")
                 for w in warns:
-                    self.report.append(f"  {w}")
+                    lines.append(f"  {w}")
             elif kind == "svg":
-                self.report.append(f"kept the deck's copy of {name}: no original found "
-                                   f"(best score {info.get('score', 0)})")
+                lines.append(f"kept the deck's copy of {name}: no original found "
+                             f"(best score {info.get('score', 0)})")
             else:
-                self.report.append(f"kept the deck's copy of {name}: no identical file found")
+                lines.append(f"kept the deck's copy of {name}: no identical file found")
         if aid is None:
             ext_name = name if kind != "pdf" or name.endswith(".pdf") else posixpath.splitext(name)[0] + ".pdf"
             aid, asset = new_asset_from_bytes(data, ext_name, self.cache)
@@ -583,23 +638,52 @@ class DeckImporter:
 
     def run(self, slide_numbers: list[int] | None) -> tuple[dict, list[str]]:
         numbers = slide_numbers or list(range(1, len(self.slides) + 1))
+        reported: set[str] = set()
         for n in numbers:
             if not 1 <= n <= len(self.slides):
                 self.report.append(f"slide {n} doesn't exist (deck has {len(self.slides)})")
                 continue
+            self._slide_media = []
             si = SlideImporter(self, self.slides[n - 1])
             page = model.new_page(f"Slide {n}", self.width, self.height)
             page["items"] = si.items()
             page["origin"] = {"deck": self.pkg.path, "slide": n}
             self.doc["pages"].append(page)
             counts = ", ".join(f"{v} {k}" for k, v in si.counts.most_common())
-            self.report.append(f"slide {n}: {counts}")
+            lines = [f"slide {n}: {counts}"]
             for note, k in si.notes.most_common():
-                self.report.append(f"  note: {note}" + (f" (x{k})" if k > 1 else ""))
+                lines.append(f"  note: {note}" + (f" (x{k})" if k > 1 else ""))
+            self.slide_media[n], self.slide_lines[n] = list(dict.fromkeys(self._slide_media)), lines
+            self._slide_media = None
+            for part in self.slide_media[n]:
+                if part not in reported:
+                    self.report += self._media_lines.get(part, [])
+                    reported.add(part)
+            self.report += lines
         return self.doc, self.report
+
+    def report_for(self, numbers: list[int]) -> list[str]:
+        """The report for some of the slides run (each picture's relinking said once)."""
+        out: list[str] = []
+        seen: set[str] = set()
+        for n in numbers:
+            for part in self.slide_media.get(n, []):
+                if part not in seen:
+                    out += self._media_lines.get(part, [])
+                    seen.add(part)
+            out += self.slide_lines.get(n, [])
+        return out
 
 
 def import_pptx(path: str, slides: list[int] | None = None, search_dirs: list[str] | None = None,
                 relink: bool = True, cache: AssetCache | None = None) -> tuple[dict, list[str]]:
     """Import slides (1-based numbers; default all) as pages of a new document."""
     return DeckImporter(path, search_dirs, relink, cache).run(slides)
+
+
+def slide_ids(source: str | bytes) -> list[int]:
+    """A deck's slide ids (presentation.xml's sldId: what PowerPoint calls a slide by when one is
+    dragged out of it), in slide order."""
+    pkg = Package(source)
+    lst = pkg.xml(pkg.main_part(default="ppt/presentation.xml")).find("p:sldIdLst", NS)
+    return [int(s.get("id", "0")) for s in (lst if lst is not None else [])]

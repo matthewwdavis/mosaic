@@ -83,8 +83,14 @@ const app = {
       else path = await panels.pathDialog("Open a document or PowerPoint deck", "/path/to/figure.figasm", this.prefs.recent || []);
     }
     if (!path) return;
+    // A PowerPoint deck: its slides to open first (all of them if there's just one)
+    let slides = null;
+    if (isDeck(path)) {
+      slides = await this.chooseSlides(path, { verb: "Open" });
+      if (!slides) return;
+    }
     announce("Opening…");
-    const res = await rpc("open_document", path);
+    const res = await rpc("open_document", path, slides);
     store.setDoc(finishEdits(res.doc), res.path);
     if (!res.path && res.suggested) store.suggested = res.suggested;
     canvas.fit();
@@ -183,6 +189,150 @@ const app = {
     announce(`Placed ${ok.length} at true size (${how}; ${copies.join(", ")})`);
     if (warnings.length) panels.reportDialog("Placed, with notes", warnings);
   },
+
+  // PowerPoint slides and shapes -------------------------------------------------------------
+
+  // A deck's slides to bring in: the slide picker when it has more than one (null if cancelled)
+  async chooseSlides(key, how) {
+    announce("Reading the slides…");
+    let deck;
+    try {
+      deck = await rpc("deck_slides", key);
+    } catch (err) {
+      panels.reportDialog("Couldn't read the slides", [String(err.message || err)]);
+      return null;
+    }
+    if (!deck.slides.length) {
+      panels.reportDialog("No slides", [`“${deck.name}” has no slides.`]);
+      return null;
+    }
+    if (deck.slides.length === 1) return [1];
+    return panels.slidePicker(deck, how);
+  },
+  // A deck dropped on the window: its chosen slides as new pages where it was dropped in the
+  // Pages list, else their objects onto the page where it was dropped
+  async addDeck(path, t) {
+    const where = t.list ? `as pages ${slideGap(t.pageAt)}` : "onto this page";
+    const numbers = await this.chooseSlides(path, { verb: "Add", where });
+    if (!numbers) return;
+    const got = await rpc("deck_pages", path, numbers);
+    this.addSlides(got, t.list ? { pageAt: t.pageAt } : { at: t.point }, "Add");
+    if (got.report.length) panels.reportDialog(`Added from ${got.name}`, got.report);
+  },
+  // Slides into the figure (deck_pages; or pasted or dropped, the same shape): as new pages at a
+  // place in the Pages list (to.pageAt), or their objects onto this page, at a point (to.at),
+  // else where they were on the slide; several slides' objects 12 pt apart. One undo step.
+  addSlides(got, to, verb) {
+    const n = got.pages.length, s = n === 1 ? "" : "s", done = verb === "Paste" ? "Pasted" : "Added";
+    if (!n) return announce("No slides to add");
+    if (to.pageAt !== undefined) {
+      const pages = got.pages.map((p) => reidPage(p));
+      store.update(`${verb} ${n} slide${s} as page${s}`, (doc) => {
+        Object.assign(doc.assets, got.assets);
+        doc.pages.splice(to.pageAt, 0, ...pages);
+      });
+      store.setPage(to.pageAt);
+      canvas.fit();
+      return announce(`${done} ${n} slide${s} as page${s} ${to.pageAt + 1}${n > 1 ? ` to ${to.pageAt + n}` : ""}`);
+    }
+    const items = [];
+    got.pages.forEach((p, k) => {
+      // What's on the slide (PowerPoint keeps things parked beside a slide too)
+      const mine = copyItems(p.items.filter((it) => {
+        const b = itemBBox(it);
+        return b[2] > 0 && b[3] > 0 && b[0] < p.width && b[1] < p.height;
+      }));
+      const b = itemsBBox(mine);
+      if (!b) return;
+      const [dx, dy] = to.at ? [to.at[0] - b[0] + 12 * k, to.at[1] - b[1] + 12 * k] : [12 * k, 12 * k];
+      if (dx || dy) for (const it of mine) shiftItem(it, clone(it), dx, dy);
+      items.push(...mine);
+    });
+    if (!items.length) return announce(`Nothing to ${verb.toLowerCase()}: the slide${s} ${n === 1 ? "is" : "are"} empty`);
+    store.update(`${verb} ${n === 1 ? "slide" : `${n} slides`} from PowerPoint`, (doc) => {
+      Object.assign(doc.assets, got.assets);
+      store.container(doc).push(...items);
+    }, { select: items.map((i) => i.id) });
+    announce(`${done} ${items.length} object${items.length === 1 ? "" : "s"} from ${n === 1 ? "a slide" : `${n} slides`}${pictureNote(got.report)}`);
+  },
+  // Shapes copied (or dragged) out of PowerPoint: where they were on the slide, else at a point
+  addShapes(r, at, verb) {
+    const items = copyItems(r.items), b = itemsBBox(items);
+    if (!items.length) return announce("Nothing to add: PowerPoint's shapes had nothing FigAssemble can draw");
+    if (at && b) for (const it of items) shiftItem(it, clone(it), at[0] - b[0], at[1] - b[1]);
+    store.update(`${verb} from PowerPoint`, (doc) => {
+      Object.assign(doc.assets, r.assets);
+      store.container(doc).push(...items);
+    }, { select: items.map((i) => i.id) });
+    announce(`${verb === "Paste" ? "Pasted" : "Added"} ${items.length} object${items.length === 1 ? "" : "s"} from PowerPoint${pictureNote(r.report)}`);
+  },
+  // Slides or shapes from PowerPoint, pasted or dropped with their contents (_office_paste)
+  fromPowerPoint(r, to, verb) {
+    if (r.kind === "slides") this.addSlides(r, to, verb);
+    else if (r.kind === "shapes") this.addShapes(r, to.at, verb);
+    else return;
+    const notes = r.report.filter((l) => l.includes("note:"));
+    if (notes.length) panels.reportDialog(`${verb === "Paste" ? "Pasted" : "Added"} from PowerPoint, with notes`, r.report);
+  },
+  // Slides dragged out of PowerPoint: found in the decks it has open, as last saved, and brought
+  // in from there (asking which deck when several have them)
+  async dropPowerPointSlides(refs, t) {
+    const { found } = await rpc("powerpoint_slides", refs, this.testDecks ?? null);
+    if (!found.length) {
+      return panels.reportDialog("Those slides weren't found", [
+        "FigAssemble reads slides dragged out of PowerPoint from their deck as it was last saved, and no deck PowerPoint "
+        + "has open has them saved yet.",
+        `Save the deck in PowerPoint and drag the slides again, or copy them (${MOD}C) and paste them here (${MOD}V).`]);
+    }
+    let pick = found[0];
+    if (found.length > 1) {
+      [pick] = (await panels.pickCards({
+        title: "Which deck are the slides from?",
+        hint: `${found.length} decks open in PowerPoint have slides like those. Choose the one you dragged from.`,
+        label: "Decks", one: true, verb: () => "Add slides",
+        cards: found.map((f) => ({ value: f, label: f.name, sub: `Slide ${f.numbers.join(", ")}`,
+          thumb: () => rpc("deck_thumbnail", f.path, f.numbers[0]) })),
+      })) || [];
+      if (!pick) return;
+    }
+    const got = await rpc("deck_pages", pick.path, pick.numbers);
+    this.addSlides(got, t.list ? { pageAt: t.pageAt } : { at: t.point }, "Add");
+    panels.reportDialog(`Added from ${pick.name}`, [`From ${pick.name} as last saved in PowerPoint: anything changed `
+      + "since then isn't included.", ...got.report]);
+  },
+  // A deck dropped in the browser (no path to it, only its bytes)
+  async addDeckUpload(file, t) {
+    const b64 = await new Promise((res) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(",")[1]);
+      r.readAsDataURL(file);
+    });
+    await this.addDeck(await rpc("deck_upload", file.name, b64), t);
+  },
+  // Where a dragged thing would go, shown while it's over the window (null: it's gone). kind:
+  // "files" (pictures), "deck" (a deck file), "slides" or "shapes" (out of PowerPoint): over the
+  // Pages list, the page they'd go on, or for slides the gap they'd go in as pages
+  showDropSpot(info) {
+    const list = panels.pageList;
+    list.querySelector(".slide-drop-line")?.remove();
+    for (const li of list.querySelectorAll(".drop-target")) li.classList.remove("drop-target");
+    const t = info && dropTarget(info.x, info.y);
+    document.body.classList.toggle("dropping", !!t && !t.list);
+    const hint = document.querySelector(".drop-hint");
+    if (hint) {
+      hint.textContent = info?.kind === "deck" || info?.kind === "slides" ? "Drop to put the slides' objects on this page"
+        : info?.kind === "shapes" ? "Drop to put the shapes on this page" : "Drop to place at true size";
+    }
+    if (!t?.list) return;
+    if (info.kind === "files" || info.kind === "shapes") {
+      list.querySelector(`li[data-index="${t.pageIndex ?? store.pageIndex}"]`)?.classList.add("drop-target");
+      return;
+    }
+    const rows = list.querySelectorAll("li[data-index]"), row = rows[t.pageAt];
+    const y = row ? row.offsetTop : rows.length ? rows[rows.length - 1].offsetTop + rows[rows.length - 1].offsetHeight : 0;
+    list.append(h("div", { class: "slide-drop-line", style: { top: `${y}px` }, "aria-hidden": "true" }));
+  },
+
   async replacePicture(paths) {
     const it = store.selected()[0];
     if (!it || it.type !== "picture") return;
@@ -1026,9 +1176,10 @@ const app = {
     await this.copying;
     try { return await rpc("clipboard_kinds", this.clipboardCount ?? null); } catch { return {}; }
   },
-  // Paste, and Paste as picture when a plain paste would take the text instead of the picture
+  // Paste, and Paste as picture when a plain paste would take the text (or PowerPoint's slides or
+  // shapes, as objects) instead of the picture
   pasteEntries(clip, at) {
-    const both = clip.text && clip.picture && !clip.files && !clip.objects && !clip.own;
+    const both = (clip.text || clip.slides || clip.shapes) && clip.picture && !clip.files && !clip.objects && !clip.own;
     return [this.menuEntry("paste", { run: () => this.paste("auto", at) }),
       both && { label: "Paste as picture", run: () => this.paste("picture", at) }];
   },
@@ -1224,7 +1375,7 @@ const app = {
   async paste(mode = "auto", at = null) {
     await this.copying;   // a copy just made is on the clipboard first
     let r;
-    try { r = await rpc("clipboard_paste", mode, this.clipboardCount ?? null); } catch { r = { kind: "unavailable" }; }
+    try { r = await rpc("clipboard_paste", mode, this.clipboardCount ?? null, store.path || null); } catch { r = { kind: "unavailable" }; }
     const centred = ([w, h]) => {
       if (at) return at;
       const sr = canvas.stage.getBoundingClientRect(), [cx, cy] = canvas.toPage(sr.width / 2, sr.height / 2);
@@ -1233,6 +1384,7 @@ const app = {
     const sizeOf = (asset) => (asset.page_sizes ? asset.page_sizes[0] : asset.size_pt);
     if (r.kind === "own" && this.clipboard) return this.pasteObjects(this.clipboard);
     if (r.kind === "objects") return this.pasteObjects(r.clip);
+    if (r.kind === "slides" || r.kind === "shapes") return this.fromPowerPoint(r, { at }, "Paste");
     if (r.kind === "files") {
       const first = r.results.find((x) => !x.error);
       return this.placeResults(r.results, first ? centred(sizeOf(first.asset)) : at, "linked");
@@ -1722,38 +1874,93 @@ function isField(el) {
 
 // Drag and drop ------------------------------------------------------------------------------
 
+const isDeck = (path) => /\.(pptx|pptm|potx)$/i.test(path || "");
+// Words for a gap in the Pages list, where slides would go in as pages
+function slideGap(at) {
+  const n = store.doc.pages.length;
+  return at >= n ? `after page ${n}` : `before page ${at + 1}`;
+}
+// What importing said about the pictures, for an announcement
+function pictureNote(report = []) {
+  const linked = report.filter((l) => l.startsWith("relinked ")).length, kept = report.filter((l) => l.startsWith("kept the deck's copy")).length;
+  const parts = [linked && `${linked} picture${linked === 1 ? "" : "s"} linked to the original file${linked === 1 ? "" : "s"}`,
+    kept && `${kept} picture${kept === 1 ? "" : "s"} kept as PowerPoint's cop${kept === 1 ? "y" : "ies"} (no original found)`].filter(Boolean);
+  return parts.length ? `; ${parts.join(", ")}` : "";
+}
+// Where a drop lands: the Pages panel ({list, pageIndex: the page under the pointer, pageAt: the
+// gap nearest it}) or the page ({point, over: what's there})
 function dropTarget(clientX, clientY) {
   const el = document.elementFromPoint(clientX, clientY);
-  const pageLi = el?.closest?.(".page-list li[data-index]");
-  if (pageLi) {
-    store.setPage(Number(pageLi.dataset.index));
-    const p = store.page();
-    return { point: [p.width * 0.1, p.height * 0.1] };
+  if (el?.closest?.("#pages")) {
+    const rows = [...panels.pageList.querySelectorAll("li[data-index]")], li = el.closest("li[data-index]");
+    const k = rows.findIndex((row) => { const r = row.getBoundingClientRect(); return clientY < r.top + r.height / 2; });
+    return { list: true, pageIndex: li ? Number(li.dataset.index) : null, pageAt: k < 0 ? rows.length : k };
   }
   const r = canvas.stage.getBoundingClientRect();
   const pt = canvas.toPage(clientX - r.left, clientY - r.top);
   return { point: pt, over: canvas.itemAt(pt) };
 }
-// Native window: full file paths arrive from Python so the figures can stay linked
+// Pictures dropped: at the point on the page, or on the page dropped on in the Pages list
+function placeAt(t) {
+  if (!t.list) return t.point;
+  if (t.pageIndex !== null) store.setPage(t.pageIndex);
+  return [store.page().width * 0.1, store.page().height * 0.1];
+}
 window.FA = {
-  async onNativeDrop({ paths, x, y, embed, shift }) {
+  // Native window: full file paths arrive from Python so the figures can stay linked; on a Mac,
+  // slides dragged out of PowerPoint (pptSlides: references) or shapes with their contents
+  // (dropped: a token for take_dropped) arrive too (macdrag.py)
+  async onNativeDrop({ paths = [], x, y, embed, shift, pptSlides, dropped }) {
+    app.nativeDrag = false;
+    app.showDropSpot(null);
     const t = dropTarget(x, y);
-    if (shift && t.over?.type === "picture" && paths.length === 1) {
-      store.select([t.over.id]);
-      return app.replacePicture(paths);
+    if (pptSlides) return app.dropPowerPointSlides(pptSlides, t);
+    if (dropped) {
+      const r = await rpc("take_dropped", dropped, store.path || null);
+      return app.fromPowerPoint(r, t.list ? (r.kind === "slides" ? { pageAt: t.pageAt } : { at: placeAt(t) }) : { at: t.point }, "Add");
     }
-    await app.placeFiles(paths, t.point, embed);
+    const decks = paths.filter(isDeck), files = paths.filter((p) => !isDeck(p));
+    if (shift && t.over?.type === "picture" && files.length === 1) {
+      store.select([t.over.id]);
+      await app.replacePicture(files);
+    } else if (files.length) await app.placeFiles(files, placeAt(t), embed);
+    for (const deck of decks) await app.addDeck(deck, t);
+  },
+  // A drag over the native window that the page can't see into (macdrag.py): where it'd go
+  onNativeDrag(info) {
+    app.nativeDrag = !!info;
+    app.showDropSpot(info);
   },
 };
-// Browser: files arrive as data (stored in the document, without links)
-document.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); document.body.classList.add("dropping"); } });
-document.addEventListener("dragleave", (e) => { if (!e.relatedTarget) document.body.classList.remove("dropping"); });
+// Browser: files arrive as data (stored in the document, without links). Slides dragged out of
+// PowerPoint arrive as its web data ("ppt/slides", if a Chromium web view is handed it)
+document.addEventListener("dragover", (e) => {
+  const types = e.dataTransfer.types;
+  if (!types.includes("Files") && !types.includes("ppt/slides")) return;
+  e.preventDefault();
+  if (app.nativeDrag) return;   // shown from the native window's own view of the drag
+  const deck = [...e.dataTransfer.items].some((i) => i.type.includes("presentationml"));
+  app.showDropSpot({ kind: types.includes("ppt/slides") ? "slides" : deck ? "deck" : "files", x: e.clientX, y: e.clientY });
+});
+document.addEventListener("dragleave", (e) => { if (!e.relatedTarget && !app.nativeDrag) app.showDropSpot(null); });
 document.addEventListener("drop", (e) => {
-  document.body.classList.remove("dropping");
+  app.showDropSpot(null);
+  const t = dropTarget(e.clientX, e.clientY);
+  if (e.dataTransfer.types.includes("ppt/slides")) {
+    e.preventDefault();
+    let pkg = null;
+    try { pkg = JSON.parse(e.dataTransfer.getData("ppt/slides")); } catch { /* not PowerPoint's */ }
+    if (pkg?.data && pkg.isDataCompressed !== "True") {
+      rpc("dropped_package", "slides", pkg.data, store.path || null)
+        .then((r) => app.fromPowerPoint(r, t.list ? { pageAt: t.pageAt } : { at: t.point }, "Add"));
+    }
+    return;
+  }
   if (!e.dataTransfer.files.length || app.info.native) return;
   e.preventDefault();
-  const t = dropTarget(e.clientX, e.clientY);
-  app.placeUploads([...e.dataTransfer.files], t.point);
+  const files = [...e.dataTransfer.files], decks = files.filter((f) => isDeck(f.name));
+  if (files.length > decks.length) app.placeUploads(files.filter((f) => !isDeck(f.name)), placeAt(t));
+  (async () => { for (const f of decks) await app.addDeckUpload(f, t); })();
 });
 // Edit ▸ Copy, Cut and Paste in the menu bar (the keys are handled above) do what the editor's
 // own commands do, outside text fields

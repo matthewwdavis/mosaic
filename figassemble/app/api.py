@@ -3,6 +3,8 @@ apart from the asset cache, preferences and the native window (dialogs)."""
 from __future__ import annotations
 
 import base64
+import hashlib
+import io
 import json
 import os
 import platform
@@ -16,7 +18,10 @@ from .. import __version__, connect, docfile, model, presets, themes
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
 from ..fonts import config_dir, get_font_index
 from ..resolve import Resolver
-from . import clipboard
+from . import clipboard, powerpoint
+
+DECK_EXTENSIONS = (".pptx", ".pptm", ".potx")
+DECKS_KEPT = 4   # decks kept imported for the slide picker (the slides chosen then come from them)
 
 PREFS_DEFAULTS = {
     # Positions and sizes of objects in centimetres, page sizes in millimetres; font sizes and
@@ -76,6 +81,11 @@ class Api:
     def __init__(self):
         self.window = None          # set by the app window; None in browser mode
         self._lock = threading.Lock()
+        self._decks: dict[str, dict] = {}     # imported decks, by path or by the key of copied slides
+        self._deck_lock = threading.Lock()
+        self._thumb_lock = threading.Lock()
+        self._index: tuple | None = None      # (folders, when, figure files in them) to relink pictures to
+        self._dropped: dict[str, dict] = {}   # slides or shapes dragged in from PowerPoint, until taken
 
     # Utilities ------------------------------------------------------------------------
 
@@ -139,16 +149,164 @@ class Api:
     def new_document(self) -> dict:
         return model.new_document()
 
-    def open_document(self, path: str) -> dict:
+    def open_document(self, path: str, slides: list[int] | None = None) -> dict:
+        """A document, or a PowerPoint deck's slides (the numbers chosen; default all) as a new
+        unsaved one."""
         path = os.path.abspath(os.path.expanduser(path))
-        if path.lower().endswith((".pptx", ".potx")):
-            from ..importers.pptx import import_pptx
-            doc, report = import_pptx(path)
-            return {"doc": doc, "path": None, "report": report,
+        if path.lower().endswith(DECK_EXTENSIONS):
+            got = self.deck_pages(path, slides or list(range(1, len(self._deck(path)["importer"].slides) + 1)))
+            doc = model.new_document(got["name"])
+            doc["pages"], doc["assets"] = got["pages"], got["assets"]
+            doc["meta"]["imported_from"] = path
+            return {"doc": doc, "path": None, "report": got["report"],
                     "suggested": os.path.splitext(path)[0] + docfile.EXTENSION}
         doc = docfile.load(path)
         self._remember(path)
         return {"doc": doc, "path": path, "report": []}
+
+    # PowerPoint slides: decks opened or dropped (through the slide picker), slides and shapes
+    # copied or dragged out of PowerPoint ---------------------------------------------------------
+
+    def _keep_deck(self, key: str, entry: dict) -> None:
+        self._decks.pop(key, None)
+        self._decks[key] = entry
+        while len(self._decks) > DECKS_KEPT:
+            self._decks.pop(next(iter(self._decks)))
+
+    def _deck(self, key: str) -> dict:
+        """A deck imported whole: `key` is its path (imported again once the file changes), or
+        the key of copied, dragged or uploaded slides (_deck_bytes)."""
+        with self._deck_lock:
+            d = self._decks.get(key)
+            if d and d["path"]:
+                st = os.stat(d["path"])
+                if (st.st_mtime, st.st_size) != d["stamp"]:
+                    d = None
+            if d is None:
+                if not os.path.isfile(key):
+                    raise FileNotFoundError(f"{key} isn't there any more")
+                from ..importers.pptx import DeckImporter
+                st = os.stat(key)
+                imp = DeckImporter(key, None, True, None)
+                imp.run(None)
+                d = {"key": key, "path": key, "stamp": (st.st_mtime, st.st_size), "importer": imp,
+                     "name": os.path.splitext(os.path.basename(key))[0], "thumbs": {}}
+                self._keep_deck(key, d)
+            return d
+
+    def _deck_bytes(self, data: bytes, name: str, dirs: list[str]) -> str:
+        """Slides as bytes (copied, dragged in, or a deck dropped in the browser), imported whole;
+        their key. Pictures are relinked to figure files in `dirs`."""
+        key = "copied:" + hashlib.sha256(data).hexdigest()[:20]
+        with self._deck_lock:
+            if key not in self._decks:
+                from ..importers.pptx import DeckImporter
+                imp = DeckImporter(data, None, True, None, name=name, index=self._relink_index(dirs))
+                imp.run(None)
+                self._keep_deck(key, {"key": key, "path": None, "importer": imp, "name": name, "thumbs": {}})
+        return key
+
+    def _relink_index(self, dirs: list[str]):
+        """The figure files in some folders, to relink pictures to; kept a minute for the next
+        paste (with the files' hashes worked out meanwhile)."""
+        from ..importers.relink import CandidateIndex
+        if self._index and self._index[0] == tuple(dirs) and time.time() - self._index[1] < 60:
+            return self._index[2]
+        index = CandidateIndex(list(dirs))
+        self._index = (tuple(dirs), time.time(), index)
+        return index
+
+    def _paste_dirs(self, source: str | None, doc_path: str | None) -> list[str]:
+        """Where the original figure files of pictures from PowerPoint may be: near the deck they
+        came from; for copied slides, which don't say, near each deck PowerPoint has open; and
+        near the figure being worked on."""
+        from ..importers.relink import default_search_dirs
+        decks = [source] if source and os.path.isfile(source) else powerpoint.open_decks()
+        dirs = [d for deck in decks for d in default_search_dirs(deck)]
+        if doc_path:
+            dirs += default_search_dirs(doc_path)
+        return [d for d in dict.fromkeys(dirs) if os.path.isdir(d)]
+
+    def deck_slides(self, key: str) -> dict:
+        """A deck's slides for the slide picker: {"key", "name", "width", "height", "slides":
+        [{"n", "title", "hidden"}]}. Imported whole now, so the pictures of the slides and the
+        slides chosen come quickly."""
+        if not key.startswith("copied:"):
+            key = os.path.abspath(os.path.expanduser(key))
+        d = self._deck(key)
+        imp = d["importer"]
+        return {"key": key, "name": d["name"], "width": imp.width, "height": imp.height, "slides": imp.slide_info()}
+
+    def deck_thumbnail(self, key: str, n: int, width_px: int = 320) -> str:
+        """Slide n drawn small, as a PNG data URL."""
+        d = self._deck(key)
+        if n not in d["thumbs"]:
+            from ..export.run import page_thumbnail
+            with self._thumb_lock:
+                im = page_thumbnail(d["importer"].doc, int(n) - 1, int(width_px), fonts=get_font_index())
+            buf = io.BytesIO()
+            im.save(buf, "PNG", optimize=True)
+            d["thumbs"][n] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        return d["thumbs"][n]
+
+    def deck_pages(self, key: str, numbers: list[int]) -> dict:
+        """Slides as pages (copies), with the pictures they use and what importing them found:
+        {"name", "pages", "assets", "report"}."""
+        if not key.startswith("copied:"):
+            key = os.path.abspath(os.path.expanduser(key))
+        d = self._deck(key)
+        imp = d["importer"]
+        numbers = [int(n) for n in numbers if 1 <= int(n) <= len(imp.slides)]
+        pages = json.loads(json.dumps([imp.doc["pages"][n - 1] for n in numbers]))
+        used: set[str] = set()
+
+        def walk(o):
+            if isinstance(o, dict):
+                if isinstance(o.get("asset"), str):
+                    used.add(o["asset"])
+                for v in o.values():
+                    walk(v)
+            elif isinstance(o, list):
+                for v in o:
+                    walk(v)
+
+        walk(pages)
+        assets = json.loads(json.dumps({aid: a for aid, a in imp.doc["assets"].items() if aid in used}))
+        return {"name": d["name"], "pages": pages, "assets": assets, "report": imp.report_for(numbers)}
+
+    def deck_upload(self, name: str, data_b64: str) -> str:
+        """A deck dropped in the browser (its bytes, with no path to it): its key for the picker."""
+        return self._deck_bytes(base64.b64decode(data_b64), os.path.splitext(os.path.basename(name))[0], [])
+
+    def _office_paste(self, kind: str, got: dict, doc_path: str | None) -> dict:
+        """Slides or shapes from PowerPoint, as Paste puts them on the page: {"kind": "slides",
+        "key", "name", "pages", "assets", "report"} or {"kind": "shapes", "items", "assets", "report"}."""
+        dirs = self._paste_dirs(got.get("source"), doc_path)
+        if kind == "slides":
+            key = self._deck_bytes(got["data"], "Copied slides", dirs)
+            return {"kind": kind, "key": key, **self.deck_pages(key, list(range(1, len(self._decks[key]["importer"].slides) + 1)))}
+        from ..importers.gvml import import_shapes
+        items, assets, report = import_shapes(got["data"], index=self._relink_index(dirs))
+        return {"kind": kind, "items": items, "assets": assets, "report": report}
+
+    def powerpoint_slides(self, refs: list[dict], decks: list[str] | None = None) -> dict:
+        """Slides dragged out of PowerPoint (their references): the decks PowerPoint has open
+        that have them, as last saved: {"found": [{"path", "name", "numbers"}]}. `decks`: the
+        ones to look in instead (the editor self-test's)."""
+        found = powerpoint.find_slides(refs, decks)
+        for f in found:
+            f["name"] = os.path.basename(f["path"])
+        return {"found": found}
+
+    def take_dropped(self, token: str, doc_path: str | None = None) -> dict:
+        """Slides or shapes dragged in from PowerPoint with their contents, as a paste of them."""
+        got = self._dropped.pop(token, None)
+        return self._office_paste(got["kind"], got, doc_path) if got else {"kind": "none"}
+
+    def dropped_package(self, kind: str, data_b64: str, doc_path: str | None = None) -> dict:
+        """Slides dropped on the page with their contents as PowerPoint's web data (what a
+        Chromium web view is handed, if PowerPoint for Windows offers it), as a paste of them."""
+        return self._office_paste(kind, {"data": base64.b64decode(data_b64), "source": None}, doc_path)
 
     def save_document(self, doc: dict, path: str) -> dict:
         path = os.path.abspath(os.path.expanduser(path))
@@ -234,13 +392,17 @@ class Api:
     def clipboard_kinds(self, own_count: int | None = None) -> dict:
         return clipboard.kinds(clipboard.backend(), own_count)
 
-    def clipboard_paste(self, mode: str = "auto", own_count: int | None = None) -> dict:
+    def clipboard_paste(self, mode: str = "auto", own_count: int | None = None, doc_path: str | None = None) -> dict:
         """What Paste puts on the page: {"kind": "own"} (the editor's own copy), "objects"
-        (FigAssemble objects from another document), "files" (placed linked), "picture" (stored
-        in the document), "text" (paragraphs), "none" or "unavailable"."""
+        (FigAssemble objects from another document), "files" (placed linked), "slides" or
+        "shapes" (copied in PowerPoint, see _office_paste), "picture" (stored in the document),
+        "text" (paragraphs), "none" or "unavailable". `doc_path`: the figure's file, near which
+        pictures from PowerPoint may find their originals."""
         kind, data = clipboard.plan(clipboard.backend(), mode, own_count)
         if kind == "objects":
             return {"kind": kind, "clip": json.loads(data)}
+        if kind in ("slides", "shapes"):
+            return self._office_paste(kind, data, doc_path)
         if kind == "files":
             return {"kind": kind, "results": self.add_files(data)}
         if kind == "picture":
@@ -257,6 +419,14 @@ class Api:
         if not isinstance(cb, clipboard.FakeClipboard):
             raise PermissionError("only the test clipboard can be set")
         return cb.put(contents)
+
+    def selftest_read(self, path: str) -> str:
+        """A test file's bytes as base64, for the editor self-test to drop as data (only while
+        testing, with FIGASSEMBLE_FAKE_CLIPBOARD)."""
+        if not isinstance(clipboard.backend(), clipboard.FakeClipboard):
+            raise PermissionError("only while testing")
+        with open(path, "rb") as fh:
+            return base64.b64encode(fh.read()).decode("ascii")
 
     def refresh_assets(self, assets: dict, doc_path: str | None = None) -> dict:
         """Re-read linked files that changed on disk; returns the updated asset records."""
@@ -422,7 +592,7 @@ class Api:
             return None
         import webview
         types = {
-            "document": ("FigAssemble or PowerPoint (*.figasm;*.pptx)", "All files (*.*)"),
+            "document": ("FigAssemble or PowerPoint (*.figasm;*.pptx;*.pptm;*.potx)", "All files (*.*)"),
             "figures": ("Figures (*.pdf;*.svg;*.png;*.jpg;*.jpeg;*.tif;*.tiff)", "All files (*.*)"),
             "icc": ("ICC profiles (*.icc;*.icm)", "All files (*.*)"),
         }[kind]

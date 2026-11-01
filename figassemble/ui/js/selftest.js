@@ -227,9 +227,202 @@ async function objectsListChecks(app) {
   await settle();
 }
 
+// PowerPoint slides into a figure: Open goes through the slide picker (pictures of the slides,
+// one or several chosen by click, Shift-, ⌘-click, double-click or keys); a deck dropped on the
+// page puts the chosen slides' objects there, dropped in the Pages list makes them pages in the
+// gap, with a line showing where meanwhile; slides and shapes copied in PowerPoint paste as
+// objects where they were on the slide (or as a picture); slides dragged out of PowerPoint come
+// from their deck as saved, asking which deck when several have them. `ppt`: a deck (and
+// another), PowerPoint's copied slide (.slides) and shapes (.gvml).
+async function slidesChecks(app, ppt) {
+  const [deck, other = deck] = ppt.filter((f) => f.endsWith(".pptx"));
+  const slidesFile = ppt.find((f) => f.endsWith(".slides")), rectFile = ppt.find((f) => f.endsWith("_rect.gvml"));
+  if (!deck || !slidesFile || !rectFile) return log(false, "PowerPoint test files given", ppt.join(", "));
+  const shown = () => document.querySelector("dialog.picker-dialog[open]");
+  const picker = async () => { await until(shown, 8000); return shown(); };
+  const cards = (dlg) => [...dlg.querySelectorAll(".slide-grid li")];
+  const go = (dlg) => dlg.querySelector(".dialog-actions .btn.primary");
+  const click = (el, o = {}) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...o }));
+  const gridKey = (dlg, k, o = {}) => dlg.querySelector(".slide-grid").dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...o }));
+  const closeAll = () => { for (const d of document.querySelectorAll("dialog[open]")) d.close(); };
+  const names = () => store.doc.pages.map((p) => p.name).join(", ");
+  const mod = /Mac/.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
+
+  // Open: the picker, with a picture, title and Hidden for each slide; nothing chosen yet
+  let opening = app.open(deck);
+  let dlg = await picker();
+  check(dlg && cards(dlg).length === 4 && cards(dlg).map((li) => li.querySelector(".slide-label").firstChild.textContent).join() === "Slide 1,Slide 2,Slide 3,Slide 4"
+    && cards(dlg)[0].querySelector(".slide-sub")?.textContent === "Example figures" && cards(dlg)[3].querySelector(".slide-badge")?.textContent === "Hidden"
+    && go(dlg).disabled && go(dlg).textContent === "Open", "Open shows a deck's slides to choose from, titled, with hidden ones marked",
+  dlg ? `${cards(dlg).map((li) => li.textContent).join(" | ")}; button ${go(dlg).textContent} ${go(dlg).disabled}` : "no picker");
+  if (!dlg) return;
+  await until(() => cards(dlg).every((li) => li.classList.contains("drawn")), 15000);
+  check(cards(dlg).every((li) => li.querySelector("img").naturalWidth === 320 && li.querySelector("img").naturalHeight === 180),
+    "and draws each slide small", cards(dlg).map((li) => `${li.className} ${li.querySelector("img").naturalWidth}`).join("; "));
+  click(cards(dlg)[1]);
+  click(cards(dlg)[3], { shiftKey: true });
+  const ranged = go(dlg).textContent;
+  click(cards(dlg)[2], mod);
+  check(ranged === "Open 3 slides" && go(dlg).textContent === "Open 2 slides"
+    && cards(dlg).map((li) => li.getAttribute("aria-selected")).join() === "false,true,false,true",
+  `Shift-click chooses a run of slides, ${mod.metaKey ? "⌘" : "Ctrl"}-click one more or one fewer`, `${ranged}; ${go(dlg).textContent}`);
+  click(dlg.querySelector(".dialog-actions .btn:not(.primary)"));   // All slides
+  const allWords = go(dlg).textContent;
+  click(cards(dlg)[1]);
+  click(cards(dlg)[3], mod);
+  click(go(dlg));
+  await opening;
+  await settle();
+  const report = [...document.querySelectorAll("dialog[open]")].pop();
+  const pic = store.doc.pages[0]?.items.find((it) => it.type === "picture");
+  const picSrc = pic && Object.values(store.doc.assets[pic.asset].variants).find((v) => v.src)?.src;
+  check(allWords === "Open all 4 slides" && names() === "Slide 2, Slide 4" && !store.path && /example_scatter\.(png|pdf|svg)$/.test(picSrc || "")
+    && report?.querySelector("h2")?.textContent === "Imported from PowerPoint",
+  "only the slides chosen open, their pictures linked to the original files, with the import report",
+  `${allWords}; pages ${names()}; picture ${picSrc}; ${report?.querySelector("h2")?.textContent}`);
+  closeAll();
+
+  // Double-click takes one slide straight away; the keys work too; Cancel leaves the figure be
+  opening = app.open(deck);
+  dlg = await picker();
+  cards(dlg)[2].dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  await opening;
+  closeAll();
+  const oneByDouble = names();
+  opening = app.open(deck);
+  dlg = await picker();
+  gridKey(dlg, "ArrowRight");
+  gridKey(dlg, "ArrowRight", { shiftKey: true });
+  gridKey(dlg, "Enter");
+  await opening;
+  closeAll();
+  const byKeys = names();
+  opening = app.open(deck);
+  dlg = await picker();
+  click(dlg.querySelector("button[value=close]"));   // Cancel
+  await opening;
+  check(oneByDouble === "Slide 3" && byKeys === "Slide 2, Slide 3" && names() === byKeys,
+    "double-click opens one slide, the arrow keys and Shift choose, Enter opens; cancelling opens nothing",
+    `${oneByDouble}; ${byKeys}; after cancel ${names()}`);
+
+  // A deck dropped on the page: its slides' objects go there, at the drop point (one undo step)
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const [px, py] = screenOf(100, 150);
+  window.FA.onNativeDrag({ kind: "deck", x: px, y: py });
+  const overPage = document.body.classList.contains("dropping") && document.querySelector(".drop-hint").textContent.includes("slides");
+  window.FA.onNativeDrag(null);
+  let dropping = window.FA.onNativeDrop({ paths: [deck], x: px, y: py });
+  dlg = await picker();
+  const hint = dlg?.querySelector(".hint")?.textContent || "";
+  click(cards(dlg)[2]);
+  click(go(dlg));
+  await dropping;
+  closeAll();
+  await settle();
+  const dropped = itemsBBox(store.items());
+  check(overPage && hint.includes("onto this page") && store.items().length === 3 && near(dropped[0], 100, 0.5) && near(dropped[1], 150, 0.5)
+    && store.selection.length === 3, "a deck dropped on the page puts the chosen slide's objects at the drop point, selected",
+  `hint ${overPage} "${hint}"; ${store.items().map((it) => it.type).join(",")} at ${dropped?.map((v) => v.toFixed(1))}`);
+  store.undo();
+  check(store.items().length === 0, "and one undo takes them away", `${store.items().length}`);
+
+  // In the Pages list: a line shows the gap, and the slides go in there as pages
+  app.addPage();
+  store.setPage(0);
+  await settle();
+  const rows = () => [...document.querySelectorAll(".page-list li[data-index]")];
+  const r2 = rows()[1].getBoundingClientRect(), [lx, ly] = [r2.left + 20, r2.top + 4];
+  window.FA.onNativeDrag({ kind: "deck", x: lx, y: ly });
+  const line = document.querySelector(".page-list .slide-drop-line");
+  const lineAt = line && Math.abs(parseFloat(line.style.top) - rows()[1].offsetTop) < 1 && !document.body.classList.contains("dropping");
+  window.FA.onNativeDrag(null);
+  const cleared = !document.querySelector(".slide-drop-line");
+  dropping = window.FA.onNativeDrop({ paths: [deck], x: lx, y: ly });
+  dlg = await picker();
+  const listHint = dlg?.querySelector(".hint")?.textContent || "";
+  click(cards(dlg)[1]);
+  click(cards(dlg)[2], { shiftKey: true });
+  click(go(dlg));
+  await dropping;
+  closeAll();
+  check(lineAt && cleared && listHint.includes("as pages before page 2") && names() === "Page 1, Slide 2, Slide 3, Page 2"
+    && store.pageIndex === 1 && store.page().items.length === 6,
+  "dropped in the Pages list, the slides go in as pages where the line showed", `line ${lineAt} ${cleared}; "${listHint}"; ${names()} at ${store.pageIndex}`);
+  store.undo();
+  check(names() === "Page 1, Page 2", "and one undo takes them out", names());
+
+  // Pasting slides and shapes copied in PowerPoint: objects where they were on the slide
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await rpc("clipboard_fake", { slides: slidesFile, png: { size: [40, 20], dpi: 144 } });
+  await app.paste();
+  await settle();
+  const pastedPic = store.items().find((it) => it.type === "picture");
+  check(store.items().map((it) => it.type).join() === "picture,shape,shape,line,shape,group" && near(pastedPic.frame[0], 60) && near(pastedPic.frame[1], 80)
+    && !document.querySelector("dialog[open]"), "a slide copied in PowerPoint pastes as its objects, where they were on the slide",
+  `${store.items().map((it) => it.type).join()}; picture at ${pastedPic?.frame}`);
+  const entries = app.pasteEntries(await app.clipboardKinds(), null).filter(Boolean).map((e) => e.label);
+  await app.paste("picture");
+  check(entries.includes("Paste as picture") && store.items().at(-1).type === "picture" && store.items().length === 7,
+    "or as a picture of it", `${entries.join(", ")}; ${store.items().length}`);
+  await rpc("clipboard_fake", { shapes: rectFile });
+  await app.paste();
+  const rect = store.items().at(-1);
+  await app.paste("auto", [20, 30]);
+  const atPoint = store.items().at(-1);
+  check(rect?.geom === "roundRect" && near(rect.frame[0], 260) && near(rect.frame[1], 90) && rect.text?.paragraphs[0].runs[0].t === "Treated"
+    && near(atPoint.frame[0], 20) && near(atPoint.frame[1], 30),
+  "shapes copied in PowerPoint paste as editable shapes, where they were or where right-clicked", `${rect?.geom} ${rect?.frame}; ${atPoint?.frame}`);
+
+  // Slides dragged out of PowerPoint: from the deck as saved; asking which deck when two have them
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  app.testDecks = [deck];
+  await window.FA.onNativeDrop({ pptSlides: [{ doc: "x", slide: 258 }], x: px, y: py });
+  const savedNote = [...document.querySelectorAll("dialog[open] li")].map((li) => li.textContent).join(" ");
+  closeAll();
+  const fromSaved = store.items().length;
+  app.testDecks = [deck, other];
+  dropping = window.FA.onNativeDrop({ pptSlides: [{ doc: "x", slide: 257 }], x: px, y: py });
+  dlg = await picker();
+  const question = dlg?.querySelector("h2")?.textContent;
+  click(cards(dlg)[1]);
+  click(go(dlg));
+  await dropping;
+  closeAll();
+  app.testDecks = [];
+  await window.FA.onNativeDrop({ pptSlides: [{ doc: "x", slide: 257 }], x: px, y: py });
+  const notFound = [...document.querySelectorAll("dialog[open] h2")].map((h2) => h2.textContent).join();
+  closeAll();
+  delete app.testDecks;
+  check(fromSaved === 3 && savedNote.includes("as last saved") && question === "Which deck are the slides from?" && store.items().length === 9
+    && notFound === "Those slides weren't found", "slides dragged out of PowerPoint come from their saved deck, asking which deck if two have them",
+  `${fromSaved} "${savedNote.slice(0, 80)}"; ${question}; ${store.items().length}; ${notFound}`);
+
+  // PowerPoint's web data for dragged slides (what a Chromium web view may be handed) comes in too
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const web = new DataTransfer(), [wx, wy] = [Math.round(px), Math.round(py)];   // (events have whole pixels)
+  web.setData("ppt/slides", JSON.stringify({ isDataCompressed: "False", data: await rpc("selftest_read", slidesFile) }));
+  document.dispatchEvent(new DragEvent("drop", { dataTransfer: web, clientX: wx, clientY: wy, bubbles: true, cancelable: true }));
+  await until(() => store.items().length === 6, 4000);
+  // (the slide's top-left object is a text box at 40, 60, so its picture at 60, 80 lands 20, 20 on)
+  const sr = canvas.stage.getBoundingClientRect(), [ex, ey] = canvas.toPage(wx - sr.left, wy - sr.top);
+  const webPic = store.items().find((it) => it.type === "picture");
+  check(store.items().length === 6 && near(webPic.frame[0], ex + 20) && near(webPic.frame[1], ey + 20),
+    "slides dropped as PowerPoint's web data come in at the drop point", `${store.items().length}; picture at ${webPic?.frame}; drop ${ex}, ${ey}`);
+  closeAll();
+}
+
 export async function run(app, params) {
   let keepAids = false;
-  const files = (params.get("files") || "").split(",").filter(Boolean);
+  const given = (params.get("files") || "").split(",").filter(Boolean);
+  const isPpt = (f) => /\.(pptx|slides|gvml)$/i.test(f);
+  const files = given.filter((f) => !isPpt(f)), ppt = given.filter(isPpt);   // pictures; PowerPoint's files
   const out = params.get("out");
   app.autoConfirm = true;
   for (const dlg of document.querySelectorAll("dialog[open]")) dlg.close();   // e.g. a recovery offer
@@ -241,6 +434,7 @@ export async function run(app, params) {
     await settle();
     check(store.items().length === 0, "new document is empty");
     if (params.get("only") === "objects") { await objectsListChecks(app); throw ONLY; }   // just that part, while working on it
+    if (params.get("only") === "slides") { await slidesChecks(app, ppt); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -1413,6 +1607,21 @@ export async function run(app, params) {
     check(store.items().some((it) => it.id === "mkOval") && !store.items().some((it) => it.id === clipGroup.id)
       && canvas.els.get("mkOval")?.g.style.display !== "none", "Release separates the shape and what it clipped", store.selection.join());
     await objectsListChecks(app);
+    // (on documents of their own: this one comes back as it was, with its own recovery copies, and
+    // theirs go, so the recovery offer later lists only its own test copies)
+    const keepDoc = JSON.parse(JSON.stringify(store.doc)), keepPage = store.pageIndex, keepKey = store.autosaveKey;
+    const keepDirty = store.dirty, copiesBefore = new Set((await rpc("autosaved", keepKey)).map((s) => s.path));
+    const slidesFrom = performance.now();
+    await slidesChecks(app, ppt);
+    info.slidesMs = Math.round(performance.now() - slidesFrom);
+    store.setDoc(keepDoc);
+    store.autosaveKey = keepKey;
+    store.dirty = keepDirty;
+    const strays = (await rpc("autosaved", keepKey)).filter((s) => !copiesBefore.has(s.path));
+    if (strays.length) await rpc("delete_autosaves", strays.map((s) => s.path), keepKey);
+    store.setPage(keepPage);
+    canvas.fit();
+    await settle();
     // Pathfinder: Unite joins overlapping shapes into one freeform shape, in the top one's place
     store.update("Shapes to combine", (doc) => doc.pages[store.pageIndex].items.push(maskPart("pfA", "rect", [60, 560, 60, 40]),
       maskPart("pfB", "ellipse", [90, 570, 60, 40])));
@@ -2172,7 +2381,8 @@ export async function run(app, params) {
     if (err !== ONLY) log(false, "self-test crashed", `${err.message} ${err.stack}`);
   }
   const failed = results.filter((r) => !r.ok).length;
-  console.log(`SELFTEST DONE ${results.length - failed}/${results.length} passed`);
+  info.ms = Math.round(performance.now());   // (virtual time in headless Chrome, which has a budget)
+  console.log(`SELFTEST DONE ${results.length - failed}/${results.length} passed in ${info.ms} ms (PowerPoint slides ${info.slidesMs} ms)`);
   window.__selftest = { results, failed, info };
   document.body.dataset.selftest = failed ? "fail" : "pass";
 }

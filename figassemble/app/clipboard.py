@@ -1,6 +1,10 @@
-"""The system clipboard, for Paste: files copied in the Finder or Explorer, pictures (vector PDF
-or SVG where the copying app offers one, else a bitmap), and text with its bold, italic and line
-breaks.
+"""The system clipboard, for Paste: files copied in the Finder or Explorer, slides and shapes
+copied in PowerPoint (as editable objects), pictures (vector PDF or SVG where the copying app
+offers one, else a bitmap), and text with its bold, italic and line breaks.
+
+PowerPoint puts copied slides on the clipboard as a small deck ("PowerPoint 14.0 Slides
+Package") and copied shapes as a DrawingML package ("Art::GVML ClipFormat"), with an OLE object
+descriptor naming the deck they came from; on a Mac the same names, as com.microsoft.* types.
 
 Read here, on FigAssemble's own side, rather than through the web view: a web page can't see
 copied files or PDF data, and WebKit asks before handing over anything another app copied.
@@ -24,6 +28,7 @@ from html.parser import HTMLParser
 
 PREFIX = "figassemble:"
 PICTURE_KINDS = ("pdf", "svg", "png", "tiff", "jpeg")
+OFFICE_KINDS = ("slides", "shapes", "objdesc")   # PowerPoint's copied slides and shapes, and where they came from
 
 
 # Text: paragraphs of runs ({"t", "bold", "italic"}); a line break inside a paragraph is a run
@@ -167,6 +172,20 @@ def cf_html_fragment(data: bytes) -> str:
     return data[start:end].decode("utf-8", "replace")
 
 
+def source_of_copy(data: bytes | None) -> str | None:
+    """The file an Office copy came from, from its OLE object descriptor (the struct's
+    dwSrcOfCopy: an offset to "path!slide number" in UTF-16), or None."""
+    import struct
+    if not data or len(data) < 52:
+        return None
+    off = struct.unpack_from("<I", data, 48)[0]
+    if not 52 <= off < len(data):
+        return None
+    text = data[off:].decode("utf-16-le", "replace").split("\x00", 1)[0]
+    m = re.fullmatch(r"(.+?)(![^\\/!]*)?", text)
+    return m.group(1) if m and m.group(1) else None
+
+
 # Backends: each says what's on the clipboard (available), hands over one kind (get), and
 # counts changes (count) ------------------------------------------------------------------------
 
@@ -187,8 +206,8 @@ class FakeClipboard:
         return self.data.get(kind)
 
     def put(self, contents: dict) -> int:
-        """{"text", "html", "files": [...]} as they are; picture kinds as a file path, base64, or
-        for "png" {"size": [w, h], "dpi": n} to draw one."""
+        """{"text", "html", "files": [...]} as they are; picture and PowerPoint kinds as a file
+        path, base64, or for "png" {"size": [w, h], "dpi": n} to draw one."""
         data = {}
         for kind, v in contents.items():
             if kind in PICTURE_KINDS and isinstance(v, dict):
@@ -197,7 +216,7 @@ class FakeClipboard:
                 kw = {"dpi": (v["dpi"], v["dpi"])} if v.get("dpi") else {}
                 Image.new("RGB", tuple(v["size"]), (40, 90, 200)).save(buf, "PNG" if kind == "png" else kind.upper(), **kw)
                 v = buf.getvalue()
-            elif kind in PICTURE_KINDS and isinstance(v, str):
+            elif kind in PICTURE_KINDS + OFFICE_KINDS and isinstance(v, str):
                 if os.path.exists(v):
                     with open(v, "rb") as f:
                         v = f.read()
@@ -211,7 +230,9 @@ class FakeClipboard:
 
 class MacClipboard:
     TYPES = {"files": "public.file-url", "text": "public.utf8-plain-text", "html": "public.html", "rtf": "public.rtf",
-             "pdf": "com.adobe.pdf", "png": "public.png", "tiff": "public.tiff", "jpeg": "public.jpeg"}
+             "pdf": "com.adobe.pdf", "png": "public.png", "tiff": "public.tiff", "jpeg": "public.jpeg",
+             "slides": "com.microsoft.PowerPoint-14.0-Slides-Package", "shapes": "com.microsoft.Art--GVML-ClipFormat",
+             "objdesc": "com.microsoft.Object-Descriptor"}
 
     def __init__(self):
         import AppKit
@@ -275,7 +296,8 @@ def paragraphs_from_rtf(data: bytes) -> list[list[dict]] | None:
 
 class WindowsClipboard:
     CF_UNICODETEXT, CF_HDROP, CF_DIB, CF_DIBV5 = 13, 15, 8, 17
-    NAMES = {"html": "HTML Format", "png": "PNG", "svg": "image/svg+xml"}
+    NAMES = {"html": "HTML Format", "png": "PNG", "svg": "image/svg+xml", "slides": "PowerPoint 14.0 Slides Package",
+             "shapes": "Art::GVML ClipFormat", "objdesc": "Object Descriptor"}
 
     def __init__(self):
         import ctypes
@@ -457,11 +479,14 @@ def text_paragraphs(cb, have: set[str], plain: str | None) -> list[list[dict]]:
 
 
 def plan(cb, mode: str = "auto", own_count: int | None = None) -> tuple[str, object]:
-    """What a paste should do: ("own"|"objects"|"files"|"picture"|"text"|"none"|"unavailable", data).
+    """What a paste should do: ("own"|"objects"|"files"|"slides"|"shapes"|"picture"|"text"|"none"|
+    "unavailable", data).
 
     The editor's own copy if it's still the newest thing; else copied files (placed linked);
-    else FigAssemble objects copied in another document; else text, or a picture where there's
-    no text (or only a link to the picture). mode "picture" pastes the picture even with text.
+    else FigAssemble objects copied in another document; else slides or shapes copied in
+    PowerPoint ({"data", "source": the deck they came from, if known}); else text, or a picture
+    where there's no text (or only a link to the picture). mode "picture" pastes the picture even
+    with text, slides or shapes.
     """
     if cb is None:
         return "unavailable", None
@@ -475,6 +500,11 @@ def plan(cb, mode: str = "auto", own_count: int | None = None) -> tuple[str, obj
     text = cb.get("text") if "text" in have else None
     if text and text.startswith(PREFIX):
         return "objects", text[len(PREFIX):]
+    if mode != "picture":
+        for kind in ("slides", "shapes"):
+            data = cb.get(kind) if kind in have else None
+            if data:
+                return kind, {"data": data, "source": source_of_copy(cb.get("objdesc")) if "objdesc" in have else None}
     pictures = have & set(PICTURE_KINDS)
     if mode == "picture" or (pictures and (not text or not text.strip() or _just_a_link(text))):
         pic = picture(cb, have) if pictures else None
@@ -500,6 +530,6 @@ def kinds(cb, own_count: int | None = None) -> dict:
     pictures = bool(have & set(PICTURE_KINDS))
     # "text": a plain paste makes a text box (so "Paste as picture" is worth offering)
     return {"available": True, "own": False, "files": "files" in have,
-            "objects": bool(text and text.startswith(PREFIX)),
+            "objects": bool(text and text.startswith(PREFIX)), "slides": "slides" in have, "shapes": "shapes" in have,
             "text": bool(text and text.strip() and not _just_a_link(text)) or ("html" in have and not pictures and not text),
             "picture": pictures}

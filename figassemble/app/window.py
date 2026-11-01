@@ -53,6 +53,18 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
     def on_loaded():
         # The page itself allows drops (dragover); this handler receives the full file paths
         window.dom.document.events.drop += DOMEventHandler(on_drop, prevent_default=True, stop_propagation=True)
+        if sys.platform == "darwin":
+            # Slides and shapes dragged out of PowerPoint, which the web view wouldn't take
+            from PyObjCTools import AppHelper
+
+            from . import macdrag
+
+            def install():
+                try:
+                    macdrag.install(window, api)
+                except Exception as exc:   # noqa: BLE001 (drags from PowerPoint just aren't taken)
+                    print(f"PowerPoint drags unavailable: {exc}", file=sys.stderr, flush=True)
+            AppHelper.callAfter(install)
 
     def smoke_check():
         """Hidden-window check that the editor starts in this platform's web view."""
@@ -66,8 +78,9 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
             if ready:
                 break
         if ready and "selftest" in (extra or ""):
-            # A hidden window's timers run slowly, and the self-test has many short waits
-            for _ in range(1800):
+            # A hidden window's timers run slowly, and the self-test has many short waits (it took
+            # 400 s in November 2026): up to 15 minutes
+            for _ in range(4500):
                 time.sleep(0.2)
                 if window.evaluate_js("document.body.dataset.selftest || ''"):
                     break
@@ -90,6 +103,13 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                 keys = keycheck.run(window, BrowserView.instances[window.uid].window)
                 print(f"SMOKE keys: {keys['passed']} of {keys['total']} passed"
                       + (f"; failed: {json.dumps(keys['failed'])}" if keys["failed"] else ""), flush=True)
+                # Slides and shapes dragged out of PowerPoint (with the repository's test files)
+                data = os.path.join(os.path.dirname(__file__), "..", "..", "tests", "data", "powerpoint")
+                if os.path.isdir(data):
+                    from . import macdrag
+                    drags = macdrag.smoke(window, data)
+                    print(f"SMOKE PowerPoint drags: {drags['passed']} of {drags['total']} passed"
+                          + (f"; failed: {json.dumps(drags['failed'])}" if drags["failed"] else ""), flush=True)
         closing_started[0] = time.time()
         window.destroy()
 

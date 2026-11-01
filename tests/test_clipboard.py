@@ -86,7 +86,8 @@ def test_plan_order(fake, fixtures):
     assert kind == "text" and show(paras) == "W*ords*"
     kind, (data, ext) = cb.plan(fake, "picture")
     assert kind == "picture" and ext == ".png" and data[:4] == b"\x89PNG"
-    assert cb.kinds(fake) == {"available": True, "own": False, "files": False, "objects": False, "text": True, "picture": True}
+    assert cb.kinds(fake) == {"available": True, "own": False, "files": False, "objects": False, "slides": False,
+                              "shapes": False, "text": True, "picture": True}
     # A link to a picture (as browsers copy one) pastes the picture
     fake.put({"text": "https://example.org/a.png", "png": {"size": [20, 10]}})
     assert cb.plan(fake)[0] == "picture" and not cb.kinds(fake)["text"]
@@ -230,3 +231,24 @@ def test_windows_clipboard(fixtures):
     assert kind == "picture" and Image.open(io.BytesIO(data)).size == (12, 6)
     n = w.count()
     assert _win_set({13: "x".encode("utf-16-le") + b"\x00\x00"}) and w.count() != n
+
+
+@pytest.mark.skipif(sys.platform != "win32" or not os.environ.get("CI"), reason="the Windows clipboard, in CI only")
+def test_windows_clipboard_powerpoint(fixtures):
+    """Slides and shapes copied in PowerPoint for Windows: its own formats, by name."""
+    w = cb.WindowsClipboard()
+    data = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "powerpoint")
+    with open(os.path.join(data, "copied_slide.slides"), "rb") as fh:
+        slides = fh.read()
+    with open(os.path.join(data, "copied_rect.gvml"), "rb") as fh:
+        shapes = fh.read()
+    if not _win_set({"PowerPoint 14.0 Slides Package": slides, "PNG": png()}):
+        pytest.skip("no clipboard on this machine")
+    kind, got = cb.plan(w)
+    assert kind == "slides" and got["data"].startswith(slides) and got["source"] is None
+    name, src = "PowerPoint\x00".encode("utf-16-le"), "C:\\Talks\\deck.pptx!2\x00".encode("utf-16-le")
+    desc = struct.pack("<I16sIiiiiIII", 52 + len(name) + len(src), b"\x00" * 16, 1, 0, 0, 0, 0, 0, 52, 52 + len(name)) + name + src
+    assert _win_set({"Art::GVML ClipFormat": shapes, "Object Descriptor": desc, "PNG": png()})
+    kind, got = cb.plan(w)
+    assert kind == "shapes" and got["data"].startswith(shapes) and got["source"] == "C:\\Talks\\deck.pptx"
+    assert cb.plan(w, "picture")[0] == "picture"

@@ -368,6 +368,24 @@ body.dropping .drop-hint { display: flex; }
 .preflight .ok .level { color: var(--ok); }
 .warnings li { color: var(--warn); }
 .error { color: var(--danger); }
+.picker-dialog { width: min(52rem, 94vw); }
+.slide-grid { list-style: none; margin: 0.4rem 0 0.2rem; padding: 0.3rem; display: grid; gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); border-radius: 0.4rem; }
+.slide-grid:focus-visible { outline: none; }
+.slide-grid li { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; padding: 0.35rem;
+  border: 2px solid transparent; border-radius: 0.4rem; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.slide-grid li:hover { background: var(--hover); }
+.slide-grid li.chosen { background: var(--pressed); border-color: var(--sel); }
+.slide-grid:focus-visible li.focused { outline: 3px solid var(--focus); outline-offset: 1px; }
+.slide-thumb-box { display: block; width: 100%; background: #fff; border: 1px solid var(--line); border-radius: 0.2rem;
+  overflow: hidden; }
+.slide-thumb { display: block; width: 100%; height: 100%; object-fit: contain; }
+.slide-grid li:not(.drawn) .slide-thumb { visibility: hidden; }
+.slide-label { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.85rem; }
+.slide-badge { font-weight: 400; font-size: 0.72rem; border: 1px solid var(--line); border-radius: 0.6rem; padding: 0 0.35rem; }
+.slide-sub { font-size: 0.8rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-list .slide-drop-line { position: absolute; left: 0.2rem; right: 0.2rem; height: 3px; margin-top: -2px;
+  border-radius: 2px; background: var(--accent); pointer-events: none; }
 .shortcuts { width: 100%; border-collapse: collapse; }
 .shortcuts td, .shortcuts th { text-align: left; padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--line); }
 kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.25rem; padding: 0.05rem 0.35rem;
@@ -386,7 +404,9 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   .site, .site.dash { fill: Canvas; stroke: Highlight; }
   .site.active, .handle.end.linked { fill: Highlight; stroke: CanvasText; }
   .tool[aria-pressed="true"], .tool.active, .shape-item[aria-current], .page-list li.current,
-  .layer-list li.selected, .layer-list li.drop-into, .page-list li.drop-target, .drag-held li { outline: 2px solid Highlight; }
+  .layer-list li.selected, .layer-list li.drop-into, .page-list li.drop-target, .drag-held li,
+  .slide-grid li.chosen { outline: 2px solid Highlight; }
+  .page-list .slide-drop-line { background: Highlight; forced-color-adjust: none; }
   .shape-item:hover { outline: 1px solid Highlight; }
   .context-menu .menu-item:focus { outline: 2px solid Highlight; }
   .theme-tile[aria-checked="true"] { outline: 3px solid Highlight; }

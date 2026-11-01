@@ -17,9 +17,10 @@ FigAssemble does the job people usually do in PowerPoint, without PowerPoint's d
   stored in the document, so it opens complete on a labmate's computer.
 - **Journal page sizes** are built in (Nature, Science, Cell, PNAS, PLOS Genetics and more), and
   fonts that R leaves out of its PDFs are embedded when you export.
-- **Your PowerPoint figures come along.** Open a `.pptx` and each slide becomes a page, with its
-  pictures, text, lines and shapes where they were. Pictures are relinked to the PDFs and SVGs
-  your R code saved, where they can be found, instead of PowerPoint's copies.
+- **Your PowerPoint figures come along.** Open a `.pptx` and choose its slides, drop a deck on the
+  page or the Pages list, or copy slides and shapes in PowerPoint and paste them. Pictures, text,
+  lines and shapes come in where they were, as objects you can edit. Pictures are relinked to the
+  PDFs and SVGs your R code saved, where they can be found, instead of PowerPoint's copies.
 - **Drawing tools like PowerPoint's, and more:** PowerPoint's shapes, arrows whose ends attach to
   objects and follow them, gradient fills, outlines, and fills for areas that lines enclose.
 - **Figure tools:** scale bars that stay right when a picture is resized (the scale typed,

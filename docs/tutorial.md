@@ -201,7 +201,7 @@ If FigAssemble ever closes unexpectedly, it offers your unsaved work back the ne
   scale bars, zoom insets, significance brackets, swatches and text styles, copying a style,
   curved arrows, the Shapes menu, gradient fills, outlines, area fills, combining shapes,
   clipping masks, editing inside groups, guides and the grid, checking colours for colour-blind
-  readers, themes, opening PowerPoint slides, and all the keyboard shortcuts.
+  readers, themes, bringing in PowerPoint slides, and all the keyboard shortcuts.
 - Try it with your own figures, and **tell us what's confusing or missing**:
   [report a problem](https://github.com/matthewwdavis/FigAssemble/issues/new?template=problem.yml)
   or [suggest an idea](https://github.com/matthewwdavis/FigAssemble/issues/new?template=idea.yml).

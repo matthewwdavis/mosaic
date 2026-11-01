@@ -1,8 +1,9 @@
 """Run the editor's scripted self-test in headless Chrome and report the results.
 
-    python tools/ui_selftest.py FILE.svg [FILE2.pdf ...] [--chrome PATH] [--shot out.png] [--only objects]
+    python tools/ui_selftest.py FILE.svg [FILE2.pdf ...] [DECK.pptx ...] [--chrome PATH] [--shot out.png] [--only objects]
 
-Starts the server, opens the editor with ?selftest=1 (placing the given figure files), and
+Starts the server, opens the editor with ?selftest=1 (placing the given figure files; PowerPoint's
+files, from tests/data/powerpoint, are for the PowerPoint checks), and
 prints every SELFTEST line from the browser console. Exit status 1 if anything failed.
 On Windows, Chrome runs the same engine as the app window (Edge WebView2).
 """
@@ -72,7 +73,7 @@ def main() -> int:
     ap.add_argument("--shot", default="tools/output/ui_selftest.png")
     ap.add_argument("--out", default="tools/output/selftest")
     ap.add_argument("--budget", type=int, default=40000, help="virtual time budget, ms")
-    ap.add_argument("--only", help="run one part on its own, while working on it (objects: the Objects and Pages lists)")
+    ap.add_argument("--only", help="run one part on its own, while working on it (objects: the Objects and Pages lists; slides: PowerPoint slides)")
     args = ap.parse_args()
     if not args.chrome:
         print("Chrome not found; pass --chrome PATH")

@@ -22,7 +22,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 - [Rulers, guides, grid and snapping](#rulers-guides-grid-and-snapping)
 - [Checking and exporting](#checking-and-exporting)
 - [Saving, linked files and recovery](#saving-linked-files-and-recovery)
-- [Opening PowerPoint slides](#opening-powerpoint-slides)
+- [PowerPoint slides](#powerpoint-slides)
 - [Settings](#settings)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Accessibility](#accessibility)
@@ -93,29 +93,35 @@ With nothing selected (click the grey area or press Escape), the right panel sho
 
 **Pages:** the + button above the Pages list adds a page with the same size, background and
 guides. The other buttons duplicate or delete the current page. Drag a page up or down the list to
-move it (the others slide apart to make room), and double-click a page's name to rename it. One
-document can hold versions of a figure side by side.
+move it (the others slide apart to make room), and double-click a page's name to rename it. Drop
+a PowerPoint deck in the list to add its slides as pages there. One document can hold versions of
+a figure side by side.
 
 ## Pictures
 
 **Placing:** drag PDF, SVG, PNG, JPEG or TIFF files onto the page, or click **Picture** (I), or
 copy the files in Finder or Explorer and paste them (⌘V). They land at **true size**, exactly as
-the file says. Several files at once arrive in a cascade.
+the file says. Several files at once arrive in a cascade. Dropped on a page in the Pages list,
+they go on that page. A PowerPoint deck dropped on the window brings in its slides instead (see
+[PowerPoint slides](#powerpoint-slides)).
 
 **Pasting** (⌘V, the Paste button, or right-click → Paste to paste where you clicked) takes
 whatever was copied last:
 
 - **Objects** copied in FigAssemble, in this document or another.
 - **Files** copied in Finder or Explorer: placed linked, as if you'd dropped them.
+- **Slides and shapes** copied in PowerPoint: as objects you can edit, where they were on the slide
+  (see [PowerPoint slides](#powerpoint-slides)).
 - **A picture** copied in another app, such as a screenshot or an image copied from a browser,
   at true size (its recorded resolution, or 300 dpi if it has none), stored in the document. On
-  a Mac, shapes and drawings copied from Illustrator, PowerPoint, Keynote or Preview arrive as a
-  vector PDF, so they stay sharp. On Windows these arrive as a bitmap.
+  a Mac, shapes and drawings copied from Illustrator, Keynote or Preview arrive as a vector PDF,
+  so they stay sharp. On Windows these arrive as a bitmap.
 - **Text** as a text box in your default font and size (Settings → New objects), keeping bold,
   italic and line breaks.
 
-Some apps copy text and a picture together (Word, Excel, PowerPoint). ⌘V then pastes the text;
-right-click and choose **Paste as picture** for the picture instead.
+Some apps copy text and a picture together (Word, Excel, PowerPoint). ⌘V then pastes the text, or
+PowerPoint's slides and shapes as objects; right-click and choose **Paste as picture** for the
+picture instead.
 
 - **Linked and stored:** a placed file stays **linked**, so when the file changes (you re-run your
   R code), the picture updates within a couple of seconds and keeps its place and size. A copy is
@@ -761,7 +767,8 @@ under one name.
 
 - **Save** (⌘S) writes a `.figasm` document. It holds your pages, the links to placed files, and
   a copy of each file, so it opens complete on another computer. **Save as** (⌘⇧S) saves a copy.
-- **Open** (⌘O) opens a `.figasm` document, or a PowerPoint deck (see below).
+- **Open** (⌘O) opens a `.figasm` document, or slides from a PowerPoint deck (see
+  [PowerPoint slides](#powerpoint-slides)).
 - **Linked files** are checked every couple of seconds while the document is open. A changed file
   updates its picture; a missing one falls back to the stored copy.
 - **Recovery:** unsaved work is copied every minute. If FigAssemble closes unexpectedly, it offers
@@ -769,14 +776,49 @@ under one name.
   all together. **Settings → Unsaved work** shows how many copies are kept and can delete them.
   Deleting always asks first, since these are the only copies of work that was never saved.
 
-## Opening PowerPoint slides
+## PowerPoint slides
 
-**Open** a `.pptx` file to turn its slides into pages. Pictures, text, lines, arrows and shapes come
-in where they were, and every PowerPoint shape comes in as itself. Pictures are relinked to the
-original figure files where they can be found, so the PDF or SVG your R code saved is used
-instead of PowerPoint's copy. FigAssemble looks in the nearest folder called **Figures** above the
-deck (where R notebooks usually save plots), or else in the deck's own folder. A report lists
-anything that couldn't be brought across.
+Slides from your PowerPoint decks come into FigAssemble in four ways. Whichever way, their
+pictures, text, lines, arrows and shapes come in as objects you can edit, and every PowerPoint
+shape comes in as itself.
+
+<img src="images/slides.png" alt="The slide picker: four slides drawn small, two of them chosen, with Open 2 slides" width="750">
+
+- **Open** (⌘O) a `.pptx` file to make a new document of the slides you choose. When the deck has
+  more than one slide, the **slide picker** shows each one small, with its number, its title and
+  **Hidden** for a slide hidden in the slide show:
+  - click a slide to choose it, Shift-click to choose a run, ⌘-click to add or take away one, or
+    click **All slides**, then **Open**;
+  - double-click a slide to open just that one;
+  - with the keyboard: the arrow keys move and choose, Shift extends, Space adds or takes away,
+    Return opens.
+- **Drag a deck file** from Finder or Explorer onto the window to add slides to the figure that's
+  open. The same picker asks which ones.
+  - Dropped on the page, the slides' objects go there, at the point you dropped them. Several
+    slides' objects land a little apart. Anything parked beside a slide stays behind.
+  - Dropped in the Pages list, the slides become new pages there. While you drag, a line shows
+    where they'll go.
+- **Copy and paste:** in PowerPoint, select slides in the slide list, or shapes on a slide, and
+  copy (⌘C). Paste (⌘V) in FigAssemble. They come in where they were on the slide, or at the point
+  you right-clicked if you chose Paste from the menu there. **Paste as picture** (right-click)
+  pastes a picture of them instead.
+- **Drag slides out of PowerPoint** (Mac) onto the page or into the Pages list, as with a deck
+  file. PowerPoint only hands over which slides they are, so FigAssemble reads them from the deck
+  as it was last saved, and says so. Save the deck in PowerPoint first if you've changed those
+  slides. If more than one deck open in PowerPoint has slides like them, FigAssemble asks which
+  deck you dragged from. On Windows, use copy and paste instead.
+
+Slides or shapes added to a figure come out again with one undo.
+
+**Pictures** are relinked to the original figure files where they can be found, so the PDF or SVG
+your R code saved is used instead of PowerPoint's copy. FigAssemble looks in the nearest folder
+called **Figures** above the deck (where R notebooks usually save plots), or else in the deck's own
+folder. For pasted shapes it looks near the deck they came from. Pasted slides don't say which deck
+they came from, so on a Mac it looks near each deck PowerPoint has open. It also looks near the
+figure you're working on.
+
+Opening or dropping a deck shows a report of what came across and anything that couldn't. Pasting
+shows one only when something couldn't come across.
 
 ## Settings
 

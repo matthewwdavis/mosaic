@@ -1377,6 +1377,122 @@ export const panels = {
     this.dialog(title, h("ul", { class: "report" }, ...lines.map((l) => h("li", {}, l))));
   },
 
+  // Choose among cards with a small picture each (a deck's slides; the deck dragged slides came
+  // from), drawn one after another. Click picks one, Shift- or ⌘-click (Ctrl-click) several,
+  // double-click picks one and goes; the arrow keys move, Space picks, Enter goes. Resolves to
+  // the chosen cards' values in their order, or null.
+  // {title, hint, label (the list's name), aspect (width / height of the pictures), one (pick
+  // just one), all (an All slides button), verb(n) (the go button's words), cards: [{value,
+  // label, sub, badge, thumb: () => Promise of a picture's URL}]}
+  pickCards(opts) {
+    return new Promise((resolve) => {
+      const { cards } = opts, id = `pick-${Date.now()}`;
+      let chosen = new Set(), focus = 0, anchor = 0, answered = false;
+      const grid = h("ul", { class: "slide-grid", role: "listbox", tabindex: 0, "aria-label": opts.label,
+        "aria-multiselectable": opts.one ? "false" : "true" });
+      const lis = cards.map((c, i) => {
+        const li = h("li", { role: "option", id: `${id}-${i}`, "aria-selected": "false" },
+          h("span", { class: "slide-thumb-box", style: { aspectRatio: String(opts.aspect || 4 / 3) } },
+            h("img", { class: "slide-thumb", alt: "", draggable: "false" })),
+          h("span", { class: "slide-label" }, c.label, c.badge ? h("span", { class: "slide-badge" }, c.badge) : null),
+          c.sub ? h("span", { class: "slide-sub", title: c.sub }, c.sub) : null);
+        li.addEventListener("click", (e) => pick(i, e.shiftKey, e.metaKey || e.ctrlKey));
+        li.addEventListener("dblclick", () => { chosen = new Set([i]); go(); });
+        return li;
+      });
+      grid.append(...lis);
+      const goBtn = h("button", { type: "button", class: "btn primary" }, opts.verb(0));
+      const allBtn = opts.all && !opts.one ? h("button", { type: "button", class: "btn" }, "All slides") : null;
+      const dlg = this.dialog(opts.title, h("div", {}, opts.hint ? h("p", { class: "hint" }, opts.hint) : null, grid),
+        [allBtn, goBtn].filter(Boolean));
+      dlg.classList.add("picker-dialog");
+      const render = () => {
+        lis.forEach((li, i) => {
+          li.setAttribute("aria-selected", chosen.has(i) ? "true" : "false");
+          li.classList.toggle("chosen", chosen.has(i));
+          li.classList.toggle("focused", i === focus);
+        });
+        grid.setAttribute("aria-activedescendant", `${id}-${focus}`);
+        goBtn.disabled = !chosen.size;
+        goBtn.textContent = opts.verb(chosen.size);
+      };
+      const pick = (i, range, toggle) => {
+        if (opts.one || (!range && !toggle)) chosen = new Set([i]);
+        else if (range) {
+          const [a, b] = [Math.min(anchor, i), Math.max(anchor, i)];
+          if (!toggle) chosen = new Set();
+          for (let k = a; k <= b; k++) chosen.add(k);
+        } else if (chosen.has(i)) chosen.delete(i);
+        else chosen.add(i);
+        if (!range) anchor = i;
+        focus = i;
+        render();
+        lis[i].scrollIntoView({ block: "nearest" });
+      };
+      const go = () => {
+        if (!chosen.size) return;
+        answered = true;
+        resolve([...chosen].sort((a, b) => a - b).map((i) => cards[i].value));
+        dlg.close();
+      };
+      grid.addEventListener("keydown", (e) => {
+        const top = lis[0].offsetTop, cols = Math.max(1, lis.filter((li) => li.offsetTop === top).length);
+        const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols }[e.key];
+        const mod = e.metaKey || e.ctrlKey;
+        if (step !== undefined || e.key === "Home" || e.key === "End") {
+          e.preventDefault();
+          const next = e.key === "Home" ? 0 : e.key === "End" ? cards.length - 1 : Math.min(Math.max(focus + step, 0), cards.length - 1);
+          if (mod && !e.shiftKey) { focus = next; render(); lis[next].scrollIntoView({ block: "nearest" }); }   // ⌘ (Ctrl) + arrow: move without picking
+          else pick(next, e.shiftKey, false);
+        } else if (e.key === " ") {
+          e.preventDefault();
+          pick(focus, false, !opts.one);
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          if (!chosen.size) chosen.add(focus);
+          go();
+        } else if (mod && e.key.toLowerCase() === "a" && !opts.one) {
+          e.preventDefault();
+          chosen = new Set(cards.map((_, i) => i));
+          render();
+        }
+      });
+      goBtn.addEventListener("click", go);
+      allBtn?.addEventListener("click", () => { chosen = new Set(cards.map((_, i) => i)); render(); goBtn.focus(); });
+      // Cancel, Escape or closing: nothing chosen (as soon as asked, not when the dialog's gone)
+      const cancel = () => { if (!answered) { answered = true; resolve(null); } };
+      dlg.querySelector("button[value=close]").addEventListener("click", cancel);
+      dlg.addEventListener("cancel", cancel);
+      dlg.addEventListener("close", cancel);
+      render();
+      grid.focus();
+      // The pictures, one after another, while the dialog is open
+      (async () => {
+        for (let i = 0; i < cards.length && dlg.open; i++) {
+          try {
+            lis[i].querySelector("img").src = await cards[i].thumb();
+            lis[i].classList.add("drawn");
+          } catch { lis[i].classList.add("failed"); }
+        }
+      })();
+    });
+  },
+
+  // A deck's slides to choose from (deck_slides): the chosen slide numbers, or null.
+  // how: {verb: "Open" | "Add" | ..., where: words for where they'll go, e.g. "as pages after page 2"}
+  slidePicker(deck, how) {
+    const n = deck.slides.length;
+    return this.pickCards({
+      title: `${how.verb} slides from “${deck.name}”`,
+      hint: `${n} slides${how.where ? `, to go ${how.where}` : ""}. Click a slide to choose it; Shift- or ${isMac ? "⌘" : "Ctrl"}-click to `
+        + "choose several; double-click one to take just that slide.",
+      label: `Slides in ${deck.name}`, aspect: deck.width / deck.height, all: true,
+      verb: (k) => (k ? `${how.verb} ${k === n && n > 1 ? "all " : ""}${k} slide${k === 1 ? "" : "s"}` : how.verb),
+      cards: deck.slides.map((s) => ({ value: s.n, label: `Slide ${s.n}`, sub: s.title, badge: s.hidden ? "Hidden" : "",
+        thumb: () => rpc("deck_thumbnail", deck.key, s.n) })),
+    });
+  },
+
   pathDialog(title, placeholder, recent = []) {
     return new Promise((resolve) => {
       const input = h("input", { type: "text", id: "path-input", placeholder, style: { width: "100%" } });

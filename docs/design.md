@@ -143,6 +143,23 @@ pre-export check says so.
   dragging (a copy of the page put back for each new place, one undo step on letting go). Rows go
   into and out of groups and onto pages in the Pages list; a clipping mask's shape stays its top
   part. The Pages list drags the same way (layers.js, listdrag.js).
+- **PowerPoint slides in (2026-11-01):** Open goes through a slide picker (a picture of each
+  slide, drawn by the PDF export at 320 px; one or several chosen), and a deck imported once is
+  kept for the picker and the slides then chosen. Where slides dropped on the window go depends
+  on where they land (Matthew's choice): on the page, their objects at the drop point; in the
+  Pages list, new pages in the gap, a line showing where meanwhile. Copied slides and shapes come
+  from PowerPoint's own clipboard formats, checked by having PowerPoint for Mac 16.114 copy from
+  a test deck: copied slides are a small deck with its parts under clipboard/ ("PowerPoint 14.0
+  Slides Package"), copied shapes a DrawingML locked canvas ("Art::GVML ClipFormat") whose shapes
+  are rewrapped as PresentationML's and read by the slide importer, plus an OLE object descriptor
+  naming the deck they came from. A slide dragged out of PowerPoint carries only a reference
+  (com.microsoft.PowerPoint.internal.Slide: session id, slide id, in-memory creation id), so the
+  slide is found by its id in the decks PowerPoint's process has open (lsof) and read as last
+  saved, asking which deck when several match (slide ids start at 256 in every deck); his choice,
+  over not taking slide drags. The web view, which doesn't take drags of types it doesn't know, is
+  registered for PowerPoint's and its drag methods are wrapped (macdrag.py, powerpoint.py,
+  importers/gvml.py). PowerPoint also offers its copied slides as web data ("ppt/slides"), which a
+  Chromium web view (Windows) may be handed for a drag; that's taken too, untested.
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.

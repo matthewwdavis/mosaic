@@ -34,6 +34,21 @@ def page_filename(base: str, page: dict, index: int, n_pages: int, ext: str) -> 
     return f"{base}_{index + 1:02d}_{_slug(page.get('name', ''))}.{ext}"
 
 
+def page_thumbnail(doc: dict, index: int, width_px: int, cache: AssetCache | None = None,
+                   fonts: FontIndex | None = None):
+    """A small picture of one page on white (a PIL image `width_px` wide), as the PNG export
+    would draw it, e.g. for the slide picker. Fonts placed PDFs leave out aren't embedded first."""
+    page = doc["pages"][index]
+    resolved = [r for r in Resolver(doc, fonts).resolve_page(page) if _on_page(r.bbox, page)]
+    w = PdfWriter(SourceResolver(doc, cache or get_cache(), None))
+    w.add_page(page, resolved)
+    w.finish(embed_fonts=False)
+    buf = io.BytesIO()
+    w.pdf.save(buf)
+    w.close_sources()
+    return raster.render_pdf_bytes(buf.getvalue(), width_px / float(page["width"]) * 72.0, transparent=False)[0]
+
+
 def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | None = None, dpi: float = 600.0,
                     transparent: bool = True, cmyk: bool = False, cmyk_profile: str | None = None,
                     doc_dir: str | None = None, cache: AssetCache | None = None,

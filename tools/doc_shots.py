@@ -30,13 +30,44 @@ SCENES = {
     "labels": None, "annotated": None, "style": (1176, 98, 1440, 900), "check": (380, 270, 1060, 630),
     "export": (380, 60, 1060, 860), "shapes": (200, 98, 760, 900), "guides": None, "result": None, "themes": (468, 63, 972, 838), "areafill": None,
     "swatches": (420, 40, 1020, 880), "isolation": (200, 98, 1180, 640), "cropshape": (420, 98, 1440, 640), "zoominset": (200, 300, 1180, 820), "brackets": (200, 98, 1440, 700), "search": (380, 60, 1060, 640), "distances": (290, 200, 1170, 560), "attached": (560, 98, 1440, 672), "plotsnap": (296, 262, 1166, 556), "gridlayout": (410, 98, 1440, 860), "symbols": (290, 300, 1440, 730), "objectstyles": (1176, 98, 1440, 520), "equation": (560, 160, 1440, 540), "report": (466, 216, 974, 684), "pen": (490, 290, 970, 590), "elbow": (396, 226, 1150, 672), "objects": (0, 98, 211, 462),
+    "slides": (345, 297, 1095, 603),
 }
 # Numbered callouts on the window tour: (x, y) in window pixels, in the order the tutorial lists them
 TOUR = [(412, 22), (905, 62), (1042, 18), (78, 120), (238, 780), (304, 450), (1262, 124), (1038, 884)]
 
 
+def example_deck(tmp: str) -> str:
+    """A small PowerPoint deck of the example plots, for the slide picker's picture: a title
+    slide, then the plots with panel labels, the last slide hidden."""
+    from pptx import Presentation
+    from pptx.util import Emu, Pt
+    ex = os.path.join(ROOT, "examples")
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Emu(12192000), Emu(6858000)
+    title = prs.slides.add_slide(prs.slide_layouts[0])
+    title.shapes.title.text = "Example figures"
+    title.placeholders[1].text = "The tutorial's plots"
+    labels = iter("abcd")
+    for plots, hidden in ((["dose_response"], False), (["expression_bars", "growth_curves"], False), (["growth_curves"], True)):
+        s = prs.slides.add_slide(prs.slide_layouts[6])
+        width = 840 / len(plots)
+        for i, name in enumerate(plots):
+            x = 60 + (900 - width * len(plots)) / 2 + width * i
+            s.shapes.add_picture(os.path.join(ex, f"{name}.png"), Pt(x + 20), Pt(70), width=Pt(width - 40))
+            box = s.shapes.add_textbox(Pt(x), Pt(46), Pt(30), Pt(30))
+            box.text_frame.text = next(labels)
+            box.text_frame.paragraphs[0].runs[0].font.size = Pt(28)
+            box.text_frame.paragraphs[0].runs[0].font.bold = True
+        if hidden:
+            s._element.set("show", "0")
+    path = os.path.join(tmp, "Example figures.pptx")
+    prs.save(path)
+    return path
+
+
 def shoot(chrome: str, server_url: str, scene: str, tmp: str) -> str:
-    query = urllib.parse.urlencode({"docshot": scene, "examples": os.path.join(ROOT, "examples"), "out": OUT})
+    extra = {"deck": example_deck(tmp)} if scene == "slides" else {}
+    query = urllib.parse.urlencode({"docshot": scene, "examples": os.path.join(ROOT, "examples"), "out": OUT, **extra})
     shot = os.path.join(tmp, f"{scene}.png")
     with tempfile.TemporaryDirectory() as profile:
         cmd = [chrome, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
