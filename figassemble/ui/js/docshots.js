@@ -134,6 +134,19 @@ export async function run(app, params) {
     for (const f of [0.3, 0.6, 0.9, 1]) pointer("pointermove", screenOf(from[0], from[1] + (dy + 1) * f));
     return finish();
   }
+  if (scene === "equation") {
+    // The dose-response model beside its curve, selected, with its Equation tab
+    const spec = { tex: "V = \\frac{100}{1 + (x/\\mathrm{IC}_{50})^{h}}", size: 6, font: "figure", family: "Helvetica", color: "#000000" };
+    const res = await rpc("make_equation", spec);
+    const pic = { id: "eq1", type: "picture", name: "", asset: res.id, page_index: 0, frame: [290, 185, ...res.asset.size_pt],
+      crop: [0, 0, 0, 0], rot: 0, flip_h: false, flip_v: false, opacity: 1, source: "auto", equation: spec };
+    store.update("Equation", (doc) => { doc.assets[res.id] = res.asset; doc.pages[0].items.push(pic); }, { select: ["eq1"] });
+    await settle();
+    centreOn(300, 200, 2.4);
+    inspector.render();
+    document.getElementById("itab-picture")?.click();
+    return finish();
+  }
   if (scene === "symbols") {
     // A cell drawn once as a symbol, used at three sizes; the biggest selected, with its tab
     const cellPart = (id, geom, frame, fill, stroke) => ({ id, type: "shape", geom, frame, rot: 0, flip_h: false, flip_v: false, fill: { color: fill },

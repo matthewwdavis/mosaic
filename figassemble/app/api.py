@@ -368,6 +368,27 @@ class Api:
         from ..export.preflight import preflight
         return preflight(doc, options or {})
 
+    def make_equation(self, spec: dict) -> dict:
+        """An equation (equations.py) as a picture's asset, its PDF and SVG copies stored in the
+        figure: {"id", "asset"}, or {"error"} when the maths can't be read."""
+        import shutil
+
+        from .. import equations
+        tex = (spec or {}).get("tex", "").strip()
+        if not tex:
+            return {"error": "type some maths first"}
+        try:
+            pdf, _ = equations.render(tex, float(spec.get("size") or 6), spec.get("font", "figure"),
+                                      spec.get("family") or "Helvetica", spec.get("color") or "#000000")
+        except ValueError as exc:
+            return {"error": str(exc)}
+        try:
+            aid, asset, _ = new_asset(pdf, get_cache(), link=False)
+        finally:
+            shutil.rmtree(os.path.dirname(pdf), ignore_errors=True)
+        asset["name"] = f"Equation {tex[:40]}"
+        return {"id": aid, "asset": asset}
+
     def plot_lines(self, asset: dict, page_index: int = 0) -> dict | None:
         """A placed plot's axis and frame lines and the box round its ink, to snap to
         (vectors.plot_lines), from its PDF copy or else its SVG; None for a photo."""

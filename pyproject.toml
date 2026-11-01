@@ -16,6 +16,7 @@ dependencies = [
     "numpy",
     "shapely>=2.1",
     "skia-pathops>=0.8",
+    "matplotlib",
     "pywebview>=6",
 ]
 

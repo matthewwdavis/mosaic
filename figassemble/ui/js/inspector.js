@@ -299,6 +299,7 @@ export const inspector = {
   // [key, tab name, sections] for one object
   itemTabs(it) {
     const arrange = ["arrange", "Arrange", [this.objectSection(it), this.arrangeSection(it), ...this.alignSections(1)]];
+    if (it.type === "picture" && it.equation) return [arrange, ["picture", "Equation", [this.equationSection(it), this.borderSection(it)]]];
     if (it.type === "picture") {
       return [arrange, ["picture", "Picture", [this.pictureSection(it), this.borderSection(it), it.inset ? this.insetSection(it) : null,
         this.scaleSection(it)]]];
@@ -380,6 +381,24 @@ export const inspector = {
     kids.push(h("div", { class: "button-row" }, button("Make a new object style from this object's look", () => this.app.newObjectStyle(),
       "New style from this object…")));
     return section("Object style", kids);
+  },
+  // An equation (equations.py): its maths, size, font and colour, drawn again when one changes
+  equationSection(it) {
+    const eq = it.equation, set = (patch) => this.app.updateEquation(it.id, patch);
+    const a = store.doc.assets[it.asset], scale = it.frame[2] / Math.max(a.size_pt[0], 1e-9);
+    const family = eq.family || "Helvetica";
+    return section("Equation", [
+      textArea("Maths, written as in LaTeX", eq.tex, (v) => { if (v.trim()) set({ tex: v.trim() }); }),
+      row(numField("Text size", eq.size || 6, "pt", (v) => set({ size: Math.max(v, 1) }), { min: 1, step: 0.5 }),
+        colorField("Colour", eq.color || "#000000", (v) => set({ color: v }))),
+      selectField("Font", eq.font || "figure", [["figure", `${family}, the figure's font`], ["cm", "Computer Modern, as in LaTeX"]],
+        (v) => set({ font: v, family: this.app.prefs.text?.font || family })),
+      h("p", { class: "hint" }, (Math.abs(scale - 1) > 0.005 ? `Scaled to ${fmt(scale * 100, 1)}%, so its text prints at `
+        + `${fmt((eq.size || 6) * scale, 2)} pt. ` : "") + "Drawn by matplotlib as real text: the PDF holds its fonts; an SVG names "
+        + "them, so they need to be on the computer that opens it."),
+      button("Back to 100%, the text at its own size", () => this.edit("Equation at 100%", (o) => {
+        o.frame = [o.frame[0], o.frame[1], a.size_pt[0], a.size_pt[1]];
+      }), "100%")]);
   },
   // A symbol's copy: its symbol's name (shared by every copy), its scale, and editing it
   symbolSection(it) {
@@ -1035,7 +1054,7 @@ export function pagePreset(page, info) {
 function digits(u) { return u === "in" || u === "cm" ? 3 : 2; }
 function kindName(it) {
   if (it.geom === "region") return "Area fill";
-  if (it.type === "picture") return "Picture";
+  if (it.type === "picture") return it.equation ? "Equation" : "Picture";
   if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_start || it.arrow_end ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
   if (it.type === "group") return it.clip ? "Clipping mask" : it.grid ? "Grid layout" : it.editing_symbol ? "Symbol (editing)" : "Group";
   if (it.type === "symbol") return "Symbol copy";

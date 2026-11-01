@@ -64,6 +64,7 @@ const ICONS = {
   distBottom: "M3 6h18M3 13h18M3 20h18M7 1h4v5H7zM13 9h4v4h-4zM9 17h4v3H9z",
   actual: "M5 5h14v14H5zM9 9.5l2-1.5v8M14 9.5l2-1.5v8",
   cells: "M4 4h7v6H4zM13 4h7v9h-7zM4 12h7v8H4zM13 15h7v5h-7z",
+  equation: "M3 13h2l3 6 4-15h9M14 9l6 8M20 9l-6 8",
   symbol: "M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z",
   symbols: "M8 3l1.8 3.6 4 .6-2.9 2.8.7 4L8 12.1 4.4 14l.7-4L2.2 7.2l4-.6zM17 10l1.4 2.8 3.1.5-2.3 2.2.6 3.1-2.8-1.5-2.8 1.5.6-3.1-2.3-2.2 3.1-.5z",
   ruler: "M3 8h18v8H3zM7 8v3M11 8v4.5M15 8v3M19 8v4.5", grid: "M4 4h16v16H4zM9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16",
@@ -224,6 +225,7 @@ export const panels = {
         group("Zoom", t("zoomInset", "zoomInset")),
         group("Significance", t("toolSigBracket", "sigBracket"), t("stackBrackets", "stackBrackets")),
         group("Symbols", t("makeSymbol", "symbol"), t("symbols", "symbols")),
+        group("Maths", t("equation", "equation")),
       ]],
       ["combine", "Combine", [
         group("Pathfinder", t("unite", "unite"), t("minusFront", "minusFront"), t("intersect", "intersect"), t("exclude", "exclude")),

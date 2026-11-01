@@ -330,6 +330,33 @@ export async function run(app, params) {
       items.splice(items.findIndex((i) => i.id === lpPic.id), 1, lpWas);
       items.splice(items.findIndex((i) => i.id === lpId), 1);
     }, { select: [] });
+    // Equations: maths typed as in LaTeX become a picture with PDF and SVG copies of one size;
+    // a bigger text size draws it again, bigger, in the same place; maths that can't be read says why
+    const addingEq = app.addEquation();
+    await settle();
+    const eqPrompt = [...document.querySelectorAll("dialog[open]")].pop();
+    eqPrompt.querySelector("input").value = "\\frac{\\Delta F}{F_0}";
+    [...eqPrompt.querySelectorAll("button")].find((b) => b.textContent === "OK").click();
+    await addingEq;
+    const eqPic = store.selected()[0], eqAsset = eqPic && store.doc.assets[eqPic.asset];
+    check(eqPic?.equation?.tex === "\\frac{\\Delta F}{F_0}" && eqAsset?.variants?.pdf && eqAsset.variants.svg
+      && JSON.stringify(eqAsset.variants.pdf.size_pt) === JSON.stringify(eqAsset.variants.svg.size_pt),
+      "an equation becomes a picture with PDF and SVG copies of one size", JSON.stringify(eqAsset?.size_pt));
+    inspector.render();
+    check(/Maths, written as in LaTeX/.test(document.querySelector("#inspector").textContent), "its own tab has its maths, size and font");
+    const eqAt = eqPic.frame.slice();
+    await app.updateEquation(eqPic.id, { size: 12 });
+    const eqNow = store.item(eqPic.id).frame;
+    check(eqNow[2] > eqAt[2] * 1.6 && near(eqNow[0], eqAt[0], 1e-6) && near(eqNow[1], eqAt[1], 1e-6) && store.item(eqPic.id).equation.size === 12,
+      "a bigger text size draws it again, bigger, from the same corner", `${eqAt} -> ${eqNow}`);
+    await app.updateEquation(eqPic.id, { tex: "\\frac{a}{" });
+    const eqErr = [...document.querySelectorAll("dialog[open]")].pop();
+    check(/expected/.test(eqErr?.textContent || "") && store.item(eqPic.id).equation.tex === "\\frac{\\Delta F}{F_0}",
+      "maths that can't be read says why, and the equation stays as it was", eqErr?.textContent);
+    eqErr?.close();
+    store.select([eqPic.id]);
+    await app.run("delete");
+
     // Object styles: a style made from one line and given to another; changing the style moves
     // both, except what one changed by hand; deleting it keeps the look
     const osLine = (id, y, color, width) => ({ id, type: "line", points: [[300, y], [360, y]], arrow_start: null, arrow_end: null,

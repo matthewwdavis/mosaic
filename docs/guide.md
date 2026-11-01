@@ -7,6 +7,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 - [Pages and page sizes](#pages-and-page-sizes)
 - [Pictures](#pictures)
 - [Text and panel labels](#text-and-panel-labels)
+- [Equations](#equations)
 - [Lines and arrows](#lines-and-arrows)
 - [Shapes](#shapes)
 - [Area fills](#area-fills)
@@ -37,7 +38,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group and Grid, Order (see
      [Align and distribute](#align-and-distribute)).
    - **Figure**: scale bars (Scale bar, Measure), zoom insets, significance brackets (Bracket,
-     Stack) and [symbols](#symbols) (Make symbol, Symbols…).
+     Stack), [symbols](#symbols) (Make symbol, Symbols…) and [equations](#equations).
    - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
      Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
@@ -251,6 +252,26 @@ height you drag at, with the label above. Drag upright instead for one with its 
 
 Helvetica is used if you have it, Arial otherwise (it has the same letter widths). Text stays
 real text in PDF and SVG exports, with the fonts embedded.
+
+## Equations
+
+**Equation** (Figure tab) draws maths written as in LaTeX, such as `\frac{\Delta F}{F_0}`,
+`\mathrm{OD}_{600}` or `y = \alpha e^{-kt}`, with matplotlib's mathtext (which reads most of
+LaTeX's maths, not whole LaTeX documents).
+
+- It's placed as a picture with a PDF copy and an SVG copy of the same size, and its text is
+  real text: the PDF holds its fonts, so the check measures it and PDF and PNG exports print it
+  exactly. An SVG export names its fonts, so they need to be on the computer that opens it.
+- Its **Equation** tab sets the **maths**, the **text size** (the figure's default to start with),
+  the **colour** and the **font**: the figure's own font (Helvetica unless changed), with
+  symbols it lacks from STIX Sans, or **Computer Modern**, as in LaTeX. Each change draws it
+  again from the same corner, at the same scale. Double-click it (or press Enter) to change its
+  maths.
+- Resizing it scales its text, like any picture; the tab says what size its text prints at, and
+  **100%** puts it back.
+- Maths that can't be read leaves the equation as it was and says what's wrong.
+
+![An equation beside the dose-response curve, selected, with its Equation tab](images/equation.png)
 
 ## Lines and arrows
 

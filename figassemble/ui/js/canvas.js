@@ -875,6 +875,7 @@ export const canvas = {
     }
     if (hit.type === "group") this.enterGroup(hit.id);
     else if (hit.type === "symbol") this.onEditSymbol?.(hit.id);
+    else if (hit.equation) this.onEditEquation?.(hit.id);
     else if (hit.type === "picture") this.startCrop(hit.id);
     else if (hit.type === "shape") this.startEdit(hit.id);
   },

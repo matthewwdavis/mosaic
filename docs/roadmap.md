@@ -80,7 +80,7 @@ Matthew's choices are in brackets.
 - [x] Grid layout: rows and columns with set gaps, kept when a panel changes [keep sizes, align top left]
 - [x] Symbols: one object used many times, edited once [copies scale lines and text; edited in place]
 - [x] Object styles: named, linked line and shape styles, like text styles
-- [ ] Equations: LaTeX maths drawn as real text [matplotlib mathtext]
+- [x] Equations: LaTeX maths drawn as real text [matplotlib mathtext]
 - [ ] Figure report: each panel's source, copies, size, scale, crop, turns, resolution and scale
       [HTML, Markdown, CSV and PDF offered, none ticked by default]
 - [ ] Pen tool and point editing; elbow connectors

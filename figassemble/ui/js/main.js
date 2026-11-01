@@ -784,6 +784,48 @@ const app = {
     announce(`Laid out ${parts.length} panels in ${rows} row${rows === 1 ? "" : "s"} of up to ${g.grid.cols}; `
       + "set the columns and gaps in its Arrange tab");
   },
+  // Equations (equations.py): LaTeX maths drawn by matplotlib as a PDF and an SVG with real text,
+  // placed as a picture that keeps its maths (picture.equation {tex, size, font, family, color})
+  async addEquation() {
+    const tex = await panels.promptDialog("New equation", "Maths, written as in LaTeX", "",
+      "For example: \\frac{\\Delta F}{F_0} or \\mathrm{OD}_{600}");
+    if (!tex?.trim()) return;
+    const spec = { tex: tex.trim(), size: this.prefs.text?.size || 6, font: "figure", family: this.prefs.text?.font || "Helvetica",
+      color: "#000000" };
+    const res = await rpc("make_equation", spec);
+    if (res.error) return panels.reportDialog("This maths can't be drawn", [res.error]);
+    const r = canvas.stage.getBoundingClientRect(), [cx, cy] = canvas.toPage(r.width / 2, r.height / 2);
+    const [w, hh] = res.asset.size_pt;
+    const pic = { id: uid("it"), type: "picture", name: "", asset: res.id, page_index: 0, frame: [cx - w / 2, cy - hh / 2, w, hh],
+      crop: [0, 0, 0, 0], rot: 0, flip_h: false, flip_v: false, opacity: 1, source: "auto", equation: spec };
+    store.update("Add equation", (doc) => {
+      doc.assets[res.id] = res.asset;
+      store.container(doc).push(pic);
+    }, { select: [pic.id] });
+    announce("Added the equation: change its maths, size or font in its Picture tab, or double-click it");
+  },
+  // Its maths, size, font or colour changed: drawn again, at the same place and scale
+  async updateEquation(id, patch) {
+    const it = store.item(id);
+    if (!it?.equation) return;
+    const spec = { ...it.equation, ...patch }, res = await rpc("make_equation", spec);
+    if (res.error) return panels.reportDialog("This maths can't be drawn", [res.error]);
+    const old = store.doc.assets[it.asset], k = it.frame[2] / Math.max(old.size_pt[0], 1e-9), [w, hh] = res.asset.size_pt;
+    store.update("Change equation", (doc) => {
+      doc.assets[res.id] = res.asset;
+      const p = findDeep(doc.pages[store.pageIndex].items, id);
+      p.asset = res.id;
+      p.equation = spec;
+      p.frame = [p.frame[0], p.frame[1], w * k, hh * k];
+      p.crop = [0, 0, 0, 0];
+    });
+  },
+  async editEquation(id = store.selected()[0]?.id) {
+    const it = store.item(id);
+    if (!it?.equation) return announce("Select an equation");
+    const tex = await panels.promptDialog("Edit equation", "Maths, written as in LaTeX", it.equation.tex);
+    if (tex?.trim() && tex.trim() !== it.equation.tex) await this.updateEquation(id, { tex: tex.trim() });
+  },
   // Symbols (symbols.js): the selected objects made one symbol, used again by copying its copy
   makeSymbol() {
     const sel = store.selected();
@@ -920,7 +962,8 @@ const app = {
       { label: "Lock position", checked: locked, run: () => this.setFlag("locked", !locked) },
       { label: "Hide", run: () => this.setFlag("hidden", true) },
       "-",
-      one?.type === "picture" && { label: "Crop picture", keys: "Enter", run: () => canvas.startCrop(one.id) },
+      one?.equation && { label: "Edit equation", keys: "Enter", run: () => this.editEquation(one.id) },
+      one?.type === "picture" && { label: "Crop picture", keys: one.equation ? null : "Enter", run: () => canvas.startCrop(one.id) },
       one?.type === "picture" && c("replacePicture", { label: "Replace picture…" }),
       asset?.variants[asset.primary]?.src && c("revealPicture"),
       one?.type === "shape" && one.geom !== "region" && { label: "Edit text", keys: "Enter", run: () => canvas.startEdit(one.id) },
@@ -1394,6 +1437,7 @@ app.commands = {
   makeClipMask: cmd("Make clipping mask: the top selected shape clips the objects under it", () => app.makeClipMask(),
     `${M}7`, key("7"), "Make mask"),
   releaseClipMask: cmd("Release clipping mask: separate the shape and what it clips", () => app.releaseClipMask(), null, null, "Release"),
+  equation: cmd("Equation: maths written as in LaTeX, drawn as real text", () => app.addEquation(), null, null, "Equation"),
   makeSymbol: cmd("Make symbol: one object to use many times, changed everywhere at once", () => app.makeSymbol(), null, null, "Make symbol"),
   editSymbol: cmd("Edit symbol: change the selected copy's symbol where it is (every copy follows)", () => app.editSymbol(), null, null, "Edit symbol"),
   breakSymbol: cmd("Break link to symbol: make the selected copy its own objects", () => app.breakSymbol(), null, null, "Break link"),
@@ -1539,6 +1583,7 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     const it = store.selected()[0];
     if (canvas.cropping) canvas.endCrop();
+    else if (it.equation) app.editEquation(it.id);
     else if (it.type === "picture") canvas.startCrop(it.id);
     else if (it.type === "shape") canvas.startEdit(it.id);
     else if (it.type === "group") canvas.enterGroup(it.id);
@@ -1673,6 +1718,7 @@ async function start() {
   canvas.onZoomBox = (id, box) => app.addZoomInset(id, box);
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.onEditSymbol = (id) => app.editSymbol(id);
+  canvas.onEditEquation = (id) => app.editEquation(id);
   canvas.onFillArea = (p) => app.fillArea(p);
   canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);
   rulers.init(document.querySelector(".stage-wrap"));
