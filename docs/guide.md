@@ -382,6 +382,12 @@ the object when it moves, resizes or rotates.
 - **Rotate:** drag the round handle above the object; Shift keeps to 15° steps.
 - **Exact values:** the Arrange tab's X, Y, Width, Height and Rotation, in centimetres (change
   the unit in Settings), plus flips.
+- **Distances:** with something selected, hold **Option** (Alt) and point at another object to see
+  the gap between them (or, when one is inside the other, the four distances between their
+  edges); point at empty space for the distances to the page's edges. They're in your position
+  unit, and a screen reader hears them.
+
+  ![Plot a selected, Option held over plot b: the gap between them](images/distances.png)
 - **Group (⌘G), Ungroup (⌘⇧G)**; **Order**: bring to front (⌘⇧]), forward (⌘]), backward
   (⌘[), to back (⌘⇧[).
 - **Clipping mask (⌘7)**, as in Illustrator (Combine tab): put a shape on top of the objects it

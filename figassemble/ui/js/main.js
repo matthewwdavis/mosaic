@@ -1310,6 +1310,7 @@ app.commands = {
 document.addEventListener("keydown", (e) => {
   if (document.querySelector("dialog[open]")) return;
   if (e.key === " " && !isField(e.target)) { canvas.spaceDown = true; canvas.stage.style.cursor = "grab"; e.preventDefault(); return; }
+  if (e.key === "Alt" && !isField(e.target)) canvas.setMeasureKey(true);   // distances on hover
   const inField = isField(e.target);
   if (!inField && (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey))) {
     e.preventDefault();
@@ -1370,6 +1371,10 @@ document.addEventListener("keydown", (e) => {
 });
 document.addEventListener("keyup", (e) => {
   if (e.key === " ") { canvas.spaceDown = false; canvas.stage.style.cursor = ""; }
+  if (e.key === "Alt") canvas.setMeasureKey(false);
+});
+window.addEventListener("blur", () => {
+  canvas.setMeasureKey(false);
 });
 function isField(el) {
   return el && (el.matches?.("input, textarea, select") || el.isContentEditable);

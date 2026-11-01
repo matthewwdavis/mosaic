@@ -475,6 +475,60 @@ export const canvas = {
       if (b) o.append(this.outlineAround([[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]], "sel-outline"));
     }
     if (this.cropping) this.drawCropHandles();
+    if (this.altDown && !this.op && sel.length) this.drawDistances(o, sel);
+  },
+  // Option held with something selected: its distances to the object under the pointer, or to
+  // the page's edges, as Figma shows them: the gap between them, or four inner distances when
+  // one is inside the other
+  drawDistances(o, sel) {
+    const a = itemsBBox(sel);
+    if (!a || !this.hoverAt) return;
+    const under = this.itemAt(this.hoverAt);
+    const target = under && !store.selection.includes(under.id) ? under : null;
+    const page = store.page(), b = target ? itemBBox(target) : [0, 0, page.width, page.height];
+    const segs = [];
+    const inside = (p, q) => p[0] >= q[0] && p[2] <= q[2] && p[1] >= q[1] && p[3] <= q[3];
+    if (!target || inside(a, b) || inside(b, a)) {
+      const [inner, outer] = inside(a, b) || !target ? [a, b] : [b, a];
+      const cx = (inner[0] + inner[2]) / 2, cy = (inner[1] + inner[3]) / 2;
+      segs.push([outer[0], cy, inner[0], cy], [inner[2], cy, outer[2], cy], [cx, outer[1], cx, inner[1]], [cx, inner[3], cx, outer[3]]);
+    } else {
+      const ys = [Math.max(a[1], b[1]), Math.min(a[3], b[3])], xs = [Math.max(a[0], b[0]), Math.min(a[2], b[2])];
+      const y = ys[0] <= ys[1] ? (ys[0] + ys[1]) / 2 : (a[1] + a[3]) / 2, x = xs[0] <= xs[1] ? (xs[0] + xs[1]) / 2 : (a[0] + a[2]) / 2;
+      if (b[0] >= a[2]) segs.push([a[2], y, b[0], y]);
+      else if (b[2] <= a[0]) segs.push([b[2], y, a[0], y]);
+      if (b[1] >= a[3]) segs.push([x, a[3], x, b[1]]);
+      else if (b[3] <= a[1]) segs.push([x, b[3], x, a[1]]);
+      if (!segs.length) segs.push([a[0], y, b[0], y], [x, a[1], x, b[1]]);   // overlapping: between their left and top edges
+    }
+    if (target) o.append(this.outlineAround([[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]], "distance-target"));
+    const said = [];
+    for (const [x0, y0, x1, y1] of segs) {
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      if (len < 0.01) continue;
+      const [p0, p1] = [this.toScreen(x0, y0), this.toScreen(x1, y1)];
+      o.append(s("line", { class: "distance", x1: p0[0], y1: p0[1], x2: p1[0], y2: p1[1] }));
+      const text = lengthText(len), [mx, my] = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2];
+      const w = text.length * 6.2 + 8;
+      o.append(s("rect", { class: "distance-label", x: mx - w / 2, y: my - 8, width: w, height: 16, rx: 3 }));
+      const t = s("text", { class: "distance-text", x: mx, y: my + 4, "text-anchor": "middle" });
+      t.textContent = text;
+      o.append(t);
+      said.push(text);
+    }
+    const what = target ? itemLabel(target, store.doc) : "the page's edges";
+    const key = `${target?.id || "page"}:${said.join(",")}`;
+    if (this.saidDistances !== key) {
+      this.saidDistances = key;
+      announce(`To ${what}: ${said.join(", ")}`);
+    }
+  },
+  // Option pressed or let go (main.js), for distances on hover
+  setMeasureKey(down) {
+    if (this.altDown === down) return;
+    this.altDown = down;
+    this.saidDistances = null;
+    this.drawOverlay();
   },
   outline(pts, cls) {
     return s("polygon", { class: cls, points: pts.map(([x, y]) => this.toScreen(x, y).join(",")).join(" ") });
@@ -656,6 +710,7 @@ export const canvas = {
     const p = this.toPage(...pt);
     document.dispatchEvent(new CustomEvent("fa-cursor", { detail: p }));
     const op = this.op;
+    if (!op && e.altKey !== !!this.altDown) this.setMeasureKey(e.altKey);   // a key let go elsewhere
     if (!op) return this.hover(pt, p);
     if (op.type === "pan") {
       this.panX = op.pan[0] + pt[0] - op.start[0];
@@ -749,6 +804,8 @@ export const canvas = {
     }
   },
   hover(pt, p) {
+    this.hoverAt = p;
+    if (this.altDown && store.selection.length) this.drawOverlay();
     if (["line", "arrow"].includes(this.tool)) {
       this.sitePointer = p;
       this.siteActive = this.siteNear(p);

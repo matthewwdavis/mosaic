@@ -677,6 +677,18 @@ export async function run(app, params) {
       else delete a.outline;
     });
 
+    // Distances on hover: Option held with the rectangle selected, pointing off the page, shows
+    // its distances to the page's edges; letting go of Option hides them
+    store.select([rect.id]);
+    key("Alt");
+    pointer("pointermove", screenOf(-20, -20), { buttons: 0, altKey: true });
+    const dLabels = [...canvas.overlay.querySelectorAll(".distance-text")].map((t) => t.textContent);
+    const rBox = itemBBox(store.item(rect.id));
+    check(dLabels.length === 4 && dLabels.includes(lengthText(rBox[0])), "Option shows the selection's distances to the page's edges",
+      dLabels.join(", "));
+    canvas.stage.dispatchEvent(new KeyboardEvent("keyup", { key: "Alt", bubbles: true }));
+    check(!canvas.overlay.querySelector(".distance"), "and letting go of Option hides them");
+
     // Duplicate as in PowerPoint: move the copy, and the next Duplicate repeats that offset
     store.select([rect.id]);
     await app.run("duplicate");

@@ -120,6 +120,15 @@ export async function run(app, params) {
     document.getElementById("rtab-arrange").click();
     return finish();
   }
+  if (scene === "distances") {
+    // Plot a selected, Option held and the pointer on plot b: the gap between them
+    store.select([a]);
+    await settle();
+    const fb = fr(b);
+    canvas.hoverAt = [fb[0] + fb[2] / 2, fb[1] + fb[3] / 2];
+    canvas.setMeasureKey(true);
+    return finish();
+  }
   if (scene === "group") {
     // The top two plots selected and the bar chart right-clicked, the pointer on Group
     store.select([a, b]);

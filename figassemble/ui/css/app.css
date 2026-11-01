@@ -416,3 +416,9 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 .cs-item[aria-selected="true"] { background: var(--accent); color: var(--accent-text); }
 .cs-item kbd { opacity: 0.85; }
 .cs-empty { padding: 0.35rem 0.6rem; color: var(--muted); }
+
+/* Distances on hover (Option held) */
+.distance { stroke: #d13438; stroke-width: 1.5; }
+.distance-label { fill: #d13438; }
+.distance-text { fill: #ffffff; font: 600 11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+.distance-target { fill: none; stroke: #d13438; stroke-width: 1; stroke-dasharray: 4 3; }
