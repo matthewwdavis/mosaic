@@ -367,6 +367,20 @@ class Api:
         from ..export.preflight import preflight
         return preflight(doc, options or {})
 
+    def plot_lines(self, asset: dict, page_index: int = 0) -> dict | None:
+        """A placed plot's axis and frame lines and the box round its ink, to snap to
+        (vectors.plot_lines), from its PDF copy or else its SVG; None for a photo."""
+        from .. import vectors
+        variants = (asset or {}).get("variants", {})
+        kind = next((k for k in ("pdf", "svg") if k in variants), None)
+        if kind is None:
+            return None
+        try:
+            path = get_cache().path(variants[kind]["sha256"], kind)
+            return vectors.plot_lines(path, kind, int(page_index or 0) if kind == "pdf" else 0)
+        except Exception:
+            return None
+
     # Native helpers --------------------------------------------------------------------
 
     def open_dialog(self, kind: str = "document") -> list[str] | None:

@@ -6,7 +6,7 @@ import { canvas } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
-import { itemBBox, lengthText, lineMidpoints } from "./util.js";
+import { itemBBox, itemsBBox, lengthText, lineMidpoints } from "./util.js";
 
 const MMPT = 72 / 25.4;
 const near = (a, b, tol = 0.05) => Math.abs(a - b) < tol;
@@ -107,6 +107,24 @@ export async function run(app, params) {
     check(Math.abs(pics[0].frame[2] - a0.size_pt[0]) < 1e-6, "placed at true size");
     const img = canvas.els.get(pics[0].id)?.g.querySelector("image");
     check(img && img.getAttribute("href").includes("/asset/"), "picture preview rendered");
+    // Snapping to placed plots: their axis and frame lines and ink edges are snapped to, and a plot
+    // being moved snaps by its own
+    await until(() => canvas.plotLines?.get(`${pics[0].asset}:0`), 15000);
+    const plotT = canvas.plotSnaps(store.item(pics[0].id)), plotFr = store.item(pics[0].id).frame;
+    const upright = plotT.find((t) => t.axis === 0 && t.v > plotFr[0] + 1 && t.v < plotFr[0] + plotFr[2] - 1);
+    check(upright && plotT.filter((t) => t.axis === 1).length >= 2, "a placed plot's axis lines and ink edges are found to snap to",
+      JSON.stringify(plotT.slice(0, 4)));
+    // (a twentieth of a point off, nearer than anything else)
+    const snapBox = [upright.v + 0.05, plotFr[1] - 40, upright.v + 0.06, plotFr[1] - 30];
+    const [plotDx] = canvas.snapMove(snapBox, 0, 0, canvas.snapTargets([]), {});
+    check(near(snapBox[0] + plotDx, upright.v, 1e-6), "an object's edge snaps to a plot's axis line",
+      `${snapBox[0]} + ${plotDx} vs ${upright.v} (${JSON.stringify(plotT.slice(0, 3))}, frame ${plotFr})`);
+    const pageMid = store.page().width / 2, moveDx = pageMid - upright.v + 0.05;
+    const [ownDx] = canvas.snapMove(itemsBBox([store.item(pics[0].id)]), moveDx, 0, canvas.snapTargets([pics[0].id]), {},
+      canvas.innerSnaps([store.item(pics[0].id)]));
+    check(near(upright.v + ownDx, pageMid, 1e-6), "a plot being moved snaps by its own axis line (here to the page's middle)",
+      `${upright.v} + ${ownDx} vs ${pageMid}`);
+    canvas.snapGuides = [];
     store.select([pics[0].id]);
     inspector.render();
     const units = [...document.querySelectorAll("#inspector .unit")].map((u) => u.textContent);

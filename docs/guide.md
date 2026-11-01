@@ -517,6 +517,14 @@ Select objects and use the **Arrange** tab, or the panel on the right:
   and centres, to **equal gaps** between objects (the gaps show with their size), and to guides
   and the grid while they're shown. Hidden guides and a hidden grid never pull. Grid lines give
   way to everything else. Magenta lines show what it snapped to.
+- **Snapping to plots:** placed PDF and SVG plots have more to snap to: their axis lines and
+  panel frames (long straight lines, not tick marks, error bars or light grid lines), and the
+  edges of their ink (what's drawn, ignoring white). Only the part a crop shows counts. A plot
+  being dragged snaps by its own axis lines and ink edges too, so two plots' x axes line up even
+  when their tops don't. Turned pictures snap by their frame only.
+
+  ![Plot b, cropped at the top, dragged into line with plot a: a magenta line along both x axes](images/plotsnap.png)
+
 - **Getting around snapping:** hold **⌘** while dragging, just that once; turn the **Snap**
   button off (⌘⇧;); or press **Escape** mid-drag to cancel the drag. Typed values and arrow keys
   never snap.

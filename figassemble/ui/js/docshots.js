@@ -115,6 +115,24 @@ export async function run(app, params) {
     for (const f of [0.3, 0.6, 0.9, 1]) pointer("pointermove", screenOf(from[0], from[1] - 25 * f));
     return finish();
   }
+  if (scene === "plotsnap") {
+    // b cropped at the top and dragged into line with a: the magenta line runs along both plots'
+    // x axes, though their tops don't line up
+    store.update("Crop b", (doc) => {
+      const it = doc.pages[0].items.find((i) => i.id === b);
+      it.crop = [0, 0.2, 0, 0];
+      it.frame = [it.frame[0], 60, it.frame[2], it.frame[3] * 0.8];
+    }, { select: [b] });
+    for (let t = 0; t < 200 && !(canvas.plotSnaps(store.item(a)).length && canvas.plotSnaps(store.item(b)).length); t++) await wait(50);
+    await settle();
+    const xAxis = (id) => Math.max(...canvas.plotSnaps(store.item(id)).filter((t) => t.axis === 1 && t.v < fr(id)[1] + fr(id)[3] - 2).map((t) => t.v));
+    const dy = xAxis(a) - xAxis(b);
+    centreOn(215, 90, 1.6);
+    const from = [fr(b)[0] + 60, fr(b)[1] + 30];
+    pointer("pointerdown", screenOf(...from));
+    for (const f of [0.3, 0.6, 0.9, 1]) pointer("pointermove", screenOf(from[0], from[1] + (dy + 1) * f));
+    return finish();
+  }
   if (scene === "arrange") {
     store.select([a, b]);
     document.getElementById("rtab-arrange").click();

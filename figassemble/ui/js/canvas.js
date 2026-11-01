@@ -98,7 +98,7 @@ export const canvas = {
     });
     this.editor.addEventListener("keydown", (e) => this.editorKey(e));
     store.on((what, detail) => {
-      if (what === "doc") this.render(detail);
+      if (what === "doc") { this.render(detail); this.loadPlotLines(); }
       else if (what === "selection") this.drawOverlay();
       else if (what === "page") { this.els.clear(); this.itemsLayer.replaceChildren(); this.fit(); }
     });
@@ -907,7 +907,8 @@ export const canvas = {
     }
     detachMoved(items);
     this.op = { type: "move", start: p, orig: items.map((it) => JSON.parse(JSON.stringify(it))), moved: false,
-      label: e.altKey ? "Duplicate" : "Move", bbox: itemsBBox(items), targets: this.snapTargets(items.map((i) => i.id)) };
+      label: e.altKey ? "Duplicate" : "Move", bbox: itemsBBox(items), targets: this.snapTargets(items.map((i) => i.id)),
+      inner: this.innerSnaps(items) };
   },
   moveTo(p, e) {
     const op = this.op;
@@ -915,7 +916,7 @@ export const canvas = {
     if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
     if (!op.moved && Math.hypot(dx, dy) * this.k < 2) return;
     op.moved = true;
-    [dx, dy] = this.snapMove(op.bbox, dx, dy, op.targets, e);
+    [dx, dy] = this.snapMove(op.bbox, dx, dy, op.targets, e, op.inner);
     [op.dx, op.dy] = [dx, dy];
     for (const o of op.orig) {
       const it = findDeep(store.items(), o.id);
@@ -948,18 +949,22 @@ export const canvas = {
       boxes.push(b);
       for (const v of [b[0], (b[0] + b[2]) / 2, b[2]]) xs.push({ v, span: [b[1], b[3]] });
       for (const v of [b[1], (b[1] + b[3]) / 2, b[3]]) ys.push({ v, span: [b[0], b[2]] });
+      // Placed plots' axis and frame lines and the edges of their ink, in groups too
+      for (const t of this.plotSnaps(it)) (t.axis ? ys : xs).push({ v: t.v, span: t.span });
     }
     return { xs, ys, boxes, grid: d.show_grid ? this.gridSteps().snap : null, size: [page.width, page.height] };
   },
   snapEnabled(e) { return (this.defaults?.snap ?? true) && !(e.metaKey || e.ctrlKey); },
-  // Moving: the box's edges and centre snap to lines, or the box to equal gaps beside it
-  snapMove(b, dx, dy, targets, e) {
+  // Moving: the box's edges and centre snap to lines, or the box to equal gaps beside it; so do
+  // the axis and frame lines and ink edges of plots being moved (inner: [xs, ys] where they start)
+  snapMove(b, dx, dy, targets, e, inner = [[], []]) {
     this.snapGuides = [];
     if (!this.snapEnabled(e) || !b) return [dx, dy];
     const tol = SNAP_PX / this.k;
     const box = [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy];
+    const own = (i, d) => [...edges(box, i), ...inner[i].map((v) => v + d)];
     const shifts = [0, 1].map((i) => {
-      const line = nearestSnap(edges(box, i), lines(targets, i), null, 0, tol);
+      const line = nearestSnap(own(i, i ? dy : dx), lines(targets, i), null, 0, tol);
       const gap = equalSpacing(box, i, targets.boxes, tol);
       let d = gap && (line === null || Math.abs(gap.d) < Math.abs(line)) ? gap.d : line;
       if (d === null) d = nearestSnap(edges(box, i), [], targets.grid, targets.size[i], tol);
@@ -970,10 +975,54 @@ export const canvas = {
     const fin = [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy];
     shifts.forEach(({ d, gap }, i) => {
       if (d === null) return;
-      this.snapGuides.push(...snapLines(i, edges(fin, i), targets, fin[1 - i], fin[3 - i]));
+      this.snapGuides.push(...snapLines(i, [...edges(fin, i), ...inner[i].map((v) => v + (i ? dy : dx))], targets, fin[1 - i], fin[3 - i]));
       if (gap) this.snapGuides.push(...gapMarks(i, gap.pairs, fin));
     });
     return [dx, dy];
+  },
+  // Placed plots (vectors.plot_lines): their axis and frame lines and ink box, read once per
+  // file and page in the background, then snapped to like objects' edges
+  loadPlotLines() {
+    this.plotLines ||= new Map();
+    const walk = (items) => items.forEach((it) => {
+      if (it.type === "group") walk(it.items);
+      if (it.type !== "picture") return;
+      const key = `${it.asset}:${it.page_index || 0}`, asset = store.doc.assets[it.asset];
+      if (this.plotLines.has(key) || !asset || !["pdf", "svg"].some((k) => asset.variants?.[k])) return;
+      this.plotLines.set(key, null);
+      rpc("plot_lines", asset, it.page_index || 0).then((d) => this.plotLines.set(key, d), () => {});
+    });
+    walk(store.items());
+  },
+  // A picture's plot lines on the page: only what its crop shows, mapped through its frame (none
+  // for a turned picture); a group's pictures' too
+  plotSnaps(it) {
+    if (it.type === "group") return it.hidden ? [] : it.items.flatMap((k) => this.plotSnaps(k));
+    const data = it.type === "picture" && !it.hidden && !((it.rot || 0) % 360) && this.plotLines?.get(`${it.asset}:${it.page_index || 0}`);
+    if (!data) return [];
+    const [sw, sh] = data.size, [x, y, w, h] = it.frame, [l, t, r, b] = it.crop || [0, 0, 0, 0];
+    const lo = [l * sw, t * sh], hi = [(1 - r) * sw, (1 - b) * sh];
+    const map = (v, i) => {
+      const f = (v - lo[i]) / (hi[i] - lo[i] || 1);
+      return i ? y + (it.flip_v ? 1 - f : f) * h : x + (it.flip_h ? 1 - f : f) * w;
+    };
+    const [ix0, iy0, ix1, iy1] = data.ink || [];
+    const found = [...data.lines, ...(data.ink ? [[0, ix0, iy0, iy1], [0, ix1, iy0, iy1], [1, iy0, ix0, ix1], [1, iy1, ix0, ix1]] : [])];
+    const out = [];
+    for (const [axis, at, a, b2] of found) {
+      const i = axis ? 1 : 0, j = 1 - i;   // the line is at `at` on axis i, running along axis j
+      if (at < lo[i] - 1e-6 || at > hi[i] + 1e-6) continue;
+      const s0 = Math.max(a, lo[j]), s1 = Math.min(b2, hi[j]);
+      if (s1 < s0) continue;
+      const ends = [map(s0, j), map(s1, j)].sort((p, q) => p - q);
+      out.push({ axis: i, v: map(at, i), span: ends });
+    }
+    return out;
+  },
+  // Where the moving objects' plot lines start: [xs, ys]
+  innerSnaps(items) {
+    const found = items.flatMap((it) => this.plotSnaps(it));
+    return [found.filter((t) => !t.axis).map((t) => t.v), found.filter((t) => t.axis).map((t) => t.v)];
   },
   // Line ends and drawing: the point snaps to lines
   snapPoint(p, targets, e) {
