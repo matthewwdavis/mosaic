@@ -330,6 +330,37 @@ export async function run(app, params) {
       items.splice(items.findIndex((i) => i.id === lpPic.id), 1, lpWas);
       items.splice(items.findIndex((i) => i.id === lpId), 1);
     }, { select: [] });
+    // Object styles: a style made from one line and given to another; changing the style moves
+    // both, except what one changed by hand; deleting it keeps the look
+    const osLine = (id, y, color, width) => ({ id, type: "line", points: [[300, y], [360, y]], arrow_start: null, arrow_end: null,
+      stroke: { color, width, dash: "solid", cap: "round", join: "round", opacity: 1 } });
+    store.update("Lines for a style", (doc) => doc.pages[store.pageIndex].items.push(osLine("osA", 480, "#ff0000", 2),
+      osLine("osB", 500, "#000000", 1)), { select: ["osA"] });
+    const makingStyle = app.newObjectStyle();
+    await settle();
+    const osPrompt = [...document.querySelectorAll("dialog[open]")].pop();
+    osPrompt.querySelector("input").value = "Red line";
+    [...osPrompt.querySelectorAll("button")].find((b) => b.textContent === "OK").click();
+    await makingStyle;
+    const redStyle = (store.doc.object_styles || []).find((x) => x.name === "Red line");
+    check(redStyle && redStyle.stroke.color === "#ff0000" && !("fill" in redStyle) && store.item("osA").object_style === redStyle.id,
+      "New style from this object makes a style with its look, and links it", JSON.stringify(redStyle));
+    store.select(["osB"]);
+    app.useObjectStyle(redStyle.id);
+    check(store.item("osB").stroke.color === "#ff0000" && store.item("osB").stroke.width === 2, "a style given to another object gives it the look");
+    store.update("B wider", (doc) => { findDeep(doc.pages[store.pageIndex].items, "osB").stroke.width = 3; });
+    inspector.render();
+    check(/This object differs from Red line/.test(document.querySelector("#inspector").textContent), "its Style tab says when it differs");
+    store.update("A blue", (doc) => { findDeep(doc.pages[store.pageIndex].items, "osA").stroke.color = "#0000ff"; });
+    app.redefineObjectStyle(redStyle.id, store.item("osA"));
+    check(store.item("osB").stroke.color === "#0000ff" && store.item("osB").stroke.width === 3,
+      "Update the style to match: the others follow, keeping what was changed by hand", JSON.stringify(store.item("osB").stroke));
+    app.deleteObjectStyle(redStyle.id);
+    check(!store.item("osB").object_style && store.item("osB").stroke.color === "#0000ff" && !(store.doc.object_styles || []).length,
+      "deleting a style keeps the objects' look");
+    store.select(["osA", "osB"]);
+    await app.run("delete");
+
     // Symbols: two objects made a symbol leave one copy; a copy resized to twice the size draws
     // its lines twice as wide; editing one copy in place changes every copy; Break link makes a
     // copy its own objects, scaled as it was

@@ -39,6 +39,7 @@ export function colourHolders(doc) {
   for (const pg of doc.pages || []) walk(pg.items);
   for (const sym of doc.symbols || []) walk(sym.items);   // symbols' objects too
   for (const st of doc.text_styles || []) out.push(st);   // text styles' colours too
+  walk(doc.object_styles || []);                          // and object styles'
   return out;
 }
 

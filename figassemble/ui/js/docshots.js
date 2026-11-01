@@ -7,6 +7,7 @@ import { canvas } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { store } from "./store.js";
 import { PALETTES } from "./swatches.js";
+import { formatOf as lookOf } from "./objectstyles.js";
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const settle = async () => { await wait(80); await canvas.resolveNow(); await wait(80); };
@@ -268,6 +269,19 @@ export async function run(app, params) {
   await settle();
   canvas.fit();
   await settle();
+  if (scene === "objectstyles") {
+    // A style made from the arrow, then the arrow made thicker by hand: its Style tab says it
+    // differs, with Clear changes and Update the style to match
+    store.update("Arrow style", (doc) => {
+      const arrow = doc.pages[0].items.find((i) => i.id === "arrow");
+      doc.object_styles = [{ id: "os1", name: "Callout arrow", ...lookOf(arrow) }];
+      arrow.object_style = "os1";
+      arrow.stroke = { ...arrow.stroke, width: (arrow.stroke.width || 1) * 1.5 };
+    }, { select: ["arrow"] });
+    inspector.render();
+    document.getElementById("itab-style")?.click();
+    return finish();
+  }
   if (scene === "annotated" || scene === "style") {
     store.select(["arrow"]);
     inspector.render();   // the panel draws on the next frame otherwise, after the tab is clicked

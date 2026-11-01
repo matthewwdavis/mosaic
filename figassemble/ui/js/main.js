@@ -23,6 +23,7 @@ import { barFrame, niceLength, pageScale, pxPerPt, scaleText } from "./scalebar.
 import { stackLevels } from "./brackets.js";
 import { colourHolders, swatchById } from "./swatches.js";
 import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, setFormat } from "./textstyles.js";
+import { KEYS as LOOK, applyObjectStyle, formatOf as lookOf, restyle as restyleObjects } from "./objectstyles.js";
 import {
   MOD, announce, clone, describeItem, display, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints, shapeCatalog, uid,
 } from "./util.js";
@@ -295,6 +296,68 @@ const app = {
   },
   async deletePalette(name) {
     await this.savePrefs({ swatch_library: (this.prefs.swatch_library || []).filter((p) => p.name !== name) });
+  },
+  // Object styles (objectstyles.js): named looks for lines and shapes; objects using one follow
+  // it, except where changed
+  async newObjectStyle() {
+    const it = store.selected().find((x) => x.type === "line" || x.type === "shape");
+    if (!it) return announce("Select a line or shape to make a style from");
+    const name = await panels.promptDialog("New object style", "Style name", "", "For example: Thin grey line, Highlight box");
+    if (!name) return;
+    const style = { id: uid("os"), name, ...lookOf(it) };
+    store.update("New object style", (doc) => {
+      doc.object_styles = [...(doc.object_styles || []), style];
+      for (const id of store.selection) {
+        const t = findDeep(doc.pages[store.pageIndex].items, id);
+        if (t) applyObjectStyle(t, style);
+      }
+    });
+    announce(`Made the object style ${name}`);
+  },
+  useObjectStyle(id) {
+    const style = (store.doc.object_styles || []).find((x) => x.id === id);
+    store.update(style ? "Object style" : "No object style", (doc) => {
+      for (const sid of store.selection) {
+        const t = findDeep(doc.pages[store.pageIndex].items, sid);
+        if (!t) continue;
+        if (style) applyObjectStyle(t, style);
+        else delete t.object_style;
+      }
+    });
+  },
+  // The style takes this object's look; objects using it follow, keeping their own changes
+  redefineObjectStyle(id, item) {
+    store.update("Update object style", (doc) => {
+      const st = (doc.object_styles || []).find((x) => x.id === id);
+      if (!st) return;
+      const old = clone(st), f = lookOf(item);
+      for (const k of LOOK) if (k in f) st[k] = f[k];
+      restyleObjects(doc, old, st);
+    });
+    announce("Updated the style, and the objects using it");
+  },
+  clearObjectChanges() {
+    store.update("Clear changes", (doc) => {
+      for (const sid of store.selection) {
+        const t = findDeep(doc.pages[store.pageIndex].items, sid);
+        const st = t?.object_style && (doc.object_styles || []).find((x) => x.id === t.object_style);
+        if (st) applyObjectStyle(t, st);
+      }
+    });
+  },
+  renameObjectStyle(id, name) {
+    store.update("Rename object style", (doc) => { const st = (doc.object_styles || []).find((x) => x.id === id); if (st) st.name = name; });
+  },
+  // The objects keep their look; only the link goes
+  deleteObjectStyle(id) {
+    store.update("Delete object style", (doc) => {
+      doc.object_styles = (doc.object_styles || []).filter((x) => x.id !== id);
+      const walk = (items) => items.forEach((it) => {
+        if (it.type === "group") walk(it.items);
+        if (it.object_style === id) delete it.object_style;
+      });
+      for (const pg of [...doc.pages, ...(doc.symbols || [])]) walk(pg.items);
+    });
   },
   // Text styles (textstyles.js): named formats; text using one follows it, except where changed
 
@@ -1310,6 +1373,7 @@ app.commands = {
   fonts: cmd("Fonts in this figure: see and replace them", () => panels.fontsDialog(), null, null, "Fonts"),
   swatches: cmd("Swatches: the figure's named colours, and palettes", () => panels.swatchesDialog(), null, null, "Swatches"),
   textStyles: cmd("Text styles: the figure's named text formats", () => panels.textStylesDialog(), null, null, "Text styles"),
+  objectStyles: cmd("Object styles: the figure's named looks for lines and shapes", () => panels.objectStylesDialog(), null, null, "Object styles"),
   sameWidth: cmd("Same width: make the selected objects as wide as the key object (or the first selected), keeping "
     + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
   sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the first selected), keeping "

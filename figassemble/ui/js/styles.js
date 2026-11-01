@@ -13,7 +13,7 @@ export function styleOf(it) {
   if (it.type === "group") return it.items.map(styleOf).find(Boolean) || null;
   if (it.type === "scalebar" || it.type === "bracket") return null;
   if (it.type === "picture") return { opacity: it.opacity ?? 1 };
-  const st = {};
+  const st = { object_style: it.object_style ?? null };   // with its object style's link
   if (it.geom !== "region") st.stroke = clone(it.stroke ?? null);   // an area fill has no line to copy
   st.outline = clone(it.outline ?? null);
   if (it.type === "shape") {
@@ -39,6 +39,10 @@ export function applyStyle(it, st) {
   if (it.type === "picture") {
     if (st.opacity !== undefined) it.opacity = st.opacity;
     return;
+  }
+  if (st.object_style !== undefined) {
+    if (st.object_style) it.object_style = st.object_style;
+    else delete it.object_style;
   }
   // A line keeps its own line rather than vanish; an area fill has none
   if (st.stroke !== undefined && it.geom !== "region" && (st.stroke || it.type !== "line")) it.stroke = clone(st.stroke);

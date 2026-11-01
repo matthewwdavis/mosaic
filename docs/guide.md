@@ -33,7 +33,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 
 1. **Tabs** across the top, like PowerPoint's ribbon:
    - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; Duplicate, Again, Delete; Add page,
-     Fit page; Swatches, Text styles, Fonts.
+     Fit page; Swatches, Text styles, Object styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group and Grid, Order (see
      [Align and distribute](#align-and-distribute)).
    - **Figure**: scale bars (Scale bar, Measure), zoom insets, significance brackets (Bracket,
@@ -433,6 +433,25 @@ ends and corners), the fill (gradients included), the outline, arrowheads, corne
 text formatting (font, size, bold, italic, colour, alignment and spacing). "No fill" and "no line"
 are copied too, except that a line never loses its own line. A line's style gives a shape its line
 and outline and leaves the shape's fill alone; a picture's style is its transparency.
+
+## Object styles
+
+Named looks for lines and shapes that stay linked, like [text styles](#text-and-panel-labels):
+the line (colour, width, dashes, ends, corners), the fill, the outline and the arrowheads.
+
+- **New style from this object…** (the **Object style** section at the top of a line's or
+  shape's **Style** tab) names the selected object's look and links the selected objects to it.
+  A line's style has no fill; a closed shape's has no arrowheads.
+- **Object style** in the same section gives another object a style.
+- Objects using a style follow it. To change a style, give one object the look you want and
+  click **Update the style to match**: every object using the style changes too, except for what
+  you've changed by hand in an object (its colour, say, or its line width), which it keeps.
+- When an object differs from its style, the section says so; **Clear changes** puts it back.
+- **Object styles** (Home tab) lists them, with what each looks like and how many objects use it:
+  rename one, or delete it (the objects keep their look). Copy style and Paste style carry the
+  link to an object style along, and colours in a style can be [swatches](#swatches).
+
+<img src="images/objectstyles.png" alt="An arrow made thicker by hand: its Style tab says it differs from the Callout arrow style" width="264">
 
 ## Swatches
 

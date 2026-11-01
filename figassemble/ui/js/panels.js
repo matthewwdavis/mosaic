@@ -6,6 +6,7 @@ import { alignToField, button, colourVisionField, gapField, numField, selectFiel
 import { store } from "./store.js";
 import { PALETTES, colourHolders } from "./swatches.js";
 import { copiesOf } from "./symbols.js";
+import { describeLook, differs as looksDiffer, styledObjects } from "./objectstyles.js";
 import { describeFormat, differs, paragraphs } from "./textstyles.js";
 import { contextMenu } from "./contextmenu.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, s, shapeName, toUnit } from "./util.js";
@@ -38,6 +39,7 @@ const ICONS = {
   clip: "M4 4h16v16H4zM12 7a5 5 0 110 10 5 5 0 010-10z", unclip: "M4 4h9M4 4v9M20 20h-9M20 20v-9M14 4h6v6M4 14v6h6",
   swatches: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
   textStyles: "M5 5h14M12 5v14M8 19h8M4 12h3M17 12h3",
+  objectStyles: "M4 4h9v9H4zM9 15l5-6 6 10H8z",
   fonts: "M4 19l5-14h1l5 14M6 14h7M15 19l3-8h.5l3 8M16 16.5h4",
   brush: "M20 3l-7 7M11 9l4 4M10.5 10.5l3 3-3 3a3 3 0 01-4.2 0l-.3-.3a3 3 0 010-4.2zM6.6 16.6C6 18.6 4.6 20 3 20.5c2 .6 4.4.2 5.8-1.4",
   eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 110 6 3 3 0 010-6z",
@@ -214,7 +216,7 @@ export const panels = {
         group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste"), this.painterButton()),
         group("Objects", t("duplicate", "duplicate"), t("transformAgain", "again"), t("delete", "trash")),
         group("Page", t("addPage", "plus"), t("fitPage", "fit")),
-        group("Styles", t("swatches", "swatches"), t("textStyles", "textStyles"), t("fonts", "fonts")),
+        group("Styles", t("swatches", "swatches"), t("textStyles", "textStyles"), t("objectStyles", "objectStyles"), t("fonts", "fonts")),
       ]],
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
       ["figure", "Figure", [
@@ -1051,6 +1053,34 @@ export const panels = {
     };
     render();
     this.dialog("Text styles", body);
+  },
+  // Object styles: rename or delete them, with what each looks like and how many objects use it
+  // (changes to a style's look come from an object: "Update the style to match" on its Style tab)
+  objectStylesDialog() {
+    const body = h("div", {});
+    const render = () => {
+      const all = store.doc.object_styles || [], objects = styledObjects(store.doc);
+      const rows = all.map((st) => {
+        const name = h("input", { type: "text", value: st.name, "aria-label": `${st.name}: name` });
+        name.addEventListener("change", () => { if (name.value.trim()) this.app.renameObjectStyle(st.id, name.value.trim()); });
+        const using = objects.filter((it) => it.object_style === st.id), changed = using.filter((it) => looksDiffer(it, st)).length;
+        const line = st.stroke ? { stroke: st.stroke.color || "#000000", "stroke-width": Math.min(Math.max(st.stroke.width ?? 1, 0.5), 4) } : { stroke: "none" };
+        const sample = s("svg", { class: "style-sample", width: 30, height: 18, viewBox: "0 0 30 18", "aria-hidden": "true" },
+          "fill" in st ? s("rect", { x: 3, y: 3, width: 24, height: 12, fill: st.fill?.color || (st.fill ? "#cccccc" : "none"), ...line })
+            : s("line", { x1: 3, y1: 9, x2: 27, y2: 9, ...line }));
+        return h("li", { class: "swatch-row" }, sample, name,
+          h("span", { class: "hint" }, `${describeLook(st)}; ${using.length} object${using.length === 1 ? "" : "s"}`
+            + (changed ? `, ${changed} changed` : "")),
+          button(`Delete ${st.name} (objects keep their look)`, () => { this.app.deleteObjectStyle(st.id); render(); }, "Delete"));
+      });
+      body.replaceChildren(
+        all.length ? h("ul", { class: "swatch-list" }, ...rows)
+          : h("p", {}, "No object styles yet. Select a line or shape, then New style from this object on its Style tab."),
+        h("p", { class: "hint" }, "Objects using a style follow it. To change a style, give one object the look you want and click "
+          + "Update the style to match on its Style tab; objects you've changed by hand keep those changes."));
+    };
+    render();
+    this.dialog("Object styles", body);
   },
   // A question with a typed answer (null if cancelled)
   promptDialog(title, labelText, value = "", placeholder = "") {

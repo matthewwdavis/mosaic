@@ -11,6 +11,7 @@ import { differs } from "./textstyles.js";
 import { UNITS, anchorFor, convert, niceLength, pxPerPt, scaleText } from "./scalebar.js";
 import { DEFAULT_GAP } from "./gridlayout.js";
 import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
+import { differs as looksDiffer } from "./objectstyles.js";
 import { CORNER_NAMES } from "./labels.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
@@ -311,7 +312,7 @@ export const inspector = {
     }
     if (it.type === "line") {
       arrange[2].splice(2, 0, this.linkSection(it));
-      return [arrange, ["style", "Style", [this.strokeSection(it), this.endsSection(it), this.outlineSection(it)]]];
+      return [arrange, ["style", "Style", [this.objectStyleSection(it), this.strokeSection(it), this.endsSection(it), this.outlineSection(it)]]];
     }
     if (it.geom === "region") {
       // Its shape comes from its lines and shapes: no position or size of its own to type
@@ -320,7 +321,7 @@ export const inspector = {
         h("p", { class: "hint" }, `It fills the space ${n} line${n === 1 ? "" : "s"} and shape${n === 1 ? "" : "s"} enclose, and follows them `
           + "when they move or change shape. Dragging it moves them all."),
         button("Make it an ordinary shape that stays put when the lines move", () => this.app.detachArea(), "Make an ordinary shape")])]];
-      return [fillArrange, ["style", "Style", [this.fillSection(it), this.outlineSection(it)]]];
+      return [fillArrange, ["style", "Style", [this.objectStyleSection(it), this.fillSection(it), this.outlineSection(it)]]];
     }
     if (it.type === "group" && it.clip) {
       arrange[2].push(section("Clipping mask", [
@@ -344,6 +345,7 @@ export const inspector = {
     if (it.textbox) arrange[2].splice(2, 0, this.labelSection(it));
     const boxed = !it.textbox || it.fill || it.stroke;
     const style = ["style", "Style", [
+      this.objectStyleSection(it),
       it.textbox ? null : this.geometrySection(it),
       boxed ? this.fillSection(it) : null,
       this.strokeSection(it),
@@ -363,6 +365,21 @@ export const inspector = {
     return section("Connections", [row("start_link", "Start"), row("end_link", "End"),
       h("p", { class: "hint" }, "Drag an end onto a corner, the middle of a side, or a dash of another object to attach it; "
         + `it then follows that object. Hold ${this.app.mod.replace("+", "")} to drop an end without attaching.`)]);
+  },
+  // Its object style (objectstyles.js): which, whether this object differs from it, and making one
+  objectStyleSection(it) {
+    const styles = store.doc.object_styles || [], st = styles.find((x) => x.id === it.object_style);
+    const kids = [selectField("Object style", st ? st.id : "", [["", "None"], ...styles.map((x) => [x.id, x.name])],
+      (v) => this.app.useObjectStyle(v))];
+    if (st && looksDiffer(it, st)) {
+      kids.push(h("p", { class: "hint" }, `This object differs from ${st.name}.`), h("div", { class: "button-row" },
+        button(`Put this object back to ${st.name}`, () => this.app.clearObjectChanges(), "Clear changes"),
+        button(`Change ${st.name} to look like this object, with the objects using it`,
+          () => this.app.redefineObjectStyle(st.id, store.item(it.id)), "Update the style to match")));
+    }
+    kids.push(h("div", { class: "button-row" }, button("Make a new object style from this object's look", () => this.app.newObjectStyle(),
+      "New style from this object…")));
+    return section("Object style", kids);
   },
   // A symbol's copy: its symbol's name (shared by every copy), its scale, and editing it
   symbolSection(it) {
