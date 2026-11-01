@@ -666,7 +666,8 @@ export const panels = {
     const body = h("div", {},
       h("fieldset", { class: "formats" }, h("legend", {}, "Formats"),
         check("pdf", "PDF", "vector; placed PDFs go in unchanged"), check("svg", "SVG", "vector; placed SVGs go in unchanged"),
-        check("png", "PNG"), check("tiff", "TIFF", "LZW-compressed")),
+        check("png", "PNG"), check("tiff", "TIFF", "LZW-compressed"),
+        check("pptx", "PowerPoint", "editable; what PowerPoint can't draw exactly goes in as pictures")),
       dpiSel, custom, pages, bg, advanced, results);
     const dlg = this.dialog("Export", body, [go]);
     go.addEventListener("click", async () => {

@@ -103,6 +103,12 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
                 path = page_filename(base, page, i, len(sel), ext)
                 raster.save_image(im, path, fmt, dpi, cmyk=cmyk and fmt != "png", cmyk_profile=cmyk_profile)
                 files.append(path)
+        elif fmt == "pptx":
+            from .pptxwriter import write_pptx
+            path = f"{base}.pptx"
+            warnings += write_pptx(doc, sel, path + ".tmp.pptx", cache, doc_dir, fonts)
+            os.replace(path + ".tmp.pptx", path)
+            files.append(path)
         elif fmt == "eps":
             from .postscript import pdf_page_to_eps
             for i, page in enumerate(sel):

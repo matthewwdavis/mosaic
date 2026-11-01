@@ -84,7 +84,7 @@ Matthew's choices are in brackets.
 - [x] Figure report: each panel's source, copies, size, scale, crop, turns, resolution and scale
       [HTML, Markdown, CSV and PDF offered, none ticked by default]
 - [x] Pen tool and point editing; elbow connectors
-- [ ] Export to editable PowerPoint [what PowerPoint can't draw goes in as exact SVG pictures]
+- [x] Export to editable PowerPoint [what PowerPoint can't draw goes in as exact SVG pictures]
 
 ## Acceptance test (test slide)
 

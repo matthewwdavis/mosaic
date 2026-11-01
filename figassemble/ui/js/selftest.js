@@ -1922,9 +1922,10 @@ export async function run(app, params) {
 
     // Export, save and reopen
     if (out) {
-      const res = await rpc("export", store.doc, { base: `${out}/selftest`, formats: ["pdf", "svg", "png"], dpi: 150,
+      const res = await rpc("export", store.doc, { base: `${out}/selftest`, formats: ["pdf", "svg", "png", "pptx"], dpi: 150,
         transparent: true, pages: [0], doc_path: null });
-      check(res.files.length === 3, "export wrote PDF, SVG and PNG", res.files.join(", "));
+      check(res.files.length === 4 && res.files.some((f) => f.endsWith(".pptx")), "export wrote PDF, SVG, PNG and PowerPoint",
+        res.files.join(", "));
       const saved = await rpc("save_document", store.doc, `${out}/selftest.figasm`);
       const reopened = await rpc("open_document", saved.path);
       check(reopened.doc.pages[0].items.length === store.doc.pages[0].items.length, "saved document reopens with every object");

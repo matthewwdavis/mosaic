@@ -13,6 +13,7 @@ dependencies:
   - shapely>=2.1   # areas enclosed by lines and shapes (live area fills)
   - skia-pathops>=0.8   # Pathfinder: combining shapes with exact curves
   - matplotlib-base     # equations: LaTeX maths drawn as real text (mathtext)
+  - python-pptx         # export to editable PowerPoint
   - pytest
   - ghostscript    # optional: EPS export, CMYK PDF
   - librsvg        # optional: SVG -> PDF when a plot has no PDF copy

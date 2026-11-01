@@ -17,6 +17,7 @@ dependencies = [
     "shapely>=2.1",
     "skia-pathops>=0.8",
     "matplotlib",
+    "python-pptx",
     "pywebview>=6",
 ]
 

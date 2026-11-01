@@ -679,15 +679,30 @@ over the page says the preview is on, and its **Stop** button (or **Normal**) en
 
 **Export** (⌘E):
 
-- **Formats:** PDF, SVG, PNG, TIFF (LZW-compressed). **More options:** JPEG, EPS (transparency is
-  flattened), CMYK colour (TIFF, JPEG, PDF; only if a journal asks), and embedding missing fonts
-  (on).
+- **Formats:** PDF, SVG, PNG, TIFF (LZW-compressed), PowerPoint (below). **More options:** JPEG, EPS
+  (transparency is flattened), CMYK colour (TIFF, JPEG, PDF; only if a journal asks), and
+  embedding missing fonts (on).
 - **Resolution** for PNG, TIFF and JPEG: 300, 600 or 1200 dpi, or any other.
 - **Pages:** this page or all pages. **Background:** transparent or white.
 
 Click **Export…** and choose a name and folder; one file is written per format. A PDF holds all the
 chosen pages; the other formats write one file per page.
 Your choices are remembered for next time.
+
+**PowerPoint** export writes an editable .pptx, each page a slide, for a collaborator who works in
+PowerPoint or a talk:
+
+- Shapes (PowerPoint's own, with their adjustments; freeforms), lines and arrows, text boxes and
+  text in shapes, pictures and groups go in as PowerPoint's own objects, so they can be moved,
+  restyled and edited there. A placed PDF or SVG goes in as an SVG with a PNG copy for older
+  versions (as PowerPoint itself stores pictures), cropped, turned and faded as placed. Corner
+  rounding is built into a freeform outline; an area fill becomes a freeform of its area.
+- Anything PowerPoint can't draw exactly goes in as an exact picture of itself (an SVG with a
+  PNG copy), named like the object: outlines, even dashes, the pathway and rounded arrowheads,
+  scale bars, brackets, symbols' copies, clipping masks, and pictures cropped to a shape or with
+  a border. The export's notes say how many went in that way, and why.
+- PowerPoint has one slide size, so every page sits at the top left of a slide the size of the
+  largest page.
 
 **Figure report** (Figure tab) writes down what each picture is and how it's placed: for a methods
 section, a reviewer, or whoever rebuilds the figure next. For every picture on the chosen pages

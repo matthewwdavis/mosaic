@@ -19,6 +19,12 @@ PRESET_COLORS = {
     "yellow": "FFFF00", "gray": "808080", "grey": "808080", "darkGray": "A9A9A9", "lightGray": "D3D3D3",
     "orange": "FFA500", "purple": "800080", "cyan": "00FFFF", "magenta": "FF00FF",
 }
+def _found(el, path: str):
+    """A child's children, or none if it isn't there (an element with no children is false)."""
+    child = el.find(path, NS) if el is not None else None
+    return child if child is not None else []
+
+
 SYSTEM_COLORS = {"windowText": "000000", "window": "FFFFFF", "btnFace": "F0F0F0", "btnText": "000000"}
 
 
@@ -63,9 +69,9 @@ class Theme:
             self.minor_font = mnr.get("typeface") if mnr is not None else self.minor_font
         fmt = root.find("a:themeElements/a:fmtScheme", NS)
         if fmt is not None:
-            self.fill_styles = list(fmt.find("a:fillStyleLst", NS) or [])
-            self.line_styles = list(fmt.find("a:lnStyleLst", NS) or [])
-            self.bg_fill_styles = list(fmt.find("a:bgFillStyleLst", NS) or [])
+            self.fill_styles = list(_found(fmt, "a:fillStyleLst"))
+            self.line_styles = list(_found(fmt, "a:lnStyleLst"))
+            self.bg_fill_styles = list(_found(fmt, "a:bgFillStyleLst"))
 
 
 class ColorContext:
