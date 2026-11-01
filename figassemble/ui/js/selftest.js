@@ -505,6 +505,33 @@ export async function run(app, params) {
     await app.run("delete");
     await app.savePrefs({ snap: snapWas });
 
+    // Elbow connectors: a line from one box's right side to another's left runs level, upright,
+    // level; it follows when a box moves; the handle on its middle stretch moves that stretch;
+    // Straight makes it a straight line again
+    store.update("Boxes for an elbow", (doc) => doc.pages[store.pageIndex].items.push(gRectFor("elA", 300, 700, 40, 30),
+      gRectFor("elB", 420, 760, 40, 30)));
+    await settle();
+    const siteKey = (id, at) => canvas.sitesOf(store.item(id)).find((x) => near(x.at[0], at[0], 0.01) && near(x.at[1], at[1], 0.01))?.key;
+    store.update("An elbow", (doc) => doc.pages[store.pageIndex].items.push({ id: "elL", type: "line", points: [[340, 715], [420, 775]],
+      arrow_start: null, arrow_end: { type: "triangle", w: "med", len: "med" },
+      stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 },
+      start_link: { item: "elA", site: siteKey("elA", [340, 715]) }, end_link: { item: "elB", site: siteKey("elB", [420, 775]) } }),
+    { select: ["elL"] });
+    app.setRoute("elbow");
+    const elPts = () => store.item("elL").points;
+    check(store.item("elL").route === "elbow" && JSON.stringify(elPts()) === "[[340,715],[380,715],[380,775],[420,775]]",
+      "an elbow connector runs level, upright, level between the sides it's attached to", JSON.stringify(elPts()));
+    store.update("B lower", (doc) => { findDeep(doc.pages[store.pageIndex].items, "elB").frame[1] += 20; });
+    check(JSON.stringify(elPts()) === "[[340,715],[380,715],[380,795],[420,795]]", "and follows when a box moves", JSON.stringify(elPts()));
+    store.select(["elL"]);
+    await drag([380, 755], [400, 755]);
+    check(near(store.item("elL").elbow, 0.75, 1e-6) && near(elPts()[1][0], 400, 1e-6) && near(elPts()[2][0], 400, 1e-6),
+      "the handle on its middle stretch moves that stretch", JSON.stringify(elPts()));
+    app.setRoute("straight");
+    check(!store.item("elL").route && elPts().length === 2, "Straight makes it a straight line again", JSON.stringify(elPts()));
+    store.select(["elA", "elB", "elL"]);
+    await app.run("delete");
+
     // Moving with the pointer, then undo and redo
     store.select([pics[0].id]);
     const before = pics[0].frame.slice();

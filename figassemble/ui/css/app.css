@@ -271,6 +271,7 @@ body.resizing-panel { cursor: col-resize; user-select: none; }
 .handle.end { fill: var(--sel); stroke: #fff; }
 .handle.point { fill: var(--sel); stroke: #fff; stroke-width: 1.5; }
 .handle.mid { fill: #fff; stroke: var(--sel); stroke-width: 1.5; }
+.handle.elbow { fill: var(--sel); stroke: #fff; stroke-width: 1; }
 .handle.adjust { fill: #ffd21f; stroke: #5c4700; stroke-width: 1.2; }
 .handle.end.linked { fill: #1f9d55; stroke: #fff; stroke-width: 1.5; }
 /* Connection points, shown while a line end is placed */

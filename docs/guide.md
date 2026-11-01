@@ -427,6 +427,19 @@ the object when it moves, resizes or rotates.
 
 ![An attached arrow, with its Connections](images/annotated.png)
 
+**Elbow connectors:** set a line's **Route** to **Elbow** (its Arrange tab's Connections section,
+or right-click → **Elbow connector**) and it runs in level and upright stretches, as in
+PowerPoint and Visio:
+
+- An end attached to an object leaves or reaches it square to that side: from a right side to a
+  left side it goes across, up or down, and across again; from a side to a top or bottom, it
+  turns once.
+- It keeps its shape as the objects move. Drag the handle on its middle stretch to move that
+  stretch along.
+- **Straight** (the same list, or the menu again) makes it a straight line between its ends.
+
+![Three steps joined by elbow arrows; the second arrow selected, with the handle on its middle stretch](images/elbow.png)
+
 ## Moving, sizing and arranging
 
 - **Select:** click; Shift-click adds or removes; drag on empty space to select everything

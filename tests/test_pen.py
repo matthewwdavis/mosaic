@@ -34,3 +34,12 @@ def test_the_same_outline_as_a_freeform_shape(tmp_path):
         assert np.abs(pngs[0] - pngs[1]).max() <= 2, geom
     custom = shape("custom", path={"subpaths": []})
     assert shape_to_custom(custom) == custom
+
+
+def test_an_elbows_repeated_corner_draws_nothing_extra():
+    def arrow(points):
+        return {"id": "l", "type": "line", "points": points, "arrow_start": None, "arrow_end": {"type": "triangle", "w": "med", "len": "med"},
+                "stroke": {"color": "#000000", "width": 1, "cap": "flat", "join": "miter"}}
+    once = Resolver({"assets": {}}).resolve(arrow([[0, 0], [40, 0], [40, 30]]))
+    twice = Resolver({"assets": {}}).resolve(arrow([[0, 0], [40, 0], [40, 0], [40, 30]]))
+    assert [p.path.segs for p in once.prims] == [p.path.segs for p in twice.prims]

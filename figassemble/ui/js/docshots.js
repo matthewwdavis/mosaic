@@ -135,6 +135,26 @@ export async function run(app, params) {
     for (const f of [0.3, 0.6, 0.9, 1]) pointer("pointermove", screenOf(from[0], from[1] + (dy + 1) * f));
     return finish();
   }
+  if (scene === "elbow") {
+    // Three steps joined by elbow arrows, square to the boxes' sides; the second arrow selected,
+    // with the handle on its middle stretch
+    const stepBox = (id, t, x, y) => ({ id, type: "shape", geom: "roundRect", frame: [x, y, 70, 22], rot: 0, flip_h: false, flip_v: false,
+      fill: { color: "#eef4fb" }, stroke: { color: "#2b6cb0", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 },
+      text: { paragraphs: [{ align: "ctr", runs: [{ t, font: "Helvetica", size: 7, bold: false, italic: false, color: "#1b1b1b" }] }],
+        insets: [3, 2, 3, 2], wrap: true, anchor: "ctr", autofit: "none" } });
+    store.update("Steps", (doc) => doc.pages[0].items.push(stepBox("st1", "Leaf tissue", 250, 290), stepBox("st2", "DNA", 360, 330),
+      stepBox("st3", "Library", 250, 370)), { select: [] });
+    await settle();
+    const siteAt = (id, at) => canvas.sitesOf(store.item(id)).find((x) => Math.hypot(x.at[0] - at[0], x.at[1] - at[1]) < 0.01)?.key;
+    const elbowArrow = (id, from, a, to, b) => ({ id, type: "line", points: [a, b], route: "elbow", arrow_start: null,
+      arrow_end: { type: "triangle", w: "med", len: "med" }, stroke: { color: "#2b6cb0", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 },
+      start_link: { item: from, site: siteAt(from, a) }, end_link: { item: to, site: siteAt(to, b) } });
+    store.update("Arrows", (doc) => doc.pages[0].items.push(elbowArrow("ea1", "st1", [320, 301], "st2", [395, 330]),
+      elbowArrow("ea2", "st2", [360, 341], "st3", [320, 381])), { select: ["ea2"] });
+    await settle();
+    centreOn(330, 340, 3);
+    return finish();
+  }
   if (scene === "pen") {
     // A leaf drawn with the pen (two smooth points and a corner at each end), its points being
     // edited: the anchors, and the handles of its smooth points

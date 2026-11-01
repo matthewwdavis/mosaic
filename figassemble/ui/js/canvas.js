@@ -574,6 +574,12 @@ export const canvas = {
   },
   handlesFor(it) {
     if (it.locked) return [];
+    if (it.type === "line" && it.route === "elbow") {
+      const n = it.points.length, ends = [0, n - 1].map((i) => ({ kind: "end", index: i, at: this.toScreen(...it.points[i]) }));
+      const [p1, p2] = [it.points[1], it.points[2]];
+      if (n === 4 && Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) > 1e-6) ends.push({ kind: "elbow", at: this.toScreen((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2) });
+      return ends;
+    }
     if (it.type === "line") {
       // Ends and middle points can be dragged; the hollow handle halfway along each stretch
       // adds a point there (dragging one on a straight arrow bends it into a curve)
@@ -628,6 +634,8 @@ export const canvas = {
         o.append(s("circle", { class: "handle end linked", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 + 1 }));
       } else if (hd.kind === "mid") {
         o.append(s("circle", { class: "handle mid", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 - 0.5 }));
+      } else if (hd.kind === "elbow") {
+        o.append(s("rect", { class: "handle elbow", x: hd.at[0] - HANDLE / 2, y: hd.at[1] - HANDLE / 2, width: HANDLE, height: HANDLE, rx: 2 }));
       } else if (hd.kind === "adjust") {
         const [x, y] = hd.at, d = HANDLE / 2 + 1;
         o.append(s("path", { class: "handle adjust", d: `M${x} ${y - d}L${x + d} ${y}L${x} ${y + d}L${x - d} ${y}Z` }));
@@ -756,6 +764,7 @@ export const canvas = {
     if (op.type === "rotate") return this.rotateTo(p, e);
     if (op.type === "end") return this.endTo(p, e);
     if (op.type === "adjust") return this.adjustTo(p);
+    if (op.type === "elbow") return this.elbowTo(p);
     if (op.type === "guide") return this.guideTo(pt, e);
     if (op.type === "draw") return this.drawTo(p, e);
     if (op.type === "crop") return this.cropTo(p, e);
@@ -1300,6 +1309,7 @@ export const canvas = {
         targets: this.snapTargets([it.id]) };
       if (hd.kind === "end") delete it[hd.index === 0 ? "start_link" : "end_link"];   // it attaches again where it's dropped
     }
+    else if (hd.kind === "elbow") this.op = { type: "elbow", orig, moved: false, label: "Move elbow" };
     else if (hd.kind === "mid") {
       // A new point appears where the handle was and follows the pointer; nothing is kept
       // unless it actually moves
@@ -1310,6 +1320,18 @@ export const canvas = {
       this.op = { type: "end", index: hd.index + 1, orig, moved: false, label: bending ? "Curve arrow" : "Add point",
         targets: this.snapTargets([it.id]) };
     }
+  },
+  // The middle stretch of an elbow connector dragged across: where it crosses, as a fraction of
+  // the way between the ends (outside 0 to 1 takes it past them)
+  elbowTo(p) {
+    const op = this.op, it = findDeep(store.items(), op.orig.id);
+    if (!it) return;
+    const [a, p1, , b] = op.orig.points, level = Math.abs(p1[1] - a[1]) < 1e-9;
+    const span = level ? b[0] - a[0] : b[1] - a[1];
+    if (Math.abs(span) < 1e-9) return;
+    op.moved = true;
+    it.elbow = ((level ? p[0] - a[0] : p[1] - a[1]) / span);
+    store.live();
   },
   removePoint(id, index) {
     const it = store.item(id);
@@ -1503,6 +1525,21 @@ export const canvas = {
       }
       if (!moved) break;
     }
+    // Elbow connectors: their corners from their ends, square to the sides they're attached to
+    for (const line of allLines(items).filter((l) => l.route === "elbow" && l.points.length >= 2)) {
+      const a = line.points[0], b = line.points[line.points.length - 1];
+      const pts = elbowRoute(a, b, this.attachedSide(line.start_link, items, a), this.attachedSide(line.end_link, items, b), line.elbow ?? 0.5);
+      if (pts.length !== line.points.length || pts.some((q, i) => Math.abs(q[0] - line.points[i][0]) > 1e-9 || Math.abs(q[1] - line.points[i][1]) > 1e-9)) {
+        line.points = pts;
+      }
+    }
+  },
+  // The way out of the side of an object an end is attached to: [dx, dy], or null
+  attachedSide(link, items, at) {
+    const target = link && findDeep(items, link.item);
+    if (!target || target.type === "line") return null;
+    const b = itemBBox(target), d = [at[0] - b[0], b[2] - at[0], at[1] - b[1], b[3] - at[1]];
+    return [[-1, 0], [1, 0], [0, -1], [0, 1]][d.indexOf(Math.min(...d))];
   },
   // While a line end is being placed: the connection points of the objects near the pointer
   drawSites(o) {
@@ -2222,6 +2259,18 @@ export function detachMoved(items) {
   for (const line of allLines(items)) {
     for (const key of ["start_link", "end_link"]) if (line[key] && !moving.has(line[key].item)) delete line[key];
   }
+}
+// An elbow connector's points, a to b in level and upright stretches: leaving a along da and
+// reaching b against db (the ways out of the sides they're attached to; null when free, which
+// goes the longer way first), the middle stretch at fraction f of the way. Always four points:
+// an L-shaped route repeats its corner.
+export function elbowRoute(a, b, da, db, f = 0.5) {
+  const wide = Math.abs(b[0] - a[0]) >= Math.abs(b[1] - a[1]);
+  const startLevel = da ? da[0] !== 0 : db ? db[0] !== 0 : wide, endLevel = db ? db[0] !== 0 : startLevel;
+  if (startLevel && endLevel) { const x = a[0] + (b[0] - a[0]) * f; return [a.slice(), [x, a[1]], [x, b[1]], b.slice()]; }
+  if (!startLevel && !endLevel) { const y = a[1] + (b[1] - a[1]) * f; return [a.slice(), [a[0], y], [b[0], y], b.slice()]; }
+  const c = startLevel ? [b[0], a[1]] : [a[0], b[1]];
+  return [a.slice(), c, c.slice(), b.slice()];
 }
 export function allLines(items, out = []) {
   for (const it of items) {

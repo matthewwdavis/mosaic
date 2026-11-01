@@ -837,6 +837,23 @@ const app = {
     const tex = await panels.promptDialog("Edit equation", "Maths, written as in LaTeX", it.equation.tex);
     if (tex?.trim() && tex.trim() !== it.equation.tex) await this.updateEquation(id, { tex: tex.trim() });
   },
+  // Elbow connectors: lines in level and upright stretches, their corners worked out from their
+  // ends (canvas.elbowRoute), or straight again
+  setRoute(route) {
+    const lines = store.selected().filter((it) => it.type === "line");
+    if (!lines.length) return announce("Select a line or arrow");
+    store.update(route === "elbow" ? "Elbow connector" : "Straight line", (doc) => {
+      for (const l of lines) {
+        const it = findDeep(doc.pages[store.pageIndex].items, l.id);
+        it.points = [it.points[0], it.points[it.points.length - 1]];
+        delete it.curve;
+        delete it.elbow;
+        if (route === "elbow") it.route = "elbow";
+        else delete it.route;
+      }
+    });
+    announce(route === "elbow" ? "An elbow connector now: drag the handle on its middle stretch to move it" : "A straight line now");
+  },
   // Ready-made shapes as freeform shapes of the same outline (resolve.shape_to_custom), their
   // points then editable (pen.js)
   async makeEditable() {
@@ -998,6 +1015,7 @@ const app = {
       one?.type === "shape" && one.geom !== "region" && { label: "Edit text", keys: one.geom === "custom" ? null : "Enter", run: () => canvas.startEdit(one.id) },
       one?.geom === "region" && { label: "Make an ordinary shape", run: () => this.detachArea() },
       one?.type === "line" && (one.start_link || one.end_link) && { label: "Detach the ends", run: () => this.detachEnds() },
+      one?.type === "line" && c("elbowConnector", { label: "Elbow connector", checked: one.route === "elbow" }),
       one?.attach && c("detachLabel", { label: "Detach from its panel" }),
       one?.type === "symbol" && { label: "Edit symbol", keys: "Enter", run: () => this.editSymbol(one.id) },
       one?.type === "symbol" && c("breakSymbol"),
@@ -1469,6 +1487,8 @@ app.commands = {
   figureReport: cmd("Figure report: each picture's source, copies, size, scale, crop, turns, resolution and scale bars",
     () => panels.figureReportDialog(), null, null, "Report"),
   equation: cmd("Equation: maths written as in LaTeX, drawn as real text", () => app.addEquation(), null, null, "Equation"),
+  elbowConnector: cmd("Elbow connector: route the selected line in level and upright stretches, or straight again",
+    () => app.setRoute(store.selected().every((it) => it.route === "elbow") ? "straight" : "elbow"), null, null, "Elbow"),
   makeEditable: cmd("Make editable shape: a freeform shape of the same outline, whose points can be moved",
     () => app.makeEditable(), null, null, "Make editable"),
   makeSymbol: cmd("Make symbol: one object to use many times, changed everywhere at once", () => app.makeSymbol(), null, null, "Make symbol"),

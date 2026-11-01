@@ -814,6 +814,8 @@ class Resolver:
     def _line(self, item: dict) -> Resolved:
         r = Resolved(item.get("id", ""))
         pts = item.get("points") or []
+        # A point repeating the one before (an elbow connector's L-shaped turn) draws nothing
+        pts = [p for i, p in enumerate(pts) if i == 0 or tuple(p) != tuple(pts[i - 1])]
         stroke = make_stroke(item.get("stroke"))
         if len(pts) < 2 or stroke is None:
             return r

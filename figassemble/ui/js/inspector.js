@@ -363,9 +363,14 @@ export const inspector = {
         h("span", {}, `${name}: ${link ? `attached to ${canvas.siteLabel(link)}` : "not attached"}`),
         link ? button(`Detach the ${name.toLowerCase()}`, () => this.edit("Detach", (x) => { delete x[key]; }), "Detach", "small") : null);
     };
-    return section("Connections", [row("start_link", "Start"), row("end_link", "End"),
+    const route = selectField("Route", it.route === "elbow" ? "elbow" : "straight",
+      [["straight", it.points.length > 2 ? "Through its points" : "Straight"], ["elbow", "Elbow: level and upright stretches"]],
+      (v) => this.app.setRoute(v));
+    return section("Connections", [row("start_link", "Start"), row("end_link", "End"), route,
       h("p", { class: "hint" }, "Drag an end onto a corner, the middle of a side, or a dash of another object to attach it; "
-        + `it then follows that object. Hold ${this.app.mod.replace("+", "")} to drop an end without attaching.`)]);
+        + `it then follows that object. Hold ${this.app.mod.replace("+", "")} to drop an end without attaching.`
+        + (it.route === "elbow" ? " An elbow leaves and reaches attached objects square to their sides; drag the handle on its "
+          + "middle stretch to move that stretch." : ""))]);
   },
   // Its object style (objectstyles.js): which, whether this object differs from it, and making one
   objectStyleSection(it) {

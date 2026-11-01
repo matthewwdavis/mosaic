@@ -83,7 +83,7 @@ Matthew's choices are in brackets.
 - [x] Equations: LaTeX maths drawn as real text [matplotlib mathtext]
 - [x] Figure report: each panel's source, copies, size, scale, crop, turns, resolution and scale
       [HTML, Markdown, CSV and PDF offered, none ticked by default]
-- [ ] Pen tool and point editing; elbow connectors
+- [x] Pen tool and point editing; elbow connectors
 - [ ] Export to editable PowerPoint [what PowerPoint can't draw goes in as exact SVG pictures]
 
 ## Acceptance test (test slide)
@@ -97,7 +97,6 @@ Matthew's choices are in brackets.
 
 ## Later
 
-- Freeform drawing and point editing; elbow connectors
 - Importer coverage for every figure deck (vertical text, bullets)
 - Optional raster DPI cap / file-size targets for journal limits
 - Opening .figasm files by double-clicking them in Finder/Explorer
