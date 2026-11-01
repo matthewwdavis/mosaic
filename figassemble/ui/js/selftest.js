@@ -9,6 +9,8 @@ import { pageScale } from "./scalebar.js";
 import { itemBBox, itemsBBox, lengthText, lineMidpoints } from "./util.js";
 
 const MMPT = 72 / 25.4;
+const gRectFor = (id, x, y, w, hh) => ({ id, type: "shape", geom: "rect", frame: [x, y, w, hh], rot: 0, flip_h: false, flip_v: false,
+  stroke: { color: "#000000", width: 1, dash: "solid", cap: "flat", join: "miter", opacity: 1 }, fill: null });
 const near = (a, b, tol = 0.05) => Math.abs(a - b) < tol;
 // Set a properties-panel dropdown by its label, as a person would
 async function choose(label, value) {
@@ -328,11 +330,46 @@ export async function run(app, params) {
       items.splice(items.findIndex((i) => i.id === lpPic.id), 1, lpWas);
       items.splice(items.findIndex((i) => i.id === lpId), 1);
     }, { select: [] });
+    // Symbols: two objects made a symbol leave one copy; a copy resized to twice the size draws
+    // its lines twice as wide; editing one copy in place changes every copy; Break link makes a
+    // copy its own objects, scaled as it was
+    store.update("Objects for a symbol", (doc) => doc.pages[store.pageIndex].items.push(
+      { ...gRectFor("syA", 300, 420, 30, 20), fill: { color: "#ff0000" } }, gRectFor("syB", 336, 424, 10, 10)), { select: ["syA", "syB"] });
+    await app.run("makeSymbol");
+    const sy1 = store.selected()[0], symDef = () => store.doc.symbols?.find((x) => x.id === sy1?.symbol);
+    check(sy1?.type === "symbol" && symDef()?.items.length === 2 && JSON.stringify(sy1.frame) === "[300,420,46,20]"
+      && !store.item("syA"), "Make symbol turns the objects into a symbol and leaves one copy where they were", JSON.stringify(sy1));
+    await app.run("duplicate");
+    const sy2 = store.selected()[0];
+    store.update("Twice the size", (doc) => { const c = findDeep(doc.pages[store.pageIndex].items, sy2.id); c.frame[2] *= 2; c.frame[3] *= 2; });
+    await settle();
+    const drawnOf = (id) => canvas.els.get(id)?.g.innerHTML || "";
+    check(sy2.symbol === sy1.symbol && /matrix\(2 0 0 2 /.test(drawnOf(sy2.id)), "a copy at twice the size draws its lines and text twice as large",
+      drawnOf(sy2.id).slice(0, 160));
+    inspector.render();
+    check(/2 copies in this figure, this one at 200%/.test(document.querySelector("#inspector").textContent), "its tab says how many copies there are");
+    await app.editSymbol(sy1.id);
+    const editG = store.doc.pages[store.pageIndex].items.find((i) => i.editing_symbol);
+    check(editG && store.scope.includes(editG.id) && editG.items.length === 2, "double-clicking a copy edits its symbol in place");
+    store.update("Blue", (doc) => { findDeep(doc.pages[store.pageIndex].items, editG.items[0].id).fill = { color: "#0000ff" }; });
+    store.exitGroup();
+    await settle();
+    check(symDef().items[0].fill.color === "#0000ff" && store.item(sy1.id)?.type === "symbol" && /#0000ff/i.test(drawnOf(sy2.id))
+      && store.selection[0] === sy1.id, "leaving it changes the symbol, and every copy with it", JSON.stringify(symDef().items[0].fill));
+    store.select([sy2.id]);
+    await app.run("breakSymbol");
+    const broken = store.selected()[0];
+    check(broken?.type === "group" && near(broken.items[0].stroke.width, 2, 1e-6) && near(broken.items[0].frame[2], 60, 1e-6),
+      "Break link makes a copy its own objects, scaled as it was", JSON.stringify(broken?.items?.[0]?.frame));
+    store.select([sy1.id, broken.id]);
+    await app.run("delete");
+    app.deleteSymbol(sy1.symbol);
+    check(!(store.doc.symbols || []).length, "a symbol with no copies left can be deleted");
+
     // Grid layout: three panels as they lie (two in a row, one below) keep their sizes in cells,
     // top left; the grid reflows when one grows, moves as one, and takes a panel dragged onto
     // another cell there; Stop grid layout leaves an ordinary group
-    const gRect = (id, x, y, w, hh) => ({ id, type: "shape", geom: "rect", frame: [x, y, w, hh], rot: 0, flip_h: false, flip_v: false,
-      stroke: { color: "#000000", width: 1, dash: "solid", cap: "flat", join: "miter", opacity: 1 }, fill: null });
+    const gRect = gRectFor;
     store.update("Panels for a grid", (doc) => doc.pages[store.pageIndex].items.push(gRect("gA", 100, 300, 60, 40),
       gRect("gB", 180, 305, 50, 30), gRect("gC", 100, 360, 40, 50)), { select: ["gA", "gB", "gC"] });
     await app.run("gridLayout");

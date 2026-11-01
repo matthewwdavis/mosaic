@@ -66,6 +66,15 @@ export const store = {
     if (!this.scope.length) return false;
     const id = this.scope.pop();
     const here = this.scopeItems(), at = here.findIndex((it) => it.id === id);
+    const editing = at >= 0 && here[at].editing_symbol;
+    if (editing) {
+      // A symbol edited in place: its objects go back into the symbol with this change, and the
+      // copy comes back (symbols.js)
+      this.update("Edit symbol", () => {});
+      this.selection = [editing.copy.id];
+      this.emit("selection");
+      return true;
+    }
     if (at >= 0 && !here[at].items.length) this.silent(() => here.splice(at, 1));
     this.selection = here.some((it) => it.id === id) ? [id] : [];
     this.emit("doc", {});

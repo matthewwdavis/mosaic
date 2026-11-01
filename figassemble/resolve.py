@@ -79,15 +79,22 @@ def union_bbox(boxes):
 @dataclass
 class DrawGroup:
     """Primitives composited together, then faded as one (so overlaps don't darken). A clipped
-    group is drawn only inside its clip paths (path, even_odd), each inside the one before."""
+    group is drawn only inside its clip paths (path, even_odd), each inside the one before. A
+    group with a matrix (a symbol's copy) draws its parts and clip through it: lines, text and
+    fills all scale with it."""
 
     prims: list
     opacity: float = 1.0
     meta: dict = field(default_factory=dict)
     clip: list = field(default_factory=list)
+    matrix: Matrix | None = None
 
     def bbox(self):
-        return union_bbox(p.bbox() for p in self.prims)
+        bb = union_bbox(p.bbox() for p in self.prims)
+        if bb is None or self.matrix is None:
+            return bb
+        pts = [self.matrix.apply(x, y) for x, y in ((bb[0], bb[1]), (bb[2], bb[1]), (bb[2], bb[3]), (bb[0], bb[3]))]
+        return (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
 
 
 def _faded(out: list, spec: dict, clip: list | None = None) -> list:
@@ -351,13 +358,33 @@ def clip_path(area: list) -> tuple:
     return _inside_clip(area)[0]
 
 
-def flat_prims(prims: list):
-    """Every primitive, those inside groups (outlines, clipped pictures) included."""
+def flat_prims(prims: list, m: Matrix | None = None, _paths: dict | None = None):
+    """Every primitive, those inside groups (outlines, clipped pictures, symbols' copies) included,
+    those in a group with a matrix as they are on the page."""
+    paths = {} if _paths is None else _paths
     for p in prims:
         if isinstance(p, DrawGroup):
-            yield from flat_prims(p.prims)
+            yield from flat_prims(p.prims, (m @ p.matrix if m is not None else p.matrix) if p.matrix is not None else m, paths)
         else:
-            yield p
+            yield p if m is None else _placed(p, m, paths)
+
+
+def _placed(p, m: Matrix, paths: dict):
+    """A primitive drawn through m, as it is on the page: lines as wide and text as large as they
+    look. Parts drawn along one path (a shape's fill and line) stay on one path."""
+    if isinstance(p, DrawPath):
+        k, key = m.scale_factor, (id(p.path), m.as_tuple())
+        if key not in paths:
+            paths[key] = p.path.transformed(m)
+        stroke = p.stroke and replace(p.stroke, width=p.stroke.width * k,
+                                      dash=[d * k for d in p.stroke.dash] if p.stroke.dash else p.stroke.dash)
+        fill = p.fill
+        if fill is not None and fill.gradient is not None:
+            fill = replace(fill, gradient=replace(fill.gradient, matrix=m @ fill.gradient.matrix))
+        return DrawPath(paths[key], stroke=stroke, fill=fill, meta={k2: v for k2, v in p.meta.items() if k2 != "dashes"})
+    if isinstance(p, (DrawText, DrawPicture)):
+        return replace(p, matrix=m @ p.matrix)
+    return p
 
 
 SCALEBAR_GAP = 0.3   # between a scale bar and its label, in text sizes
@@ -547,6 +574,7 @@ class Resolver:
         self.doc = doc
         self.fonts = fonts
         self.context: dict = {}   # the page's items by id, for area fills to find their lines
+        self._symbols_open: set = set()   # symbols being drawn, so one can't hold itself
 
     def use_page(self, items: list[dict]) -> None:
         """The items area fills look among for the lines and shapes round them (a page's items)."""
@@ -579,6 +607,8 @@ class Resolver:
             r = self._scalebar(item)
         elif kind == "bracket":
             r = self._bracket(item)
+        elif kind == "symbol":
+            r = self._symbol(item)
         elif kind == "group":
             r = Resolved(item.get("id", ""))
             kids = item.get("items", [])
@@ -600,6 +630,35 @@ class Resolver:
     def resolve_page(self, page: dict) -> list[Resolved]:
         self.use_page(page.get("items", []))
         return [self.resolve(it) for it in page.get("items", []) if not it.get("hidden")]
+
+    def _symbol(self, item: dict) -> Resolved:
+        """A copy of a symbol (doc symbols: {id, name, items, size}): the symbol's objects scaled
+        from its size to the copy's frame, lines and text with them, and turned and flipped
+        with it."""
+        r = Resolved(item.get("id", ""))
+        sym = next((s for s in self.doc.get("symbols") or [] if s.get("id") == item.get("symbol")), None)
+        if sym is None or sym["id"] in self._symbols_open:
+            r.warnings.append("its symbol is missing" if sym is None else "a symbol can't hold a copy of itself")
+            return r
+        w0, h0 = (max(float(v), 1e-9) for v in sym.get("size") or (1.0, 1.0))
+        _, _, w, h = item["frame"]
+        m = frame_matrix(item["frame"], item.get("rot", 0.0), item.get("flip_h", False), item.get("flip_v", False)) \
+            @ Matrix.scale(w / w0, h / h0)
+        saved, prims = self.context, []
+        self._symbols_open.add(sym["id"])
+        try:
+            self.use_page(sym.get("items", []))   # its area fills look among its own objects
+            for child in sym.get("items", []):
+                if not child.get("hidden"):
+                    cr = self.resolve(child)
+                    prims += cr.prims
+                    r.warnings += cr.warnings
+        finally:
+            self._symbols_open.discard(sym["id"])
+            self.context = saved
+        if prims:
+            r.prims = [DrawGroup(prims, 1.0, meta={"role": "symbol", "item": item.get("id")}, matrix=m)]
+        return r
 
     def _region(self, item: dict) -> Resolved:
         """An area fill: the space its lines and shapes enclose now (regions.py), filled."""

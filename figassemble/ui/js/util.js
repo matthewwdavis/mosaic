@@ -235,6 +235,10 @@ export function describeItem(it, doc) {
     return `${kind[0].toUpperCase()}${kind.slice(1)} from ${n(a[0])}, ${n(a[1])} to ${n(b[0])}, ${n(b[1])}${via}`;
   }
   if (it.type === "group") return `Group of ${it.items.length} objects`;
+  if (it.type === "symbol") {
+    const sym = (doc.symbols || []).find((x) => x.id === it.symbol);
+    return `Copy of the symbol ${sym?.name || ""}, ${n(it.frame[2])} by ${n(it.frame[3])} ${unit} at ${n(it.frame[0])}, ${n(it.frame[1])}`;
+  }
   if (it.type === "scalebar") return `Scale bar, ${+Number(it.length).toPrecision(6)} ${it.unit}, at ${n(it.frame[0])}, ${n(it.frame[1])} ${unit}`;
   if (it.type === "bracket") return `Significance bracket “${it.label || ""}”, ${n(it.frame[2])} ${unit} across, at ${n(it.frame[0])}, ${n(it.frame[1])}`;
   const text = itemText(it);
@@ -262,6 +266,7 @@ export function itemLabel(it, doc) {
   if (it.type === "bracket") return `Bracket “${it.label || ""}”`;
   if (it.type === "group" && it.clip) return it.name || `Clipping mask (${it.items.length - 1})`;
   if (it.type === "group") return it.name && !/^Group \d+$/.test(it.name) ? it.name : `Group (${it.items.length})`;
+  if (it.type === "symbol") return it.name || `${(doc.symbols || []).find((x) => x.id === it.symbol)?.name || "Symbol"} (symbol)`;
   const t = itemText(it);
   return t ? `“${t.slice(0, 40)}”` : shapeName(it.geom);
 }

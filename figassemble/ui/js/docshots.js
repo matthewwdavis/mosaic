@@ -133,6 +133,26 @@ export async function run(app, params) {
     for (const f of [0.3, 0.6, 0.9, 1]) pointer("pointermove", screenOf(from[0], from[1] + (dy + 1) * f));
     return finish();
   }
+  if (scene === "symbols") {
+    // A cell drawn once as a symbol, used at three sizes; the biggest selected, with its tab
+    const cellPart = (id, geom, frame, fill, stroke) => ({ id, type: "shape", geom, frame, rot: 0, flip_h: false, flip_v: false, fill: { color: fill },
+      stroke: stroke ? { color: stroke, width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 } : null });
+    store.update("Cell", (doc) => doc.pages[0].items.push(cellPart("cellBody", "ellipse", [40, 300, 44, 30], "#cfe8ff", "#2b6cb0"),
+      cellPart("cellNucleus", "ellipse", [55, 309, 14, 12], "#2b6cb0", null)), { select: ["cellBody", "cellNucleus"] });
+    await app.run("makeSymbol");
+    const first = store.selected()[0].id;
+    for (const [x, k] of [[110, 1.6], [200, 0.7]]) {
+      await app.run("duplicate");
+      const id = store.selected()[0].id;
+      store.update("Place", (doc) => { doc.pages[0].items.find((i) => i.id === id).frame = [x, 296, 44 * k, 30 * k]; });
+    }
+    store.select([store.items().find((i) => i.type === "symbol" && i.id !== first && i.frame[2] > 60).id]);
+    await settle();
+    centreOn(150, 320, 2.2);
+    inspector.render();
+    document.getElementById("itab-arrange")?.click();
+    return finish();
+  }
   if (scene === "gridlayout") {
     // The three plots in a grid layout, with its Arrange tab: columns and gaps
     store.select([a, b, c]);

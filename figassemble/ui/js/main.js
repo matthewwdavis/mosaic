@@ -11,6 +11,7 @@ import {
 } from "./canvas.js";
 import { contextMenu } from "./contextmenu.js";
 import { gridFor } from "./gridlayout.js";
+import { canHold, copiesOf, editGroup, finishEdits, makeSymbol, placedItems, symbolOf } from "./symbols.js";
 import { middle, panelAt } from "./labels.js";
 import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
@@ -82,7 +83,7 @@ const app = {
     if (!path) return;
     announce("Opening…");
     const res = await rpc("open_document", path);
-    store.setDoc(res.doc, res.path);
+    store.setDoc(finishEdits(res.doc), res.path);
     if (!res.path && res.suggested) store.suggested = res.suggested;
     canvas.fit();
     if (res.report?.length) panels.reportDialog("Imported from PowerPoint", res.report);
@@ -353,7 +354,7 @@ const app = {
   deleteTextStyle(id) {
     store.update("Delete text style", (doc) => {
       doc.text_styles = (doc.text_styles || []).filter((x) => x.id !== id);
-      for (const pg of doc.pages) {
+      for (const pg of [...doc.pages, ...(doc.symbols || [])]) {
         const walk = (items) => items.forEach((it) => {
           if (it.type === "group") walk(it.items);
           for (const p of it.text?.paragraphs || []) if (p.style === id) delete p.style;
@@ -373,6 +374,7 @@ const app = {
     };
     store.update("Replace font", (doc) => {
       doc.pages.forEach((pg) => walk(pg.items));
+      for (const sym of doc.symbols || []) walk(sym.items);
       for (const st of doc.text_styles || []) if (st.font === from) st.font = to;
     });
     announce(`Replaced ${from} with ${to}${n ? "" : " (nothing used it)"}`);
@@ -719,6 +721,68 @@ const app = {
     announce(`Laid out ${parts.length} panels in ${rows} row${rows === 1 ? "" : "s"} of up to ${g.grid.cols}; `
       + "set the columns and gaps in its Arrange tab");
   },
+  // Symbols (symbols.js): the selected objects made one symbol, used again by copying its copy
+  makeSymbol() {
+    const sel = store.selected();
+    if (!sel.length) return announce("Select the objects to make a symbol of");
+    if (!sel.every(canHold)) return announce("A symbol can hold shapes, lines, text and brackets, not pictures");
+    const { sym, copy } = makeSymbol(store.doc, sel);
+    const ids = new Set(sel.map((it) => it.id));
+    store.update("Make symbol", (doc) => {
+      doc.symbols = [...(doc.symbols || []), sym];
+      const items = store.container(doc), top = Math.max(...items.map((it, i) => (ids.has(it.id) ? i : -1)));
+      const rest = items.filter((it) => !ids.has(it.id) || it === items[top]);
+      rest.splice(rest.indexOf(items[top]), 1, copy);
+      items.splice(0, items.length, ...rest);
+    }, { select: [copy.id] });
+    announce(`Made ${sym.name}: copy it to use it again, and double-click any copy to change them all`);
+  },
+  // Editing in place: the copy becomes a group of the symbol's objects, worked on inside it;
+  // leaving the group puts them back in the symbol
+  editSymbol(id = store.selected()[0]?.id) {
+    const copy = id && store.item(id), sym = copy?.type === "symbol" && symbolOf(store.doc, copy.symbol);
+    if (!sym) return announce("Select a copy of a symbol to edit it");
+    const g = editGroup(copy, sym);
+    store.scope = [...store.scope, g.id];   // inside it from the start, so it isn't put back at once
+    store.update("Edit symbol", (doc) => {
+      const items = store.container(doc), i = items.findIndex((it) => it.id === id);
+      items.splice(i, 1, g);
+    }, { select: [] });
+    canvas.markScope();
+    const n = copiesOf(store.doc, sym.id).length + 1;
+    announce(`Editing ${sym.name} at its own size; ${n === 1 ? "its copy changes" : `all ${n} copies change`} when you leave (Escape)`);
+  },
+  breakSymbol() {
+    const copies = store.selected().filter((it) => it.type === "symbol" && symbolOf(store.doc, it.symbol));
+    if (!copies.length) return announce("Select a copy of a symbol");
+    const out = [];
+    store.update("Break link to symbol", (doc) => {
+      const items = store.container(doc);
+      for (const c of copies) {
+        const parts = placedItems(c, symbolOf(doc, c.symbol));
+        const g = parts.length === 1 ? parts[0] : { id: uid("it"), type: "group", name: c.name || "", items: parts };
+        items.splice(items.findIndex((it) => it.id === c.id), 1, g);
+        out.push(g.id);
+      }
+    }, { select: out });
+    announce(copies.length === 1 ? "It's its own objects now, no longer changing with the symbol" : `Broke ${copies.length} links`);
+  },
+  placeSymbol(id) {
+    const sym = symbolOf(store.doc, id);
+    if (!sym) return;
+    const r = canvas.stage.getBoundingClientRect(), [cx, cy] = canvas.toPage(r.width / 2, r.height / 2);
+    const copy = { id: uid("it"), type: "symbol", symbol: id, name: "", frame: [cx - sym.size[0] / 2, cy - sym.size[1] / 2, ...sym.size],
+      rot: 0, flip_h: false, flip_v: false };
+    store.update("Place symbol", (doc) => store.container(doc).push(copy), { select: [copy.id] });
+    announce(`Placed a copy of ${sym.name}`);
+  },
+  renameSymbol(id, name) {
+    store.update("Rename symbol", (doc) => { const sym = symbolOf(doc, id); if (sym) sym.name = name; });
+  },
+  deleteSymbol(id) {
+    if (copiesOf(store.doc, id).length) return announce("Delete or break the symbol's copies first");
+    store.update("Delete symbol", (doc) => { doc.symbols = (doc.symbols || []).filter((x) => x.id !== id); });
+  },
   stopGrid() {
     const grids = store.selected().filter((it) => it.grid);
     if (!grids.length) return announce("Select a grid layout");
@@ -800,6 +864,9 @@ const app = {
       one?.geom === "region" && { label: "Make an ordinary shape", run: () => this.detachArea() },
       one?.type === "line" && (one.start_link || one.end_link) && { label: "Detach the ends", run: () => this.detachEnds() },
       one?.attach && c("detachLabel", { label: "Detach from its panel" }),
+      one?.type === "symbol" && { label: "Edit symbol", keys: "Enter", run: () => this.editSymbol(one.id) },
+      one?.type === "symbol" && c("breakSymbol"),
+      sel.length > 0 && sel.every(canHold) && !one?.editing_symbol && c("makeSymbol"),
       one?.textbox && !one.attach && this.labelPanel(one) && c("attachLabel", { label: "Attach to the panel it's on" }),
       one?.type === "group" && { label: "Edit inside the group", keys: "Enter", run: () => canvas.enterGroup(one.id) },
     ];
@@ -1263,6 +1330,10 @@ app.commands = {
   makeClipMask: cmd("Make clipping mask: the top selected shape clips the objects under it", () => app.makeClipMask(),
     `${M}7`, key("7"), "Make mask"),
   releaseClipMask: cmd("Release clipping mask: separate the shape and what it clips", () => app.releaseClipMask(), null, null, "Release"),
+  makeSymbol: cmd("Make symbol: one object to use many times, changed everywhere at once", () => app.makeSymbol(), null, null, "Make symbol"),
+  editSymbol: cmd("Edit symbol: change the selected copy's symbol where it is (every copy follows)", () => app.editSymbol(), null, null, "Edit symbol"),
+  breakSymbol: cmd("Break link to symbol: make the selected copy its own objects", () => app.breakSymbol(), null, null, "Break link"),
+  symbols: cmd("Symbols: the figure's symbols, to place, rename or delete", () => panels.symbolsDialog(), null, null, "Symbols…"),
   gridLayout: cmd("Grid layout: put the selected panels in rows and columns that keep their gaps when a panel changes",
     () => app.gridLayout(), null, null, "Grid"),
   stopGrid: cmd("Stop grid layout: keep the panels where they are, as an ordinary group", () => app.stopGrid(), null, null, "Stop grid"),
@@ -1407,6 +1478,7 @@ document.addEventListener("keydown", (e) => {
     else if (it.type === "picture") canvas.startCrop(it.id);
     else if (it.type === "shape") canvas.startEdit(it.id);
     else if (it.type === "group") canvas.enterGroup(it.id);
+    else if (it.type === "symbol") app.editSymbol(it.id);
     return;
   }
   if (e.key === "Tab" && onCanvas && store.scopeItems().length) {
@@ -1536,6 +1608,7 @@ async function start() {
   canvas.onMeasure = (id, len) => app.measured(id, len);
   canvas.onZoomBox = (id, box) => app.addZoomInset(id, box);
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
+  canvas.onEditSymbol = (id) => app.editSymbol(id);
   canvas.onFillArea = (p) => app.fillArea(p);
   canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);
   rulers.init(document.querySelector(".stage-wrap"));
@@ -1598,7 +1671,7 @@ function offerRecovery(saved) {
           button(`Recover ${s.title}, ${when}`, async () => {
             dlg.close();
             const res = await rpc("open_document", s.path);
-            store.setDoc(res.doc, null);
+            store.setDoc(finishEdits(res.doc), null);
             // Keep writing to this copy, so saving the document clears it
             store.autosaveKey = s.path.split(/[\\/]/).pop().replace(/\.figasm$/i, "");
             store.dirty = true;

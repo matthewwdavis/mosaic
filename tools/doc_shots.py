@@ -29,7 +29,7 @@ SCENES = {
     "group": (405, 140, 1065, 600),
     "labels": None, "annotated": None, "style": (1176, 98, 1440, 900), "check": (380, 270, 1060, 630),
     "export": (380, 60, 1060, 860), "shapes": (200, 98, 760, 900), "guides": None, "result": None, "themes": (468, 63, 972, 838), "areafill": None,
-    "swatches": (420, 40, 1020, 880), "isolation": (200, 98, 1180, 640), "cropshape": (420, 98, 1440, 640), "zoominset": (200, 300, 1180, 820), "brackets": (200, 98, 1440, 700), "search": (380, 60, 1060, 640), "distances": (290, 200, 1170, 560), "attached": (560, 98, 1440, 672), "plotsnap": (296, 262, 1166, 556), "gridlayout": (410, 98, 1440, 860),
+    "swatches": (420, 40, 1020, 880), "isolation": (200, 98, 1180, 640), "cropshape": (420, 98, 1440, 640), "zoominset": (200, 300, 1180, 820), "brackets": (200, 98, 1440, 700), "search": (380, 60, 1060, 640), "distances": (290, 200, 1170, 560), "attached": (560, 98, 1440, 672), "plotsnap": (296, 262, 1166, 556), "gridlayout": (410, 98, 1440, 860), "symbols": (290, 300, 1440, 730),
 }
 # Numbered callouts on the window tour: (x, y) in window pixels, in the order the tutorial lists them
 TOUR = [(412, 22), (838, 62), (1042, 18), (78, 120), (238, 738), (304, 450), (1262, 124), (1038, 884)]

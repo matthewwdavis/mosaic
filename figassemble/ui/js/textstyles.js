@@ -51,6 +51,7 @@ export function paragraphs(doc) {
     }
   };
   for (const pg of doc.pages || []) walk(pg.items);
+  for (const sym of doc.symbols || []) walk(sym.items);   // symbols' text too
   return out;
 }
 

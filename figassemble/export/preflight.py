@@ -127,9 +127,9 @@ def preflight(doc: dict, options: dict) -> dict:
                     if prim.stroke is not None and prim.meta.get("role") != "outline" and _visible_stroke(prim, fills):
                         lines.append((prim.stroke.width, "line"))
                 elif isinstance(prim, DrawText):
-                    for run in prim.runs:
+                    for run in prim.runs:   # a symbol's copy scales its text (the text's matrix)
                         if run.text.strip():
-                            smallest = min(smallest or 1e9, run.size)
+                            smallest = min(smallest or 1e9, run.size * prim.matrix.scale_factor)
                 elif isinstance(prim, DrawPicture):
                     asset = doc["assets"][prim.asset_id]
                     variants = asset["variants"]

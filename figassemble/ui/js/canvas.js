@@ -5,6 +5,7 @@ import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
 import { followGrids } from "./gridlayout.js";
 import { followLabels, panelAt } from "./labels.js";
+import { finishEdits } from "./symbols.js";
 import { followScaleBars } from "./scalebar.js";
 import { followZooms } from "./zoom.js";
 import { labelRoom } from "./brackets.js";
@@ -334,6 +335,8 @@ export const canvas = {
       delete c.frame; delete c.name; delete c.alt; delete c.locked;
       return [JSON.stringify(c), [0, 0]];
     }
+    // A symbol's copy is drawn again whenever a symbol changes
+    if (c.type === "symbol") c.symbols = store.doc.symbols || [];
     let origin = [0, 0];
     if (c.frame) { origin = [c.frame[0], c.frame[1]]; c.frame = [0, 0, c.frame[2], c.frame[3]]; }
     if (c.points) { origin = c.points[0].slice(); c.points = c.points.map((p) => [p[0] - origin[0], p[1] - origin[1]]); }
@@ -379,7 +382,7 @@ export const canvas = {
     }
     let results;
     try {
-      results = await rpc("resolve", this.assetSizes(), items, context);
+      results = await rpc("resolve", this.assetSizes(), items, context, store.doc.symbols || []);
     } catch (err) { console.error(err); return; }
     const autofit = [], areas = [];
     results.forEach((r, i) => {
@@ -871,6 +874,7 @@ export const canvas = {
       return;
     }
     if (hit.type === "group") this.enterGroup(hit.id);
+    else if (hit.type === "symbol") this.onEditSymbol?.(hit.id);
     else if (hit.type === "picture") this.startCrop(hit.id);
     else if (hit.type === "shape") this.startEdit(hit.id);
   },
@@ -1302,7 +1306,7 @@ export const canvas = {
     if (dir.includes("e")) x1 = local[0];
     if (dir.includes("n")) y0 = local[1];
     if (dir.includes("s")) y1 = local[1];
-    const keepAspect = (o.type === "picture") !== e.shiftKey && dir.length === 2;
+    const keepAspect = (o.type === "picture" || o.type === "symbol") !== e.shiftKey && dir.length === 2;
     if (keepAspect && w > 0 && h > 0) {
       const sx = (x1 - x0) / w, sy = (y1 - y0) / h;
       const sc = Math.max(Math.abs(sx), Math.abs(sy));
@@ -1433,6 +1437,7 @@ export const canvas = {
   followLinks(doc) {
     const items = doc.pages[store.pageIndex]?.items;
     if (!items) return;
+    finishEdits(doc, store.scope);        // a symbol edited in place goes back once it's left (symbols.js)
     followGrids(items);                   // grid layouts put their parts in their cells
     followZooms(items, doc.assets);       // zoom insets show what's in their boxes
     followScaleBars(items, doc.assets);   // scale bars keep their length and place on their pictures

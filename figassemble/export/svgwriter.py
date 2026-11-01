@@ -168,6 +168,9 @@ class SvgWriter:
             # clipped one is drawn inside each of its clip paths (style, so the editor's id
             # prefixes reach it)
             g = parent
+            if prim.matrix is not None:   # a symbol's copy: its parts and clip drawn through its matrix
+                g = etree.SubElement(g, _q("g"))
+                g.set("transform", _matrix(prim.matrix))
             for path, even_odd in prim.clip:
                 g = etree.SubElement(g, _q("g"))
                 g.set("style", f"clip-path:url(#{self._clip_path(path, even_odd)})")

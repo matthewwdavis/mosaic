@@ -145,6 +145,8 @@ class PdfWriter:
         """Draw primitives together; a faded group becomes a transparency group (Form XObject),
         and a clipped one is drawn inside each of its clip paths."""
         clip = [op for path, even_odd in prim.clip for op in (path.to_pdf(), "W*" if even_odd else "W", "n")]
+        if prim.matrix is not None:   # a symbol's copy: its parts and clip drawn through its matrix
+            clip.insert(0, _cm(prim.matrix))
         if prim.opacity >= 1.0:
             ops = [op for p in prim.prims for op in self._prim(p, res)]
             return ["q", *clip, *ops, "Q"] if clip else ops

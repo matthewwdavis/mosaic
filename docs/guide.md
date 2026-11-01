@@ -13,6 +13,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 - [Dashes](#dashes)
 - [Connecting lines to objects](#connecting-lines-to-objects)
 - [Moving, sizing and arranging](#moving-sizing-and-arranging)
+- [Symbols](#symbols)
 - [Right-click menus](#right-click-menus)
 - [Align and distribute](#align-and-distribute)
 - [Rulers, guides, grid and snapping](#rulers-guides-grid-and-snapping)
@@ -35,8 +36,8 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
      Fit page; Swatches, Text styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group and Grid, Order (see
      [Align and distribute](#align-and-distribute)).
-   - **Figure**: scale bars (Scale bar, Measure), zoom insets and significance brackets (Bracket,
-     Stack).
+   - **Figure**: scale bars (Scale bar, Measure), zoom insets, significance brackets (Bracket,
+     Stack) and [symbols](#symbols) (Make symbol, Symbols…).
    - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
      Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
@@ -455,6 +456,29 @@ treatment, so every panel uses exactly the same colours.
   every figure, e.g. your lab's colours. Swatches you rename or delete in a figure don't change
   the library.
 - Deleting a swatch keeps the colours; only the links go. Copy style and Paste style carry links.
+
+## Symbols
+
+A symbol is one object used many times and changed everywhere at once, as in Illustrator: a
+cell, a tree or an instrument drawn once and placed wherever it's needed.
+
+- **Make symbol** (Figure tab, or right-click) turns the selected objects into a symbol and
+  leaves one copy where they were. A symbol can hold shapes, lines, text, brackets and groups of
+  them, but not pictures (a picture placed twice already shares its file).
+- **More copies:** copy and paste a copy, duplicate it (⌘D), or **Place a copy** in **Symbols…**.
+  Resize a copy and its lines and text scale with it (it keeps its proportions unless you hold
+  Shift); turn and flip copies like any object. The check counts a copy's lines and text at the
+  size they print.
+- **Edit symbol:** double-click a copy (or select it and press Enter). The symbol's objects appear
+  where the copy is, at the symbol's own size, and you work on them as inside a group while the
+  rest of the page fades. Press **Escape**, double-click outside or click **Leave group** when
+  you're done: the symbol changes, and every copy with it, each at its own size.
+- **Break link** makes a copy its own objects again, looking as it did: scaled, turned and flipped.
+- **Symbols…** lists the figure's symbols, with how many copies each has: rename one, place a
+  copy, or delete one that has no copies left.
+- Swatches, text styles and **Fonts** reach the objects inside symbols too.
+
+![One cell drawn as a symbol and used three times, at 100%, 160% and 70%; the big copy selected, with its Symbol section](images/symbols.png)
 
 ## Right-click menus
 

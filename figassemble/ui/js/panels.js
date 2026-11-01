@@ -5,6 +5,7 @@ import { canvas } from "./canvas.js";
 import { alignToField, button, colourVisionField, gapField, numField, selectField } from "./inspector.js";
 import { store } from "./store.js";
 import { PALETTES, colourHolders } from "./swatches.js";
+import { copiesOf } from "./symbols.js";
 import { describeFormat, differs, paragraphs } from "./textstyles.js";
 import { contextMenu } from "./contextmenu.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, s, shapeName, toUnit } from "./util.js";
@@ -61,12 +62,14 @@ const ICONS = {
   distBottom: "M3 6h18M3 13h18M3 20h18M7 1h4v5H7zM13 9h4v4h-4zM9 17h4v3H9z",
   actual: "M5 5h14v14H5zM9 9.5l2-1.5v8M14 9.5l2-1.5v8",
   cells: "M4 4h7v6H4zM13 4h7v9h-7zM4 12h7v8H4zM13 15h7v5h-7z",
+  symbol: "M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z",
+  symbols: "M8 3l1.8 3.6 4 .6-2.9 2.8.7 4L8 12.1 4.4 14l.7-4L2.2 7.2l4-.6zM17 10l1.4 2.8 3.1.5-2.3 2.2.6 3.1-2.8-1.5-2.8 1.5.6-3.1-2.3-2.2 3.1-.5z",
   ruler: "M3 8h18v8H3zM7 8v3M11 8v4.5M15 8v3M19 8v4.5", grid: "M4 4h16v16H4zM9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16",
   guides: "M9 8v13M8 15h13M6.5 3h5L9 6zM3 12.5v5l3-2.5z",
   magnet: "M5 4h4.5v7.5a2.5 2.5 0 005 0V4H19v7.5a7 7 0 01-14 0zM5 8h4.5M14.5 8H19",
 };
 
-// Which text objects (and pages) use each font
+// Which text objects (and pages) use each font; text in symbols counts, on no page of its own
 function fontUses(doc) {
   const uses = new Map();
   const walk = (items, page) => {
@@ -77,12 +80,13 @@ function fontUses(doc) {
           if (!r.font || !(r.t || "").length) continue;
           if (!uses.has(r.font)) uses.set(r.font, { objects: new Set(), pages: new Set() });
           uses.get(r.font).objects.add(it.id);
-          uses.get(r.font).pages.add(page);
+          if (page !== null) uses.get(r.font).pages.add(page);
         }
       }
     }
   };
   doc.pages.forEach((pg, i) => walk(pg.items, i));
+  for (const sym of doc.symbols || []) walk(sym.items, null);
   return uses;
 }
 
@@ -217,6 +221,7 @@ export const panels = {
         group("Scale", t("addScaleBar", "scalebar"), t("measureScale", "measure")),
         group("Zoom", t("zoomInset", "zoomInset")),
         group("Significance", t("toolSigBracket", "sigBracket"), t("stackBrackets", "stackBrackets")),
+        group("Symbols", t("makeSymbol", "symbol"), t("symbols", "symbols")),
       ]],
       ["combine", "Combine", [
         group("Pathfinder", t("unite", "unite"), t("minusFront", "minusFront"), t("intersect", "intersect"), t("exclude", "exclude")),
@@ -949,6 +954,29 @@ export const panels = {
 
   // Swatches: the figure's named colours (editing one recolours everything linked to it),
   // ready-made palettes, and palettes kept in your library for every figure
+  // Symbols: each with how often it's used, to place another copy, rename or delete
+  symbolsDialog() {
+    const body = h("div", {});
+    const render = () => {
+      const all = store.doc.symbols || [];
+      const rows = all.map((sym) => {
+        const name = h("input", { type: "text", value: sym.name, "aria-label": `${sym.name}: name` });
+        name.addEventListener("change", () => { if (name.value.trim()) this.app.renameSymbol(sym.id, name.value.trim()); });
+        const uses = copiesOf(store.doc, sym.id).length;
+        return h("li", { class: "swatch-row" }, name, h("span", { class: "hint" }, `${uses} cop${uses === 1 ? "y" : "ies"}`),
+          button(`Place a copy of ${sym.name} in the middle of the view`, () => { this.app.placeSymbol(sym.id); render(); }, "Place a copy"),
+          uses ? null : button(`Delete ${sym.name}`, () => { this.app.deleteSymbol(sym.id); render(); }, "Delete"));
+      });
+      body.replaceChildren(
+        all.length ? h("ul", { class: "swatch-list" }, ...rows) : h("p", {}, "No symbols in this figure yet."),
+        h("p", { class: "hint" }, `Select objects and click Make symbol to make one. Copy a copy (${this.app.mod}C, ${this.app.mod}V, `
+          + `${this.app.mod}D) to use it again; resizing a copy scales its lines and text with it. Double-click any copy to `
+          + "change the symbol, and every copy changes with it."));
+    };
+    render();
+    this.dialog("Symbols", body);
+  },
+
   swatchesDialog() {
     const body = h("div", {});
     const chips = (colours) => h("span", { class: "chips", "aria-hidden": "true" },

@@ -10,6 +10,7 @@ import { linked, swatchById } from "./swatches.js";
 import { differs } from "./textstyles.js";
 import { UNITS, anchorFor, convert, niceLength, pxPerPt, scaleText } from "./scalebar.js";
 import { DEFAULT_GAP } from "./gridlayout.js";
+import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
 import { CORNER_NAMES } from "./labels.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
@@ -304,6 +305,10 @@ export const inspector = {
     if (it.type === "scalebar") return [["arrange", "Arrange", [this.objectSection(it), ...this.alignSections(1)]],
       ["scalebar", "Scale bar", [this.scalebarSection(it)]]];
     if (it.type === "bracket") return [arrange, ["bracket", "Bracket", [this.bracketSection(it)]]];
+    if (it.type === "symbol") {
+      arrange[2].push(this.symbolSection(it));
+      return [arrange];
+    }
     if (it.type === "line") {
       arrange[2].splice(2, 0, this.linkSection(it));
       return [arrange, ["style", "Style", [this.strokeSection(it), this.endsSection(it), this.outlineSection(it)]]];
@@ -358,6 +363,21 @@ export const inspector = {
     return section("Connections", [row("start_link", "Start"), row("end_link", "End"),
       h("p", { class: "hint" }, "Drag an end onto a corner, the middle of a side, or a dash of another object to attach it; "
         + `it then follows that object. Hold ${this.app.mod.replace("+", "")} to drop an end without attaching.`)]);
+  },
+  // A symbol's copy: its symbol's name (shared by every copy), its scale, and editing it
+  symbolSection(it) {
+    const sym = symbolOf(store.doc, it.symbol);
+    if (!sym) return section("Symbol", [h("p", {}, "Its symbol is missing.")]);
+    const n = copiesOf(store.doc, sym.id).length, [sx, sy] = scaleOf(it, sym);
+    const scale = Math.abs(sx - sy) < 1e-6 ? `${fmt(sx * 100, 1)}%` : `${fmt(sx * 100, 1)}% across, ${fmt(sy * 100, 1)}% down`;
+    return section("Symbol", [
+      textField("Symbol name", sym.name, (v) => { if (v.trim()) this.app.renameSymbol(sym.id, v.trim()); }),
+      h("p", { class: "hint" }, `${n} cop${n === 1 ? "y" : "ies"} in this figure, this one at ${scale} of the symbol's size. `
+        + "Resizing a copy scales its lines and text with it."),
+      h("div", { class: "button-row" },
+        button("Edit the symbol where this copy is; every copy changes", () => this.app.run("editSymbol"), "Edit symbol"),
+        button("Break the link: make this copy its own objects", () => this.app.run("breakSymbol"), "Break link"),
+        button("The figure's symbols", () => this.app.run("symbols"), "Symbols…"))]);
   },
   // A grid layout's columns and gaps (gridlayout.js)
   gridSection(it) {
@@ -1000,7 +1020,8 @@ function kindName(it) {
   if (it.geom === "region") return "Area fill";
   if (it.type === "picture") return "Picture";
   if (it.type === "line") return `${isCurved(it) ? "Curved " : ""}${it.arrow_start || it.arrow_end ? "arrow" : "line"}`.replace(/^./, (c) => c.toUpperCase());
-  if (it.type === "group") return it.clip ? "Clipping mask" : "Group";
+  if (it.type === "group") return it.clip ? "Clipping mask" : it.grid ? "Grid layout" : it.editing_symbol ? "Symbol (editing)" : "Group";
+  if (it.type === "symbol") return "Symbol copy";
   if (it.type === "scalebar") return "Scale bar";
   if (it.type === "bracket") return "Significance bracket";
   if (it.textbox) return "Text box";

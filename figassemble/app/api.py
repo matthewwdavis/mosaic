@@ -286,11 +286,12 @@ class Api:
 
     # Editor ----------------------------------------------------------------------------
 
-    def resolve(self, assets: dict, items: list[dict], context: list[dict] | None = None) -> list[dict]:
+    def resolve(self, assets: dict, items: list[dict], context: list[dict] | None = None,
+                symbols: list[dict] | None = None) -> list[dict]:
         """Draw items for the editor. `context`: other items on the page that area fills among
-        `items` need (the lines and shapes round them)."""
+        `items` need (the lines and shapes round them); `symbols`: the figure's symbols, for copies."""
         from ..export.svgwriter import fragment
-        resolver = Resolver({"assets": assets}, get_font_index())
+        resolver = Resolver({"assets": assets, "symbols": symbols or []}, get_font_index())
         resolver.use_page([*(context or []), *items])
         out = []
         for it in items:
