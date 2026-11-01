@@ -3,6 +3,7 @@
 
 import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
+import { followLabels, panelAt } from "./labels.js";
 import { followScaleBars } from "./scalebar.js";
 import { followZooms } from "./zoom.js";
 import { labelRoom } from "./brackets.js";
@@ -464,8 +465,10 @@ export const canvas = {
         width: Math.abs(bx - ax), height: Math.abs(by - ay) }));
     }
     if (this.editing) return;
-    if (sel.length === 1 && !this.cropping) this.drawHandles(sel[0]);
-    else if (sel.length > 1) {
+    if (sel.length === 1 && !this.cropping) {
+      this.drawAttachment(o, sel[0]);
+      this.drawHandles(sel[0]);
+    } else if (sel.length > 1) {
       const key = this.keyObject?.();
       for (const it of sel) {
         const cls = it.id === key?.id ? "sel-outline key" : "sel-outline thin";
@@ -476,6 +479,16 @@ export const canvas = {
     }
     if (this.cropping) this.drawCropHandles();
     if (this.altDown && !this.op && sel.length) this.drawDistances(o, sel);
+  },
+  // A selected panel label's panel, dashed, and a line from the corner it keeps to the label
+  drawAttachment(o, it) {
+    const panel = it.attach && findDeep(store.items(), it.attach.to);
+    if (!panel || !it.frame) return;
+    const b = itemBBox(panel), corner = it.attach.corner || "tl";
+    o.append(this.outlineAround([[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]], "attach-target"));
+    const c = this.toScreen(corner[1] === "r" ? b[2] : b[0], corner[0] === "b" ? b[3] : b[1]), l = this.toScreen(it.frame[0], it.frame[1]);
+    o.append(s("line", { class: "attach-link", x1: c[0], y1: c[1], x2: l[0], y2: l[1] }),
+      s("circle", { class: "attach-corner", cx: c[0], cy: c[1], r: 3 }));
   },
   // Option held with something selected: its distances to the object under the pointer, or to
   // the page's edges, as Figma shows them: the gap between them, or four inner distances when
@@ -1372,6 +1385,7 @@ export const canvas = {
     if (!items) return;
     followZooms(items, doc.assets);       // zoom insets show what's in their boxes
     followScaleBars(items, doc.assets);   // scale bars keep their length and place on their pictures
+    followLabels(items);                  // panel labels go with their panels
     const lines = allLines(items).filter((l) => l.start_link || l.end_link);
     for (let pass = 0; pass < 3 && lines.length; pass++) {   // a few rounds for lines attached to lines
       let moved = false;
@@ -1528,6 +1542,9 @@ export const canvas = {
       // A figure with a text style called Panel label gives it to new labels
       const labelStyle = lab && (store.doc.text_styles || []).find((x) => x.name.trim().toLowerCase() === "panel label");
       if (labelStyle) applyTextStyle(item, labelStyle);
+      // A label put on or near a picture or group stays with it (labels.js)
+      const panel = lab && panelAt(store.scopeItems(), [ax, ay]);
+      if (panel) item.attach = { to: panel.id };
       store.update(lab ? "Add panel label" : "Add text", (doc) => store.container(doc).push(item), { select: [item.id] });
       this.setTool("select");
       if (!lab) setTimeout(() => this.startEdit(item.id, true), 30);
@@ -1789,9 +1806,6 @@ function resizeCursor(dir, it) {
 }
 
 export function shiftItem(it, orig, dx, dy) {
-  if (it.type === "scalebar") {   // its place is an offset from its picture's corner
-    it.anchor = { ...(orig.anchor || {}), dx: (orig.anchor?.dx || 0) + dx, dy: (orig.anchor?.dy || 0) + dy };
-  }
   if (it.type === "group") {
     it.items.forEach((c, i) => shiftItem(c, orig.items[i], dx, dy));
   } else if (it.type === "line") {
@@ -1865,7 +1879,8 @@ export function copyItems(items) {
       else delete line[key];
     }
   }
-  // A scale bar copied with its picture belongs to the copy, and so do zoom boxes, insets and lines
+  // A scale bar copied with its picture belongs to the copy, and so do zoom boxes, insets, their
+  // lines and panel labels
   const remap = (o, key) => { if (o && ids.has(o[key])) o[key] = ids.get(o[key]); };
   const walk = (its) => its.forEach((it) => {
     if (it.type === "group") walk(it.items);
@@ -1874,6 +1889,7 @@ export function copyItems(items) {
     remap(it.inset, "box");
     remap(it.zoomline, "box");
     remap(it.zoomline, "inset");
+    remap(it.attach, "to");   // a label copied with its panel goes with the copy
   });
   walk(copies);
   const oldId = new Map([...ids].map(([o, n]) => [n, o]));

@@ -1,9 +1,11 @@
 // Scale bars: a bar showing a real length on a picture with a scale. A picture's scale is
 // picture.scale {per_pt, unit, how}: the real length of one point of its own source (a raster's
 // pixel size converts to it; how: typed, measured or file). A scale bar {picture, length, unit,
-// anchor {corner, dx, dy}, ...} keeps its corner at that offset from the same corner of its
+// anchor {corner, dx, dy, seen}, ...} keeps its corner at that offset from the same corner of its
 // picture, and its length in step with the picture's size and crop: followScaleBars sets its frame
-// whenever anything changes, and the engine draws it from the frame.
+// whenever anything changes, and the engine draws it from the frame. When the picture is as it
+// was last time (seen: its frame and crop then), the bar may have been moved on its own, so its
+// offset is measured again; a bar moved together with its picture moves once.
 
 export const UNITS = [["nm", 1e-9], ["µm", 1e-6], ["mm", 1e-3], ["cm", 1e-2], ["m", 1]];
 const metres = (u) => (UNITS.find(([n]) => n === u) || [null, 1e-6])[1];
@@ -58,6 +60,9 @@ export function followScaleBars(items, assets) {
     const pic = all.find((it) => it.id === bar.picture && it.type === "picture");
     const asset = pic && assets[pic.asset];
     if (!asset) continue;
+    const geom = [...pic.frame, ...(pic.crop || [0, 0, 0, 0])], seen = bar.anchor?.seen;
+    if (!seen || geom.every((v, i) => Math.abs(v - seen[i]) <= 1e-9)) bar.anchor = anchorFor(bar, pic, bar.anchor?.corner || "br");
+    bar.anchor.seen = geom;
     const f = barFrame(bar, pic, asset);
     if (f.some((v, i) => Math.abs(v - bar.frame[i]) > 1e-9)) bar.frame = f;
   }

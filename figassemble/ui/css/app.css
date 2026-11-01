@@ -275,6 +275,10 @@ body.resizing-panel { cursor: col-resize; user-select: none; }
 .handle.end.linked { fill: #1f9d55; stroke: #fff; stroke-width: 1.5; }
 /* Connection points, shown while a line end is placed */
 .site { fill: #fff; stroke: var(--sel); stroke-width: 1.3; }
+/* A selected panel label's panel and the corner it keeps */
+.attach-target { fill: none; stroke: var(--sel); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.8; }
+.attach-link { stroke: var(--sel); stroke-width: 1; stroke-dasharray: 2 2; }
+.attach-corner { fill: var(--sel); stroke: #fff; stroke-width: 1; }
 .site.dash { fill: var(--sel); stroke: none; opacity: 0.7; }
 .site.active { fill: var(--sel); stroke: #fff; stroke-width: 2; }
 .link-row { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; margin: 0.25rem 0; font-size: 0.9rem; }

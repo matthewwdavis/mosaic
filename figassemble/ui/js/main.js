@@ -10,6 +10,7 @@ import {
   canvas, copyItems, detachMoved, detachRegion, findDeep, rotateItem, scaleItem, shiftGuides, shiftItem, withRegionLines,
 } from "./canvas.js";
 import { contextMenu } from "./contextmenu.js";
+import { middle, panelAt } from "./labels.js";
 import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
@@ -771,6 +772,8 @@ const app = {
       one?.type === "shape" && one.geom !== "region" && { label: "Edit text", keys: "Enter", run: () => canvas.startEdit(one.id) },
       one?.geom === "region" && { label: "Make an ordinary shape", run: () => this.detachArea() },
       one?.type === "line" && (one.start_link || one.end_link) && { label: "Detach the ends", run: () => this.detachEnds() },
+      one?.attach && c("detachLabel", { label: "Detach from its panel" }),
+      one?.textbox && !one.attach && this.labelPanel(one) && c("attachLabel", { label: "Attach to the panel it's on" }),
       one?.type === "group" && { label: "Edit inside the group", keys: "Enter", run: () => canvas.enterGroup(one.id) },
     ];
   },
@@ -871,6 +874,24 @@ const app = {
     }, { select: [fill.id] });
     canvas.setTool("select");
     announce("Filled the area. It follows its lines and shapes when they move; choose its colour in the Style tab");
+  },
+  // Panel labels (labels.js): the picture or group a text box is on or near, to attach it to
+  labelPanel(it) {
+    const items = store.scopeItems();
+    return it?.frame && items.includes(it) ? panelAt(items, middle(it.frame), { label: it }) : null;
+  },
+  attachLabel() {
+    const it = store.selected()[0], panel = this.labelPanel(it);
+    if (!it?.textbox) return announce("Select a panel label (or another text box) to attach");
+    if (!panel) return announce("Move the label onto or next to a picture or group first");
+    store.update("Attach label", (doc) => { findDeep(doc.pages[store.pageIndex].items, it.id).attach = { to: panel.id }; });
+    announce(`The label stays with ${itemLabel(panel, store.doc)} now`);
+  },
+  detachLabel() {
+    const sel = store.selected().filter((it) => it.attach);
+    if (!sel.length) return announce("Select a label attached to a panel");
+    store.update("Detach label", (doc) => { for (const it of sel) delete findDeep(doc.pages[store.pageIndex].items, it.id).attach; });
+    announce(sel.length === 1 ? "Detached: the label stays where it is when its panel moves" : `Detached ${sel.length} labels`);
   },
   // An area fill as an ordinary shape of its area as it is now, no longer following its lines
   detachArea() {
@@ -1215,6 +1236,8 @@ app.commands = {
   makeClipMask: cmd("Make clipping mask: the top selected shape clips the objects under it", () => app.makeClipMask(),
     `${M}7`, key("7"), "Make mask"),
   releaseClipMask: cmd("Release clipping mask: separate the shape and what it clips", () => app.releaseClipMask(), null, null, "Release"),
+  attachLabel: cmd("Attach label: keep the selected label with the picture or group it's on", () => app.attachLabel(), null, null, "Attach label"),
+  detachLabel: cmd("Detach label: let the selected label stay put when its panel moves", () => app.detachLabel(), null, null, "Detach label"),
   copyStyle: cmd("Copy style", () => app.copyStyle(), `${M}${S}C`, key("c", { shift: true }), "Copy style"),
   pasteStyle: cmd("Paste style", () => app.pasteStyle(), `${M}${S}V`, key("v", { shift: true }), "Paste style"),
   formatPainter: cmd("Format painter: click it, then click an object to give it the selected object's style "

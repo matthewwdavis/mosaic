@@ -134,6 +134,7 @@ time.
 
 ![Panel labels a, b and c added](images/labels.png)
 
+Each label stays with the plot it's next to: move or resize a plot and its label goes along.
 To change a label, double-click it and type. The labels' size, style and case (a, b, c or A, B, C)
 are in **Settings**.
 

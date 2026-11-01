@@ -9,6 +9,7 @@ import { store } from "./store.js";
 import { linked, swatchById } from "./swatches.js";
 import { differs } from "./textstyles.js";
 import { UNITS, anchorFor, convert, niceLength, pxPerPt, scaleText } from "./scalebar.js";
+import { CORNER_NAMES } from "./labels.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, shapeCatalog,
@@ -330,6 +331,7 @@ export const inspector = {
       return [arrange];
     }
     if (it.zoom) arrange[2].push(this.zoomBoxSection(it));
+    if (it.textbox) arrange[2].splice(2, 0, this.labelSection(it));
     const boxed = !it.textbox || it.fill || it.stroke;
     const style = ["style", "Style", [
       it.textbox ? null : this.geometrySection(it),
@@ -351,6 +353,22 @@ export const inspector = {
     return section("Connections", [row("start_link", "Start"), row("end_link", "End"),
       h("p", { class: "hint" }, "Drag an end onto a corner, the middle of a side, or a dash of another object to attach it; "
         + `it then follows that object. Hold ${this.app.mod.replace("+", "")} to drop an end without attaching.`)]);
+  },
+  // The panel a label stays with (labels.js), and a way to let go, or to attach one on a panel
+  labelSection(it) {
+    const panel = it.attach && findDeep(store.items(), it.attach.to);
+    if (panel) {
+      return section("Panel", [
+        h("p", {}, `Stays with ${itemLabel(panel, store.doc)}, by its ${CORNER_NAMES[it.attach.corner] || "top left"} corner.`),
+        h("p", { class: "hint" }, "It goes with the panel when the panel moves or changes size. Drag it to another corner, "
+          + "or onto another panel, to keep it there instead."),
+        h("div", { class: "button-row" }, button("Detach the label: it stays put when the panel moves", () => this.app.run("detachLabel"), "Detach"))]);
+    }
+    const near = this.app.labelPanel(it);
+    return near ? section("Panel", [
+      h("p", {}, "Not attached to a panel."),
+      h("div", { class: "button-row" }, button(`Attach to ${itemLabel(near, store.doc)}: it goes with it when it moves`,
+        () => this.app.run("attachLabel"), "Attach to the panel"))]) : null;
   },
   objectSection(it) {
     const kids = [textField("Name", it.name || "", (v) => this.edit("Rename", (x) => { x.name = v; }))];

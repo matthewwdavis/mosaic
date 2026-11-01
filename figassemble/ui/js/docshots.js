@@ -184,11 +184,25 @@ export async function run(app, params) {
     return finish();
   }
 
-  // Step 4: panel labels a, b, c
-  store.update("Labels", (doc) => doc.pages[0].items.push(label("la", "a", 4, 4), label("lb", "b", 217, 4), label("lc", "c", 4, 153)),
-    { select: [] });
+  // Step 4: panel labels a, b, c, each staying with its plot as the Label tool leaves them
+  store.update("Labels", (doc) => doc.pages[0].items.push({ ...label("la", "a", 4, 4), attach: { to: a } },
+    { ...label("lb", "b", 217, 4), attach: { to: b } }, { ...label("lc", "c", 4, 153), attach: { to: c } }), { select: [] });
   await settle();
   if (scene === "labels") return finish();
+  if (scene === "attached") {
+    // Label b moved a little way off its plot and selected: the plot dashed, the line to the
+    // corner it keeps, and its Arrange tab; zoomed in on the corner
+    const fb = fr(b);
+    store.update("Label b off its plot", (doc) => {
+      const lb = doc.pages[0].items.find((i) => i.id === "lb");
+      lb.frame = [fb[0] - 9, fb[1] - 4, lb.frame[2], lb.frame[3]];
+    }, { select: ["lb"] });
+    await settle();
+    canvas.setZoom(3, ...canvas.toScreen(fb[0], fb[1]));
+    inspector.render();
+    document.getElementById("itab-arrange")?.click();
+    return finish();
+  }
 
   // Step 5: a note with an arrow attached to it, pointing at the curve where it crosses 50% (at
   // 1.5 µM: x 261.7, y 206.7 on the page, from the plot's scales), stopping 4 pt short

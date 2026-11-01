@@ -75,7 +75,7 @@ Matthew's choices are in brackets.
 - [x] Distances on hover: hold Option with something selected to see its distance to what's under the pointer
 - [x] More in Check: the thinnest line, placed plots' lines included, and the figure's size against the
       journal's limits [placed plots too]
-- [ ] Panel labels that stay with their panel (a picture or group) [attached automatically]
+- [x] Panel labels that stay with their panel (a picture or group) [attached automatically]
 - [ ] Snapping to placed plots' axis and frame lines and their visible edges [no tick marks]
 - [ ] Grid layout: rows and columns with set gaps, kept when a panel changes [keep sizes, align top left]
 - [ ] Symbols: one object used many times, edited once [copies scale lines and text; edited in place]

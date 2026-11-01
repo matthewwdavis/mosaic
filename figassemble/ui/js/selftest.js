@@ -272,6 +272,44 @@ export async function run(app, params) {
     check(store.items().some((i) => i.text?.paragraphs?.[0]?.runs?.[0]?.t === "b"), "next panel label is 'b'");
     await settle();
     check(label && label.frame[3] > 5 && label.frame[3] < 15, "label box fitted to its text", JSON.stringify(label?.frame));
+    // Panel labels stay with their panel: one put on a picture goes with it when it moves or
+    // grows, keeps the corner it's dragged to, moves once when moved with its picture, and stays
+    // put once detached
+    const lpPic = pics[pics.length - 1], lpWas = JSON.parse(JSON.stringify(lpPic));
+    const lpF = () => store.item(lpPic.id).frame;
+    canvas.setTool("label");
+    await drag([lpF()[0] + 4, lpF()[1] + 4], [lpF()[0] + 4, lpF()[1] + 4]);
+    const lpId = store.selected()[0]?.id, lpL = () => store.item(lpId);
+    check(lpL()?.attach?.to === lpPic.id && lpL().attach.corner === "tl", "a panel label put on a picture is attached to its nearest corner",
+      JSON.stringify(lpL()?.attach));
+    inspector.render();
+    check(/Stays with .*top left corner/.test(document.querySelector("#inspector").textContent), "and its Arrange tab says so");
+    const lpAt = lpL().frame.slice();
+    store.update("Move the panel", (doc) => { const pp = findItem(doc, lpPic.id); pp.frame[0] += 25; pp.frame[1] += 10; });
+    check(near(lpL().frame[0], lpAt[0] + 25, 1e-6) && near(lpL().frame[1], lpAt[1] + 10, 1e-6), "the label goes with its panel",
+      `${lpAt} -> ${lpL().frame}`);
+    store.update("Label to the top right", (doc) => { findItem(doc, lpId).frame[0] = lpF()[0] + lpF()[2] - 8; });
+    const lpRight = lpF()[0] + lpF()[2] - lpL().frame[0];
+    store.update("Wider panel", (doc) => { findItem(doc, lpPic.id).frame[2] += 30; });
+    check(lpL().attach.corner === "tr" && near(lpF()[0] + lpF()[2] - lpL().frame[0], lpRight, 1e-6),
+      "dragged to another corner, it keeps that one when the panel grows", JSON.stringify(lpL().attach));
+    store.select([lpPic.id, lpId]);
+    const lpX = lpL().frame[0];
+    app.nudge(5, 0);
+    check(near(lpL().frame[0], lpX + 5, 1e-6), "moved together with its panel, it moves once", `${lpX} -> ${lpL().frame[0]}`);
+    store.select([lpId]);
+    await app.run("detachLabel");
+    const lpY = lpL().frame[1];
+    store.update("Move the panel again", (doc) => { findItem(doc, lpPic.id).frame[1] += 40; });
+    check(!lpL().attach && near(lpL().frame[1], lpY, 1e-6), "Detach lets go: the label stays put", JSON.stringify(lpL().attach));
+    await app.run("attachLabel");
+    check(lpL().attach?.to === lpPic.id || !app.labelPanel(lpL()), "Attach to the panel attaches it again when it's on one",
+      JSON.stringify(lpL().attach));
+    store.update("Panel back", (doc) => {
+      const items = doc.pages[store.pageIndex].items;
+      items.splice(items.findIndex((i) => i.id === lpPic.id), 1, lpWas);
+      items.splice(items.findIndex((i) => i.id === lpId), 1);
+    }, { select: [] });
 
     // Moving with the pointer, then undo and redo
     store.select([pics[0].id]);
@@ -1032,6 +1070,9 @@ export async function run(app, params) {
     const sbX = sbF()[0];
     store.update("Move the picture", (doc) => { findItem(doc, pics[0].id).frame[0] += 20; });
     check(near(sbF()[0], sbX + 20, 1e-6), "a bar stays where it was put on its picture, and goes with it", `${sbX} -> ${sbF()[0]}`);
+    store.select([pics[0].id, sbId]);
+    app.nudge(5, 0);
+    check(near(sbF()[0], sbX + 25, 1e-6), "moved together with its picture, a bar moves once", `${sbX + 20} -> ${sbF()[0]}`);
     // Measure: a line drawn along something of known length sets the scale
     canvas.startMeasure(pics[0].id);
     const mf = sbPic().frame;

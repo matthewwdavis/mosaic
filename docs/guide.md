@@ -221,6 +221,17 @@ height you drag at, with the label above. Drag upright instead for one with its 
   whole box, and alignment, vertical position, wrapping and **Resize the box to fit the text**.
 - **Panel label (P):** click to add the next free letter (a, b, c…) in bold 8 pt Helvetica.
   Settings changes the size and case.
+  - A label put on or near a picture or group (within about 5 mm) stays with it, by the panel's
+    nearest corner: it goes with the panel when the panel moves or changes size, and moves just
+    once when you move both together. Selected, it shows its panel dashed and a line to the
+    corner it keeps.
+  - Drag it to another corner of its panel and it keeps that corner; drag it onto another panel
+    and it stays with that one instead.
+  - **Detach** (its Arrange tab, or right-click) lets it go, so it stays put when the panel moves;
+    **Attach to the panel** there attaches any text box on or next to a picture or group.
+
+  ![Label b selected: its plot outlined dashed, a line to the corner it keeps, and the Panel section of its Arrange tab](images/attached.png)
+
 - Any shape can hold text: double-click it to type.
 - **Text styles** keep text alike: **New style from this text…** on the Text tab names the selected
   text's format (font, size, colour, bold, italic, underline, alignment, spacing), and **Text
