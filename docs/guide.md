@@ -66,6 +66,19 @@ remembers the widths.
 **Selection:** the box around a selected object, and its handles, stand a few pixels outside the
 object, so you can see the object's own edges while you move and resize it.
 
+**The menu bar** (Mac): along the top of the screen, as for any Mac app.
+- **FigAssemble:** About FigAssemble, Settings… (⌘,), Hide, Quit.
+- **File:** New, Open…, Open Recent, Close, Save, Save As…, Export…, Check Before Export…, Figure
+  Report….
+- **Edit:** Undo, Redo, Cut, Copy, Paste, Paste as Picture, Duplicate, Transform Again, Delete,
+  Select All, Copy Style, Paste Style. While you type in a box, they work on its text.
+- **View:** zoom, Fit Page and Centre Page; Rulers, Grid, Guides and Snap, ticked when on; the
+  colour-vision preview; full screen.
+- **Window** and **Help:** Minimize and Zoom; keyboard shortcuts and help, Search Commands…, the
+  user guide, and Report a Problem… or Suggest an Idea…. Help's search box finds any menu command.
+
+Each menu command shows its shortcut. While a dialog is open, the menus wait, as the keys do.
+
 **Command search (⌘/):** type a few letters of what you want, such as "align", "swatch" or
 "rulers", and press Enter to run the command (the arrow keys choose another). Each one shows its
 shortcut, so it's also a way to learn them.

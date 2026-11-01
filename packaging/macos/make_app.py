@@ -4,6 +4,10 @@
 
 Run it from the environment FigAssemble is installed in (conda activate figassemble); the
 app remembers that environment's Python. Drag the result into Applications.
+
+The environment's Python is linked into the app and runs from there, so macOS takes the app's
+name, icon and version from this bundle, as for any Mac app (run from its own folder, it would
+call the app "python").
 """
 import argparse
 import os
@@ -75,10 +79,12 @@ def main() -> int:
     os.makedirs(macos)
     os.makedirs(res)
     launcher = os.path.join(macos, "FigAssemble")
+    os.symlink(sys.executable, os.path.join(macos, "python"))
     with open(launcher, "w") as fh:
         fh.write("#!/bin/sh\n"
-                 "# Starts FigAssemble from the Python environment it was built with\n"
-                 f'exec "{sys.executable}" -m figassemble "$@"\n')
+                 "# Starts FigAssemble from the Python environment it was built with, linked in beside this\n"
+                 "# file so that macOS sees the app as FigAssemble\n"
+                 'exec "$(dirname "$0")/python" -m figassemble "$@"\n')
     os.chmod(launcher, 0o755)
     has_icon = make_icns(os.path.join(res, "FigAssemble.icns"))
     info = {

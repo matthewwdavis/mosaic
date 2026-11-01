@@ -160,6 +160,19 @@ pre-export check says so.
   registered for PowerPoint's and its drag methods are wrapped (macdrag.py, powerpoint.py,
   importers/gvml.py). PowerPoint also offers its copied slides as web data ("ppt/slides"), which a
   Chromium web view (Windows) may be handed for a drag; that's taken too, untested.
+- **Mac menu bar (2026-11-01):** macOS names an app from its main bundle, and conda's Python has
+  none, so the menu bar said "python". FigAssemble.app now links the environment's Python into
+  itself and runs it from there, which makes the app the main bundle (its name, icon and
+  version), as for any Mac app; started from a terminal, it sets LaunchServices' display name
+  (the call Java's -Xdock:name makes). Changing the bundle's CFBundleName at run time doesn't
+  rename it. pywebview's menus have no shortcuts, so the menu bar is made with AppKit
+  (macmenu.py) from the editor's description of it: FigAssemble, File, Edit, View, Window, Help
+  (Matthew's choice of menus; not Insert or Arrange, and Mac only, since on Windows the ribbon
+  does this job, as in Office). Menu items run the editor's commands as their keys do, and wait
+  while a dialog is open. Cut, Copy, Paste, Undo, Redo, Select All and Delete ask the editor
+  first: in a text field they're the web view's own. macOS's Dictation and Emoji & Symbols items
+  in Edit have hidden copies for their other shortcuts, so they look doubled when the menu is
+  read, though each shows once.
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.

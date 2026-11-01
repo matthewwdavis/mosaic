@@ -98,6 +98,9 @@ Matthew's choices are in brackets.
       objects there, dropped in the Pages list makes them pages there; slides and shapes copied
       in PowerPoint paste as objects; slides dragged out of PowerPoint (Mac) come from their deck
       as last saved, since PowerPoint hands over only which slides they are]
+- [x] The Mac menu bar says FigAssemble, not python, and has the menus a Mac app has [File,
+      Edit, View, Window and Help, with the shortcuts; not Insert or Arrange; Mac only, as the
+      ribbon does this job on Windows]
 
 ## Acceptance test (test slide)
 

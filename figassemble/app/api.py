@@ -141,8 +141,29 @@ class Api:
 
     def _remember(self, path: str) -> None:
         prefs = self.prefs_get()
-        recent = [p for p in prefs.get("recent", []) if p != path]
-        self.prefs_set({"recent": ([path] + recent)[:12]})
+        recent = ([path] + [p for p in prefs.get("recent", []) if p != path])[:12]
+        self.prefs_set({"recent": recent})
+        self._on_mac_menus("set_recent", recent)   # File > Open Recent
+
+    # The Mac menu bar (macmenu.py) --------------------------------------------------------------
+
+    def _on_mac_menus(self, name: str, *args) -> bool:
+        """Run a macmenu function on the main thread, in the app window on a Mac."""
+        if self.window is None or sys.platform != "darwin":
+            return False
+        from PyObjCTools import AppHelper
+
+        from . import macmenu
+        AppHelper.callAfter(getattr(macmenu, name), *args)
+        return True
+
+    def set_menus(self, spec: list) -> bool:
+        """The editor's menus, for the menu bar on a Mac (macmenu.build); nothing elsewhere."""
+        return self._on_mac_menus("build", self.window, self, spec, self.prefs_get().get("recent", []))
+
+    def menu_checks(self, checks: dict) -> bool:
+        """Ticks on the Mac menu bar's items: {action: on}."""
+        return self._on_mac_menus("set_checks", checks)
 
     # Documents -------------------------------------------------------------------------
 

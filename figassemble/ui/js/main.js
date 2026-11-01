@@ -52,6 +52,59 @@ const app = {
     this.prefs = await rpc("prefs_set", p);
     applyPrefs(this.prefs);
     store.emit("doc", {});
+    this.syncMenus();
+  },
+
+  // The Mac menu bar (macmenu.py makes it from this): File, Edit, View, Window and Help, with the
+  // commands' own shortcuts. Actions are the commands' names, or pastePicture, vision:<mode>,
+  // open:<path> (File > Open Recent, made in Python from the recent documents)
+  menuSpec() {
+    const c = (title, action, extra = {}) => ({ title, action, keys: this.commands[action]?.keys || null, ...extra });
+    const checks = this.menuChecks();
+    const tick = (title, action) => c(title, action, { check: checks[action] });
+    return [
+      { title: "File", items: [c("New", "new"), c("Open…", "open"), { title: "Open Recent", recent: true }, "-",
+        { title: "Close", selector: "performClose:", keys: `${M}W` }, c("Save", "save"), c("Save As…", "saveAs"), "-",
+        c("Export…", "export"), c("Check Before Export…", "preflight"), c("Figure Report…", "figureReport")] },
+      { title: "Edit", items: [c("Undo", "undo"), c("Redo", "redo"), "-",
+        c("Cut", "cut"), c("Copy", "copy"), c("Paste", "paste"), c("Paste as Picture", "pastePicture"),
+        c("Duplicate", "duplicate"), c("Transform Again", "transformAgain"), c("Delete", "delete"), c("Select All", "selectAll"), "-",
+        c("Copy Style", "copyStyle"), c("Paste Style", "pasteStyle")] },
+      { title: "View", items: [c("Zoom In", "zoomIn"), c("Zoom Out", "zoomOut"), c("True Size", "zoom100"),
+        c("Fit Page in Window", "zoomFit"), c("Centre Page", "centrePage"), "-",
+        tick("Rulers", "toggleRulers"), tick("Grid", "toggleGrid"), tick("Guides", "toggleGuides"), tick("Snap", "toggleSnap"), "-",
+        { title: "Colour-Vision Preview", items: VISION.map(([mode, title]) => tick(title, `vision:${mode}`)) }, "-",
+        { title: "Enter Full Screen", selector: "toggleFullScreen:", keys: "⌃⌘F" }] },
+      { title: "Window", window: true },
+      { title: "Help", help: true, items: [c("Keyboard Shortcuts and Help", "shortcuts"), c("Search Commands…", "commandSearch"), "-",
+        { title: "User Guide", url: `${REPO}/blob/main/docs/guide.md` },
+        { title: "Report a Problem…", url: `${REPO}/issues/new?template=problem.yml` },
+        { title: "Suggest an Idea…", url: `${REPO}/issues/new?template=idea.yml` }] },
+    ];
+  },
+  // Which of the Mac menu bar's items are ticked
+  menuChecks() {
+    const vision = canvas.colourVision || "normal";
+    return { toggleRulers: !!this.prefs.show_rulers, toggleGrid: !!this.prefs.show_grid, toggleGuides: !!this.prefs.show_guides,
+      toggleSnap: !!this.prefs.snap, ...Object.fromEntries(VISION.map(([mode]) => [`vision:${mode}`, vision === mode])) };
+  },
+  syncMenus() {
+    if (this.macMenus) rpc("menu_checks", this.menuChecks()).catch(() => {});
+  },
+  // A Mac menu item chosen: as its keys would, so nothing while a dialog is open
+  menu(action) {
+    if (document.querySelector("dialog[open]")) return;
+    if (action === "pastePicture") return this.paste("picture");
+    if (action.startsWith("vision:")) return canvas.setColourVision(action.slice(7));
+    if (action.startsWith("open:")) return this.open(action.slice(5));
+    return this.run(action);
+  },
+  // Cut, Copy, Paste, Undo, Redo, Select All or Delete from the Mac menu bar: true when a text
+  // field has the focus (it does them itself, from AppKit), else the editor's command
+  menuEdit(action) {
+    if (isField(document.activeElement)) return true;
+    this.menu(action);
+    return false;
   },
   // Interface state (the open tab, folded sections) is kept without redrawing anything
   rememberUi(p) {
@@ -1639,6 +1692,10 @@ function reidPage(p) { p.id = uid("pg"); p.items = copyItems(p.items); return p;
 
 const M = isMac ? "⌘" : "Ctrl+";
 const S = isMac ? "⇧" : "Shift+";
+const REPO = "https://github.com/matthewwdavis/FigAssemble";
+// The colour-vision previews, as View > Colour-Vision Preview lists them (canvas.COLOUR_VISION)
+const VISION = [["normal", "Normal Vision"], ["deuteranopia", "Red-Green: Deuteranopia"], ["protanopia", "Red-Green: Protanopia"],
+  ["tritanopia", "Blue-Yellow: Tritanopia"], ["greyscale", "Greyscale"]];
 function cmd(label, run, keys = null, match = null, short = null) { return { label, run, keys, match, short }; }
 const mod = (e) => (isMac ? e.metaKey : e.ctrlKey);
 const plain = (e) => !e.metaKey && !e.ctrlKey && !e.altKey;
@@ -1931,6 +1988,9 @@ window.FA = {
     app.nativeDrag = !!info;
     app.showDropSpot(info);
   },
+  // The Mac menu bar's items (macmenu.py)
+  menu: (action) => app.menu(action),
+  menuEdit: (action) => app.menuEdit(action),
 };
 // Browser: files arrive as data (stored in the document, without links). Slides dragged out of
 // PowerPoint arrive as its web data ("ppt/slides", if a Chromium web view is handed it)
@@ -2071,6 +2131,12 @@ async function start() {
   window.addEventListener("beforeunload", (e) => { if (store.dirty && !app.info.native) { e.preventDefault(); e.returnValue = ""; } });
   Object.assign(window.FA, { app, store, canvas, panels, inspector });   // for the smoke test's checks
   app.offerRecovery = offerRecovery;
+  if (app.info.native && app.info.platform === "darwin") {
+    // The Mac menu bar: File, Edit, View, Window and Help (macmenu.py), ticks kept up to date
+    app.macMenus = true;
+    rpc("set_menus", app.menuSpec()).catch(() => {});
+    document.addEventListener("fa-colour-vision", () => app.syncMenus());
+  }
   document.body.classList.add("ready");
   announce("FigAssemble is ready. Drop figure files onto the page, or press I to insert a picture.");
   if (params.get("selftest")) import("./selftest.js").then((m) => m.run(app, params));

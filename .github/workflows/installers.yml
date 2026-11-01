@@ -28,9 +28,12 @@ jobs:
         run: |
           app="$RUNNER_TEMP/Applications/FigAssemble.app/Contents/MacOS/FigAssemble"
           test -x "$app"
-          py=$(sed -n 's/^exec "\([^"]*\)".*/\1/p' "$app")
+          # The environment's Python, linked into the app, runs from there so macOS names it FigAssemble
+          py="$RUNNER_TEMP/Applications/FigAssemble.app/Contents/MacOS/python"
+          test -L "$py"
           cd "$RUNNER_TEMP"   # away from the source folder, so the installed copy is the one tested
           "$py" -c "import figassemble, os; ui = os.path.join(os.path.dirname(figassemble.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(figassemble.__file__)"
+          "$py" -c "import Foundation; name = Foundation.NSBundle.mainBundle().infoDictionary()['CFBundleName']; assert name == 'FigAssemble', name"
           "$py" -m figassemble export --help
 
   windows:

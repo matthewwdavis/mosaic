@@ -35,6 +35,13 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
     import webview
     from webview.dom import DOMEventHandler
 
+    if sys.platform == "darwin":
+        # The menu bar's name: macOS would call an app started from a terminal "python"
+        try:
+            from . import macmenu
+            macmenu.name_app()
+        except Exception as exc:   # noqa: BLE001 (it just keeps Python's name)
+            print(f"Couldn't name the app: {exc}", file=sys.stderr, flush=True)
     smoke = bool(os.environ.get("FIGASSEMBLE_SMOKETEST"))
     window = webview.create_window("FigAssemble", url, width=1440, height=920, min_size=(960, 640),
                                    background_color="#F4F4F2", text_select=False, hidden=smoke)
@@ -110,6 +117,11 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                     drags = macdrag.smoke(window, data)
                     print(f"SMOKE PowerPoint drags: {drags['passed']} of {drags['total']} passed"
                           + (f"; failed: {json.dumps(drags['failed'])}" if drags["failed"] else ""), flush=True)
+                # The menu bar: its menus, name and shortcuts, and an item doing its command
+                from . import macmenu
+                menus = macmenu.smoke(window)
+                print(f"SMOKE menus: {menus['passed']} of {menus['total']} passed"
+                      + (f"; failed: {json.dumps(menus['failed'])}" if menus["failed"] else ""), flush=True)
         closing_started[0] = time.time()
         window.destroy()
 

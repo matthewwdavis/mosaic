@@ -17,8 +17,15 @@ python -m figassemble         # or: figassemble
 ```
 
 `python packaging/macos/make_app.py` builds a double-clickable `dist/FigAssemble.app` that starts
-FigAssemble from the active environment. `figassemble --browser` serves the editor to a web
-browser instead of opening the app window.
+FigAssemble from the active environment. The environment's Python is linked into the app and
+runs from there, so macOS takes the app's name, icon and version from the bundle; started any
+other way, FigAssemble tells macOS its name itself (`macmenu.name_app`), or the menu bar would
+say "python". `figassemble --browser` serves the editor to a web browser instead of opening the
+app window.
+
+On a Mac the menu bar (FigAssemble, File, Edit, View, Window, Help) is made by
+`figassemble/app/macmenu.py` from the editor's description of it (`app.menuSpec` in `main.js`),
+so it always has the editor's commands and their shortcuts.
 
 ## Layout
 
@@ -73,7 +80,8 @@ every keyboard shortcut with real key events, through AppKit and pywebview as a 
 pastes text, a PDF, a copied file and a screenshot from the real clipboard (put back afterwards):
 `SMOKE keys: 81 of 81 passed`. Then it hands the web view drags from PowerPoint (made up, since a
 hidden window can't be dragged onto) through the drag methods `figassemble/app/macdrag.py` wraps:
-`SMOKE PowerPoint drags: 4 of 4 passed`.
+`SMOKE PowerPoint drags: 4 of 4 passed`. Last, the menu bar: its menus, the app's name, the
+shortcuts, and items run as AppKit would run them: `SMOKE menus: 8 of 8 passed`.
 
 Slides and shapes copied in PowerPoint come from its own clipboard formats, and a slide dragged
 out of it is only a reference to the slide (see the PowerPoint decision in [design.md](design.md)).

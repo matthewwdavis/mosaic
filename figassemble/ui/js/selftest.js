@@ -418,6 +418,45 @@ async function slidesChecks(app, ppt) {
   closeAll();
 }
 
+// The Mac menu bar's side in the editor (macmenu.py builds the menus): what it describes, and
+// what its items do: the commands, nothing while a dialog is open, a text field's own editing
+async function macMenuChecks(app) {
+  const spec = app.menuSpec(), all = [];
+  const walk = (items) => items.forEach((it) => { if (it.items) walk(it.items); else if (it !== "-") all.push(it); });
+  spec.forEach((m) => walk(m.items || []));
+  const special = (a) => a === "pastePicture" || a.startsWith("vision:");
+  const unknown = all.filter((it) => it.action && !app.commands[it.action] && !special(it.action)).map((it) => it.action);
+  const wrongKeys = all.filter((it) => it.action && app.commands[it.action] && it.keys !== app.commands[it.action].keys);
+  check(spec.map((m) => m.title).join() === "File,Edit,View,Window,Help" && !unknown.length && !wrongKeys.length
+    && all.find((it) => it.title === "Save")?.keys === app.commands.save.keys, "the Mac menus run the editor's commands, with their shortcuts",
+  `${spec.map((m) => m.title)}; unknown ${unknown}; keys ${wrongKeys.map((it) => it.title)}`);
+  const grid = !!app.prefs.show_grid;
+  await app.menu("toggleGrid");
+  const switched = !!app.prefs.show_grid !== grid && app.menuChecks().toggleGrid === !grid;
+  await app.menu("toggleGrid");
+  app.run("shortcuts");
+  await app.menu("toggleGrid");
+  const withDialog = !!app.prefs.show_grid === grid;
+  for (const d of document.querySelectorAll("dialog[open]")) d.close();
+  canvas.setColourVision("greyscale");
+  const vision = app.menuChecks()["vision:greyscale"] && !app.menuChecks()["vision:normal"];
+  await app.menu("vision:normal");
+  check(switched && withDialog && vision && canvas.colourVision === "normal",
+    "a menu item does what its command does and is ticked to match, and does nothing while a dialog is open",
+    `${switched} ${withDialog} ${vision} ${canvas.colourVision}`);
+  store.select([]);
+  document.activeElement?.blur();
+  const pageAll = !app.menuEdit("selectAll") && store.selection.length === store.scopeItems().filter((i) => !i.locked).length;
+  store.select([]);
+  inspector.render();
+  const field = document.querySelector("#inspector input[type=text]");
+  field.focus();
+  const fieldOwn = app.menuEdit("selectAll") === true && store.selection.length === 0;
+  field.blur();
+  check(pageAll && fieldOwn, "Edit > Select All selects the page's objects, but leaves a text field to select its own text",
+    `${pageAll} ${fieldOwn}`);
+}
+
 export async function run(app, params) {
   let keepAids = false;
   const given = (params.get("files") || "").split(",").filter(Boolean);
@@ -2293,6 +2332,8 @@ export async function run(app, params) {
     check(/No unsaved work/.test(prefDlg.textContent) && (await rpc("autosaved", store.autosaveKey)).length === 0,
       "and Delete all there clears it");
     prefDlg.close();
+
+    await macMenuChecks(app);
 
     // Export, save and reopen
     if (out) {
