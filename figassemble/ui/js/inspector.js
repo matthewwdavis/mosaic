@@ -767,6 +767,12 @@ export const inspector = {
       if (!o.rounding) delete o.rounding;
     }), { min: 0, max: 100, step: 5 }));
     for (let i = 0; i < fields.length; i += 2) kids.push(fields[i + 1] ? row(fields[i], fields[i + 1]) : fields[i]);
+    if (it.geom === "custom") {
+      kids.push(button("Edit this shape's points and curves on the page", () => canvas.startPointEdit(it.id), "Edit points"));
+    } else if (it.geom !== "arc") {
+      kids.push(button("Make this a freeform shape of the same outline, whose points you can move", () => this.app.run("makeEditable"),
+        "Make editable shape"));
+    }
     if (it.geom === "arc") {
       kids.push(button("Turn this arc into a curve with points you can drag", () => this.app.run("shapeToCurve"), "Make editable curve"));
       kids.push(h("p", { class: "hint" }, "The curve passes through points along the arc, so its shape may shift by a fraction of a point."));
@@ -775,6 +781,7 @@ export const inspector = {
     if (info?.adjust?.length) hints.push("Drag the yellow handles on the page to adjust the shape.");
     if (/^star\d+$/.test(it.geom)) hints.push("Inner radius is a percentage of the outer radius.");
     if (roundable) hints.push("Corner rounding: 0% keeps the corners sharp; 100% is as round as the shape allows.");
+    if (it.geom === "custom") hints.push("Or double-click it to edit its points.");
     if (hints.length) kids.push(h("p", { class: "hint" }, hints.join(" ")));
     return section("Shape", kids);
   },

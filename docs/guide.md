@@ -10,6 +10,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 - [Equations](#equations)
 - [Lines and arrows](#lines-and-arrows)
 - [Shapes](#shapes)
+- [The pen and editing points](#the-pen-and-editing-points)
 - [Area fills](#area-fills)
 - [Dashes](#dashes)
 - [Connecting lines to objects](#connecting-lines-to-objects)
@@ -330,6 +331,33 @@ LaTeX's maths, not whole LaTeX documents).
   - **Gaps** (dashed or dotted lines only): **Filled**, the band runs on through the gaps
     between dashes, or **Empty**, it goes only round each dash or dot.
 - **Make editable curve** (arcs): turns an arc into a curve with points you can drag.
+
+## The pen and editing points
+
+The **Pen** (B, beside the line tools) draws freeform paths and shapes, as in Illustrator:
+
+- Click to place a corner; press and drag to pull out a smooth point's handles (the curve
+  follows them).
+- Click the first point to close the shape. Press **Enter** or **Escape**, or double-click, to
+  finish an open path; **Backspace** takes back the last point.
+- An open path of corners only becomes an ordinary line; anything with a curve, or closed,
+  becomes a freeform shape you can fill, outline and give arrowheads (when it's open).
+- Points snap like line ends do; hold ⌘ to place one without snapping.
+
+**Editing points:** double-click a freeform shape (or select it and press Enter, or **Edit points**
+in its Style tab's Shape section) to see its points and their handles:
+
+- Drag a point to move it, with its handles. Drag a handle to bend the curve: a smooth point's
+  other handle turns to stay in line; hold **Option** to move one handle alone (a corner).
+- Click the outline to add a point there (the curve stays as it is). Double-click a point to make
+  a corner smooth, or a smooth point a corner. **Delete** removes the point you picked.
+- **Escape** or **Enter**, or clicking away, finishes.
+
+**Make editable shape** (a ready-made shape's Shape section, or right-click) turns a rectangle,
+star, arrow or any other shape into a freeform shape of exactly the same outline, its corner
+rounding and adjustments built in, so its points can be moved.
+
+![A leaf drawn with the pen, its points being edited: a corner at each end and two smooth points with their handles](images/pen.png)
 
 ## Area fills
 
@@ -740,7 +768,7 @@ Press **?** in FigAssemble for this list.
 | Rulers, Grid, Guides | ⌘R, ⌘', ⌘; | Ctrl+R, Ctrl+', Ctrl+; |
 | Snap on or off | ⌘⇧; | Ctrl+Shift+; |
 | Select, Text, Panel label | V, T, P | V, T, P |
-| Line, Arrow | L, A | L, A |
+| Line, Arrow, Pen | L, A, B | L, A, B |
 | Rectangle, Rounded rectangle, Ellipse | R, U, O | R, U, O |
 | Shapes menu | S | S |
 | Fill an enclosed area | F | F |

@@ -6,6 +6,7 @@ import { store } from "./store.js";
 import { followGrids } from "./gridlayout.js";
 import { followLabels, panelAt } from "./labels.js";
 import { finishEdits } from "./symbols.js";
+import { moveHandle, moveNode, nearestOn, ringsOf, segments, splitAt, toLocal, toPageOf, toggleSmooth, writeRings } from "./pen.js";
 import { followScaleBars } from "./scalebar.js";
 import { followZooms } from "./zoom.js";
 import { labelRoom } from "./brackets.js";
@@ -443,6 +444,12 @@ export const canvas = {
     const o = this.overlay;
     o.replaceChildren();
     const sel = store.selected();
+    if (this.pen) {
+      this.drawSnapGuides(o);
+      this.drawPen(o);
+      return;
+    }
+    if (this.pointEdit && !(sel.length === 1 && sel[0].id === this.pointEdit.id && sel[0].geom === "custom")) this.pointEdit = null;
     if (this.op?.type === "draw") {
       this.drawPreview(o);
       this.drawSnapGuides(o);
@@ -469,7 +476,9 @@ export const canvas = {
         width: Math.abs(bx - ax), height: Math.abs(by - ay) }));
     }
     if (this.editing) return;
-    if (sel.length === 1 && !this.cropping) {
+    if (sel.length === 1 && this.pointEdit) {
+      this.drawPointEdit(o, sel[0]);
+    } else if (sel.length === 1 && !this.cropping) {
       this.drawAttachment(o, sel[0]);
       this.drawHandles(sel[0]);
     } else if (sel.length > 1) {
@@ -631,6 +640,7 @@ export const canvas = {
   handleAt(pt) {
     const sel = store.selected();
     if (this.cropping) return this.cropHandleAt(pt);
+    if (this.pointEdit) return null;
     if (sel.length !== 1) return null;
     for (const hd of this.handlesFor(sel[0])) {
       if (Math.abs(pt[0] - hd.at[0]) <= HANDLE && Math.abs(pt[1] - hd.at[1]) <= HANDLE) return hd;
@@ -694,7 +704,9 @@ export const canvas = {
       this.op = { type: "zoombox", pic: pic.id, start: p, cur: p };
       return;
     }
+    if (this.tool === "pen") return this.penDown(p, e);
     if (this.tool !== "select") return this.startDraw(p, e);
+    if (this.pointEdit && this.pointDown(pt, p)) return;
     const hd = this.handleAt(pt);
     if (hd) return this.startHandle(hd, p, e);
     const hit = this.itemAt(p);
@@ -728,7 +740,10 @@ export const canvas = {
     document.dispatchEvent(new CustomEvent("fa-cursor", { detail: p }));
     const op = this.op;
     if (!op && e.altKey !== !!this.altDown) this.setMeasureKey(e.altKey);   // a key let go elsewhere
+    if (!op && this.pen) { this.penHover = this.snapPoint(p, this.penTargets, e); return this.drawOverlay(); }
     if (!op) return this.hover(pt, p);
+    if (op.type === "pen") return this.penDrag(p);
+    if (op.type === "pointdrag") return this.pointDragTo(p, e);
     if (op.type === "pan") {
       this.panX = op.pan[0] + pt[0] - op.start[0];
       this.panY = op.pan[1] + pt[1] - op.start[1];
@@ -752,6 +767,12 @@ export const canvas = {
     try { this.stage.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
     this.snapGuides = [];
     if (!op) return;
+    if (op.type === "pen") return;
+    if (op.type === "pointdrag") {
+      if (op.moved && !cancelled) store.endLive("Move point");
+      else store.cancelLive();
+      return this.drawOverlay();
+    }
     if (op.type === "guide") return this.finishGuide(op, cancelled);
     if (op.type === "marquee") {
       const [ax, ay] = this.toPage(...op.start), [bx, by] = this.toPage(...op.cur);
@@ -862,6 +883,18 @@ export const canvas = {
     const pt = this.eventPoint(e);
     const p = this.toPage(...pt);
     const sel = store.selected();
+    if (this.pen) return this.finishPen(false);
+    if (this.pointEdit) {
+      const it = store.item(this.pointEdit.id), hit = it && this.pointHit(it, pt);
+      if (hit?.kind === "node") {
+        const rings = ringsOf(it);
+        toggleSmooth(rings[hit.ri], hit.ni);
+        const smooth = !!(rings[hit.ri].nodes[hit.ni].hin || rings[hit.ri].nodes[hit.ni].hout);
+        store.update(smooth ? "Smooth point" : "Corner point", (doc) => writeRings(findDeep(doc.pages[store.pageIndex].items, it.id), rings));
+        announce(smooth ? "A smooth point now" : "A corner now");
+        return;
+      }
+    }
     if (sel.length === 1 && sel[0].type === "line" && !sel[0].locked) {
       // On a selected line: double-click a middle point to remove it, the line to add one
       const hd = this.handleAt(pt);
@@ -877,6 +910,7 @@ export const canvas = {
     else if (hit.type === "symbol") this.onEditSymbol?.(hit.id);
     else if (hit.equation) this.onEditEquation?.(hit.id);
     else if (hit.type === "picture") this.startCrop(hit.id);
+    else if (hit.geom === "custom") this.startPointEdit(hit.id);
     else if (hit.type === "shape") this.startEdit(hit.id);
   },
   // A zoom inset: the next drag boxes the area of a picture to enlarge
@@ -1502,6 +1536,8 @@ export const canvas = {
   // Drawing tools ----------------------------------------------------------------------
 
   setTool(tool, geom = null) {
+    if (this.pen && tool !== "pen") this.finishPen(false);
+    if (tool !== "select") this.pointEdit = null;
     if (this.editing) this.commitEdit();
     if (tool === "shape" && geom) this.shapeGeom = geom;
     this.tool = tool;
@@ -1647,6 +1683,198 @@ export const canvas = {
       if (!used.has(ch)) return caseLower ? ch : ch.toUpperCase();
     }
     return "a";
+  },
+
+  // The pen and point editing (pen.js) ------------------------------------------------
+  // The pen: a click places a corner, a drag pulls out a smooth point's handles, a click on the
+  // first point closes the shape; Enter, Escape or a double-click finishes an open path, and
+  // Backspace takes back the last point. An open path of corners becomes a line.
+
+  penDown(p, e) {
+    this.penTargets ||= this.snapTargets([]);
+    const q = this.snapPoint(p, this.penTargets, e), pen = this.pen ||= { nodes: [] };
+    const first = pen.nodes[0];
+    if (first && pen.nodes.length >= 2) {
+      const [ax, ay] = this.toScreen(...first.p), [bx, by] = this.toScreen(...q);
+      if (Math.hypot(ax - bx, ay - by) <= HANDLE) return this.finishPen(true);
+    }
+    pen.nodes.push({ p: q, hin: null, hout: null, smooth: false });
+    this.op = { type: "pen" };
+    this.drawOverlay();
+  },
+  penDrag(p) {
+    const n = this.pen?.nodes[this.pen.nodes.length - 1];
+    if (!n) return;
+    if (Math.hypot(p[0] - n.p[0], p[1] - n.p[1]) * this.k < 3) Object.assign(n, { hin: null, hout: null, smooth: false });
+    else Object.assign(n, { hout: p, hin: [2 * n.p[0] - p[0], 2 * n.p[1] - p[1]], smooth: true });
+    this.penHover = null;
+    this.drawOverlay();
+  },
+  finishPen(closed) {
+    const pen = this.pen;
+    this.pen = this.penHover = this.penTargets = null;
+    // A double-click's second click lands on the last point again
+    const nodes = (pen?.nodes || []).filter((n, i, all) => i === 0 || n.hin || Math.hypot(n.p[0] - all[i - 1].p[0], n.p[1] - all[i - 1].p[1]) > 0.01);
+    if (nodes.length < 2) { this.drawOverlay(); return; }
+    const d = this.defaults || {};
+    const stroke = { color: "#000000", width: d.stroke_width || 1, dash: "solid", cap: "round", join: "round", opacity: 1 };
+    let item;
+    if (!closed && nodes.every((n) => !n.hin && !n.hout)) {
+      item = { id: uid("it"), type: "line", points: nodes.map((n) => n.p), stroke, arrow_start: null, arrow_end: null };
+    } else {
+      item = { id: uid("it"), type: "shape", geom: "custom", frame: [0, 0, 1, 1], rot: 0, flip_h: false, flip_v: false, stroke, fill: null,
+        arrow_start: null, arrow_end: null };
+      writeRings(item, [{ nodes, closed, group: 0, fill: true, stroke: true }]);
+    }
+    store.update("Draw with the pen", (doc) => store.container(doc).push(item), { select: [item.id] });
+    announce(`Drew ${closed ? "a closed shape" : item.type === "line" ? "a line" : "an open path"} of ${nodes.length} points; `
+      + (item.type === "shape" ? "double-click it to edit its points" : "drag its points to change it"));
+    this.setTool("select");
+  },
+  drawPen(o) {
+    const pen = this.pen, S = (p) => this.toScreen(...p).join(" ");
+    if (!pen?.nodes.length) return;
+    let d = `M${S(pen.nodes[0].p)}`;
+    pen.nodes.slice(1).forEach((n, i) => {
+      const a = pen.nodes[i];
+      d += a.hout || n.hin ? `C${S(a.hout || a.p)} ${S(n.hin || n.p)} ${S(n.p)}` : `L${S(n.p)}`;
+    });
+    o.append(s("path", { class: "pen-path", d }));
+    const last = pen.nodes[pen.nodes.length - 1];
+    if (this.penHover) {
+      o.append(s("path", { class: "pen-next", d: `M${S(last.p)}${last.hout ? `C${S(last.hout)} ${S(this.penHover)} ` : "L"}${S(this.penHover)}` }));
+    }
+    for (const h0 of [last.hin, last.hout].filter(Boolean)) {
+      const [x1, y1] = this.toScreen(...last.p), [x2, y2] = this.toScreen(...h0);
+      o.append(s("line", { class: "pt-arm", x1, y1, x2, y2 }), s("circle", { class: "pt-handle", cx: x2, cy: y2, r: 3.5 }));
+    }
+    pen.nodes.forEach((n, i) => {
+      const [x, y] = this.toScreen(...n.p), r = i === 0 && pen.nodes.length >= 2 ? 4.5 : 3.5;
+      o.append(s("rect", { class: `pt-node${i === 0 ? " first" : ""}`, x: x - r, y: y - r, width: 2 * r, height: 2 * r }));
+    });
+  },
+
+  // Editing a freeform shape's points: drag a point or a handle (Option for a corner), click the
+  // outline to add a point, double-click a point for smooth or corner, Delete removes the one
+  // picked, Escape or Enter when done
+  startPointEdit(id) {
+    const it = store.item(id);
+    if (it?.geom !== "custom" || it.locked) return;
+    store.select([id]);
+    this.pointEdit = { id, sel: null };
+    this.drawOverlay();
+    announce("Editing points: drag a point or handle, click the outline to add a point, double-click a point to make it "
+      + "smooth or a corner, Delete removes it, Escape when done");
+  },
+  endPointEdit() {
+    if (!this.pointEdit) return false;
+    this.pointEdit = null;
+    this.drawOverlay();
+    announce("Done editing points");
+    return true;
+  },
+  // What's under the pointer: a handle, a point, or the outline
+  pointHit(it, pt) {
+    const rings = ringsOf(it), S = (q) => this.toScreen(...toPageOf(it, q));
+    const close = (q, r) => { const [x, y] = S(q); return Math.hypot(x - pt[0], y - pt[1]) <= r; };
+    for (let ri = 0; ri < rings.length; ri++) {
+      for (let ni = 0; ni < rings[ri].nodes.length; ni++) {
+        const n = rings[ri].nodes[ni];
+        for (const kind of ["hin", "hout"]) if (n[kind] && close(n[kind], HANDLE)) return { kind, ri, ni };
+      }
+    }
+    for (let ri = 0; ri < rings.length; ri++) {
+      for (let ni = 0; ni < rings[ri].nodes.length; ni++) if (close(rings[ri].nodes[ni].p, HANDLE)) return { kind: "node", ri, ni };
+    }
+    const found = nearestOn(rings, toLocal(it, this.toPage(...pt)));
+    if (found && close(found.at, 5)) return { kind: "seg", ...found };
+    return null;
+  },
+  pointDown(pt, p) {
+    const it = store.item(this.pointEdit.id);
+    const hit = it && this.pointHit(it, pt);
+    if (hit && hit.kind !== "seg") {
+      this.pointEdit.sel = { ri: hit.ri, ni: hit.ni };
+      store.beginLive();
+      this.op = { type: "pointdrag", hit, start: p, item0: JSON.parse(JSON.stringify(it)), rings: ringsOf(it), moved: false,
+        targets: this.snapTargets([it.id]) };
+      this.drawOverlay();
+      return true;
+    }
+    if (hit) {
+      const rings = ringsOf(it), ni = splitAt(rings, hit.ring, hit.seg, hit.t);
+      store.update("Add point", (doc) => writeRings(findDeep(doc.pages[store.pageIndex].items, it.id), rings));
+      this.pointEdit.sel = { ri: hit.ring, ni };
+      announce("Added a point");
+      return true;
+    }
+    if (it && hitItem(it, p, 4 / this.k)) return true;   // inside the shape: nothing to do
+    this.endPointEdit();
+    return false;
+  },
+  pointDragTo(p, e) {
+    const op = this.op, live = findDeep(store.items(), this.pointEdit?.id);
+    if (!live || (!op.moved && Math.hypot(p[0] - op.start[0], p[1] - op.start[1]) * this.k < 2)) return;
+    op.moved = true;
+    const rings = JSON.parse(JSON.stringify(op.rings)), n = rings[op.hit.ri].nodes[op.hit.ni];
+    if (op.hit.kind === "node") {
+      const q = this.snapPoint(p, op.targets, e), [x0, y0] = toLocal(op.item0, op.start), [x1, y1] = toLocal(op.item0, q);
+      moveNode(n, x1 - x0, y1 - y0);
+    } else {
+      moveHandle(n, op.hit.kind, toLocal(op.item0, p), e.altKey);
+    }
+    const tmp = JSON.parse(JSON.stringify(op.item0));
+    writeRings(tmp, rings);
+    live.frame = tmp.frame;
+    live.path = tmp.path;
+    store.live();
+  },
+  drawPointEdit(o, it) {
+    const rings = ringsOf(it), S = (q) => this.toScreen(...toPageOf(it, q)), sel = this.pointEdit?.sel;
+    let d = "";
+    for (const r of rings) {
+      d += `M${S(r.nodes[0].p).join(" ")}`;
+      for (const [a, b] of segments(r)) {
+        d += a.hout || b.hin ? `C${S(a.hout || a.p).join(" ")} ${S(b.hin || b.p).join(" ")} ${S(b.p).join(" ")}` : `L${S(b.p).join(" ")}`;
+      }
+      if (r.closed) d += "Z";
+    }
+    o.append(s("path", { class: "point-path", d }));
+    rings.forEach((r, ri) => r.nodes.forEach((n, ni) => {
+      const [x, y] = S(n.p);
+      for (const h0 of [n.hin, n.hout].filter(Boolean)) {
+        const [hx, hy] = S(h0);
+        o.append(s("line", { class: "pt-arm", x1: x, y1: y, x2: hx, y2: hy }), s("circle", { class: "pt-handle", cx: hx, cy: hy, r: 3.5 }));
+      }
+      const picked = sel && sel.ri === ri && sel.ni === ni;
+      o.append(s("rect", { class: `pt-node${picked ? " picked" : ""}${n.smooth ? " smooth" : ""}`, x: x - 3.5, y: y - 3.5, width: 7, height: 7 }));
+    }));
+  },
+  // Keys while drawing with the pen or editing points (before the editor's shortcuts, so Delete
+  // removes a point rather than the shape)
+  penKey(e) {
+    if (this.pen) {
+      if (e.key === "Enter" || e.key === "Escape") { this.finishPen(false); return true; }
+      if (e.key === "Backspace" || e.key === "Delete") {
+        this.pen.nodes.pop();
+        if (!this.pen.nodes.length) this.pen = null;
+        this.drawOverlay();
+        return true;
+      }
+      return false;
+    }
+    if (!this.pointEdit) return false;
+    if (e.key === "Escape" || e.key === "Enter") return this.endPointEdit();
+    if (e.key !== "Backspace" && e.key !== "Delete") return false;
+    const it = store.item(this.pointEdit.id), sel = this.pointEdit.sel;
+    if (!it || !sel) return true;
+    const rings = ringsOf(it), r = rings[sel.ri];
+    if (!r || r.nodes.length <= 2) { announce("A path needs at least two points"); return true; }
+    r.nodes.splice(sel.ni, 1);
+    store.update("Remove point", (doc) => writeRings(findDeep(doc.pages[store.pageIndex].items, it.id), rings));
+    this.pointEdit.sel = null;
+    announce("Removed the point");
+    return true;
   },
 
   // Cropping ------------------------------------------------------------------------

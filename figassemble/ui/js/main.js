@@ -837,6 +837,22 @@ const app = {
     const tex = await panels.promptDialog("Edit equation", "Maths, written as in LaTeX", it.equation.tex);
     if (tex?.trim() && tex.trim() !== it.equation.tex) await this.updateEquation(id, { tex: tex.trim() });
   },
+  // Ready-made shapes as freeform shapes of the same outline (resolve.shape_to_custom), their
+  // points then editable (pen.js)
+  async makeEditable() {
+    const shapes = store.selected().filter((it) => it.type === "shape" && !it.textbox && it.geom !== "custom" && it.geom !== "region");
+    if (!shapes.length) return announce("Select a shape to make editable");
+    const made = await Promise.all(shapes.map((it) => rpc("shape_to_custom", it)));
+    store.update("Make editable shape", (doc) => {
+      const items = doc.pages[store.pageIndex].items;
+      for (const m of made) {
+        const old = findDeep(items, m.id);
+        if (old) { for (const k of Object.keys(old)) delete old[k]; Object.assign(old, m); }
+      }
+    });
+    if (made.length === 1) canvas.startPointEdit(made[0].id);
+    else announce(`Made ${made.length} shapes editable: double-click one to edit its points`);
+  },
   // Symbols (symbols.js): the selected objects made one symbol, used again by copying its copy
   makeSymbol() {
     const sel = store.selected();
@@ -977,7 +993,9 @@ const app = {
       one?.type === "picture" && { label: "Crop picture", keys: one.equation ? null : "Enter", run: () => canvas.startCrop(one.id) },
       one?.type === "picture" && c("replacePicture", { label: "Replace picture…" }),
       asset?.variants[asset.primary]?.src && c("revealPicture"),
-      one?.type === "shape" && one.geom !== "region" && { label: "Edit text", keys: "Enter", run: () => canvas.startEdit(one.id) },
+      one?.geom === "custom" && { label: "Edit points", keys: "Enter", run: () => canvas.startPointEdit(one.id) },
+      one?.type === "shape" && !one.textbox && !["custom", "region", "arc"].includes(one.geom) && c("makeEditable"),
+      one?.type === "shape" && one.geom !== "region" && { label: "Edit text", keys: one.geom === "custom" ? null : "Enter", run: () => canvas.startEdit(one.id) },
       one?.geom === "region" && { label: "Make an ordinary shape", run: () => this.detachArea() },
       one?.type === "line" && (one.start_link || one.end_link) && { label: "Detach the ends", run: () => this.detachEnds() },
       one?.attach && c("detachLabel", { label: "Detach from its panel" }),
@@ -1451,6 +1469,8 @@ app.commands = {
   figureReport: cmd("Figure report: each picture's source, copies, size, scale, crop, turns, resolution and scale bars",
     () => panels.figureReportDialog(), null, null, "Report"),
   equation: cmd("Equation: maths written as in LaTeX, drawn as real text", () => app.addEquation(), null, null, "Equation"),
+  makeEditable: cmd("Make editable shape: a freeform shape of the same outline, whose points can be moved",
+    () => app.makeEditable(), null, null, "Make editable"),
   makeSymbol: cmd("Make symbol: one object to use many times, changed everywhere at once", () => app.makeSymbol(), null, null, "Make symbol"),
   editSymbol: cmd("Edit symbol: change the selected copy's symbol where it is (every copy follows)", () => app.editSymbol(), null, null, "Edit symbol"),
   breakSymbol: cmd("Break link to symbol: make the selected copy its own objects", () => app.breakSymbol(), null, null, "Break link"),
@@ -1511,6 +1531,7 @@ app.commands = {
   toolLabel: tool("label", "Panel label (a, b, c…)", "p", "Label"),
   toolLine: tool("line", "Line", "l", "Line"),
   toolArrow: tool("arrow", "Arrow", "a", "Arrow"),
+  toolPen: tool("pen", "Pen: click for corners, drag for curves, click the first point to close", "b", "Pen"),
   toolRect: tool("rect", "Rectangle", "r", "Rect"),
   toolRoundRect: tool("roundrect", "Rounded rectangle", "u", "Rounded"),
   toolEllipse: tool("ellipse", "Ellipse or circle", "o", "Ellipse"),
@@ -1562,6 +1583,8 @@ document.addEventListener("keydown", (e) => {
     app.keyboardMenu(e.target);
     return;
   }
+  // Drawing with the pen or editing points: Enter, Escape and Delete are theirs (pen.js)
+  if (!inField && canvas.penKey(e)) { e.preventDefault(); return; }
   // In text fields only the document-level commands are ours; everything else stays native
   const always = ["save", "saveAs", "open", "new", "export"];
   for (const [name, c] of Object.entries(app.commands)) {
@@ -1598,6 +1621,7 @@ document.addEventListener("keydown", (e) => {
     if (canvas.cropping) canvas.endCrop();
     else if (it.equation) app.editEquation(it.id);
     else if (it.type === "picture") canvas.startCrop(it.id);
+    else if (it.geom === "custom" && !it.text?.paragraphs?.some((p) => p.runs?.some((r) => r.t))) canvas.startPointEdit(it.id);
     else if (it.type === "shape") canvas.startEdit(it.id);
     else if (it.type === "group") canvas.enterGroup(it.id);
     else if (it.type === "symbol") app.editSymbol(it.id);

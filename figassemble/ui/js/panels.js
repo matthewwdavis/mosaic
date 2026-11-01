@@ -64,6 +64,7 @@ const ICONS = {
   distBottom: "M3 6h18M3 13h18M3 20h18M7 1h4v5H7zM13 9h4v4h-4zM9 17h4v3H9z",
   actual: "M5 5h14v14H5zM9 9.5l2-1.5v8M14 9.5l2-1.5v8",
   cells: "M4 4h7v6H4zM13 4h7v9h-7zM4 12h7v8H4zM13 15h7v5h-7z",
+  pen: "M4 20l2.5-7.5L15 4l5 5-8.5 8.5zM4 20l5-5M15 4l5 5M11.5 9.5a1.5 1.5 0 102.1 2.1 1.5 1.5 0 00-2.1-2.1z",
   equation: "M3 13h2l3 6 4-15h9M14 9l6 8M20 9l-6 8",
   report: "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 15.5h7M9 19h4",
   symbol: "M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z",
@@ -308,7 +309,7 @@ export const panels = {
     const sep = () => h("div", { class: "tool-sep", role: "separator" });
     box.append(t("toolSelect", "select", "select"), sep(),
       t("toolText", "text", "text"), t("toolLabel", "label", "label"), sep(),
-      t("toolLine", "line", "line"), t("toolArrow", "arrow", "arrow"), sep(),
+      t("toolLine", "line", "line"), t("toolArrow", "arrow", "arrow"), t("toolPen", "pen", "pen"), sep(),
       t("toolRect", "rect", "rect"), t("toolRoundRect", "roundrect", "roundrect"), t("toolEllipse", "ellipse", "ellipse"),
       t("toolTriangle", "triangle", "triangle"), t("toolArc", "arc", "arc"), t("toolBracket", "bracket", "bracket"),
       this.shapeMenuButton(), sep(), t("toolFill", "bucket", "fill"), sep(), t("insertPicture", "picture"));

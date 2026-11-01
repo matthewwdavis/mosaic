@@ -7,6 +7,7 @@ import { inspector } from "./inspector.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
 import { itemBBox, itemsBBox, lengthText, lineMidpoints } from "./util.js";
+import { ringsOf, toPageOf } from "./pen.js";
 
 const MMPT = 72 / 25.4;
 const gRectFor = (id, x, y, w, hh) => ({ id, type: "shape", geom: "rect", frame: [x, y, w, hh], rot: 0, flip_h: false, flip_v: false,
@@ -458,6 +459,51 @@ export async function run(app, params) {
     check(!store.item(gridG.id).grid && near(gF("gB")[1], gBAt[1] + 7, 1e-6), "Stop grid layout leaves an ordinary group");
     store.select([gridG.id]);
     await app.run("delete");
+
+    // The pen: two corners and a dragged smooth point, closed on the first point, make a freeform
+    // shape with a curve; its points can be moved, added on the outline, made smooth and removed;
+    // an open path of corners is a line; a rectangle can be made editable
+    const snapWas = app.prefs.snap;
+    await app.savePrefs({ snap: false });
+    canvas.setTool("pen");
+    await drag([400, 500], [400, 500]);
+    await drag([440, 500], [460, 520]);
+    await drag([440, 540], [440, 540]);
+    await drag([400, 500], [400, 500]);
+    const penShape = store.selected()[0], penCmds = () => store.item(penShape.id).path.subpaths[0].cmds;
+    check(penShape?.geom === "custom" && penCmds().some((c) => c[0] === "C") && penCmds().at(-1)[0] === "Z" && canvas.tool === "select",
+      "the pen draws a closed freeform shape with a smooth point", JSON.stringify(penCmds()));
+    const pagePts = () => ringsOf(store.item(penShape.id))[0].nodes.map((nd) => toPageOf(store.item(penShape.id), nd.p));
+    canvas.startPointEdit(penShape.id);
+    check(canvas.pointEdit?.id === penShape.id && canvas.overlay.querySelectorAll(".pt-node").length === 3, "editing its points shows them");
+    const corner = pagePts()[2];
+    await drag(corner, [corner[0] + 20, corner[1]]);
+    check(near(pagePts()[2][0], corner[0] + 20, 1e-6) && near(pagePts()[2][1], corner[1], 1e-6), "a point drags to a new place",
+      `${corner} -> ${pagePts()[2]}`);
+    const [penP0, penP2] = [pagePts()[0], pagePts()[2]], penMid = [(penP0[0] + penP2[0]) / 2, (penP0[1] + penP2[1]) / 2];
+    await drag(penMid, penMid);
+    check(pagePts().length === 4, "a click on the outline adds a point there", `${pagePts().length}`);
+    key("Delete");
+    check(pagePts().length === 3 && store.item(penShape.id), "Delete removes the point picked, not the shape");
+    const penFirst = screenOf(...pagePts()[0]);
+    canvas.stage.dispatchEvent(new MouseEvent("dblclick", { clientX: penFirst[0], clientY: penFirst[1], bubbles: true }));
+    check(ringsOf(store.item(penShape.id))[0].nodes[0].hout, "double-clicking a corner makes it smooth");
+    key("Escape");
+    check(!canvas.pointEdit && store.selection[0] === penShape.id, "Escape ends editing the points");
+    canvas.setTool("pen");
+    await drag([300, 600], [300, 600]);
+    await drag([340, 610], [340, 610]);
+    key("Enter");
+    const penLine = store.selected()[0];
+    check(penLine?.type === "line" && penLine.points.length === 2, "an open path of corners is a line", JSON.stringify(penLine?.points));
+    store.update("A rectangle", (doc) => doc.pages[store.pageIndex].items.push(gRectFor("edRect", 300, 640, 40, 20)), { select: ["edRect"] });
+    await app.makeEditable();
+    check(store.item("edRect")?.geom === "custom" && canvas.pointEdit?.id === "edRect" && ringsOf(store.item("edRect"))[0].nodes.length === 4,
+      "Make editable shape gives a rectangle four points to move", JSON.stringify(store.item("edRect")?.path));
+    key("Escape");
+    store.select([penShape.id, penLine.id, "edRect"]);
+    await app.run("delete");
+    await app.savePrefs({ snap: snapWas });
 
     // Moving with the pointer, then undo and redo
     store.select([pics[0].id]);

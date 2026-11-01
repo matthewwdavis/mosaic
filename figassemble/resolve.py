@@ -853,6 +853,23 @@ def shape_to_curve(item: dict, assets: dict | None = None) -> dict:
     return out
 
 
+def shape_to_custom(item: dict) -> dict:
+    """A ready-made shape as a freeform shape of the same outline (its corner rounding and
+    adjustments built in), whose points can then be moved: geom custom, path in its frame's units."""
+    _, _, w, h = item["frame"]
+    geom = item.get("geom", "rect")
+    if geom == "custom":
+        return dict(item)
+    shape_paths = presets.shape_paths(geom, w, h, item.get("adj"))
+    if item.get("rounding"):
+        shape_paths = round_shape_paths(shape_paths, item["rounding"])
+    subpaths = [{"cmds": [list(seg) for seg in sp.path.segs], "w": w, "h": h, "fill": sp.fill, "stroke": sp.stroke}
+                for sp in shape_paths if not sp.path.is_empty]
+    out = {k: v for k, v in item.items() if k not in ("adj", "rounding")}
+    out.update(geom="custom", path={"subpaths": subpaths})
+    return out
+
+
 def centre_paths(item: dict) -> list[tuple[Path, float]]:
     """The paths an item's line and fill follow on the page, each with its line width (0 if it
     has none): before dashes and arrowheads, so a dashed outline is still one closed path. For

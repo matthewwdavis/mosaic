@@ -8,6 +8,7 @@ import { inspector } from "./inspector.js";
 import { store } from "./store.js";
 import { PALETTES } from "./swatches.js";
 import { formatOf as lookOf } from "./objectstyles.js";
+import { writeRings } from "./pen.js";
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const settle = async () => { await wait(80); await canvas.resolveNow(); await wait(80); };
@@ -132,6 +133,24 @@ export async function run(app, params) {
     const from = [fr(b)[0] + 60, fr(b)[1] + 30];
     pointer("pointerdown", screenOf(...from));
     for (const f of [0.3, 0.6, 0.9, 1]) pointer("pointermove", screenOf(from[0], from[1] + (dy + 1) * f));
+    return finish();
+  }
+  if (scene === "pen") {
+    // A leaf drawn with the pen (two smooth points and a corner at each end), its points being
+    // edited: the anchors, and the handles of its smooth points
+    const leaf = { id: "leaf", type: "shape", geom: "custom", frame: [0, 0, 1, 1], rot: 0, flip_h: false, flip_v: false, fill: { color: "#b8e0b0" },
+      stroke: { color: "#2e7d32", width: 1.25, dash: "solid", cap: "round", join: "round", opacity: 1 }, arrow_start: null, arrow_end: null };
+    writeRings(leaf, [{ group: 0, fill: true, stroke: true, closed: true, nodes: [
+      { p: [250, 330], hin: null, hout: null },
+      { p: [300, 296], hin: [272, 300], hout: [330, 292] },
+      { p: [350, 330], hin: null, hout: null },
+      { p: [300, 352], hin: [328, 354], hout: [272, 350] }] }]);
+    store.update("Leaf", (doc) => doc.pages[0].items.push(leaf), { select: ["leaf"] });
+    await settle();
+    centreOn(300, 324, 3);
+    canvas.startPointEdit("leaf");
+    canvas.pointEdit.sel = { ri: 0, ni: 1 };
+    canvas.drawOverlay();
     return finish();
   }
   if (scene === "equation") {

@@ -375,6 +375,11 @@ class Api:
                              options.get("units", "cm"), options.get("doc_path"))
         return {"files": files}
 
+    def shape_to_custom(self, item: dict) -> dict:
+        """A ready-made shape as a freeform shape of the same outline (resolve.shape_to_custom)."""
+        from ..resolve import shape_to_custom
+        return shape_to_custom(item)
+
     def make_equation(self, spec: dict) -> dict:
         """An equation (equations.py) as a picture's asset, its PDF and SVG copies stored in the
         figure: {"id", "asset"}, or {"error"} when the maths can't be read."""

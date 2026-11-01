@@ -149,7 +149,7 @@ def restore_clipboard(saved: list) -> None:
 # Each step: the keys pressed and what has to follow. "ran" lists the editor commands the keys
 # must run (none if left out); "check" looks at the editor before and after; "what" describes it.
 STEPS = [
-    ("r", {"ran": ["toolRect"]}),
+    ("b", {"ran": ["toolPen"]}), ("v", {"ran": ["toolSelect"]}), ("r", {"ran": ["toolRect"]}),
     ("return", {"check": lambda b, s: s["items"] == ["shape"] and s["selected"] == 1, "what": "Enter places a rectangle"}),
     ("cmd+c", {"ran": ["copy"]}),
     ("cmd+v", {"ran": ["paste"], "check": lambda b, s: len(s["items"]) == 2}),
