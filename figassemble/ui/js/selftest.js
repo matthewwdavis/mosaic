@@ -1502,6 +1502,19 @@ export async function run(app, params) {
     cvdNote.querySelector("button").click();
     check(!canvas.itemsLayer.getAttribute("filter") && cvdNote.hidden && cvdSelect.value === "normal",
       "the note's Stop button ends the preview, and the menu follows", cvdSelect.value);
+    // Command search (⌘/): a few letters find a command, and Enter runs it
+    key("/", { metaKey: true, ctrlKey: true });
+    const csDlg = document.querySelector("dialog.command-search"), csInput = csDlg?.querySelector("input");
+    csInput.value = "rulers";
+    csInput.dispatchEvent(new Event("input"));
+    const csFirst = csDlg.querySelector('[role="option"]')?.textContent || "";
+    const rulersWere = !!app.prefs.show_rulers;
+    csInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    await until(() => !!app.prefs.show_rulers !== rulersWere);
+    check(/rulers/i.test(csFirst) && !document.querySelector("dialog.command-search") && !!app.prefs.show_rulers !== rulersWere,
+      "⌘/ finds a command by name, and Enter runs it", csFirst);
+    await app.run("toggleRulers");
+    await until(() => !!app.prefs.show_rulers === rulersWere);
     document.getElementById("rtab-home").click();
     keepAids = ["guides", "guidelist"].includes(params.get("finalSelect"));
     if (!keepAids) { store.setPage(aidsPage); await app.run("deletePage"); }

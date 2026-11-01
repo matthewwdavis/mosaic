@@ -101,6 +101,7 @@ of what you can do with it, with the shortcuts alongside.
 | Duplicate, Delete | ⌘D, Delete | Ctrl+D, Delete |
 | Transform again (repeat the last move, resize or turn) | ⌘⇧D | Ctrl+Shift+D |
 | Copy style, Paste style | ⌘⇧C, ⌘⇧V | Ctrl+Shift+C, Ctrl+Shift+V |
+| Search commands (type to find any command) | ⌘/ | Ctrl+/ |
 | Select all | ⌘A | Ctrl+A |
 | Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |
 | Bring forward, Send backward | ⌘], ⌘[ | Ctrl+], Ctrl+[ |

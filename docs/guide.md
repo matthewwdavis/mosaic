@@ -60,6 +60,12 @@ remembers the widths.
 **Selection:** the box around a selected object, and its handles, stand a few pixels outside the
 object, so you can see the object's own edges while you move and resize it.
 
+**Command search (⌘/):** type a few letters of what you want, such as "align", "swatch" or
+"rulers", and press Enter to run the command (the arrow keys choose another). Each one shows its
+shortcut, so it's also a way to learn them.
+
+![Command search with "align" typed](images/search.png)
+
 The Objects list and properties panel are real form controls, usable from the keyboard and with
 screen readers (see [Accessibility](#accessibility)).
 
@@ -592,6 +598,7 @@ Press **?** in FigAssemble for this list.
 | Copy style, Paste style | ⌘⇧C, ⌘⇧V | Ctrl+Shift+C, Ctrl+Shift+V |
 | Make clipping mask | ⌘7 | Ctrl+7 |
 | Superscript, Subscript (while typing) | ⌘⇧=, ⌘= | Ctrl+Shift+=, Ctrl+= |
+| Search commands | ⌘/ | Ctrl+/ |
 | Delete | Delete | Delete or Backspace |
 | Select all | ⌘A | Ctrl+A |
 | Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |

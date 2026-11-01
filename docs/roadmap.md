@@ -71,7 +71,7 @@ Matthew's choices are in brackets.
 
 - [x] Pathway arrowheads: bar (inhibition), half arrow, open circle, open triangle [all four]
 - [x] Superscript and subscript (⌘⇧= / ⌘= while typing, and buttons) and a symbol picker [PowerPoint's keys]
-- [ ] Command search: type to find and run any command [⌘/]
+- [x] Command search: type to find and run any command [⌘/]
 - [ ] Distances on hover: hold Option with something selected to see its distance to what's under the pointer
 - [ ] More in Check: the thinnest line, placed plots' lines included, and the figure's size against the
       journal's limits [placed plots too]

@@ -215,6 +215,16 @@ export async function run(app, params) {
     setTimeout(() => app.run("swatches"), 200);
     return finish();
   }
+  if (scene === "search") {
+    // Command search with "align" typed
+    setTimeout(() => {
+      app.run("commandSearch");
+      const input = document.querySelector("dialog.command-search input");
+      input.value = "align";
+      input.dispatchEvent(new Event("input"));
+    }, 200);
+    return finish();
+  }
   if (scene === "export") { setTimeout(() => app.run("export"), 200); return finish(); }
   if (scene === "themes") {
     // Settings, scrolled to the theme gallery, on the default: Match the system, Light by day, Dark at night

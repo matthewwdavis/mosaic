@@ -406,3 +406,13 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 .symbols summary { cursor: pointer; font-weight: 600; margin: 0.3rem 0; }
 .symbol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(1.8rem, 1fr)); gap: 0.2rem; }
 .symbol-grid .btn.symbol { padding: 0.2rem 0; font-size: 0.95rem; min-height: 1.8rem; }
+
+/* Command search (⌘/) */
+.dialog.command-search { width: min(32rem, 92vw); margin-top: 12vh; padding: 0.6rem; }
+.cs-input { width: 100%; font-size: 1.05rem; padding: 0.5rem 0.6rem; border: 1px solid var(--line); border-radius: 0.4rem;
+  background: var(--panel); color: var(--text); }
+.cs-list { list-style: none; margin: 0.4rem 0 0; padding: 0; max-height: 50vh; overflow-y: auto; }
+.cs-item { display: flex; justify-content: space-between; gap: 1rem; padding: 0.35rem 0.6rem; border-radius: 0.3rem; cursor: pointer; }
+.cs-item[aria-selected="true"] { background: var(--accent); color: var(--accent-text); }
+.cs-item kbd { opacity: 0.85; }
+.cs-empty { padding: 0.35rem 0.6rem; color: var(--muted); }

@@ -198,6 +198,8 @@ STEPS = [
     ("cmd+shift+e", {"ran": ["preflight"]}), ("cmd+,", {"ran": ["preferences"]}),
     ("cmd+shift+n", {"ran": ["addPage"], "check": lambda b, s: s["pages"] == b["pages"] + 1}),
     ("cmd+z", {"ran": ["undo"], "check": lambda b, s: s["pages"] == b["pages"] - 1}),
+    ("cmd+/", {"ran": ["commandSearch"], "check": lambda b, s: s["dialog"], "what": "⌘/ opens command search"}),
+    ("escape", {"check": lambda b, s: not s["dialog"], "what": "Escape closes it"}),
     ("shift+/", {"ran": ["shortcuts"], "check": lambda b, s: s["dialog"], "what": "? opens the shortcuts list"}),
     ("escape", {"check": lambda b, s: not s["dialog"], "what": "Escape closes it"}),
 ]

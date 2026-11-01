@@ -1026,6 +1026,61 @@ export const panels = {
     });
   },
 
+  // Command search (⌘/): type a few letters to find any command, then Enter runs it
+  commandSearch() {
+    if (document.querySelector("dialog.command-search")) return;
+    const cmds = Object.entries(this.app.commands).filter(([name]) => name !== "commandSearch");
+    // A plain text box: in a search box, Escape clears the text instead of closing the dialog
+    const input = h("input", { type: "text", class: "cs-input", role: "combobox", "aria-expanded": "true", "aria-controls": "cs-list",
+      "aria-autocomplete": "list", "aria-label": "Search commands", placeholder: "Type to find a command…", autocomplete: "off" });
+    const list = h("ul", { id: "cs-list", class: "cs-list", role: "listbox", "aria-label": "Commands" });
+    const dlg = h("dialog", { class: "dialog command-search", "aria-label": "Search commands" }, input, list);
+    let shown = [], at = 0;
+    const score = (c, q) => {
+      if (!q) return 1;
+      const text = `${c.label} ${c.short || ""}`.toLowerCase();
+      if (text.split(/[\s:,(]+/).some((w) => w.startsWith(q))) return 3;
+      if (text.includes(q)) return 2;
+      let i = 0;   // the letters in order, in a button's short name ("rul" for Rulers), not the long ones
+      for (const ch of (c.short || "").toLowerCase()) if (ch === q[i]) i++;
+      return i === q.length ? 1 : 0;
+    };
+    const render = () => {
+      const q = input.value.trim().toLowerCase();
+      shown = cmds.map(([name, c]) => ({ name, c, s: score(c, q) })).filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s || a.c.label.length - b.c.label.length).slice(0, 40);
+      at = Math.min(at, Math.max(shown.length - 1, 0));
+      list.replaceChildren(...shown.map((x, i) => {
+        const li = h("li", { id: `cs-${i}`, role: "option", class: "cs-item", "aria-selected": i === at ? "true" : "false" },
+          h("span", {}, x.c.label), x.c.keys ? h("kbd", {}, x.c.keys) : null);
+        li.addEventListener("mousedown", (e) => { e.preventDefault(); choose(i); });
+        return li;
+      }), ...(shown.length ? [] : [h("li", { class: "cs-empty" }, "No command matches")]));
+      input.setAttribute("aria-activedescendant", shown.length ? `cs-${at}` : "");
+      list.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+    };
+    const choose = (i) => {
+      const x = shown[i];
+      dlg.close();
+      if (x) this.app.run(x.name);
+    };
+    input.addEventListener("input", () => { at = 0; render(); });
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Escape") { e.preventDefault(); dlg.close(); return; }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        at = (at + (e.key === "ArrowDown" ? 1 : -1) + shown.length) % Math.max(shown.length, 1);
+        render();
+      } else if (e.key === "Enter") { e.preventDefault(); choose(at); }
+    });
+    dlg.addEventListener("close", () => dlg.remove());
+    document.body.append(dlg);
+    dlg.showModal();
+    render();
+    input.focus();
+  },
+
   reportDialog(title, lines) {
     this.dialog(title, h("ul", { class: "report" }, ...lines.map((l) => h("li", {}, l))));
   },
