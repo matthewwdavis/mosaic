@@ -33,6 +33,8 @@ PREFS_DEFAULTS = {
     # Interface state: the ribbon's tab, the properties panel's tab for each kind of object, the
     # panel's folded sections, and the side panels' widths (rem; only those changed)
     "ribbon_tab": "home", "inspector_tabs": {}, "inspector_closed": [], "panel_widths": {},
+    # The journal Check last compared a page's size with (a page with a journal size uses its own)
+    "check_journal": "",
 }
 PREFS_VERSION = 2
 

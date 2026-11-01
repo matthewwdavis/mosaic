@@ -19,6 +19,7 @@ import uuid
 from lxml import etree
 
 from .fonts import config_dir
+from .geometry import Matrix
 
 EXT_KIND = {".pdf": "pdf", ".svg": "svg", ".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg",
             ".tif": "tiff", ".tiff": "tiff"}
@@ -92,6 +93,21 @@ def svg_geometry(root) -> dict:
         # Without a viewBox, one user unit is one CSS pixel whatever unit the size uses
         vbox = [0.0, 0.0, w / 0.75, h / 0.75]
     return {"size_pt": [w, h], "viewbox": vbox, "par": root.get("preserveAspectRatio", "xMidYMid meet")}
+
+
+def svg_user_matrix(geo: dict) -> Matrix:
+    """An SVG's user units -> its source points (svg_geometry's size), honouring preserveAspectRatio."""
+    (sw, sh), (vx, vy, vw, vh) = geo["size_pt"], geo["viewbox"]
+    sx, sy = sw / vw, sh / vh
+    ox = oy = 0.0
+    par = (geo["par"] or "xMidYMid meet").split()
+    if par[0] != "none":
+        s = min(sx, sy) if (len(par) < 2 or par[1] == "meet") else max(sx, sy)
+        align = par[0]
+        ox = {"xMin": 0.0, "xMid": 0.5, "xMax": 1.0}.get(align[:4], 0.5) * (sw - vw * s)
+        oy = {"YMin": 0.0, "YMid": 0.5, "YMax": 1.0}.get(align[4:], 0.5) * (sh - vh * s)
+        sx = sy = s
+    return Matrix(sx, 0.0, 0.0, sy, ox - vx * sx, oy - vy * sy)
 
 
 def probe(path: str, kind: str | None = None) -> dict:

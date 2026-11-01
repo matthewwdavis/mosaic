@@ -15,7 +15,7 @@ import re
 
 from lxml import etree
 
-from ..assets import SourceResolver, svg_geometry
+from ..assets import SourceResolver, svg_geometry, svg_user_matrix
 from ..geometry import DrawPath, Matrix, _fmt
 from ..resolve import DrawGroup, DrawPicture, DrawText, Resolved
 
@@ -318,18 +318,8 @@ class SvgWriter:
         scope = f"fa-p{self._panel}"
         src = etree.parse(path, _PARSER).getroot()
         geo = svg_geometry(src)
-        (sw, sh), (vx, vy, vw, vh) = geo["size_pt"], geo["viewbox"]
-        # User units -> source points, honouring preserveAspectRatio
-        sx, sy = sw / vw, sh / vh
-        ox = oy = 0.0
-        par = (geo["par"] or "xMidYMid meet").split()
-        if par[0] != "none":
-            s = min(sx, sy) if (len(par) < 2 or par[1] == "meet") else max(sx, sy)
-            align = par[0]
-            ox = {"xMin": 0.0, "xMid": 0.5, "xMax": 1.0}.get(align[:4], 0.5) * (sw - vw * s)
-            oy = {"YMin": 0.0, "YMid": 0.5, "YMax": 1.0}.get(align[4:], 0.5) * (sh - vh * s)
-            sx = sy = s
-        to_pt = Matrix(sx, 0.0, 0.0, sy, ox - vx * sx, oy - vy * sy)
+        vx, vy, vw, vh = geo["viewbox"]
+        to_pt = svg_user_matrix(geo)   # user units -> source points
         # Rename every id and every reference to one
         id_map = {}
         for el in src.iter():

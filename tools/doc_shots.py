@@ -27,7 +27,7 @@ W, H, SCALE = 1440, 900, 2
 SCENES = {
     "window": None, "page-size": (1176, 98, 1440, 640), "placed": None, "snapping": None, "arrange": None,
     "group": (405, 140, 1065, 600),
-    "labels": None, "annotated": None, "style": (1176, 98, 1440, 900), "check": (380, 120, 1060, 780),
+    "labels": None, "annotated": None, "style": (1176, 98, 1440, 900), "check": (380, 270, 1060, 630),
     "export": (380, 60, 1060, 860), "shapes": (200, 98, 760, 900), "guides": None, "result": None, "themes": (468, 63, 972, 838), "areafill": None,
     "swatches": (420, 40, 1020, 880), "isolation": (200, 98, 1180, 640), "cropshape": (420, 98, 1440, 640), "zoominset": (200, 300, 1180, 820), "brackets": (200, 98, 1440, 700), "search": (380, 60, 1060, 640), "distances": (290, 200, 1170, 560),
 }

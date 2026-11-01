@@ -517,6 +517,13 @@ Guides and the grid are never exported.
 **Check** (⌘⇧E) looks at the current page and lists:
 
 - the smallest text after scaling (journals often ask for at least 5 pt);
+- the thinnest line after scaling, including the lines inside placed PDFs and SVGs (only the
+  part their crop shows), and every object with a line thinner than 0.25 pt (Nature asks for
+  0.25 to 1 pt). A line set to 0 pt, a hairline, is flagged too: it prints as thin as the
+  printer can make it, or not at all. A border in a fill's own colour doesn't count, so
+  ggplot's points drawn with `stroke = 0` aren't flagged;
+- the page's size against a journal's figure widths and greatest depth: the page's own journal
+  size, or the journal chosen at the top of the window (remembered for next time);
 - images whose resolution is too low at their printed size;
 - conversions an export would need (an SVG with no PDF copy, say);
 - placed files that can't be found.

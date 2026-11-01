@@ -790,6 +790,27 @@ export async function run(app, params) {
     store.select([dupA.id, dupB.id, "fonttest"]);
     await app.run("delete");
 
+    // Check: the thinnest line, flagged below 0.25 pt, and the page's size against a journal
+    // chosen there
+    store.update("Thin line for the test", (doc) => doc.pages[store.pageIndex].items.push({ id: "thintest", type: "line",
+      points: [[40, 40], [90, 40]], arrow_start: null, arrow_end: null, stroke: { color: "#000000", width: 0.1 } }));
+    const journalWas = app.prefs.check_journal || "";
+    await app.run("preflight");
+    const checkDlg = [...document.querySelectorAll("dialog[open]")].pop();
+    const checkResults = checkDlg.querySelector(".preflight-results");
+    check(/Thinnest line: 0\.1 pt/.test(checkResults.textContent) && /its line is 0\.10 pt \(below 0\.25 pt\)/.test(checkResults.textContent),
+      "Check gives the thinnest line and flags a line thinner than 0.25 pt", checkResults.textContent);
+    const journalPick = checkDlg.querySelector("select");
+    journalPick.value = "Nature";
+    journalPick.dispatchEvent(new Event("change"));
+    await until(() => /Nature figures/.test(checkResults.textContent));
+    check(/Nature figures/.test(checkResults.textContent) && app.prefs.check_journal === "Nature",
+      "and compares the page's size with the journal chosen there", checkResults.textContent);
+    checkDlg.close();
+    await app.savePrefs({ check_journal: journalWas });
+    store.select(["thintest"]);
+    await app.run("delete");
+
     // Swatches: a palette adds named colours; one picked for a line stays linked to it
     store.select([rect.id]);
     app.addPalette([["Orange", "#e69f00"], ["Blue", "#0072b2"]], "Test");
@@ -1523,8 +1544,9 @@ export async function run(app, params) {
     const rulersWere = !!app.prefs.show_rulers;
     csInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
     await until(() => !!app.prefs.show_rulers !== rulersWere);
-    check(/rulers/i.test(csFirst) && !document.querySelector("dialog.command-search") && !!app.prefs.show_rulers !== rulersWere,
-      "⌘/ finds a command by name, and Enter runs it", csFirst);
+    // (a closed dialog leaves the page on its close event, a moment later)
+    check(/rulers/i.test(csFirst) && !document.querySelector("dialog.command-search[open]") && !!app.prefs.show_rulers !== rulersWere,
+      "⌘/ finds a command by name, and Enter runs it", `${csFirst}; rulers ${rulersWere} -> ${app.prefs.show_rulers}`);
     await app.run("toggleRulers");
     await until(() => !!app.prefs.show_rulers === rulersWere);
     document.getElementById("rtab-home").click();

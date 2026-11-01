@@ -685,27 +685,39 @@ export const panels = {
   },
 
   async preflightDialog() {
-    const body = h("div", {}, h("p", {}, "Checking…"));
-    this.dialog("Check before export", body);
-    try {
-      const res = await rpc("preflight", store.doc, { pages: [store.pageIndex] });
-      const items = res.items;
-      const summary = res.summary.smallest_text_pt ? `Smallest text on this page: ${res.summary.smallest_text_pt} pt.` : "";
-      body.replaceChildren(
-        h("p", {}, summary),
-        items.length ? h("ul", { class: "preflight" }, ...items.map((f) => {
-          const li = h("li", { class: f.level },
-            h("span", { class: "level" }, { warning: "⚠ Check", info: "ℹ Note", ok: "✓ OK" }[f.level] || f.level), " ", f.message);
-          if (f.item) {
-            li.append(" ", button("Select this object", () => { store.select([f.item]); }, "Select"));
-          }
-          return li;
-        })) : h("p", {}, "✓ Nothing to flag on this page."),
-        h("p", { class: "hint" }, "Fonts missing from placed PDFs are embedded automatically when you export."),
-        h("div", { class: "button-row" }, button("See and replace the fonts the figure's text uses", () => this.fontsDialog(), "Fonts…")));
-    } catch (err) {
-      body.replaceChildren(h("p", { class: "error" }, err.message));
-    }
+    // The page's size is compared with a journal's: the page's own journal size, else the one
+    // chosen here last time
+    const journals = this.app.info.journals || [];
+    const start = store.page().preset?.journal || this.app.prefs.check_journal || "";
+    const results = h("div", { class: "preflight-results", "aria-live": "polite" });
+    const check = async (journal) => {
+      results.replaceChildren(h("p", {}, "Checking…"));
+      try {
+        const res = await rpc("preflight", store.doc, { pages: [store.pageIndex], journal,
+          units: this.app.prefs.page_units || "mm" });
+        const items = res.items, { smallest_text_pt: text, thinnest_line_pt: line } = res.summary;
+        const summary = [text ? `Smallest text on this page: ${text} pt.` : "", line ? `Thinnest line: ${line} pt.` : ""];
+        results.replaceChildren(
+          h("p", {}, summary.filter(Boolean).join(" ")),
+          items.length ? h("ul", { class: "preflight" }, ...items.map((f) => {
+            const li = h("li", { class: f.level },
+              h("span", { class: "level" }, { warning: "⚠ Check", info: "ℹ Note", ok: "✓ OK" }[f.level] || f.level), " ", f.message);
+            if (f.item) {
+              li.append(" ", button("Select this object", () => { store.select([f.item]); }, "Select"));
+            }
+            return li;
+          })) : h("p", {}, "✓ Nothing to flag on this page."));
+      } catch (err) {
+        results.replaceChildren(h("p", { class: "error" }, err.message));
+      }
+    };
+    this.dialog("Check before export", h("div", {},
+      selectField("Compare the page size with", start, [["", "No journal"], ...journals.map((j) => [j.name, j.name])],
+        (v) => { this.app.savePrefs({ check_journal: v }); check(v); }),
+      results,
+      h("p", { class: "hint" }, "Fonts missing from placed PDFs are embedded automatically when you export."),
+      h("div", { class: "button-row" }, button("See and replace the fonts the figure's text uses", () => this.fontsDialog(), "Fonts…"))));
+    await check(start);
   },
 
   preferencesDialog() {

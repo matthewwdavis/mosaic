@@ -73,7 +73,7 @@ Matthew's choices are in brackets.
 - [x] Superscript and subscript (⌘⇧= / ⌘= while typing, and buttons) and a symbol picker [PowerPoint's keys]
 - [x] Command search: type to find and run any command [⌘/]
 - [x] Distances on hover: hold Option with something selected to see its distance to what's under the pointer
-- [ ] More in Check: the thinnest line, placed plots' lines included, and the figure's size against the
+- [x] More in Check: the thinnest line, placed plots' lines included, and the figure's size against the
       journal's limits [placed plots too]
 - [ ] Panel labels that stay with their panel (a picture or group) [attached automatically]
 - [ ] Snapping to placed plots' axis and frame lines and their visible edges [no tick marks]

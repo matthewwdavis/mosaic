@@ -167,8 +167,10 @@ Now click **Check** at the top right. It lists anything a journal might object t
 ![The Check before export window](images/check.png)
 
 Here it found text smaller than 5 pt: the little *600* in *OD₆₀₀*. Many journals ask for at least
-5 pt, so you'd fix that in the R code, and the panel would update by itself. Check also reports
-low-resolution images, placed files that can't be found, and any conversion an export would need.
+5 pt, so you'd fix that in the R code, and the panel would update by itself. The thinnest line,
+0.58 pt, is fine (lines thinner than 0.25 pt get flagged), and the page fits Nature's double column
+size. Check also reports low-resolution images, placed files that can't be found, and any
+conversion an export would need.
 
 ## 8. Export
 
