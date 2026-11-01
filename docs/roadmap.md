@@ -77,7 +77,7 @@ Matthew's choices are in brackets.
       journal's limits [placed plots too]
 - [x] Panel labels that stay with their panel (a picture or group) [attached automatically]
 - [x] Snapping to placed plots' axis and frame lines and their visible edges [no tick marks]
-- [ ] Grid layout: rows and columns with set gaps, kept when a panel changes [keep sizes, align top left]
+- [x] Grid layout: rows and columns with set gaps, kept when a panel changes [keep sizes, align top left]
 - [ ] Symbols: one object used many times, edited once [copies scale lines and text; edited in place]
 - [ ] Object styles: named, linked line and shape styles, like text styles
 - [ ] Equations: LaTeX maths drawn as real text [matplotlib mathtext]

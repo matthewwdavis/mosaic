@@ -33,7 +33,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 1. **Tabs** across the top, like PowerPoint's ribbon:
    - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; Duplicate, Again, Delete; Add page,
      Fit page; Swatches, Text styles, Fonts.
-   - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group, Order (see
+   - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group and Grid, Order (see
      [Align and distribute](#align-and-distribute)).
    - **Figure**: scale bars (Scale bar, Measure), zoom insets and significance brackets (Bracket,
      Stack).
@@ -500,6 +500,21 @@ Select objects and use the **Arrange** tab, or the panel on the right:
   tall) as the key object, or the first one selected, keeping their proportions and their
   top-left corners. Use it for panels of equal height in a row. Line widths and text sizes stay
   as they are.
+- **Grid layout** (Arrange tab → **Grid**, or right-click): puts the selected panels in rows and
+  columns, in the order they lie (rows from the top, each left to right), and keeps them there.
+  - Panels keep their sizes. Each column is as wide as its widest panel and each row as tall as
+    its tallest, with each panel at the top left of its cell. The gaps start as the gaps between
+    the panels as they lay, or 3 mm.
+  - It stays a grid: when a panel grows, shrinks or is replaced, the others move to make room.
+    It moves as one, and attached panel labels go with their panels.
+  - The last panel of a short last row reaches across the columns left, so a wide plot under a
+    row of narrower ones doesn't widen the first column.
+  - Its Arrange tab sets the **Columns** and the **Gap across** and **Gap down**. Double-click it
+    to work inside it, and drag a panel onto another cell to move it there.
+  - **Stop grid layout** leaves an ordinary group, with the panels where they are; **Ungroup**
+    separates them. A grid can hold grids, for a row that's laid out differently.
+
+  ![The three plots in a grid: two in the top row, the wide one across the bottom, and the grid's Arrange tab](images/gridlayout.png)
 
 ## Rulers, guides, grid and snapping
 

@@ -9,6 +9,7 @@ import { store } from "./store.js";
 import { linked, swatchById } from "./swatches.js";
 import { differs } from "./textstyles.js";
 import { UNITS, anchorFor, convert, niceLength, pxPerPt, scaleText } from "./scalebar.js";
+import { DEFAULT_GAP } from "./gridlayout.js";
 import { CORNER_NAMES } from "./labels.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
@@ -323,6 +324,10 @@ export const inspector = {
         button("Release the clipping mask: separate the shape and what it clips", () => this.app.run("releaseClipMask"), "Release")]));
       return [arrange];
     }
+    if (it.type === "group" && it.grid) {
+      arrange[2].push(this.gridSection(it));
+      return [arrange];
+    }
     if (it.type === "group") {
       arrange[2].push(section("Group", [
         h("p", { class: "hint" }, `${it.items.length} objects. Double-click it to edit them inside it, or Ungroup `
@@ -353,6 +358,25 @@ export const inspector = {
     return section("Connections", [row("start_link", "Start"), row("end_link", "End"),
       h("p", { class: "hint" }, "Drag an end onto a corner, the middle of a side, or a dash of another object to attach it; "
         + `it then follows that object. Hold ${this.app.mod.replace("+", "")} to drop an end without attaching.`)]);
+  },
+  // A grid layout's columns and gaps (gridlayout.js)
+  gridSection(it) {
+    const u = this.app.prefs.units || "cm", [gx, gy] = it.grid.gap || [DEFAULT_GAP, DEFAULT_GAP];
+    const set = (label, fn) => this.edit(label, (g) => { fn(g.grid); });
+    const rows = Math.ceil(it.items.length / Math.max(1, it.grid.cols || 1));
+    return section("Grid layout", [
+      numField("Columns", it.grid.cols || 1, "", (v) => set("Grid columns", (g) => { g.cols = Math.max(1, Math.round(v)); }),
+        { min: 1, step: 1 }),
+      h("p", { class: "hint" }, `${it.items.length} panels in ${rows} row${rows === 1 ? "" : "s"}.`),
+      row(numField("Gap across", gx, u, (v) => set("Grid gap", (g) => { g.gap = [Math.max(v, 0), gy]; }), { min: 0 }),
+        numField("Gap down", gy, u, (v) => set("Grid gap", (g) => { g.gap = [gx, Math.max(v, 0)]; }), { min: 0 })),
+      h("p", { class: "hint" }, "Panels keep their sizes: each column is as wide as its widest panel and each row as tall as its "
+        + "tallest, with each panel at the top left of its cell. They move up when one shrinks. The last panel of a short last "
+        + "row reaches across the columns left. Double-click the grid to work inside it, and drag a panel onto another cell "
+        + "to move it there."),
+      h("div", { class: "button-row" },
+        button("Stop the grid layout: keep the panels where they are, as an ordinary group", () => this.app.run("stopGrid"), "Stop grid layout"),
+        button("Ungroup", () => this.app.run("ungroup"), "Ungroup"))]);
   },
   // The panel a label stays with (labels.js), and a way to let go, or to attach one on a panel
   labelSection(it) {

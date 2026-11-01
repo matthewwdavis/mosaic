@@ -133,6 +133,15 @@ export async function run(app, params) {
     for (const f of [0.3, 0.6, 0.9, 1]) pointer("pointermove", screenOf(from[0], from[1] + (dy + 1) * f));
     return finish();
   }
+  if (scene === "gridlayout") {
+    // The three plots in a grid layout, with its Arrange tab: columns and gaps
+    store.select([a, b, c]);
+    await app.run("gridLayout");
+    await settle();
+    inspector.render();
+    document.getElementById("itab-arrange")?.click();
+    return finish();
+  }
   if (scene === "arrange") {
     store.select([a, b]);
     document.getElementById("rtab-arrange").click();

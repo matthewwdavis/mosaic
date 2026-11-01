@@ -10,6 +10,7 @@ import {
   canvas, copyItems, detachMoved, detachRegion, findDeep, rotateItem, scaleItem, shiftGuides, shiftItem, withRegionLines,
 } from "./canvas.js";
 import { contextMenu } from "./contextmenu.js";
+import { gridFor } from "./gridlayout.js";
 import { middle, panelAt } from "./labels.js";
 import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
@@ -699,6 +700,31 @@ const app = {
     }, { select: [g.id] });
     announce(`Grouped ${g.items.length} objects`);
   },
+  // Grid layout (gridlayout.js): the selected objects grouped into rows and columns that reflow;
+  // attached panel labels stay outside, with their panels
+  gridLayout() {
+    const parts = store.selected().filter((it) => !it.attach);
+    if (parts.length < 2) return announce("Select two or more panels to lay out in a grid");
+    const ids = new Set(parts.map((it) => it.id));
+    const g = { id: uid("it"), type: "group", name: "", items: [], grid: gridFor(parts) };
+    store.update("Grid layout", (doc) => {
+      const items = store.container(doc);
+      const top = Math.max(...items.map((it, i) => (ids.has(it.id) ? i : -1)));
+      g.items = items.filter((it) => ids.has(it.id));
+      const rest = items.filter((it) => !ids.has(it.id) || it === items[top]);
+      rest.splice(rest.indexOf(items[top]), 1, g);
+      items.splice(0, items.length, ...rest);
+    }, { select: [g.id] });
+    const rows = Math.ceil(parts.length / g.grid.cols);
+    announce(`Laid out ${parts.length} panels in ${rows} row${rows === 1 ? "" : "s"} of up to ${g.grid.cols}; `
+      + "set the columns and gaps in its Arrange tab");
+  },
+  stopGrid() {
+    const grids = store.selected().filter((it) => it.grid);
+    if (!grids.length) return announce("Select a grid layout");
+    store.update("Stop grid layout", (doc) => { for (const g of grids) delete findDeep(doc.pages[store.pageIndex].items, g.id).grid; });
+    announce("It's an ordinary group now: the panels stay where they are");
+  },
   ungroup() {
     const groups = store.selected().filter((it) => it.type === "group");
     if (!groups.length) return;
@@ -760,6 +786,7 @@ const app = {
       c("copyStyle", { disabled: !sel.length }), c("pasteStyle", { disabled: !this.styleClipboard || locked }),
       "-",
       c("group", { disabled: sel.length < 2 }), c("ungroup", { disabled: !sel.some((it) => it.type === "group") }),
+      c("gridLayout", { disabled: sel.filter((it) => !it.attach).length < 2 }),
       "-",
       c("bringToFront"), c("bringForward"), c("sendBackward"), c("sendToBack"),
       "-",
@@ -1236,6 +1263,9 @@ app.commands = {
   makeClipMask: cmd("Make clipping mask: the top selected shape clips the objects under it", () => app.makeClipMask(),
     `${M}7`, key("7"), "Make mask"),
   releaseClipMask: cmd("Release clipping mask: separate the shape and what it clips", () => app.releaseClipMask(), null, null, "Release"),
+  gridLayout: cmd("Grid layout: put the selected panels in rows and columns that keep their gaps when a panel changes",
+    () => app.gridLayout(), null, null, "Grid"),
+  stopGrid: cmd("Stop grid layout: keep the panels where they are, as an ordinary group", () => app.stopGrid(), null, null, "Stop grid"),
   attachLabel: cmd("Attach label: keep the selected label with the picture or group it's on", () => app.attachLabel(), null, null, "Attach label"),
   detachLabel: cmd("Detach label: let the selected label stay put when its panel moves", () => app.detachLabel(), null, null, "Detach label"),
   copyStyle: cmd("Copy style", () => app.copyStyle(), `${M}${S}C`, key("c", { shift: true }), "Copy style"),

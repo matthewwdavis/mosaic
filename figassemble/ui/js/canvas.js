@@ -3,6 +3,7 @@
 
 import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
+import { followGrids } from "./gridlayout.js";
 import { followLabels, panelAt } from "./labels.js";
 import { followScaleBars } from "./scalebar.js";
 import { followZooms } from "./zoom.js";
@@ -1432,6 +1433,7 @@ export const canvas = {
   followLinks(doc) {
     const items = doc.pages[store.pageIndex]?.items;
     if (!items) return;
+    followGrids(items);                   // grid layouts put their parts in their cells
     followZooms(items, doc.assets);       // zoom insets show what's in their boxes
     followScaleBars(items, doc.assets);   // scale bars keep their length and place on their pictures
     followLabels(items);                  // panel labels go with their panels
@@ -1856,6 +1858,7 @@ function resizeCursor(dir, it) {
 
 export function shiftItem(it, orig, dx, dy) {
   if (it.type === "group") {
+    if (it.grid?.origin && orig.grid?.origin) it.grid.origin = [orig.grid.origin[0] + dx, orig.grid.origin[1] + dy];
     it.items.forEach((c, i) => shiftItem(c, orig.items[i], dx, dy));
   } else if (it.type === "line") {
     it.points = orig.points.map((p) => [p[0] + dx, p[1] + dy]);

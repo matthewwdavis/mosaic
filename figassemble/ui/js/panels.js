@@ -60,6 +60,7 @@ const ICONS = {
   distMiddle: "M3 5h18M3 12h18M3 19h18M7 2.5h4v5H7zM13 10h4v4h-4zM9 17.5h4v3H9z",
   distBottom: "M3 6h18M3 13h18M3 20h18M7 1h4v5H7zM13 9h4v4h-4zM9 17h4v3H9z",
   actual: "M5 5h14v14H5zM9 9.5l2-1.5v8M14 9.5l2-1.5v8",
+  cells: "M4 4h7v6H4zM13 4h7v9h-7zM4 12h7v8H4zM13 15h7v5h-7z",
   ruler: "M3 8h18v8H3zM7 8v3M11 8v4.5M15 8v3M19 8v4.5", grid: "M4 4h16v16H4zM9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16",
   guides: "M9 8v13M8 15h13M6.5 3h5L9 6zM3 12.5v5l3-2.5z",
   magnet: "M5 4h4.5v7.5a2.5 2.5 0 005 0V4H19v7.5a7 7 0 01-14 0zM5 8h4.5M14.5 8H19",
@@ -274,7 +275,7 @@ export const panels = {
       group("Spacing", t("distributeH", "spaceH"), t("distributeV", "spaceV"), gapField(this.app)),
       group("Align to", alignToField(this.app)),
       group("Match size", t("sameWidth", "sameWidth"), t("sameHeight", "sameHeight")),
-      group("Group", t("group", "group"), t("ungroup", "ungroup")),
+      group("Group", t("group", "group"), t("ungroup", "ungroup"), t("gridLayout", "cells")),
       group("Order", t("bringToFront", "front"), t("bringForward", "forward"), t("sendBackward", "backward"),
         t("sendToBack", "back")),
     ];

@@ -2,7 +2,7 @@
 // Drives the real UI through pointer and keyboard events and reports through console.log.
 
 import { rpc } from "./api.js";
-import { canvas } from "./canvas.js";
+import { canvas, findDeep } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
@@ -328,6 +328,41 @@ export async function run(app, params) {
       items.splice(items.findIndex((i) => i.id === lpPic.id), 1, lpWas);
       items.splice(items.findIndex((i) => i.id === lpId), 1);
     }, { select: [] });
+    // Grid layout: three panels as they lie (two in a row, one below) keep their sizes in cells,
+    // top left; the grid reflows when one grows, moves as one, and takes a panel dragged onto
+    // another cell there; Stop grid layout leaves an ordinary group
+    const gRect = (id, x, y, w, hh) => ({ id, type: "shape", geom: "rect", frame: [x, y, w, hh], rot: 0, flip_h: false, flip_v: false,
+      stroke: { color: "#000000", width: 1, dash: "solid", cap: "flat", join: "miter", opacity: 1 }, fill: null });
+    store.update("Panels for a grid", (doc) => doc.pages[store.pageIndex].items.push(gRect("gA", 100, 300, 60, 40),
+      gRect("gB", 180, 305, 50, 30), gRect("gC", 100, 360, 40, 50)), { select: ["gA", "gB", "gC"] });
+    await app.run("gridLayout");
+    const gridG = store.selected()[0], gF = (id) => store.item(id).frame;
+    check(gridG?.grid?.cols === 2 && near(gridG.grid.gap[0], 20, 1e-6) && near(gridG.grid.gap[1], 20, 1e-6)
+      && JSON.stringify(gridG.grid.order) === '["gA","gB","gC"]' && near(gF("gB")[1], 300, 1e-6) && near(gF("gB")[0], 180, 1e-6)
+      && near(gF("gC")[1], 360, 1e-6), "Grid layout puts panels in rows and columns as they lie, each at the top left of its cell",
+      JSON.stringify(gridG?.grid));
+    inspector.render();
+    check(/Grid layout/.test(document.querySelector("#inspector").textContent) && fieldByLabel("Columns"),
+      "and its Arrange tab has the columns and gaps");
+    store.update("Wider A", (doc) => { findDeep(doc.pages[store.pageIndex].items, "gA").frame[2] = 80; });
+    check(near(gF("gB")[0], 200, 1e-6), "the grid reflows when a panel grows", JSON.stringify(gF("gB")));
+    store.select([gridG.id]);
+    app.nudge(5, 0);
+    check(near(gF("gA")[0], 105, 1e-6) && near(gF("gB")[0], 205, 1e-6) && near(gF("gC")[0], 105, 1e-6),
+      "and moves as one", `${gF("gA")[0]} ${gF("gB")[0]} ${gF("gC")[0]}`);
+    canvas.enterGroup(gridG.id);
+    store.update("Drag C onto B's cell", (doc) => { findDeep(doc.pages[store.pageIndex].items, "gC").frame = [215, 300, 40, 50]; });
+    check(JSON.stringify(store.item(gridG.id).grid.order) === '["gA","gC","gB"]' && near(gF("gC")[0], 205, 1e-6)
+      && near(gF("gC")[1], 300, 1e-6) && near(gF("gB")[0], 105, 1e-6) && near(gF("gB")[1], 370, 1e-6),
+      "a panel dragged onto another cell moves there, and the rest make room", JSON.stringify(store.item(gridG.id).grid));
+    store.exitGroup();
+    store.select([gridG.id]);
+    await app.run("stopGrid");
+    const gBAt = gF("gB").slice();
+    store.update("Move B by hand", (doc) => { findDeep(doc.pages[store.pageIndex].items, "gB").frame[1] += 7; });
+    check(!store.item(gridG.id).grid && near(gF("gB")[1], gBAt[1] + 7, 1e-6), "Stop grid layout leaves an ordinary group");
+    store.select([gridG.id]);
+    await app.run("delete");
 
     // Moving with the pointer, then undo and redo
     store.select([pics[0].id]);
