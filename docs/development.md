@@ -81,9 +81,9 @@ pastes text, a PDF, a copied file and a screenshot from the real clipboard (put 
 `SMOKE keys: 81 of 81 passed`. Then it hands the web view drags from PowerPoint (made up, since a
 hidden window can't be dragged onto) through the drag methods `figassemble/app/macdrag.py` wraps,
 and plays a slide drag to the `SlideWatch` that follows PowerPoint's real ones, with a scripted
-drag pasteboard, mouse button and pointer: `SMOKE PowerPoint drags: 8 of 8 passed`. Last, the
+drag pasteboard, mouse button and pointer: `SMOKE PowerPoint drags: 9 of 9 passed`. Last, the
 menu bar: its menus, the app's name, the shortcuts, and items run as AppKit would run them:
-`SMOKE menus: 8 of 8 passed`.
+`SMOKE menus: 9 of 9 passed`.
 
 Slides and shapes copied in PowerPoint come from its own clipboard formats, and a slide dragged
 out of it is only a reference to the slide (see the PowerPoint decision in [design.md](design.md)).

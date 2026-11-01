@@ -281,6 +281,16 @@ def smoke(window) -> dict:
     ticked = wait(lambda: on_main(lambda: int(find(["View", "Rulers"]).state())) == (0 if before else 1))
     results["View > Rulers switches the rulers, and its tick follows"] = switched and ticked
     window.evaluate_js("window.FA.app.menu('toggleRulers')")   # back as they were
+    # The arrow keys' switch, clicked in the status bar: the View menu's tick follows
+    arrows = ["View", "Arrow Keys Follow the Zoom"]
+    on = bool(window.evaluate_js("window.FA.app.prefs.nudge_zoom"))
+    shown = on_main(lambda: AppKit.NSApp.mainMenu().itemWithTitle_("View").submenu().indexOfItemWithTitle_(arrows[1]) >= 0) and wait(
+        lambda: on_main(lambda: int(find(arrows).state())) == (1 if on else 0))
+    window.evaluate_js("document.querySelector('.nudge-step').click()")
+    followed = wait(lambda: on_main(lambda: int(find(arrows).state())) == (0 if on else 1))
+    window.evaluate_js("document.querySelector('.nudge-step').click()")   # back as it was
+    results["View > Arrow Keys Follow the Zoom shows the status bar's switch"] = shown and followed and wait(
+        lambda: bool(window.evaluate_js("window.FA.app.prefs.nudge_zoom")) == on)
     # Edit > Select All: the page's objects, or a text field's text while one is typed in
     window.evaluate_js("""(() => { const s = window.FA.store, shape = (id, x) => ({ id, type: "shape", geom: "rect",
         frame: [x, 10, 20, 20], rot: 0, stroke: null, fill: { color: "#336699", opacity: 1 } });

@@ -1003,12 +1003,42 @@ export async function run(app, params) {
     const openDialog = document.querySelector("dialog[open]");
     check(!openDialog && !canvas.editing, "no dialog or text editor in the way of the keyboard",
       openDialog ? openDialog.textContent.slice(0, 200) : `editing=${!!canvas.editing}`);
+    // Arrow keys: a round step in the panels' units that follows the zoom, shown in the status
+    // bar (Shift 10 steps, Option a tenth, Option+Shift resizes by one); a click there makes it 1 pt
     store.select([rect.id]);
-    const rx = store.item(rect.id).frame[0];
+    const unitsWas = app.prefs.units, zoomWas = canvas.zoom, frameWas = [...store.item(rect.id).frame];
+    await app.savePrefs({ units: "cm" });
+    const readout = document.querySelector(".nudge-step"), boxNow = () => store.item(rect.id).frame, cm = 72 / 2.54;
+    canvas.setZoom(4);
+    const shown400 = readout.textContent, pressed = readout.getAttribute("aria-pressed");
     key("ArrowRight");
-    check(Math.abs(store.item(rect.id).frame[0] - rx - 1) < 1e-6, "arrow key nudges 1 pt");
+    const by400 = boxNow()[0] - frameWas[0];
+    canvas.setZoom(0.25);
+    const shown25 = readout.textContent;
     key("ArrowRight", { shiftKey: true });
-    check(Math.abs(store.item(rect.id).frame[0] - rx - 11) < 1e-6, "Shift+arrow nudges 10 pt");
+    const byShift = boxNow()[0] - frameWas[0] - by400;
+    key("ArrowDown", { altKey: true });
+    key("ArrowRight", { altKey: true, shiftKey: true });
+    check(shown400 === "Arrows 0.01 cm" && pressed === "true" && near(by400, 0.01 * cm, 1e-6) && shown25 === "Arrows 0.2 cm"
+      && near(byShift, 2 * cm, 1e-6) && near(boxNow()[1] - frameWas[1], 0.02 * cm, 1e-6) && near(boxNow()[2] - frameWas[2], 0.2 * cm, 1e-6),
+    "arrow keys move a round step that follows the zoom, shown in the status bar (0.01 cm at 400%, 0.2 cm at 25%; Shift 10, Option a tenth, Option+Shift resizes)",
+    `${shown400} ${pressed} ${by400}; ${shown25} ${byShift}; ${boxNow()} from ${frameWas}`);
+    readout.click();
+    await until(() => !app.prefs.nudge_zoom);
+    const fixed = [readout.textContent, readout.getAttribute("aria-pressed"), app.menuChecks().toggleNudgeZoom].join();
+    const x1 = boxNow()[0];
+    key("ArrowRight");
+    const by1 = boxNow()[0] - x1;
+    key("ArrowRight", { shiftKey: true });
+    const by10 = boxNow()[0] - x1 - by1;
+    readout.click();
+    await until(() => app.prefs.nudge_zoom);
+    check(fixed === "Arrows 1 pt,false,false" && near(by1, 1, 1e-6) && near(by10, 10, 1e-6) && readout.getAttribute("aria-pressed") === "true"
+      && app.menuChecks().toggleNudgeZoom, "a click there makes them 1 pt (10 with Shift) at any zoom, and another follows the zoom again",
+    `${fixed}; ${by1} ${by10}; ${readout.getAttribute("aria-pressed")}`);
+    store.update("Put the box back", (doc) => { findItem(doc, rect.id).frame = frameWas; });
+    await app.savePrefs({ units: unitsWas });
+    canvas.setZoom(zoomWas);
     key("Tab");
     check(store.selection.length === 1 && store.selection[0] !== rect.id, "Tab selects the next object");
     store.select([rect.id]);

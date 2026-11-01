@@ -114,7 +114,8 @@ The Arrange tab and the panel on the right have the same controls:
 
 For exact positions, select an object and type its **X** and **Y** in the **Arrange** tab on the
 right. Positions are in centimetres from the page's top-left corner, like the rulers. Arrow keys
-also move a selected object: 1 pt per press, 10 pt with Shift.
+also move a selected object, 10 times as far with Shift. Each press moves a round amount that
+shrinks as you zoom in (0.05 cm at 100%, 0.01 cm at 400%), shown at the bottom of the window.
 
 Once panels sit where you want them, you can keep them together. Select the top two plots,
 right-click one of them and choose **Group**, or press **⌘G**:

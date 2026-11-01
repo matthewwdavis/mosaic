@@ -88,6 +88,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .toolbox .tool { min-height: 0; padding-top: 0.2rem; padding-bottom: 0.2rem; }
 .status-zoom { display: inline-flex; align-items: center; gap: 0.1rem; }
 .status-zoom .zoom-label { min-width: 2.8rem; }
+.nudge-step { white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* Shapes menu: a grid of shape icons in groups, beside its button in the tool bar */
 .shape-menu { position: fixed; z-index: 20; width: min(25.6rem, calc(100vw - 16px)); overflow-y: auto;
@@ -170,7 +171,7 @@ body.resizing-panel { cursor: col-resize; user-select: none; }
 .statusbar { display: flex; align-items: center; gap: 1rem; padding: 0.3rem 0.8rem; background: var(--panel);
   border-top: 1px solid var(--line); font-size: 0.85rem; min-height: 1.9rem; }
 .statusbar .spacer { flex: 1; }
-.statusbar .message { color: var(--text); }
+.statusbar .message { color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cursor-pos, .save-state { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Lists ------------------------------------------------------------------ */

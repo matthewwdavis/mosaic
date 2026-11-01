@@ -46,7 +46,8 @@ SETUP_JS = """(() => {
 STATE_JS = """JSON.stringify((() => {
   const s = window.FA.store, sel = s.selected()[0];
   return { items: s.items().map((it) => it.type), selected: s.selection.length,
-    frame: sel && sel.frame ? sel.frame.slice() : null, zoom: window.FA.canvas.zoom, pages: s.doc.pages.length,
+    frame: sel && sel.frame ? sel.frame.slice() : null, zoom: window.FA.canvas.zoom, step: window.FA.app.nudgeStep().pt,
+    pages: s.doc.pages.length,
     dialog: !!document.querySelector("dialog[open]"), shapeMenu: !window.FA.panels.shapeMenu.hidden,
     editing: !!window.FA.canvas.editing, field: document.activeElement?.matches("#inspector input") || false,
     ran: window.FA.app.__keylog.slice(), keys: window.__keys.slice() };
@@ -165,9 +166,10 @@ STEPS = [
     ("cmd+x", {"ran": ["cut"], "check": lambda b, s: s["items"] == []}),
     ("cmd+v", {"ran": ["paste"], "check": lambda b, s: len(s["items"]) == 2}),
     ("tab", {"check": lambda b, s: s["selected"] == 1, "what": "Tab selects one object"}),
-    ("right", {"check": lambda b, s: moved(b, s, 1), "what": "→ moves it 1 pt"}),
-    ("shift+right", {"check": lambda b, s: moved(b, s, 10), "what": "⇧→ moves it 10 pt"}),
-    ("cmd+shift+d", {"ran": ["transformAgain"], "check": lambda b, s: moved(b, s, 10), "what": "⌘⇧D moves it 10 pt again"}),
+    # (one step: what the status bar shows, following the zoom)
+    ("right", {"check": lambda b, s: moved(b, s, b["step"]), "what": "→ moves it one step"}),
+    ("shift+right", {"check": lambda b, s: moved(b, s, 10 * b["step"]), "what": "⇧→ moves it 10 steps"}),
+    ("cmd+shift+d", {"ran": ["transformAgain"], "check": lambda b, s: moved(b, s, 10 * b["step"]), "what": "⌘⇧D moves it 10 steps again"}),
     ("cmd+shift+c", {"ran": ["copyStyle"]}), ("cmd+shift+v", {"ran": ["pasteStyle"]}),
     ("cmd+7", {"ran": ["makeClipMask"], "check": lambda b, s: s["items"] == b["items"], "what": "⌘7 asks for a shape on top first"}),
     ("cmd+shift+]", {"ran": ["bringToFront"]}),

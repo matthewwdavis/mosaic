@@ -27,7 +27,7 @@ import { KEYS as LOOK, applyObjectStyle, formatOf as lookOf, restyle as restyleO
 import { canMove, containerAt, moveItems } from "./layers.js";
 import {
   MOD, UNIT_LABEL, announce, clone, describeItem, display, fmt, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints,
-  shapeCatalog, toUnit, uid,
+  roundStep, shapeCatalog, toUnit, uid,
 } from "./util.js";
 
 const app = {
@@ -73,7 +73,8 @@ const app = {
         c("Copy Style", "copyStyle"), c("Paste Style", "pasteStyle")] },
       { title: "View", items: [c("Zoom In", "zoomIn"), c("Zoom Out", "zoomOut"), c("True Size", "zoom100"),
         c("Fit Page in Window", "zoomFit"), c("Centre Page", "centrePage"), "-",
-        tick("Rulers", "toggleRulers"), tick("Grid", "toggleGrid"), tick("Guides", "toggleGuides"), tick("Snap", "toggleSnap"), "-",
+        tick("Rulers", "toggleRulers"), tick("Grid", "toggleGrid"), tick("Guides", "toggleGuides"), tick("Snap", "toggleSnap"),
+        tick("Arrow Keys Follow the Zoom", "toggleNudgeZoom"), "-",
         { title: "Colour-Vision Preview", items: VISION.map(([mode, title]) => tick(title, `vision:${mode}`)) }, "-",
         { title: "Enter Full Screen", selector: "toggleFullScreen:", keys: "⌃⌘F" }] },
       { title: "Window", window: true },
@@ -87,7 +88,8 @@ const app = {
   menuChecks() {
     const vision = canvas.colourVision || "normal";
     return { toggleRulers: !!this.prefs.show_rulers, toggleGrid: !!this.prefs.show_grid, toggleGuides: !!this.prefs.show_guides,
-      toggleSnap: !!this.prefs.snap, ...Object.fromEntries(VISION.map(([mode]) => [`vision:${mode}`, vision === mode])) };
+      toggleSnap: !!this.prefs.snap, toggleNudgeZoom: !!this.prefs.nudge_zoom,
+      ...Object.fromEntries(VISION.map(([mode]) => [`vision:${mode}`, vision === mode])) };
   },
   syncMenus() {
     if (this.macMenus) rpc("menu_checks", this.menuChecks()).catch(() => {});
@@ -111,6 +113,12 @@ const app = {
   rememberUi(p) {
     Object.assign(this.prefs, p);
     rpc("prefs_set", p).catch(() => {});
+  },
+  // How far an arrow key moves the selection ({pt, text}): following the zoom (the nudge_zoom
+  // setting), the smallest round amount in the panels' units that is at least 1 pt at 100%, so a
+  // press moves about the same distance on screen at any zoom; else 1 pt
+  nudgeStep() {
+    return this.prefs.nudge_zoom ? roundStep(1 / canvas.zoom, display.units) : { pt: 1, text: "1 pt" };
   },
   // Rulers, grid, guides and snapping are switched from the toolbar, the keyboard and Preferences
   async togglePref(key, onMessage, offMessage) {
@@ -1858,6 +1866,8 @@ app.commands = {
   toggleSnap: cmd("Snap to guides, the grid, the page and other objects", () => app.togglePref("snap", "Snapping on",
     `Snapping off; things move freely. ${M}${S}; turns it back on`), `${M}${S};`,
   (e) => mod(e) && e.shiftKey && !e.altKey && (e.key === ";" || e.key === ":" || e.code === "Semicolon"), "Snap"),
+  toggleNudgeZoom: cmd("Arrow keys follow the zoom: smaller moves zoomed in, bigger zoomed out", () => app.togglePref("nudge_zoom",
+    "Arrow keys follow the zoom", "Arrow keys move 1 pt at every zoom"), null, null, "Arrows follow zoom"),
   toolSelect: tool("select", "Select and move", "v", "Select"),
   toolText: tool("text", "Text", "t", "Text"),
   toolLabel: tool("label", "Panel label (a, b, c…)", "p", "Label"),
@@ -1967,9 +1977,9 @@ document.addEventListener("keydown", (e) => {
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
   if (arrows[e.key] && store.selection.length && (onCanvas || e.target.closest?.(".items"))) {
     e.preventDefault();
-    const [dx, dy] = arrows[e.key];
-    if (e.altKey && e.shiftKey) app.nudge(dx, dy, true);
-    else app.nudge(dx * (e.shiftKey ? 10 : e.altKey ? 0.1 : 1), dy * (e.shiftKey ? 10 : e.altKey ? 0.1 : 1));
+    const [dx, dy] = arrows[e.key], step = app.nudgeStep().pt;   // Shift 10 steps, Option a tenth, Option+Shift resizes
+    const k = step * (e.altKey && e.shiftKey ? 1 : e.shiftKey ? 10 : e.altKey ? 0.1 : 1);
+    app.nudge(dx * k, dy * k, e.altKey && e.shiftKey);
   }
 });
 document.addEventListener("keyup", (e) => {

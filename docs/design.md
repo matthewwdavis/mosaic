@@ -191,6 +191,14 @@ pre-export check says so.
   first: in a text field they're the web view's own. macOS's Dictation and Emoji & Symbols items
   in Edit have hidden copies for their other shortcuts, so they look doubled when the menu is
   read, though each shows once.
+- **Arrow keys follow the zoom (2026-11-01):** a press moves the smallest round amount (1, 2 or 5
+  times a power of ten) in the units the panels show that is at least 1 pt at 100% zoom, so it's
+  about the same distance on screen (1⅓ to 3⅓ px) at any zoom and positions stay on round numbers:
+  in centimetres 0.05 cm at 100%, 0.01 cm at 400%, 0.2 cm at 25% (Matthew's choices, over round
+  steps in points and over an exact screen distance with uneven numbers). Shift is 10 steps,
+  Option a tenth, Option+Shift resizes by one. Per his rule for automatic behaviour, the status
+  bar shows the step and a click there switches to the old fixed 1 pt (the nudge_zoom setting;
+  also View ▸ Arrow Keys Follow the Zoom and the command search).
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.

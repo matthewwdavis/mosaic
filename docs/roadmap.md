@@ -105,6 +105,9 @@ Matthew's choices are in brackets.
       FigAssemble follows the drag itself [take them anyway, though the slide flies back]
 - [x] A blank page takes the size of the slides put on it, pasted, dragged or from a dropped deck
       [any page with no objects; it becomes the first slide, and more slides become pages after it]
+- [x] Arrow keys move less when zoomed in and more when zoomed out [round steps in the panels'
+      units; Shift, Option and Option+Shift scale with it; the status bar shows the step and a
+      click there switches to a fixed 1 pt]
 
 ## Acceptance test (test slide)
 

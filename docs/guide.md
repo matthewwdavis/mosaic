@@ -57,7 +57,9 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
    **Style** (shape, fill, line, arrowheads, outline), **Text**, **Picture**. With nothing
    selected, it shows the page, its guides and the document. Click a section heading to fold it;
    folded sections stay folded, and each kind of object opens on the tab you used last.
-8. **Status bar:** messages, zoom, the pointer's position, and whether the document is saved.
+8. **Status bar:** messages, zoom, how far the arrow keys move a selection (click it to switch
+   between following the zoom and a fixed 1 pt), the pointer's position, and whether the
+   document is saved.
 
 **Panel widths:** drag the inner edge of either side panel to make it wider or narrower (or
 focus the edge and use the arrow keys). Double-click the edge to put the panel back. FigAssemble
@@ -466,8 +468,13 @@ PowerPoint and Visio:
 
 - **Select:** click; Shift-click adds or removes; drag on empty space to select everything
   inside a box. Tab and Shift+Tab step through objects.
-- **Move:** drag, or arrow keys: 1 pt per press, 10 pt with Shift, 0.1 pt with Option (Alt).
-  Option-drag (Alt-drag) makes a copy.
+- **Move:** drag, or arrow keys: one step per press, 10 steps with Shift, a tenth of a step with
+  Option (Alt). The step follows the zoom: a round amount in your units (0.01, 0.02, 0.05, 0.1…)
+  that's smaller when you zoom in and bigger when you zoom out, so a press moves about the same
+  distance on screen. In centimetres it's 0.05 cm at 100%, 0.01 cm at 400% and 0.2 cm at 25%.
+  The status bar shows the step (**Arrows 0.05 cm**); click it for a fixed 1 pt at every zoom,
+  and again to follow the zoom (also View ▸ Arrow Keys Follow the Zoom). Option-drag (Alt-drag)
+  makes a copy.
 - **Duplicate (⌘D)** puts the copy 10 pt down and right. Move the copy where you want it, then
   Duplicate again: the next copy goes at that same offset, as in PowerPoint. Keep pressing ⌘D
   for a row of evenly spaced copies.
@@ -475,7 +482,7 @@ PowerPoint and Visio:
   is selected: a drag, arrow-key nudges, or numbers typed in the Arrange tab. If the last move was
   an Option-drag (Alt-drag) copy, it makes another copy the same distance on.
 - **Resize:** drag a handle. Corners keep a picture's proportions (Shift does the opposite).
-  Option (Alt) resizes from the centre. Option+Shift+arrows change the size by 1 pt.
+  Option (Alt) resizes from the centre. Option+Shift+arrows change the size by one step.
 - **Rotate:** drag the round handle above the object; Shift keeps to 15° steps.
 - **Exact values:** the Arrange tab's X, Y, Width, Height and Rotation, in centimetres (change
   the unit in Settings), plus flips.
@@ -920,7 +927,8 @@ Export still work, saving what you've typed.
 **On the page:**
 
 - Tab / Shift+Tab: select the next or previous object.
-- Arrow keys: move by 1 pt; Shift: 10 pt; Option (Alt): 0.1 pt. Option+Shift+arrows: resize by 1 pt.
+- Arrow keys: move by one step, which follows the zoom (the status bar shows it); Shift: 10 steps;
+  Option (Alt): a tenth of a step. Option+Shift+arrows: resize by one step.
 - Enter: edit text, or crop a picture. Escape: finish, deselect, or cancel a drag.
 - With a drawing tool chosen, Enter places a 2 cm shape in the middle of the view.
 - While dragging: Shift keeps lines straight and shapes square; Option (Alt) duplicates;

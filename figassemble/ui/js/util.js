@@ -6,6 +6,13 @@ export const PX_PER_PT = 4 / 3;   // CSS px per point at 100% zoom: 100% is true
 
 export const toUnit = (pt, unit) => pt / PT_PER[unit];
 export const fromUnit = (v, unit) => v * PT_PER[unit];
+// The smallest round amount in a unit (1, 2 or 5 times a power of ten) that is at least `pt`
+// points: {pt, text}, e.g. {pt: 1.417…, text: "0.05 cm"}
+export function roundStep(pt, unit) {
+  const want = toUnit(pt, unit) * (1 - 1e-9), ten = 10 ** Math.floor(Math.log10(want));
+  const v = Number(([1, 2, 5, 10].find((m) => m * ten >= want) * ten).toPrecision(3));
+  return { pt: fromUnit(v, unit), text: `${v} ${UNIT_LABEL[unit]}` };
+}
 
 export function fmt(v, digits = 2) {
   if (v === null || v === undefined || Number.isNaN(v)) return "";
@@ -207,7 +214,7 @@ export function announce(msg) {
   if (!el) return;
   clearTimeout(announceTimer);
   el.textContent = "";
-  announceTimer = setTimeout(() => { el.textContent = msg; }, 60);
+  announceTimer = setTimeout(() => { el.textContent = msg; el.title = msg; }, 60);   // (the title: all of it, if the bar cuts it short)
 }
 
 // The unit announcements use; main.js keeps it in step with the preference

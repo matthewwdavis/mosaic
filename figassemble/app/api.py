@@ -35,6 +35,8 @@ PREFS_DEFAULTS = {
     # Layout aids: the grid is graph paper, 1 cm squares of 1 mm lines (spacing in points); things
     # snap to the grid and guides only while they're shown
     "show_rulers": True, "show_grid": False, "show_guides": True, "grid": {"spacing": 72 / 2.54, "subdivisions": 10},
+    # Arrow keys move a round amount that shrinks as you zoom in (False: always 1 pt)
+    "nudge_zoom": True,
     # Interface state: the ribbon's tab, the properties panel's tab for each kind of object, the
     # panel's folded sections, and the side panels' widths (rem; only those changed)
     "ribbon_tab": "home", "inspector_tabs": {}, "inspector_closed": [], "panel_widths": {},

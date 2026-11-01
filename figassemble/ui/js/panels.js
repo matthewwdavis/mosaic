@@ -164,9 +164,10 @@ export const panels = {
       if (what === "selection") this.renderLayers();
     });
     canvas.onToolChange = (tool) => this.renderTools(tool);
-    document.addEventListener("fa-prefs", () => this.renderToggles());
+    document.addEventListener("fa-prefs", () => { this.renderToggles(); this.renderNudge(); });
     document.addEventListener("fa-zoom", (e) => {
       for (const z of document.querySelectorAll(".zoom-label")) z.textContent = `${fmt(e.detail * 100, 0)}%`;
+      this.renderNudge();
     });
     document.addEventListener("fa-cursor", (e) => {
       const u = app.prefs.units || "cm";
@@ -768,7 +769,20 @@ export const panels = {
     const zoom = h("span", { class: "status-zoom", role: "group", "aria-label": "Zoom" }, z("zoomOut", "zoomout"),
       h("span", { class: "zoom-label", "aria-live": "off" }, "100%"), z("zoomIn", "zoomin"), z("zoomFit", "fit"),
       z("centrePage", "centre"));
-    bar.append(this.message, h("span", { class: "spacer" }), zoom, this.cursor, this.saveState);
+    // How far the arrow keys move the selection now; a click switches between following the zoom and 1 pt
+    this.nudge = h("button", { type: "button", class: "btn toggle small nudge-step", "data-pref": "nudge_zoom",
+      "aria-pressed": this.app.prefs.nudge_zoom ? "true" : "false" });
+    this.nudge.addEventListener("click", () => this.app.run("toggleNudgeZoom"));
+    bar.append(this.message, h("span", { class: "spacer" }), zoom, this.nudge, this.cursor, this.saveState);
+    this.renderNudge();
+  },
+  renderNudge() {
+    const s = this.app.nudgeStep(), on = !!this.app.prefs.nudge_zoom;
+    this.nudge.textContent = `Arrows ${s.text}`;
+    this.nudge.title = on ? `Arrow keys move the selection ${s.text} at this zoom: less zoomed in, more zoomed out (Shift: 10 times, `
+      + `${isMac ? "Option" : "Alt"}: a tenth). Click for a fixed 1 pt.`
+      : "Arrow keys move the selection 1 pt at every zoom. Click to make them follow the zoom.";
+    this.nudge.setAttribute("aria-label", on ? `Arrow keys move ${s.text}, following the zoom` : "Arrow keys move 1 pt at every zoom");
   },
   renderSaveState() {
     if (!store.doc) return;
@@ -1115,8 +1129,9 @@ export const panels = {
       h("h3", {}, "On the canvas"),
       h("ul", { class: "plain" },
         h("li", {}, "Tab / Shift+Tab: select the next or previous object"),
-        h("li", {}, "Arrow keys: move by 1 pt; with Shift by 10 pt; with Option/Alt by 0.1 pt"),
-        h("li", {}, "Option/Alt+Shift+arrows: make the object 1 pt wider, narrower, taller or shorter"),
+        h("li", {}, "Arrow keys: move by a round step that follows the zoom (shown in the status bar; 1 pt when "
+          + "switched off there); with Shift by 10 steps; with Option/Alt by a tenth of one"),
+        h("li", {}, "Option/Alt+Shift+arrows: make the object one step wider, narrower, taller or shorter"),
         h("li", {}, "Enter: edit text, or crop a picture; Escape: finish"),
         h("li", {}, "With a drawing tool chosen, Enter places a 2 cm shape in the middle of the view"),
         h("li", {}, "Shapes menu (S): arrow keys move, typing a name jumps to it, Enter chooses, Escape closes"),
