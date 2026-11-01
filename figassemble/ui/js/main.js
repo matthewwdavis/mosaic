@@ -115,6 +115,17 @@ const app = {
     return p ? p.replace(/\.(pdf|svg|png|tiff?|jpe?g|eps)$/i, "") : null;
   },
 
+  async chooseReportBase() {
+    const title = `${(store.doc.meta?.title || "figure").replace(/[^\w.-]+/g, "_")}_report`;
+    const strip = (p) => p.replace(/\.(html?|md|csv|pdf)$/i, "");
+    if (this.info.native) {
+      const p = await rpc("save_dialog", `${title}.html`, dirOf(store.path));
+      return p ? strip(p) : null;
+    }
+    const p = await panels.pathDialog("Write the report to (path without extension)", `${dirOf(store.path) || "~/Desktop"}/${title}`);
+    return p ? strip(p) : null;
+  },
+
   // Placing files ---------------------------------------------------------------------
 
   async insertPicture() {
@@ -1437,6 +1448,8 @@ app.commands = {
   makeClipMask: cmd("Make clipping mask: the top selected shape clips the objects under it", () => app.makeClipMask(),
     `${M}7`, key("7"), "Make mask"),
   releaseClipMask: cmd("Release clipping mask: separate the shape and what it clips", () => app.releaseClipMask(), null, null, "Release"),
+  figureReport: cmd("Figure report: each picture's source, copies, size, scale, crop, turns, resolution and scale bars",
+    () => panels.figureReportDialog(), null, null, "Report"),
   equation: cmd("Equation: maths written as in LaTeX, drawn as real text", () => app.addEquation(), null, null, "Equation"),
   makeSymbol: cmd("Make symbol: one object to use many times, changed everywhere at once", () => app.makeSymbol(), null, null, "Make symbol"),
   editSymbol: cmd("Edit symbol: change the selected copy's symbol where it is (every copy follows)", () => app.editSymbol(), null, null, "Edit symbol"),

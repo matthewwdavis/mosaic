@@ -65,6 +65,7 @@ const ICONS = {
   actual: "M5 5h14v14H5zM9 9.5l2-1.5v8M14 9.5l2-1.5v8",
   cells: "M4 4h7v6H4zM13 4h7v9h-7zM4 12h7v8H4zM13 15h7v5h-7z",
   equation: "M3 13h2l3 6 4-15h9M14 9l6 8M20 9l-6 8",
+  report: "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 15.5h7M9 19h4",
   symbol: "M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z",
   symbols: "M8 3l1.8 3.6 4 .6-2.9 2.8.7 4L8 12.1 4.4 14l.7-4L2.2 7.2l4-.6zM17 10l1.4 2.8 3.1.5-2.3 2.2.6 3.1-2.8-1.5-2.8 1.5.6-3.1-2.3-2.2 3.1-.5z",
   ruler: "M3 8h18v8H3zM7 8v3M11 8v4.5M15 8v3M19 8v4.5", grid: "M4 4h16v16H4zM9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16",
@@ -226,6 +227,7 @@ export const panels = {
         group("Significance", t("toolSigBracket", "sigBracket"), t("stackBrackets", "stackBrackets")),
         group("Symbols", t("makeSymbol", "symbol"), t("symbols", "symbols")),
         group("Maths", t("equation", "equation")),
+        group("Report", t("figureReport", "report")),
       ]],
       ["combine", "Combine", [
         group("Pathfinder", t("unite", "unite"), t("minusFront", "minusFront"), t("intersect", "intersect"), t("exclude", "exclude")),
@@ -690,6 +692,47 @@ export const panels = {
         announce(`Exported ${res.files.length} files`);
       } catch (err) {
         results.replaceChildren(h("p", { class: "error" }, `Export failed: ${err.message}`));
+      } finally { go.disabled = false; }
+    });
+  },
+
+  // The figure report (report.py): the formats to write, none chosen to start with
+  figureReportDialog() {
+    const check = (fmtName, label, extra) => {
+      const id = `rp-${fmtName}`;
+      return h("label", { class: "check-line", for: id }, h("input", { type: "checkbox", id, value: fmtName }), h("span", {}, label),
+        h("span", { class: "hint" }, extra));
+    };
+    const n = store.doc.pages.length;
+    const pages = selectField("Pages", "all", n === 1 ? [["all", "The figure's one page"]]
+      : [["all", `All ${n} pages`], ["current", `This page (${store.page().name})`]], () => {});
+    const results = h("div", { class: "results", role: "status", "aria-live": "polite" });
+    const go = h("button", { type: "button", class: "btn primary" }, "Write report…");
+    const body = h("div", {},
+      h("p", {}, "For each picture: where it comes from, its copies, its size and place on the page, its scale, crop and turns, "
+        + "its resolution, and its calibration and scale bars."),
+      h("fieldset", { class: "formats" }, h("legend", {}, "Formats"),
+        check("html", "HTML", "a page to open in a browser"), check("md", "Markdown", "for notes or a README"),
+        check("csv", "CSV", "for a spreadsheet: one row per picture"), check("pdf", "PDF", "to print or attach")),
+      pages, results);
+    const dlg = this.dialog("Figure report", body, [go]);
+    go.addEventListener("click", async () => {
+      const formats = [...dlg.querySelectorAll(".formats input:checked")].map((i) => i.value);
+      if (!formats.length) { results.textContent = "Choose at least one format."; return; }
+      const base = await this.app.chooseReportBase();
+      if (!base) return;
+      go.disabled = true;
+      results.replaceChildren(h("p", {}, "Writing…"));
+      try {
+        const res = await rpc("figure_report", store.doc, { formats, base, units: this.app.prefs.units || "cm", doc_path: store.path,
+          pages: pages.querySelector("select").value === "all" ? null : [store.pageIndex] });
+        const name = (f) => f.split(/[\\/]/).pop();
+        results.replaceChildren(h("p", {}, `Wrote ${res.files.length} file${res.files.length === 1 ? "" : "s"}:`),
+          h("ul", { class: "file-list" }, ...res.files.map((f) => h("li", {}, name(f), " ",
+            this.app.info.native ? button(`Show ${name(f)} in the Finder`, () => rpc("reveal", f), "Show") : null))));
+        announce(`Wrote the figure report: ${res.files.map(name).join(", ")}`);
+      } catch (err) {
+        results.replaceChildren(h("p", { class: "error" }, `The report failed: ${err.message}`));
       } finally { go.disabled = false; }
     });
   },

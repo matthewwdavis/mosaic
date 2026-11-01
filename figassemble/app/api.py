@@ -368,6 +368,13 @@ class Api:
         from ..export.preflight import preflight
         return preflight(doc, options or {})
 
+    def figure_report(self, doc: dict, options: dict) -> dict:
+        """Write the figure report (report.py) in the chosen formats: {"files": [...]}."""
+        from .. import report
+        files = report.write(doc, options["base"], options.get("formats", []), options.get("pages"),
+                             options.get("units", "cm"), options.get("doc_path"))
+        return {"files": files}
+
     def make_equation(self, spec: dict) -> dict:
         """An equation (equations.py) as a picture's asset, its PDF and SVG copies stored in the
         figure: {"id", "asset"}, or {"error"} when the maths can't be read."""

@@ -38,7 +38,8 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group and Grid, Order (see
      [Align and distribute](#align-and-distribute)).
    - **Figure**: scale bars (Scale bar, Measure), zoom insets, significance brackets (Bracket,
-     Stack), [symbols](#symbols) (Make symbol, Symbols…) and [equations](#equations).
+     Stack), [symbols](#symbols) (Make symbol, Symbols…), [equations](#equations) and the
+     [figure report](#checking-and-exporting).
    - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
      Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
@@ -646,6 +647,24 @@ over the page says the preview is on, and its **Stop** button (or **Normal**) en
 Click **Export…** and choose a name and folder; one file is written per format. A PDF holds all the
 chosen pages; the other formats write one file per page.
 Your choices are remembered for next time.
+
+**Figure report** (Figure tab) writes down what each picture is and how it's placed: for a methods
+section, a reviewer, or whoever rebuilds the figure next. For every picture on the chosen pages
+it gives:
+
+- where it comes from (the linked file, and whether it's still there; "kept in the figure" for a
+  copy stored in it; an equation's maths);
+- its copies (PDF, SVG, PNG…), its size and place on the page in your position unit, and its
+  scale (against its true size);
+- its crop, turns and flips, and its resolution at that size (or "vector");
+- its calibration (the size of a pixel, and how it was set) and its scale bars.
+
+Choose the formats, none of them ticked to start with: **HTML** (a page to open in a browser),
+**Markdown** (notes, a README), **CSV** (a spreadsheet, one row per picture) and **PDF** (to print
+or attach). Then **Write report…** and choose where; each format is written next to the others
+under one name.
+
+<img src="images/report.png" alt="The Figure report window: HTML, Markdown, CSV and PDF, none ticked" width="508">
 
 ## Saving, linked files and recovery
 

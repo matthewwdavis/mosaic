@@ -81,7 +81,7 @@ Matthew's choices are in brackets.
 - [x] Symbols: one object used many times, edited once [copies scale lines and text; edited in place]
 - [x] Object styles: named, linked line and shape styles, like text styles
 - [x] Equations: LaTeX maths drawn as real text [matplotlib mathtext]
-- [ ] Figure report: each panel's source, copies, size, scale, crop, turns, resolution and scale
+- [x] Figure report: each panel's source, copies, size, scale, crop, turns, resolution and scale
       [HTML, Markdown, CSV and PDF offered, none ticked by default]
 - [ ] Pen tool and point editing; elbow connectors
 - [ ] Export to editable PowerPoint [what PowerPoint can't draw goes in as exact SVG pictures]

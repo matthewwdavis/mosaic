@@ -1855,6 +1855,15 @@ export async function run(app, params) {
       const saved = await rpc("save_document", store.doc, `${out}/selftest.figasm`);
       const reopened = await rpc("open_document", saved.path);
       check(reopened.doc.pages[0].items.length === store.doc.pages[0].items.length, "saved document reopens with every object");
+      // The figure report, in the formats chosen (none to start with)
+      await app.run("figureReport");
+      const reportDlg = [...document.querySelectorAll("dialog[open]")].pop();
+      check(reportDlg && [...reportDlg.querySelectorAll(".formats input")].length === 4
+        && ![...reportDlg.querySelectorAll(".formats input")].some((i) => i.checked), "Figure report offers HTML, Markdown, CSV and PDF, none ticked");
+      reportDlg.close();
+      const rep = await rpc("figure_report", store.doc, { formats: ["csv", "md"], base: `${out}/selftest_report`, pages: [0], units: "cm" });
+      check(rep.files.length === 2 && rep.files.every((f) => /selftest_report\.(csv|md)$/.test(f)), "and writes a report for each picture",
+        rep.files.join(", "));
       const pf2 = await rpc("preflight", store.doc, { pages: [0] });
       check(pf2.summary.smallest_text_pt > 0, "pre-export check reports the smallest text", JSON.stringify(pf2.summary));
     }

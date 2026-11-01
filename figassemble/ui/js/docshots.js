@@ -333,6 +333,7 @@ export async function run(app, params) {
     return finish();
   }
   if (scene === "check") { setTimeout(() => app.run("preflight"), 200); return finish(); }
+  if (scene === "report") { setTimeout(() => app.run("figureReport"), 200); return finish(); }
   if (scene === "shapes") { setTimeout(() => document.getElementById("shapes-button").click(), 200); return finish(); }
   if (scene === "guides") {
     await app.savePrefs({ show_grid: true });
