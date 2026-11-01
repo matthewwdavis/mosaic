@@ -401,3 +401,8 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 
 /* The Measure tool's line */
 .measure-line { stroke: var(--sel); stroke-width: 2; stroke-dasharray: 6 4; }
+
+/* Symbols on the Text tab */
+.symbols summary { cursor: pointer; font-weight: 600; margin: 0.3rem 0; }
+.symbol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(1.8rem, 1fr)); gap: 0.2rem; }
+.symbol-grid .btn.symbol { padding: 0.2rem 0; font-size: 0.95rem; min-height: 1.8rem; }

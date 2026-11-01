@@ -2,7 +2,7 @@
 // labelled form fields grouped in fieldsets, so they work with the keyboard and screen readers.
 
 import { rpc } from "./api.js";
-import { canvas, findDeep, pageGuides, shiftItem } from "./canvas.js";
+import { SUBSCRIPT, SUPERSCRIPT, canvas, findDeep, pageGuides, shiftItem } from "./canvas.js";
 import { icon } from "./panels.js";
 import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
@@ -22,6 +22,13 @@ const HEADS = [["none", "None"], ["triangle", "Triangle"], ["stealth", "Stealth"
   ["oval", "Circle"], ["diamond", "Diamond"], ["bar", "Bar (inhibition)"], ["half", "Half arrow"], ["open_circle", "Open circle"],
   ["open_triangle", "Open triangle"]];
 const SIZES = [["sm", "Small"], ["med", "Medium"], ["lg", "Large"]];
+// Symbols for the Text tab, with names for screen readers
+const SYMBOLS = [["µ", "micro"], ["°", "degree"], ["±", "plus or minus"], ["×", "times"], ["÷", "divided by"], ["−", "minus"],
+  ["≤", "less than or equal to"], ["≥", "greater than or equal to"], ["≈", "approximately"], ["≠", "not equal to"], ["∞", "infinity"],
+  ["→", "right arrow"], ["←", "left arrow"], ["↑", "up arrow"], ["↓", "down arrow"], ["⇌", "equilibrium"], ["‰", "per mille"],
+  ["′", "prime"], ["″", "double prime"], ["Å", "ångström"], ["·", "middle dot"], ["†", "dagger"], ["‡", "double dagger"], ["§", "section"]];
+const GREEK = [..."αβγδεζηθικλμνξοπρστυφχψωΓΔΘΛΞΠΣΦΨΩ"].map((ch) => [ch, `Greek ${ch.toLowerCase() === ch ? "small" : "capital"} letter`]);
+const DEFAULT_RUN = { font: "Helvetica", size: 6, bold: false, italic: false, color: "#000000" };
 const ROUNDED_HEADS = ["triangle", "stealth", "arrow", "diamond", "open_triangle"];   // heads whose corners can be rounded
 // What decides which outline choices look different on an object: its fill, its line, and
 // whether that line goes all the way round an area (presets.encloses; a freeform's closed line)
@@ -851,7 +858,10 @@ export const inspector = {
       h("div", { class: "button-row" },
         toggle("Bold", !!first.bold, (on) => setRuns("Bold", (r) => { r.bold = on; }), "B", "bold"),
         toggle("Italic", !!first.italic, (on) => setRuns("Italic", (r) => { r.italic = on; }), "I", "italic"),
-        toggle("Underline", !!first.underline, (on) => setRuns("Underline", (r) => { r.underline = on; }), "U", "underline")),
+        toggle("Underline", !!first.underline, (on) => setRuns("Underline", (r) => { r.underline = on; }), "U", "underline"),
+        this.scriptButton("Superscript", "superscript", SUPERSCRIPT, first, setRuns, "x²"),
+        this.scriptButton("Subscript", "subscript", SUBSCRIPT, first, setRuns, "x₂")),
+      this.symbolsField(),
       radioField("Align", align, [["l", "Left"], ["ctr", "Centre"], ["r", "Right"]],
         (v) => this.edit("Align text", (o) => { o.text.paragraphs.forEach((p) => { p.align = v; }); })),
       radioField("Vertical position", body.anchor || "t", [["t", "Top"], ["ctr", "Middle"], ["b", "Bottom"]],
@@ -861,6 +871,37 @@ export const inspector = {
     ]);
   },
 
+  // Raised or lowered text: while typing, the selected words (the button keeps the focus in the
+  // text, and ⌘⇧= / ⌘= do the same); otherwise the whole box
+  scriptButton(label, command, base, first, setRuns, content) {
+    const b = button(label + (command === "superscript" ? ` (${this.app.mod}Shift+=)` : ` (${this.app.mod}=)`), () => {
+      if (canvas.editing) { document.execCommand(command); return; }
+      const on = (first.baseline || 0) !== base;
+      setRuns(label, (r) => { if (on) r.baseline = base; else delete r.baseline; });
+    }, content, "script");
+    b.setAttribute("aria-pressed", (first.baseline || 0) === base ? "true" : "false");
+    b.addEventListener("mousedown", (e) => e.preventDefault());
+    return b;
+  },
+  // Symbols science needs: inserted where the cursor is while typing, or else at the end
+  symbolsField() {
+    const insert = (ch) => {
+      if (canvas.editing) { document.execCommand("insertText", false, ch); return; }
+      this.edit("Insert symbol", (o) => {
+        const p = o.text.paragraphs[o.text.paragraphs.length - 1];
+        const r = p.runs[p.runs.length - 1];
+        if (r) r.t = (r.t || "") + ch;
+        else p.runs.push({ ...DEFAULT_RUN, t: ch });
+      });
+    };
+    const grid = (list) => h("div", { class: "symbol-grid" }, ...list.map(([ch, name]) => {
+      const b = button(`Insert ${ch}, ${name}`, () => insert(ch), ch, "symbol");
+      b.addEventListener("mousedown", (e) => e.preventDefault());   // keeps the cursor in the text
+      return b;
+    }));
+    return h("details", { class: "symbols" }, h("summary", {}, "Symbols"), grid(SYMBOLS),
+      h("p", { class: "hint" }, "Greek"), grid(GREEK));
+  },
   // Several items ------------------------------------------------------------------------
 
   multiTabs(sel) {

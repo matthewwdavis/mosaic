@@ -1639,7 +1639,9 @@ export const canvas = {
         const parts = r.t.split("\n");
         parts.forEach((part, i) => {
           if (i) div.append(h("br"));
-          if (part) div.append(h("span", { "data-run": JSON.stringify({ ...r, t: undefined }), style: runCss(r) }, part));
+          // Raised or lowered text sits in <sup> or <sub>, which the editor's own commands toggle
+          const script = r.baseline > 0 ? h("sup", {}, part) : r.baseline < 0 ? h("sub", {}, part) : part;
+          if (part) div.append(h("span", { "data-run": JSON.stringify({ ...r, t: undefined, baseline: undefined }), style: runCss(r) }, script));
         });
       }
       return div;
@@ -1685,6 +1687,11 @@ export const canvas = {
     if (mod && ["b", "i", "u"].includes(e.key.toLowerCase())) {
       e.preventDefault();
       document.execCommand({ b: "bold", i: "italic", u: "underline" }[e.key.toLowerCase()]);
+    }
+    // PowerPoint's keys: ⌘⇧= superscript, ⌘= subscript (they zoom only when not typing)
+    if (mod && (e.key === "=" || e.key === "+")) {
+      e.preventDefault();
+      document.execCommand(e.shiftKey || e.key === "+" ? "superscript" : "subscript");
     }
     if (e.key === "Enter" && e.shiftKey) { e.preventDefault(); document.execCommand("insertLineBreak"); }
     keepFieldKeys(e);
@@ -2008,6 +2015,8 @@ function runCss(r) {
     color: r.color || "#000000" };
 }
 
+// Raised and lowered text: its baseline as a fraction of the text size (PowerPoint's defaults)
+export const SUPERSCRIPT = 0.3, SUBSCRIPT = -0.25;
 // Read the edited text back into paragraphs of runs, keeping each run's other settings
 function parseEditor(root, oldText) {
   const firstRun = oldText.paragraphs?.[0]?.runs?.[0] || { font: "Helvetica", size: 6 };
@@ -2041,7 +2050,11 @@ function parseEditor(root, oldText) {
       if (tag === "B" || tag === "STRONG") st.bold = true;
       if (tag === "I" || tag === "EM") st.italic = true;
       if (tag === "U") st.underline = true;
+      if (tag === "SUP") st.baseline = SUPERSCRIPT;
+      if (tag === "SUB") st.baseline = SUBSCRIPT;
       const css = node.style || {};
+      if (css.verticalAlign === "super") st.baseline = SUPERSCRIPT;
+      if (css.verticalAlign === "sub") st.baseline = SUBSCRIPT;
       if (css.fontWeight) st.bold = css.fontWeight === "bold" || Number(css.fontWeight) >= 600;
       if (css.fontStyle) st.italic = css.fontStyle === "italic";
       if (css.textDecorationLine || css.textDecoration) st.underline = (css.textDecorationLine || css.textDecoration).includes("underline");
@@ -2049,6 +2062,7 @@ function parseEditor(root, oldText) {
     };
     const base = { ...firstRun };
     delete base.t;
+    delete base.baseline;   // raised or lowered only inside <sup> or <sub>
     for (const n of nodes) walk(n, base);
     // Merge neighbours with identical settings
     const merged = [];

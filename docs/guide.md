@@ -205,7 +205,12 @@ height you drag at, with the label above. Drag upright instead for one with its 
 
 - **Text (T):** click to type, or drag to make a box the text wraps in. Press **Escape** when
   done. Double-click any text, or select it and press Enter, to edit it again. In the editor, ⌘B,
-  ⌘I and ⌘U make the selected words bold, italic or underlined; Shift+Return starts a new line.
+  ⌘I and ⌘U make the selected words bold, italic or underlined, and ⌘⇧= and ⌘= superscript or
+  subscript (as in PowerPoint); Shift+Return starts a new line.
+- **Superscript and subscript** (x² and x₂ on the Text tab) work on the selected words while you
+  type, or on the whole box otherwise.
+- **Symbols** (Text tab): µ, °, ±, ×, arrows, ⇌, ‰, primes, Å and the Greek letters, put in where
+  the cursor is while you type, or at the end of the selected text box otherwise.
 - The **Text** tab sets the font, size (in points), colour, bold, italic and underline for the
   whole box, and alignment, vertical position, wrapping and **Resize the box to fit the text**.
 - **Panel label (P):** click to add the next free letter (a, b, c…) in bold 8 pt Helvetica.
@@ -586,6 +591,7 @@ Press **?** in FigAssemble for this list.
 | Transform again (repeat the last move, resize or turn) | ⌘⇧D | Ctrl+Shift+D |
 | Copy style, Paste style | ⌘⇧C, ⌘⇧V | Ctrl+Shift+C, Ctrl+Shift+V |
 | Make clipping mask | ⌘7 | Ctrl+7 |
+| Superscript, Subscript (while typing) | ⌘⇧=, ⌘= | Ctrl+Shift+=, Ctrl+= |
 | Delete | Delete | Delete or Backspace |
 | Select all | ⌘A | Ctrl+A |
 | Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |

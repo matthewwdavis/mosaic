@@ -858,7 +858,32 @@ export async function run(app, params) {
     app.deleteTextStyle(noteStyle.id);
     check(!store.item("tsA").text.paragraphs[0].style && store.item("tsA").text.paragraphs[0].runs[0].bold === true,
       "deleting a style keeps the text's format", JSON.stringify(store.item("tsA").text.paragraphs[0]));
-    store.select(["tsA", "tsB", newLabel.id]);
+    // Superscript while typing (⌘⇧=), and a symbol inserted at the cursor from the Text tab
+    store.update("Text for scripts", (doc) => doc.pages[store.pageIndex].items.push(styledText("scr", 40, 7, false)));
+    store.select(["scr"]);
+    canvas.startEdit("scr");
+    await settle();
+    const edRange = document.createRange();
+    edRange.selectNodeContents(canvas.editor);
+    getSelection().removeAllRanges();
+    getSelection().addRange(edRange);
+    canvas.editor.dispatchEvent(new KeyboardEvent("keydown", { key: "+", shiftKey: true, metaKey: true, ctrlKey: true, bubbles: true, cancelable: true }));
+    const endRange = document.createRange();
+    endRange.selectNodeContents(canvas.editor);
+    endRange.collapse(false);
+    getSelection().removeAllRanges();
+    getSelection().addRange(endRange);
+    inspector.render();
+    const microBtn = document.querySelector('#inspector button[aria-label="Insert µ, micro"]');
+    microBtn?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    microBtn?.click();
+    canvas.commitEdit();
+    await settle();
+    const scrRuns = store.item("scr").text.paragraphs[0].runs;
+    check(scrRuns.some((r) => r.baseline === 0.3 && r.t.includes("scr")) && scrRuns.map((r) => r.t).join("").endsWith("µ"),
+      "⌘⇧= makes the selected text superscript, and a symbol goes in at the cursor",
+      scrRuns.map((r) => `${r.t}:${r.baseline ?? 0}`).join(" | "));
+    store.select(["tsA", "tsB", newLabel.id, "scr"]);
     await app.run("delete");
 
     // Isolation mode: double-click a group to work on its parts, the rest faded; Escape leaves
