@@ -430,10 +430,15 @@ def line_end_trim(spec: dict, width: float, cap: str = "round") -> float:
 
     A rounded head slides forward to keep its tip on the end point, and the line's end moves
     with it, as far back as it needs to stay hidden inside the head."""
-    if not spec or spec.get("type") in (None, "none", "arrow", "oval", "diamond"):
+    if not spec or spec.get("type") in (None, "none", "arrow", "oval", "diamond", "bar", "half"):
         return 0.0
     from .geometry import head_size
     length = head_size(spec, width)[1]
+    # An open circle or triangle shows what's inside it: the line stops at its edge
+    if spec.get("type") == "open_circle":
+        return length / 2
+    if spec.get("type") == "open_triangle":
+        return length - (head_outline(spec, width)[1] if spec.get("rounding") else 0.0)
     if spec.get("type") == "stealth":
         trim = max(length * 0.5 - width / 2, 0.0)
     else:

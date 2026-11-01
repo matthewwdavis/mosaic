@@ -156,3 +156,20 @@ def test_trim_curve_end_by_arc_length():
     end = t.end_tangent()[0]
     assert math.hypot(end[0], end[1]) == pytest.approx(r, abs=1e-3)
     assert math.degrees(math.atan2(end[1], end[0])) == pytest.approx(45, abs=0.1)
+
+
+def test_pathway_arrowheads():
+    """Bar, half arrow, open circle and open triangle: drawn as lines in the line's colour; the
+    line runs to a bar or half arrow and stops at an open head's edge."""
+    from figassemble.resolve import Resolver
+
+    def drawn(head):
+        item = {"id": "l", "type": "line", "points": [[0, 0], [60, 0]], "arrow_start": None,
+                "arrow_end": {"type": head, "w": "lg", "len": "lg"}, "stroke": {"color": "#000", "width": 2, "cap": "round"}}
+        return Resolver({"assets": {}}).resolve(item).prims
+    for head, line_end, head_box in (("bar", 60, (60, -5, 60, 5)), ("half", 60, (50, -5, 60, 0)),
+                                     ("open_circle", 55, (55, -5, 65, 5)), ("open_triangle", 50, (50, -5, 60, 5))):
+        line, mark = drawn(head)
+        assert line.path.bbox()[2] == line_end, head
+        assert mark.fill is None and mark.stroke.width == 2, head
+        assert tuple(round(v, 6) for v in mark.path.bbox()) == head_box, head

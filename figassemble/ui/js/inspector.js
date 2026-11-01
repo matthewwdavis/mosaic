@@ -19,9 +19,10 @@ const DASHES = [["solid", "Solid"], ["sysDot", "Round dot"], ["sysDash", "Short 
   ["dashDot", "Dash dot"], ["lgDash", "Long dash"], ["lgDashDot", "Long dash dot"], ["lgDashDotDot", "Long dash dot dot"],
   ["dot", "Dot"]];
 const HEADS = [["none", "None"], ["triangle", "Triangle"], ["stealth", "Stealth"], ["arrow", "Open arrow"],
-  ["oval", "Circle"], ["diamond", "Diamond"]];
+  ["oval", "Circle"], ["diamond", "Diamond"], ["bar", "Bar (inhibition)"], ["half", "Half arrow"], ["open_circle", "Open circle"],
+  ["open_triangle", "Open triangle"]];
 const SIZES = [["sm", "Small"], ["med", "Medium"], ["lg", "Large"]];
-const ROUNDED_HEADS = ["triangle", "stealth", "arrow", "diamond"];   // heads whose corners can be rounded
+const ROUNDED_HEADS = ["triangle", "stealth", "arrow", "diamond", "open_triangle"];   // heads whose corners can be rounded
 // What decides which outline choices look different on an object: its fill, its line, and
 // whether that line goes all the way round an area (presets.encloses; a freeform's closed line)
 function outlineKind(it) {

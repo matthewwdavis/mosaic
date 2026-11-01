@@ -65,6 +65,27 @@ Matthew's choices are in brackets.
 - [x] Zoom insets: a box on a picture, an enlarged copy of that area, lines between, kept in step
 - [x] Significance brackets: a bracket with asterisks or a p-value, tidy heights and gaps
 
+## Ideas from other figure tools (asked for 2026-10-31, second round)
+
+Matthew's choices are in brackets.
+
+- [x] Pathway arrowheads: bar (inhibition), half arrow, open circle, open triangle [all four]
+- [ ] Superscript and subscript (⌘⇧= / ⌘= while typing, and buttons) and a symbol picker [PowerPoint's keys]
+- [ ] Command search: type to find and run any command [⌘/]
+- [ ] Distances on hover: hold Option with something selected to see its distance to what's under the pointer
+- [ ] More in Check: the thinnest line, placed plots' lines included, and the figure's size against the
+      journal's limits [placed plots too]
+- [ ] Panel labels that stay with their panel (a picture or group) [attached automatically]
+- [ ] Snapping to placed plots' axis and frame lines and their visible edges [no tick marks]
+- [ ] Grid layout: rows and columns with set gaps, kept when a panel changes [keep sizes, align top left]
+- [ ] Symbols: one object used many times, edited once [copies scale lines and text; edited in place]
+- [ ] Object styles: named, linked line and shape styles, like text styles
+- [ ] Equations: LaTeX maths drawn as real text [matplotlib mathtext]
+- [ ] Figure report: each panel's source, copies, size, scale, crop, turns, resolution and scale
+      [HTML, Markdown, CSV and PDF offered, none ticked by default]
+- [ ] Pen tool and point editing; elbow connectors
+- [ ] Export to editable PowerPoint [what PowerPoint can't draw goes in as exact SVG pictures]
+
 ## Acceptance test (test slide)
 
 - Imported all 52 objects; 8 of 9 SVGs relinked to the R originals with their PDF copies (the 9th is

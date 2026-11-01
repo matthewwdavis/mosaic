@@ -740,7 +740,10 @@ ARROW_SIZE = {"sm": 2.0, "med": 3.0, "lg": 5.0}
 # measured from PowerPoint: a small head on a 1 pt line is 4 x 4 pt
 ARROW_MIN_BASE_WIDTH = 2.0
 # Heads whose rounded tip is slid forward to reach the end point again
-_POINTED_HEADS = ("triangle", "stealth", "arrow")
+_POINTED_HEADS = ("triangle", "stealth", "arrow", "open_triangle")
+# Heads drawn as lines in the line's colour and width rather than filled: the open arrow, and
+# the pathway ends (an inhibition bar, a half arrow, an open circle and an open triangle)
+STROKED_HEADS = ("arrow", "bar", "half", "open_circle", "open_triangle")
 
 
 def head_size(spec: dict, line_width: float) -> tuple[float, float]:
@@ -755,24 +758,28 @@ def head_outline(spec: dict, line_width: float) -> tuple[Path, float] | None:
     slides forward so the rounded tip still reaches 0; returns (path, how far it slid)."""
     kind = spec.get("type", "triangle")
     w, length = head_size(spec, line_width)
-    if kind == "triangle":
+    if kind in ("triangle", "open_triangle"):
         p = Path().move_to(0, 0).line_to(-length, w / 2).line_to(-length, -w / 2).close()
     elif kind == "stealth":
         p = Path().move_to(0, 0).line_to(-length, w / 2).line_to(-length * 0.5, 0).line_to(-length, -w / 2).close()
     elif kind == "diamond":
         p = Path().move_to(length / 2, 0).line_to(0, w / 2).line_to(-length / 2, 0).line_to(0, -w / 2).close()
-    elif kind == "oval":
+    elif kind in ("oval", "open_circle"):
         rx, ry, k = length / 2, w / 2, 0.5522847498307936
         p = (Path().move_to(rx, 0).curve_to(rx, ry * k, rx * k, ry, 0, ry)
              .curve_to(-rx * k, ry, -rx, ry * k, -rx, 0).curve_to(-rx, -ry * k, -rx * k, -ry, 0, -ry)
              .curve_to(rx * k, -ry, rx, -ry * k, rx, 0).close())
     elif kind == "arrow":
         p = Path().move_to(-length, w / 2).line_to(0, 0).line_to(-length, -w / 2)
+    elif kind == "bar":   # across the end, as wide as the head
+        p = Path().move_to(0, -w / 2).line_to(0, w / 2)
+    elif kind == "half":   # one barb, on the left of the way the line goes (as in ⇌)
+        p = Path().move_to(-length, -w / 2).line_to(0, 0)
     else:
         return None
     rounding = min(max(float(spec.get("rounding") or 0.0), 0.0), 1.0)
     shift = 0.0
-    if rounding > 0 and kind != "oval":
+    if rounding > 0 and kind not in ("oval", "open_circle", "bar", "half"):
         p = round_corners([p], rounding)[0]
         if kind in _POINTED_HEADS:
             shift = -p.bbox()[2]
@@ -795,7 +802,7 @@ def arrowhead(tip: tuple[float, float], direction: tuple[float, float], line_wid
     dx, dy = direction
     p = local.transformed(Matrix(dx, dy, -dy, dx, tip[0], tip[1]))
     w, length = head_size(spec, line_width)
-    if kind == "arrow":
+    if kind in STROKED_HEADS:
         return [ShapePath(p, fill=False, stroke=True)], 0.0
     return [ShapePath(p, fill=True, stroke=False)], {"triangle": length, "stealth": length * 0.5}.get(kind, 0.0)
 

@@ -255,6 +255,14 @@ export async function run(app, params) {
     const headD = [...(canvas.els.get(arrow.id)?.g.querySelectorAll("path") || [])].pop()?.getAttribute("d") || "";
     check(store.item(arrow.id).arrow_end.rounding === 0.5 && headD.includes("C"), "an arrowhead's point can be rounded",
       `${JSON.stringify(store.item(arrow.id).arrow_end)} ${headD.slice(0, 60)}`);
+    // Pathway ends: an inhibition bar, drawn as a line across the end
+    const headWas = JSON.parse(JSON.stringify(store.item(arrow.id).arrow_end));
+    await choose("End", "bar");
+    await settle();
+    const barPaths = [...(canvas.els.get(arrow.id)?.g.querySelectorAll("path") || [])].map((pth) => pth.getAttribute("style") || "");
+    check(store.item(arrow.id).arrow_end.type === "bar" && barPaths.length === 2 && barPaths[1].includes("fill:none"),
+      "an arrow can end in an inhibition bar", barPaths.join(" | "));
+    store.update("Head back", (doc) => { findItem(doc, arrow.id).arrow_end = headWas; });
     canvas.setTool("label");
     await drag([5, 5], [5, 5]);
     const label = store.items().find((i) => i.text?.paragraphs?.[0]?.runs?.[0]?.t === "a");

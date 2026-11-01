@@ -243,6 +243,10 @@ real text in PDF and SVG exports, with the fonts embedded.
 - **Arrowheads:** each end can be none, triangle, stealth, open arrow, circle or diamond, small
   to large. **Rounding** (0-100%) rounds a pointed head's tip, which still ends exactly on the
   line's end. **Swap ends** swaps them.
+- **Pathway ends:** **Bar** (inhibition, ⊣), **Half arrow** (one barb, on the left of the way the
+  line goes, so two lines in opposite directions make ⇌), **Open circle** and **Open triangle**
+  (catalysis and stimulation in SBGN). The line stops at an open circle's or triangle's edge, so
+  it doesn't show inside.
 - **Outline** ([see Shapes](#shapes)) draws a band of another colour around the line and its head.
 
 ## Shapes
@@ -517,7 +521,8 @@ over the page says the preview is on, and its **Stop** button (or **Normal**) en
 - **Resolution** for PNG, TIFF and JPEG: 300, 600 or 1200 dpi, or any other.
 - **Pages:** this page or all pages. **Background:** transparent or white.
 
-Click **Export…** and choose a name and folder; one file is written per format (and per page).
+Click **Export…** and choose a name and folder; one file is written per format. A PDF holds all the
+chosen pages; the other formats write one file per page.
 Your choices are remembered for next time.
 
 ## Saving, linked files and recovery
