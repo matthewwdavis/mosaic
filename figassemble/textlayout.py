@@ -3,7 +3,7 @@
 The model follows PowerPoint text boxes (insets, wrap, anchor, autofit, line spacing) so
 imported slides land where PowerPoint put them, and text behaves the way PowerPoint users
 expect. The line metrics were calibrated against PowerPoint for Mac's own PDF export of
-the Bushy_Top figures (170 text boxes, Helvetica 5-8 pt):
+a manuscript's figures (170 text boxes, Helvetica 5-8 pt):
 
 - one line at 100% spacing is LINE_FACTOR x (ascent + descent + gap) x size;
 - an auto-fitted box is insets + lines + AUTOFIT_EXTRA tall;

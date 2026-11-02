@@ -2,7 +2,7 @@
 
 PowerPoint rewrites SVGs on insert, so deck SVGs never byte-match the R files. They are
 matched on what PowerPoint keeps: size, text, text positions, colours, embedded images and
-the plotted coordinates (the approach of compose_vector_figures.py). PDFs (from PowerPoint
+the plotted coordinates (the approach of Matthew's earlier figure script). PDFs (from PowerPoint
 for Mac's EMF wrappers) and images are matched by content hash first.
 """
 from __future__ import annotations

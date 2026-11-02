@@ -34,8 +34,8 @@ theme_figure <- function() {
           plot.margin = margin(0, 0, 0, 0)))
 }
 
-# Smallest margins that keep everything inside a figure of the given size (from
-# Bushy_Top/Scripts/phylogeny_bootstrap_v6.Rmd, "### Margins"); returns the plot and its size
+# Smallest margins that keep everything inside a figure of the given size (as in
+# Matthew's analysis notebooks); returns the plot and its size
 fit_margins <- function(plot, width = NULL, height = NULL, sides = c("t", "r", "b", "l"), pad_pt = 0.5, res = 300) {
   margins <- c(t = 0, r = 0, b = 0, l = 0)
   old_dev <- grDevices::dev.cur()

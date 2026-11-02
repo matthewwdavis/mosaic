@@ -7,7 +7,8 @@ Each theme sets the interface's colour variables (see the top of ui/css/app.css)
 writes the chosen theme into the page as it loads (no flash of another theme), and the Settings
 gallery swaps it live. "Match the system" uses a day theme and a night theme, switched by the
 system's light or dark mode. Every theme keeps text readable: tests/test_themes.py checks each
-against the WCAG contrast ratios.
+against the WCAG contrast ratios. The RStudio favourites take their colours from the editor
+themes of the same names (credited in THIRD_PARTY_NOTICES.md).
 """
 from __future__ import annotations
 

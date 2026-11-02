@@ -14,7 +14,8 @@ import { updates } from "./updates.js";
 import { intoPlace, locate, moveItems, moveToPage, slotPlaces, treeRows } from "./layers.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, s, shapeName, toUnit } from "./util.js";
 
-// 24 x 24 stroke icons
+// 24 x 24 stroke icons, drawn for FigAssemble; a few follow Feather's and Lucide's designs (their
+// notices are in THIRD_PARTY_NOTICES.md)
 const ICONS = {
   select: "M5 3l13 9-6 1.5L9.5 20z", text: "M5 6V4h14v2M12 4v16M9 20h6",
   label: "M4 4h16v16H4zM9 15l3-7 3 7M10 13h4", line: "M5 19L19 5", arrow: "M5 19L18 6M10 6h8v8",

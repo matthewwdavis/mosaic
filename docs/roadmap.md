@@ -8,7 +8,7 @@
 - [x] Export: PDF (placed PDFs unchanged, lossless images, embedded font subsets), SVG (inline, scoped),
       PNG/TIFF/JPEG via PDFium; CMYK and EPS via Ghostscript (opt-in)
 - [x] .figasm document file; command-line export
-- [x] PowerPoint importer (test slide: genomic_instabilities_figure slide 13), relinking to R originals
+- [x] PowerPoint importer (test slide: a manuscript figure slide), relinking to R originals
 - [x] Linear gradient fills (PDF shading + soft mask, SVG linearGradient)
 - [x] Embed fonts missing from placed PDFs (R's pdf() Helvetica) without touching drawing instructions
 - [x] App window: canvas, selection, move/resize/rotate, snapping, crop, text editing, drawing tools,
@@ -115,14 +115,17 @@ Matthew's choices are in brackets.
       it quits (or asks first, or not at all), and checks each one's signature [private repo with
       a one-time GitHub sign-in, ready to go public; a release command with a key backup; going
       back a version, test versions first, a warning for documents from newer versions]
+- [x] Ready for a public license: MIT code, CC BY 4.0 docs, THIRD_PARTY_NOTICES.md for what
+      comes from others [icons after Feather and Lucide credited, theme authors credited,
+      Ecma's notice for the shape formulas; mentions of unpublished work reworded]
 
 ## Acceptance test (test slide)
 
 - Imported all 52 objects; 8 of 9 SVGs relinked to the R originals with their PDF copies (the 9th is
-  parked off the slide and has no original on disk; compose_vector_figures.py couldn't match it either)
+  parked off the slide and has no original on disk; Matthew's own figure script couldn't match it either)
 - Text baselines within 0.15 pt of PowerPoint's own export (PowerPoint snaps to a 0.24 pt grid)
 - Arrowheads within 0.02 pt of PowerPoint's; dashes/dots identical
-- All fonts embedded; 0.2% of pixels differ from compose_vector_figures.py's figure3_pdf.pdf
+- All fonts embedded; 0.2% of pixels differ from the figure Matthew's own script makes
   (text now uses real Helvetica instead of the viewer's stand-in); file 2.07 MB vs 2.23 MB
 
 ## Later

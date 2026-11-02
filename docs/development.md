@@ -136,6 +136,15 @@ copy may update itself), `environment.sha256` (what the environment was made fro
 `FIGASSEMBLE_WAIT_PID` (wait for FigAssemble to close), `FIGASSEMBLE_RESULT` (where to write `ok`
 or `failed: why`) and `FIGASSEMBLE_LOCK` (removed at the end).
 
+## Licenses
+
+The code is under the MIT License (`LICENSE`), the documentation and pictures (README, `docs/`,
+the example plots) under CC BY 4.0 (`LICENSE-docs`). Anything that comes from others goes in
+`THIRD_PARTY_NOTICES.md` with its notice, as PowerPoint's shape formulas (Ecma's notice), the
+icons after Feather and Lucide, the theme colours, the palettes and the test decks' python-pptx
+template do. Libraries the installers install aren't part of FigAssemble, but are listed there
+too.
+
 ## Releases and updates
 
 Installed copies update themselves from GitHub releases (`figassemble/updates.py`; how it looks

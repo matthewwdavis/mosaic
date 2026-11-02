@@ -39,7 +39,7 @@ def test_frame_matrix_flip_then_rotate_about_centre():
 
 
 def test_quarter_ellipse_arc_matches_powerpoint_bracket():
-    # Right bracket measured in PowerPoint's own PDF export (Bushy_Top figure 3)
+    # Right bracket measured in PowerPoint's own PDF export (of a manuscript figure)
     w, h = 2.161, 59.645
     stroke = [sp for sp in preset_paths("rightBracket", w, h, {"adj": 0.08333}) if sp.stroke][0].path
     first_curve = next(s for s in stroke.segs if s[0] == "C")

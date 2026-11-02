@@ -241,14 +241,24 @@ pre-export check says so.
   - *Newer documents:* every save records the version that saved it (`meta.saved_by`); an older
     version says so on opening, and a document in a newer format version explains itself
     instead of "unsupported document version".
+- **Licenses, for a public release (2026-11-01):** MIT for the code and CC BY 4.0 for the
+  documentation and pictures (Matthew's choice; Creative Commons advises against its licenses
+  for software). Checked for others' material first: no code from other projects; the icons
+  were drawn for FigAssemble, but compared with Feather, Lucide and Tabler (6,705 icons) four
+  simple ones are identical to Feather's and six follow Feather's or Lucide's designs, which he
+  chose to keep with credit (both are MIT/ISC); the twelve RStudio-favourite themes keep their
+  names, with their authors credited; PowerPoint's shape formulas carry Ecma's notice, whose
+  terms allow implementing the standard in products. All in THIRD_PARTY_NOTICES.md. Mentions of
+  his unpublished manuscript decks and scripts were reworded out of the current files (they
+  remain in the git history). Open: whether UC Davis, as his employer, should be the copyright
+  holder.
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.
-- **Acceptance test for the first version:** rebuild the last slide of
-  `Bushy_Top/Figures/Paper_Figures/genomic_instabilities_figure.pptx` (identical to slide 7
-  of `nature_submission_figures.pptx`, "figure3" in `~/Desktop/test_figure_print`) and match
-  or beat `compose_vector_figures.py`'s output (`figure3_pdf.pdf`, `figure3_svg.pdf`), using
-  PowerPoint's own export (`figure3_powerpoint.pdf`) as the layout reference.
+- **Acceptance test for the first version:** rebuild a slide of one of Matthew's manuscript
+  figure decks and match or beat the figure his own script makes from the same R files (from
+  their PDFs, and from their SVGs), using PowerPoint's own export of the slide as the layout
+  reference.
 
 ## Architecture
 

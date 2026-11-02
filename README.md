@@ -141,6 +141,15 @@ Each form asks for the details that help, such as what you did, what you expecte
 Screenshots help a lot: paste or drag them into the form. The version number is at the bottom of
 **Settings**. You can see existing reports under [Issues](https://github.com/matthewwdavis/FigAssemble/issues).
 
+## License
+
+FigAssemble's code is under the [MIT License](LICENSE). Its documentation and pictures (this
+README, everything in `docs/` and the example plots) are under [CC BY 4.0](LICENSE-docs). A few
+parts come from others and are used under their own notices, listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): PowerPoint's shape formulas (from the Office
+Open XML standard), icons after Feather and Lucide, theme colours after code-editor themes, and
+published colour palettes.
+
 ## For developers
 
 Running from source, tests, the editor self-test, screenshots and installers:
