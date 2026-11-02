@@ -697,7 +697,8 @@ class Updater:
         top = extract(path, os.path.join(updates_dir(), "versions", manifest["version"]))
         staged = {"version": manifest["version"], "tag": release["tag"], "prerelease": release["prerelease"],
                   "notes": release.get("notes") or manifest.get("notes") or "", "published": release.get("published"),
-                  "dir": top, "zip": path, "env_changed": manifest.get("environment_sha256") != _installed_file("environment.sha256"),
+                  "dir": top, "zip": path,
+                  "env_changed": (manifest.get("environment_sha256") or "").lower() != (_installed_file("environment.sha256") or "").lower(),
                   "go_back": go_back, "approved": approved}
         with self.lock:
             self.state["staged"] = staged
@@ -860,6 +861,9 @@ class Updater:
                 proc = subprocess.Popen(["/bin/bash", script], cwd=staged["dir"], env=env, stdin=subprocess.DEVNULL,
                                         stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             else:
+                # Windows PowerShell finds its own modules (a PowerShell 7 that started FigAssemble
+                # would pass on its module path, and then Windows PowerShell's cmdlets don't load)
+                env.pop("PSModulePath", None)
                 cmd = [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/c", script]
                 flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
                 try:   # out of any job FigAssemble runs in, so closing it doesn't end the installer

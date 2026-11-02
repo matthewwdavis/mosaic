@@ -35,10 +35,7 @@ if defined FIGASSEMBLE_WAIT_PID (
   )
 )
 
-rem What the environment is made from, to tell whether an update needs conda
 set "ENV_HASH="
-for /f "delims=" %%H in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-FileHash -Algorithm SHA256 environment.yml).Hash.ToLower()"') do set "ENV_HASH=%%H"
-
 if defined FIGASSEMBLE_PREFIX goto update_env
 
 rem 1. Conda: use the one you have, or install Miniforge
@@ -97,6 +94,11 @@ goto env_done
 rem 2. An update: the environment FigAssemble runs in, brought up to date only if what it needs changed
 :update_env
 set "PREFIX=%FIGASSEMBLE_PREFIX%"
+if not exist "%PREFIX%\python.exe" (
+  set "WHY=FigAssemble's environment isn't in %PREFIX% any more"
+  goto failed
+)
+call :env_hash
 set "OLD_HASH="
 if exist "%PREFIX%\etc\figassemble\environment.sha256" set /p OLD_HASH=<"%PREFIX%\etc\figassemble\environment.sha256"
 if defined ENV_HASH if /i "%OLD_HASH%"=="%ENV_HASH%" (
@@ -123,6 +125,7 @@ if not exist "%PREFIX%\python.exe" (
   goto failed
 )
 if not exist "%PREFIX%\etc\figassemble" mkdir "%PREFIX%\etc\figassemble"
+if not defined ENV_HASH call :env_hash
 if defined ENV_HASH (echo !ENV_HASH!)>"%PREFIX%\etc\figassemble\environment.sha256"
 
 rem 3. FigAssemble itself, copied into the environment (this folder can be deleted afterwards)
@@ -160,6 +163,16 @@ if defined FIGASSEMBLE_UPDATE exit /b 0
 echo.
 pause
 exit /b 0
+
+rem What the environment is made from (environment.yml's SHA-256, from the environment's own
+rem Python), to tell whether an update needs conda; read back from a file, as above
+:env_hash
+set "ENV_HASH="
+set "HASH_FILE=%TEMP%\figassemble-env-hash.txt"
+"%PREFIX%\python.exe" -I -c "import hashlib; print(hashlib.sha256(open('environment.yml', 'rb').read()).hexdigest())" > "%HASH_FILE%"
+if exist "%HASH_FILE%" set /p ENV_HASH=<"%HASH_FILE%"
+del "%HASH_FILE%" >nul 2>nul
+goto :eof
 
 rem Conda: the one on the PATH or in a usual place, or the base installation the environment is in
 :find_conda
