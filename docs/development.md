@@ -59,13 +59,14 @@ python tools/ui_selftest.py plot.svg plot.pdf  # the editor self-test on your ow
 
 The **editor self-test** (`figassemble/ui/js/selftest.js`) drives the real editor with pointer
 and keyboard events: drawing, snapping, guides, align, connectors, dashes, right-click menus,
-export, PowerPoint slides, updates and more, about 370 checks. `tests/test_ui.py` runs it in headless
+export, PowerPoint slides, updates and more, about 400 checks. `tests/test_ui.py` runs it in headless
 Chrome. Besides a plot's SVG and PDF it takes PowerPoint's files from `tests/data/powerpoint`: a
 deck and a copy of it, and what PowerPoint put on the clipboard for a copied slide (`.slides`) and
 shapes (`.gvml`). `tools/ui_selftest.py ... --only slides` runs just the PowerPoint part, and
-`--only links` just linked files updating (a test figure re-saved while placed), and `--only
-updates` the update screens (with the updater saying what each case needs). To run
-it in the app's own window (WebKit on a Mac):
+`--only links` just linked files updating (a test figure re-saved while placed), `--only
+updates` the update screens (with the updater saying what each case needs), and `--only
+selection` selecting several objects and Select Same. To run it in the app's own window (WebKit
+on a Mac):
 
 ```sh
 D=tests/data/powerpoint
@@ -76,17 +77,19 @@ FIGASSEMBLE_HOME=$(mktemp -d) FIGASSEMBLE_SMOKETEST=1 \
 
 It prints `SELFTEST {...}` with every result, then `SMOKE ready errors=[]`. A hidden window's
 timers run slowly, so this takes about seven minutes (it waits up to 15). Without
-`FIGASSEMBLE_SMOKE_QUERY` it checks that
+`FIGASSEMBLE_SMOKE_QUERY` (keep `FIGASSEMBLE_HOME`, so it can't meet your own recovery copies
+and preferences) it checks that
 the editor starts and that an edit switches on the close confirmation. On a Mac it then presses
 every keyboard shortcut with real key events, through AppKit and pywebview as a key press goes
-(`figassemble/app/keycheck.py`), since the self-test's own key presses never leave the page, and
-pastes text, a PDF, a copied file and a screenshot from the real clipboard (put back afterwards):
-`SMOKE keys: 81 of 81 passed`. Then it hands the web view drags from PowerPoint (made up, since a
+(`figassemble/app/keycheck.py`), since the self-test's own key presses never leave the page;
+⌘-clicks with real mouse events; and pastes text, a PDF, a copied file and a screenshot from the
+real clipboard (put back afterwards): `SMOKE keys: 83 of 83 passed`. A dialog open at the start
+(such as the offer to recover unsaved work) is closed first, as Not now closes it. Then it hands the web view drags from PowerPoint (made up, since a
 hidden window can't be dragged onto) through the drag methods `figassemble/app/macdrag.py` wraps,
 and plays a slide drag to the `SlideWatch` that follows PowerPoint's real ones, with a scripted
 drag pasteboard, mouse button and pointer: `SMOKE PowerPoint drags: 9 of 9 passed`. Last, the
 menu bar: its menus, the app's name, the shortcuts, and items run as AppKit would run them:
-`SMOKE menus: 10 of 10 passed`.
+`SMOKE menus: 11 of 11 passed`.
 
 Slides and shapes copied in PowerPoint come from its own clipboard formats, and a slide dragged
 out of it is only a reference to the slide (see the PowerPoint decision in [design.md](design.md)).

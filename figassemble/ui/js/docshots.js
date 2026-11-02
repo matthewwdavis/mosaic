@@ -234,8 +234,10 @@ export async function run(app, params) {
     store.select([a, b]);
     await settle();
     const at = screenOf(fr(b)[0] + fr(b)[2] * 0.3, fr(b)[1] + fr(b)[3] * 0.35);
-    setTimeout(() => {
+    setTimeout(async () => {
       canvas.stage.dispatchEvent(new MouseEvent("contextmenu", { clientX: at[0], clientY: at[1], bubbles: true, cancelable: true, button: 2 }));
+      // (the menu opens once the clipboard has been looked at)
+      for (let t = 0; t < 50 && !document.querySelector(".context-menu"); t++) await new Promise((r) => setTimeout(r, 20));
       [...document.querySelectorAll(".context-menu .menu-item")].find((m) => m.textContent.startsWith("Group"))?.focus();
     }, 200);
     return finish();
@@ -289,6 +291,19 @@ export async function run(app, params) {
     { ...label("lb", "b", 217, 4), attach: { to: b } }, { ...label("lc", "c", 4, 153), attach: { to: c } }), { select: [] });
   await settle();
   if (scene === "labels") return finish();
+  if (scene === "selectsame") {
+    // Label a right-clicked, Select same open beside its menu, on Font size: it would pick all three labels
+    store.select(["la"]);
+    await settle();
+    const fa = store.item("la").frame, at = screenOf(fa[0] + fa[2] / 2, fa[1] + fa[3] / 2);
+    setTimeout(async () => {
+      canvas.stage.dispatchEvent(new MouseEvent("contextmenu", { clientX: at[0], clientY: at[1], bubbles: true, cancelable: true, button: 2 }));
+      for (let t = 0; t < 50 && !document.querySelector(".context-menu"); t++) await wait(20);
+      [...document.querySelectorAll(".context-menu .menu-item")].find((m) => m.textContent.startsWith("Select same"))?.click();
+      [...document.querySelectorAll(".context-menu.submenu .menu-item")].find((m) => m.textContent.startsWith("Font size"))?.focus();
+    }, 200);
+    return finish();
+  }
   if (scene === "attached") {
     // Label b moved a little way off its plot and selected: the plot dashed, the line to the
     // corner it keeps, and its Arrange tab; zoomed in on the corner

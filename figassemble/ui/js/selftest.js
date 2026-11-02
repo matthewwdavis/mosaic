@@ -6,7 +6,8 @@ import { canvas, findDeep } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
-import { itemBBox, itemsBBox, lengthText, lineMidpoints } from "./util.js";
+import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints } from "./util.js";
+import { sameCommand } from "./selectsame.js";
 import { ringsOf, toPageOf } from "./pen.js";
 
 const MMPT = 72 / 25.4;
@@ -223,6 +224,185 @@ async function objectsListChecks(app) {
     store.setPage(store.doc.pages.indexOf(p));
     await app.run("deletePage");
   }
+  store.setPage(startPage);
+  await settle();
+}
+
+// Selecting several objects: ⌘-click (Ctrl-click) adds an object, or takes a selected one away if
+// let go without a drag; a ⌘-drag carries the whole selection without snapping; a ⌘-click that
+// misses keeps the selection, and a ⌘-drag on empty page adds a box's objects. With Option (Alt)
+// a box takes what it touches. Select Same picks what shares a look: from the right-click menu's
+// submenu (by pointer and by keyboard), the Mac menu bar's Edit menu and command search.
+async function selectionChecks(app) {
+  const startPage = store.pageIndex;
+  app.run("addPage");
+  await settle();
+  const page = store.pageIndex;
+  const black = (width) => ({ color: "#000000", width, dash: "solid", cap: "flat", join: "miter", opacity: 1 });
+  const box = (id, geom, x, y, fill, stroke) => ({ id, type: "shape", geom, frame: [x, y, 60, 40], rot: 0, flip_h: false,
+    flip_v: false, stroke, fill: fill ? { color: fill, opacity: 1 } : null });
+  const label = (id, y, t, font, size, color) => ({ id, type: "shape", geom: "rect", textbox: true, frame: [300, y, 80, 20], rot: 0,
+    flip_h: false, flip_v: false, stroke: null, fill: null, text: { paragraphs: [{ align: "l", runs: [{ t, font, size, bold: false,
+      italic: false, color }] }], insets: [0, 0, 0, 0], wrap: false, anchor: "t", autofit: "shape" } });
+  store.update("Objects to select", (doc) => doc.pages[page].items.push(
+    box("sA", "rect", 40, 40, "#e69f00", black(1)), box("sB", "rect", 140, 40, "#E69F00", black(1)),
+    box("sC", "rect", 260, 40, "#56b4e9", black(2)), box("sE", "ellipse", 400, 330, "#e69f00", null),
+    { id: "sL", type: "line", points: [[40, 160], [200, 260]], arrow_start: null, arrow_end: null, stroke: black(1) },
+    label("sT", 160, "Red label", "Helvetica", 7, "#cc0000"), label("sU", 200, "Small label", "Helvetica", 6, "#000000"),
+    label("sV", 240, "Arial label", "Arial", 7, "#000000")), { select: [] });
+  canvas.fit();
+  await settle();
+  const add = isMac ? { metaKey: true } : { ctrlKey: true };   // ⌘ on a Mac, where Control-click is a right-click
+  const sel = () => store.selection.join();
+  const clickAt = (pt, opts = {}) => {
+    pointer("pointerdown", screenOf(...pt), opts);
+    pointer("pointerup", screenOf(...pt), { ...opts, buttons: 0 });
+  };
+  const mid = (id) => { const f = store.item(id).frame; return [f[0] + f[2] / 2, f[1] + f[3] / 2]; };
+  const left = (id) => store.item(id).frame[0];
+  const empty = [220, 120];
+
+  clickAt(mid("sA"));
+  clickAt(mid("sB"), add);
+  check(sel() === "sA,sB", "⌘-click (Ctrl-click) adds an object to the selection", sel());
+  clickAt(mid("sA"), add);
+  check(sel() === "sB", "⌘-click on a selected object takes it away", sel());
+  // A guide 1 pt beside where they land catches a plain drag, not a ⌘-drag
+  const dx = 30.3, [a0, b0] = [left("sA"), left("sB")];
+  store.update("A guide", (doc) => { doc.pages[page].guides = { x: [a0 + dx + 1], y: [] }; });
+  await settle();
+  await drag(mid("sA"), [mid("sA")[0] + dx, mid("sA")[1]], add);
+  check(sel() === "sB,sA" && near(left("sA"), a0 + dx, 0.01) && near(left("sB"), b0 + dx, 0.01),
+    "⌘-drag on another object adds it and moves them together, without snapping", `${sel()} ${left("sA")} ${left("sB")}`);
+  await app.run("undo");
+  await drag(mid("sA"), [mid("sA")[0] + dx, mid("sA")[1]]);
+  check(sel() === "sB,sA" && near(left("sA"), a0 + dx + 1, 0.01) && near(left("sB"), b0 + dx + 1, 0.01),
+    "the same drag without ⌘ snaps to the guide", `${sel()} ${left("sA")} ${left("sB")}`);
+  await app.run("undo");
+  store.update("No guide", (doc) => { doc.pages[page].guides = { x: [], y: [] }; });
+  await drag(mid("sA"), [mid("sA")[0] + 20, mid("sA")[1]], add);
+  check(sel() === "sB,sA" && near(left("sA"), a0 + 20, 0.01) && near(left("sB"), b0 + 20, 0.01),
+    "⌘-drag on a selected object moves the selection, and keeps it selected", `${sel()} ${left("sA")} ${left("sB")}`);
+  await app.run("undo");
+  clickAt(empty, add);
+  check(sel() === "sB,sA", "a ⌘-click that misses keeps the selection", sel());
+  clickAt(empty);
+  check(sel() === "", "a plain click on empty page clears it", sel());
+  clickAt(mid("sA"));
+  await drag([250, 30], [330, 90], add);
+  check(sel() === "sA,sC", "⌘-drag on empty page adds what the box holds", sel());
+
+  // With Option (Alt), a box takes what it touches: a slanted line only where the box crosses it
+  const boxed = async (from, to, opts = {}) => {
+    clickAt(empty);
+    await drag(from, to, opts);
+    return sel();
+  };
+  check(await boxed([90, 30], [170, 90]) === "", "a box takes only what's wholly inside it", sel());
+  clickAt(empty);
+  pointer("pointerdown", screenOf(90, 30), { altKey: true });
+  pointer("pointermove", screenOf(170, 90), { altKey: true });
+  const solid = !!document.querySelector(".marquee.touch");
+  pointer("pointerup", screenOf(170, 90), { altKey: true, buttons: 0 });
+  await settle();
+  check(solid && sel() === "sA,sB", "with Option (Alt) it takes what it touches, its edge drawn solid meanwhile", `${solid} ${sel()}`);
+  check(await boxed([170, 165], [195, 185], { altKey: true }) === "", "a box beside a slanted line, within its bounds, doesn't touch it", sel());
+  check(await boxed([110, 190], [130, 215], { altKey: true }) === "sL", "a box across the line does", sel());
+
+  // Select Same
+  const same = async (ids, what) => { store.select(ids); await app.run(sameCommand(what)); return sel(); };
+  check(await same(["sA"], "fill") === "sA,sB,sE", "Select same fill colour: the shapes filled the same", sel());
+  check(await same(["sA", "sC"], "fill") === "sA,sB,sC,sE", "with two selected, the fills of either", sel());
+  check(await same(["sA"], "line") === "sA,sB,sC,sL", "line colour: shapes and lines in black", sel());
+  check(await same(["sA"], "width") === "sA,sB,sL", "line width: the 1 pt ones", sel());
+  check(await same(["sA"], "fillLine") === "sA,sB", "fill and line: both the same", sel());
+  check(await same(["sT"], "font") === "sT,sU", "font: the texts in Helvetica", sel());
+  check(await same(["sT"], "size") === "sT,sV", "font size: the 7 pt texts", sel());
+  check(await same(["sU"], "textColour") === "sU,sV", "text colour: the black texts", sel());
+  const kinds = [await same(["sA"], "kind"), await same(["sT"], "kind"), await same(["sL"], "kind")];
+  check(kinds.join(" ") === "sA,sB,sC sT,sU,sV sL", "kind of object: rectangles, text boxes, lines", kinds.join(" "));
+  const noText = await same(["sL"], "font");
+  await wait(100);
+  check(noText === "sL" && document.getElementById("live").textContent === "Nothing selected has text",
+    "with nothing selected that has it, the selection stays and it says so", `${noText} ${document.getElementById("live").textContent}`);
+  store.update("Lock and hide", (doc) => { findItem(doc, "sB").locked = true; findItem(doc, "sE").hidden = true; });
+  check(await same(["sA"], "fill") === "sA", "locked and hidden objects are left out", sel());
+  store.update("Unlock and show", (doc) => { delete findItem(doc, "sB").locked; delete findItem(doc, "sE").hidden; });
+  store.select(["sB", "sC"]);
+  await app.run("group");
+  const grp = store.selection[0];
+  const outside = await same(["sA"], "fill");
+  canvas.enterGroup(grp);
+  const inside = await same(["sB"], "kind");
+  store.exitGroup();
+  await app.run("undo");
+  check(outside === "sA,sE" && inside === "sB,sC", "a group's parts are compared only while working inside it", `${outside} | ${inside}`);
+
+  // From the right-click menu: Select same ▸ opens beside it
+  const menuEl = () => document.querySelector(".context-menu:not(.submenu)"), subEl = () => document.querySelector(".context-menu.submenu");
+  const itemIn = (m, text) => [...(m?.querySelectorAll(".menu-item") || [])].find((b) => b.querySelector(".menu-label").textContent === text);
+  const menuKey = (k) => document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+  const hover = (el) => el?.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, pointerType: "mouse" }));
+  store.select([]);
+  const at = screenOf(...mid("sA"));
+  pointer("pointerdown", at, { button: 2, buttons: 2 });
+  pointer("pointerup", at, { button: 2, buttons: 0 });
+  canvas.stage.dispatchEvent(new MouseEvent("contextmenu", { clientX: at[0], clientY: at[1], bubbles: true, cancelable: true, button: 2 }));
+  await until(() => menuEl());
+  const sameLine = itemIn(menuEl(), "Select same");
+  check(sameLine?.getAttribute("aria-haspopup") === "menu" && sameLine.querySelector(".submenu-arrow"), "an object's menu has Select same ▸");
+  hover(sameLine);
+  const sr = subEl()?.getBoundingClientRect(), mr = menuEl()?.getBoundingClientRect();
+  const beside = !!sr && (Math.abs(sr.left - mr.right) < 6 || Math.abs(sr.right - mr.left) < 6) && sr.top >= 0 && sr.bottom <= window.innerHeight;
+  const names = [...(subEl()?.querySelectorAll(".menu-label") || [])].map((l) => l.textContent).join("|");
+  check(sameLine?.getAttribute("aria-expanded") === "true" && beside
+    && names === "Fill colour|Line colour|Line width|Fill and line|Font|Font size|Text colour|Kind of object",
+  "pointing at it opens its submenu beside the menu", `${beside} ${names}`);
+  hover(itemIn(menuEl(), "Copy style"));
+  await until(() => !subEl(), 1000);
+  check(!subEl() && sameLine?.getAttribute("aria-expanded") === "false", "pointing at another line closes it after a moment");
+  hover(sameLine);
+  menuKey("ArrowDown");
+  check(!subEl() && document.activeElement === itemIn(menuEl(), "Copy style"), "and so does moving on with the arrow keys");
+  sameLine?.click();
+  check(subEl() && document.activeElement === itemIn(subEl(), "Fill colour"), "clicking it opens it, ready for the keyboard");
+  itemIn(subEl(), "Fill colour")?.click();
+  check(!menuEl() && !subEl() && sel() === "sA,sB,sE", "choosing Fill colour selects the shapes filled the same and closes the menus", sel());
+  store.select(["sT"]);
+  key("F10", { shiftKey: true });
+  await until(() => menuEl());
+  menuKey("s");
+  const onSame = document.activeElement === itemIn(menuEl(), "Select same");
+  menuKey("ArrowRight");
+  const inSub = document.activeElement === itemIn(subEl(), "Fill colour");
+  menuKey("ArrowLeft");
+  const leftOut = !subEl() && document.activeElement === itemIn(menuEl(), "Select same");
+  menuKey("ArrowRight");
+  menuKey("End");
+  const last = document.activeElement === itemIn(subEl(), "Kind of object");
+  menuKey("Escape");
+  const escaped = !subEl() && !!menuEl() && document.activeElement === itemIn(menuEl(), "Select same");
+  menuKey("Enter");
+  menuKey("End");
+  menuKey("Enter");
+  check(onSame && inSub && leftOut && last && escaped && !menuEl() && sel() === "sT,sU,sV" && document.activeElement === canvas.stage,
+    "by keyboard: S, then → opens it, ← and Escape come back, Enter chooses", `${onSame} ${inSub} ${leftOut} ${last} ${escaped} ${sel()}`);
+  // The Mac menu bar's Edit menu, and command search
+  const editSame = app.menuSpec().find((m) => m.title === "Edit").items.find((it) => it.title === "Select Same");
+  check(editSame?.items.map((it) => it.title).join("|") === "Fill Colour|Line Colour|Line Width|Fill and Line|Font|Font Size|Text Colour|Kind of Object"
+    && editSame.items.every((it) => app.commands[it.action]), "Edit ▸ Select Same lists them in the Mac menu bar",
+  editSame?.items.map((it) => it.title).join("|"));
+  app.run("commandSearch");
+  const search = document.querySelector("dialog.command-search .cs-input");
+  search.value = "select same";
+  search.dispatchEvent(new Event("input", { bubbles: true }));
+  const found = [...document.querySelectorAll("dialog.command-search .cs-item span:first-child")].map((s) => s.textContent);
+  document.querySelector("dialog.command-search")?.close();
+  check(found.length === 8 && found.includes("Select same fill colour"), "command search finds them", found.join("|"));
+
+  // Leave as found
+  store.setPage(page);
+  await app.run("deletePage");
   store.setPage(startPage);
   await settle();
 }
@@ -695,6 +875,7 @@ export async function run(app, params) {
     if (params.get("only") === "slides") { await slidesChecks(app, ppt); throw ONLY; }
     if (params.get("only") === "links") { await linkedFileChecks(app); throw ONLY; }
     if (params.get("only") === "updates") { await updateChecks(app); throw ONLY; }
+    if (params.get("only") === "selection") { await selectionChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -1897,6 +2078,7 @@ export async function run(app, params) {
     check(store.items().some((it) => it.id === "mkOval") && !store.items().some((it) => it.id === clipGroup.id)
       && canvas.els.get("mkOval")?.g.style.display !== "none", "Release separates the shape and what it clipped", store.selection.join());
     await objectsListChecks(app);
+    await selectionChecks(app);
     // (on documents of their own: this one comes back as it was, with its own recovery copies, and
     // theirs go, so the recovery offer later lists only its own test copies)
     const keepDoc = JSON.parse(JSON.stringify(store.doc)), keepPage = store.pageIndex, keepKey = store.autosaveKey;
@@ -2502,6 +2684,7 @@ export async function run(app, params) {
     const cnAt = (k) => store.item(cn.id).points[k === 0 ? 0 : store.item(cn.id).points.length - 1];
     check(cn?.start_link?.item === "cnR" && cn.start_link.site === "m1" && near(cnAt(0)[0], 180, 1e-6) && near(cnAt(0)[1], 125, 1e-6),
       "an arrow drawn from a rectangle's side attaches to its middle", JSON.stringify(cn?.start_link) + JSON.stringify(cn?.points));
+    store.select([]);   // (a ⌘-press adds to the selection, and the arrow would move too)
     await drag([140, 112], [160, 122], { metaKey: true, ctrlKey: true });   // move the rectangle
     check(near(cnAt(0)[0], 200, 1e-6) && near(cnAt(0)[1], 135, 1e-6), "the attached end follows when the rectangle moves",
       JSON.stringify(cnAt(0)));
@@ -2524,6 +2707,7 @@ export async function run(app, params) {
     check(markers >= 8 && active, "connection points show while an end is dragged", `${markers} ${active}`);
     check(store.item(cn.id).end_link?.item === "cnP" && store.item(cn.id).end_link.site === "c0" && near(cnAt(1)[0], pf0[0], 1e-6),
       "dropping the end on a picture's corner attaches it there", JSON.stringify(store.item(cn.id).end_link));
+    store.select([]);
     await drag([pf0[0] + 30, pf0[1] + 30], [pf0[0] + 60, pf0[1] + 50], { metaKey: true, ctrlKey: true });   // move the picture
     check(near(cnAt(1)[0], store.item("cnP").frame[0], 1e-6) && near(cnAt(1)[1], store.item("cnP").frame[1], 1e-6),
       "the end follows the picture", JSON.stringify(cnAt(1)));

@@ -20,6 +20,7 @@ import { rulers } from "./rulers.js";
 import { splitters } from "./splitters.js";
 import { store } from "./store.js";
 import { applyStyle, styleOf } from "./styles.js";
+import { SAME, sameAs, sameCommand } from "./selectsame.js";
 import { barFrame, niceLength, pageScale, pxPerPt, scaleText } from "./scalebar.js";
 import { stackLevels } from "./brackets.js";
 import { colourHolders, swatchById } from "./swatches.js";
@@ -70,7 +71,8 @@ const app = {
         c("Export…", "export"), c("Check Before Export…", "preflight"), c("Figure Report…", "figureReport")] },
       { title: "Edit", items: [c("Undo", "undo"), c("Redo", "redo"), "-",
         c("Cut", "cut"), c("Copy", "copy"), c("Paste", "paste"), c("Paste as Picture", "pastePicture"),
-        c("Duplicate", "duplicate"), c("Transform Again", "transformAgain"), c("Delete", "delete"), c("Select All", "selectAll"), "-",
+        c("Duplicate", "duplicate"), c("Transform Again", "transformAgain"), c("Delete", "delete"), c("Select All", "selectAll"),
+        { title: "Select Same", items: SAME.map(([what, name]) => c(name.replace(/\b(?!and\b|of\b)\w/g, (ch) => ch.toUpperCase()), sameCommand(what))) }, "-",
         c("Copy Style", "copyStyle"), c("Paste Style", "pasteStyle")] },
       { title: "View", items: [c("Zoom In", "zoomIn"), c("Zoom Out", "zoomOut"), c("True Size", "zoom100"),
         c("Fit Page in Window", "zoomFit"), c("Centre Page", "centrePage"), "-",
@@ -1314,7 +1316,8 @@ const app = {
   // One menu line for a command: its label and shortcut
   menuEntry(name, opts = {}) {
     const c = this.commands[name];
-    return { label: c.label, keys: c.keys, run: () => this.run(name), ...opts };
+    // (what follows a colon describes the command for command search: "Grid layout: put the…")
+    return { label: c.label.split(": ")[0], keys: c.keys, run: () => this.run(name), ...opts };
   },
   // What's on the clipboard, for the menus' Paste lines ({} if it can't be told)
   async clipboardKinds() {
@@ -1337,6 +1340,7 @@ const app = {
     return [
       c("cut"), c("copy"), ...this.pasteEntries(clip, at), c("duplicate"), c("delete"),
       "-",
+      { label: "Select same", disabled: !sel.length, items: SAME.map(([what, name]) => c(sameCommand(what), { label: name })) },
       c("copyStyle", { disabled: !sel.length }), c("pasteStyle", { disabled: !this.styleClipboard || locked }),
       "-",
       c("group", { disabled: sel.length < 2 }), c("ungroup", { disabled: !sel.some((it) => it.type === "group") }),
@@ -1598,6 +1602,17 @@ const app = {
     store.update("Duplicate", (doc) => store.container(doc).push(...items), { select: items.map((i) => i.id) });
     this.lastDuplicate = { originals: ids, copies: store.selection.slice() };
     announce(`Duplicated ${items.length} object${items.length === 1 ? "" : "s"}`);
+  },
+  // Select Same (selectsame.js): the objects at the working level sharing that look with one of
+  // the selected ones
+  selectSame(what) {
+    const [, name, noun] = SAME.find(([w]) => w === what);
+    const sel = store.selected();
+    if (!sel.length) { announce("Select an object first"); return; }
+    const ids = sameAs(store.scopeItems(), sel, what);
+    if (!ids) { announce(noun === "text" ? "Nothing selected has text" : `Nothing selected has a ${noun}`); return; }
+    store.select(ids);
+    announce(`${ids.length} object${ids.length === 1 ? "" : "s"} ${what === "kind" ? "of the same kind" : `with the same ${name.toLowerCase()}`} selected`);
   },
   // Styles: Copy style (⌘⇧C) takes the selected object's look; Paste style (⌘⇧V) puts it on
   // what's selected; the Format Painter takes it and paints it on the next object clicked
@@ -1862,6 +1877,7 @@ app.commands = {
     key("d", { shift: true }), "Again"),
   delete: cmd("Delete", () => app.deleteSelection(), "Delete", (e) => plain(e) && (e.key === "Delete" || e.key === "Backspace"), "Delete"),
   selectAll: cmd("Select all", () => { store.select(store.scopeItems().filter((i) => !i.locked).map((i) => i.id)); announce(`${store.selection.length} objects selected`); }, `${M}A`, key("a")),
+  ...Object.fromEntries(SAME.map(([what, name]) => [sameCommand(what), cmd(`Select same ${name.toLowerCase()}`, () => app.selectSame(what))])),
   group: cmd("Group", () => app.group(), `${M}G`, key("g"), "Group"),
   ungroup: cmd("Ungroup", () => app.ungroup(), `${M}${S}G`, key("g", { shift: true }), "Ungroup"),
   bringToFront: cmd("Bring to front", () => app.reorder("front"), `${M}${S}]`, (e) => mod(e) && e.shiftKey && (e.key === "]" || e.key === "}"), "To front"),

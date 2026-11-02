@@ -74,7 +74,8 @@ object, so you can see the object's own edges while you move and resize it.
 - **File:** New, Open…, Open Recent, Close, Save, Save As…, Export…, Check Before Export…, Figure
   Report….
 - **Edit:** Undo, Redo, Cut, Copy, Paste, Paste as Picture, Duplicate, Transform Again, Delete,
-  Select All, Copy Style, Paste Style. While you type in a box, they work on its text.
+  Select All, Select Same, Copy Style, Paste Style. While you type in a box, they work on its
+  text.
 - **View:** zoom, Fit Page and Centre Page; Rulers, Grid, Guides and Snap, ticked when on; the
   colour-vision preview; full screen.
 - **Window** and **Help:** Minimize and Zoom; keyboard shortcuts and help, Search Commands…, the
@@ -469,8 +470,21 @@ PowerPoint and Visio:
 
 ## Moving, sizing and arranging
 
-- **Select:** click; Shift-click adds or removes; drag on empty space to select everything
-  inside a box. Tab and Shift+Tab step through objects.
+- **Select:** click. Tab and Shift+Tab step through objects.
+- **Select several:** ⌘-click (Ctrl-click) or Shift-click another object to add it, or one
+  that's selected to take it away. ⌘-drag (Ctrl-drag) an object to add it and move the whole
+  selection, without snapping. Or drag on empty page: the box selects everything wholly inside
+  it. Hold ⌘ or Shift to add to what's selected, and Option (Alt) to take everything the box
+  touches; its edge turns solid while Option is held.
+- **Select same:** right-click an object and point at **Select same** (on a Mac, also
+  Edit ▸ Select Same) to select every object with the same fill colour, line colour, line
+  width, fill and line, font, font size, text colour or kind of object, such as every text box,
+  every rectangle, every arrow or every copy of a symbol. With several objects selected, it
+  matches any of them; an object with no fill matches others with no fill. It looks at the
+  page's objects, or the parts of the group you're working inside, and leaves out locked and
+  hidden objects.
+
+  ![Label a right-clicked, with Select same open beside the menu, on Font size](images/selectsame.png)
 - **Move:** drag, or arrow keys: one step per press, 10 steps with Shift, a tenth of a step with
   Option (Alt). The step follows the zoom: a round amount in your units (0.01, 0.02, 0.05, 0.1…)
   that's smaller when you zoom in and bigger when you zoom out, so a press moves about the same
@@ -630,8 +644,8 @@ cell, a tree or an instrument drawn once and placed wherever it's needed.
 Right-click (or Control-click on a Mac) for a menu of what you can do, with each command's
 shortcut beside it:
 
-- **An object:** Cut, Copy, Paste, Duplicate, Delete; Copy style, Paste style; Group, Ungroup;
-  the four Order commands; Lock position, Hide. A picture adds Crop, Replace and Show the
+- **An object:** Cut, Copy, Paste, Duplicate, Delete; Select same, Copy style, Paste style;
+  Group, Ungroup, Grid layout; the four Order commands; Lock position, Hide. A picture adds Crop, Replace and Show the
   picture's file; a text box or shape adds Edit text; a line attached to objects adds Detach
   the ends; a group adds Edit inside the group.
   - Right-clicking an object that isn't selected selects it.
@@ -648,7 +662,9 @@ shortcut beside it:
 
 From the keyboard, **Shift+F10** (or the menu key on a Windows keyboard) opens the menu for
 whatever has the focus: the selection, the page, or the current page or object in a list. Arrow
-keys move through it, a letter jumps to a command, Enter chooses, and Escape closes it.
+keys move through it, a letter jumps to a command, Enter chooses, and Escape closes it. On a
+line with an arrow, such as Select same, → or Enter opens its commands beside the menu, and ← or
+Escape goes back.
 
 ## Align and distribute
 
@@ -976,6 +992,9 @@ Export still work, saving what you've typed.
 **On the page:**
 
 - Tab / Shift+Tab: select the next or previous object.
+- ⌘-click (Ctrl-click) or Shift-click: add an object to the selection, or take it away.
+- Drag on empty page: select what's inside the box; with ⌘ or Shift, added to the selection; with
+  Option (Alt), everything the box touches.
 - Arrow keys: move by one step, which follows the zoom (the status bar shows it); Shift: 10 steps;
   Option (Alt): a tenth of a step. Option+Shift+arrows: resize by one step.
 - Enter: edit text, or crop a picture. Escape: finish, deselect, or cancel a drag.

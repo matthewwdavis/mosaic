@@ -308,6 +308,14 @@ def smoke(window) -> dict:
         && window.FA.store.selection.length === 0; })()"""))
     results["Edit > Select All selects the page's objects"] = objects
     results["and a text field's text while one is typed in"] = text
+    # Edit > Select Same > Fill Colour (a submenu): the shapes filled like the selected one
+    window.evaluate_js("""(() => { const s = window.FA.store;
+      s.update("Another colour", (d) => d.pages[s.pageIndex].items.push({ id: "menuC", type: "shape", geom: "rect",
+        frame: [70, 10, 20, 20], rot: 0, stroke: null, fill: { color: "#993366", opacity: 1 } }), { select: ["menuA"] });
+      document.activeElement?.blur(); return true; })()""")
+    on_main(lambda: choose(["Edit", "Select Same", "Fill Colour"]))
+    results["Edit > Select Same > Fill Colour selects the shapes filled the same"] = wait(
+        lambda: window.evaluate_js("window.FA.store.selection.join() === 'menuA,menuB'"))
     # FigAssemble > Check for Updates…: says what there is (from a checkout, that it doesn't update itself)
     on_main(lambda: choose([APP_NAME, "Check for Updates…"]))
     said = wait(lambda: window.evaluate_js(

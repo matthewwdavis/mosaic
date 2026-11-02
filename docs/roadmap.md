@@ -118,6 +118,12 @@ Matthew's choices are in brackets.
 - [x] Ready for a public license: MIT code, CC BY 4.0 docs, THIRD_PARTY_NOTICES.md for what
       comes from others [icons after Feather and Lucide credited, theme authors credited,
       Ecma's notice for the shape formulas; mentions of unpublished work reworded]
+- [x] ⌘-click (Ctrl-click) adds objects to the selection on the page [as in Keynote, PowerPoint
+      and the Finder: a ⌘-drag still moves without snapping, now the whole selection; a ⌘-click
+      on a selected object takes it away only if let go without a drag]; also a box with Option
+      held takes what it touches, and Select Same (fill colour, line colour, line width, fill and
+      line, font, font size, text colour, kind of object) [chosen over Shift-click runs and
+      Shift+arrows in the Objects list]
 
 ## Acceptance test (test slide)
 

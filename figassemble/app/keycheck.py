@@ -1,4 +1,4 @@
-"""Real key presses in the app window on a Mac, for the smoke test.
+"""Real key presses (and ⌘-clicks) in the app window on a Mac, for the smoke test.
 
 The editor self-test fakes key presses inside the page, so it can't tell whether a real key
 press gets to the editor through AppKit, WebKit and pywebview (which handles some ⌘ keys itself
@@ -118,6 +118,39 @@ def press(win, spec: str) -> None:
             win.sendEvent_(down)
         win.sendEvent_(event(AppKit.NSEventTypeKeyUp))
     on_main(deliver)
+
+
+def click(win, at, flags: int = 0) -> None:
+    """A real left click at a point in the web view (CSS px from its top left, as the page
+    measures), handed to the view under it as AppKit hands a click in a window in front (a hidden
+    window would take it as a click to bring it to the front)."""
+    import AppKit
+    import Foundation
+
+    def deliver():
+        loc = Foundation.NSMakePoint(at[0], win.contentView().frame().size.height - at[1])   # (from the bottom)
+        view = win.contentView().hitTest_(loc)
+        for kind, pressure in ((AppKit.NSEventTypeLeftMouseDown, 1.0), (AppKit.NSEventTypeLeftMouseUp, 0.0)):
+            event = AppKit.NSEvent.mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure_(
+                kind, loc, flags, AppKit.NSProcessInfo.processInfo().systemUptime(), win.windowNumber(), None, 0, 1, pressure)
+            (view.mouseDown_ if kind == AppKit.NSEventTypeLeftMouseDown else view.mouseUp_)(event)
+        return str(view.className())
+    return on_main(deliver)
+
+
+# Two shapes to click at the page's top left, the first selected: where they are in the web view
+CLICK_JS = """JSON.stringify((() => {
+  const s = window.FA.store, c = window.FA.canvas, shape = (id, x) => ({ id, type: "shape", geom: "rect",
+    frame: [x, 12, 40, 30], rot: 0, stroke: null, fill: { color: "#336699", opacity: 1 } });
+  c.commitEdit();
+  c.fit();
+  s.update("Shapes to click", (d) => d.pages[s.pageIndex].items.push(shape("clickA", 12), shape("clickB", 70)), { select: ["clickA"] });
+  const r = c.stage.getBoundingClientRect();
+  return ["clickA", "clickB"].map((id) => {
+    const f = s.item(id).frame, [x, y] = c.toScreen(f[0] + f[2] / 2, f[1] + f[3] / 2);
+    return [x + r.left, y + r.top];
+  });
+})())"""
 
 
 def save_clipboard() -> list:
@@ -280,6 +313,10 @@ def moved(before: dict, after: dict, dx: float) -> bool:
 def run(window, ns_window) -> dict:
     """Press every step's keys in the editor; returns {"passed", "total", "failed": [...]}."""
     window.evaluate_js(SETUP_JS)
+    # A dialog open at the start, such as the offer to recover unsaved work from earlier sessions,
+    # is closed as Not now closes it: Return would choose Recover, and this window's edits would
+    # then be saved over that work
+    window.evaluate_js("document.querySelectorAll('dialog[open]').forEach((d) => d.close()); true")
     state = lambda: json.loads(window.evaluate_js(STATE_JS))
     clipboard = save_clipboard()
     passed, failed = 0, []
@@ -316,6 +353,22 @@ def run(window, ns_window) -> dict:
                 failed.append({"keys": f"{keys} in a text field", "wanted": "save" if saves else "left to the field",
                                "ran": ran, "keydown": keydown, "field focused": after["field"]})
         window.evaluate_js("document.activeElement.blur(); true")
+        # Real clicks with ⌘ held: the first adds the other shape to the selection, the second
+        # takes it away again
+        import AppKit
+        _, b = json.loads(window.evaluate_js(CLICK_JS))
+        selection = lambda: window.evaluate_js("window.FA.store.selection.join()")   # noqa: E731
+        for want, what in (("clickA,clickB", "a ⌘-click adds the object to the selection"),
+                           ("clickA", "a ⌘-click on a selected object takes it away")):
+            click(ns_window, b, AppKit.NSEventModifierFlagCommand)
+            for _ in range(40):
+                time.sleep(0.05)
+                if selection() == want:
+                    break
+            got = selection()
+            passed += got == want
+            if got != want:
+                failed.append({"keys": "cmd+click", "wanted": what, "ran": [], "keydown": [], "selection": got})
         # ⌘V with what other apps copy
         import tempfile
         with tempfile.TemporaryDirectory() as folder:
@@ -336,4 +389,4 @@ def run(window, ns_window) -> dict:
                     failed.append({"keys": f"cmd+v with {what}", "wanted": what, "ran": [], "keydown": [], "pasted": new})
     finally:
         restore_clipboard(clipboard)
-    return {"passed": passed, "total": len(STEPS) + len(FIELD_STEPS) + len(samples), "failed": failed}
+    return {"passed": passed, "total": len(STEPS) + len(FIELD_STEPS) + 2 + len(samples), "failed": failed}

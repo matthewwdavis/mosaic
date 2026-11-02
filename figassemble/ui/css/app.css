@@ -135,6 +135,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .context-menu .menu-item:focus kbd { color: inherit; }
 .context-menu .menu-item[aria-disabled="true"] { color: var(--muted); opacity: 0.6; cursor: default; }
 .context-menu .menu-item[aria-disabled="true"]:focus { background: var(--hover); color: var(--muted); }
+/* A line that opens a submenu beside the menu, and stays lit while it's open */
+.context-menu .submenu-arrow { width: 1rem; height: 1rem; margin-left: 1.5rem; color: var(--muted); }
+.context-menu .menu-item:focus .submenu-arrow { color: inherit; }
+.context-menu .menu-item[aria-expanded="true"]:not(:focus) { background: var(--hover); }
 .shape-hint { position: sticky; bottom: 0; margin: 0.35rem -0.6rem 0; padding: 0.35rem 0.6rem; min-height: 2rem;
   background: var(--panel); border-top: 1px solid var(--line); color: var(--muted); font-size: 0.85rem; }
 
@@ -338,6 +342,8 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .guides line.active { stroke-width: 1.5; }
 .guides line.removing { stroke-dasharray: 4 3; opacity: 0.5; }
 .marquee { fill: rgba(10, 99, 214, 0.08); stroke: var(--sel); stroke-width: 1; stroke-dasharray: 4 3; }
+/* With Option held the box takes what it touches: a solid edge */
+.marquee.touch { fill: rgba(10, 99, 214, 0.14); stroke-dasharray: none; }
 .draw-preview { fill: none; stroke: var(--sel); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .text-editor { position: absolute; z-index: 5; outline: 2px dashed var(--sel); background: rgba(255, 255, 255, 0.92);
   color: #000; font-family: Helvetica, Arial, sans-serif; line-height: 1.2117; cursor: text; overflow: visible;

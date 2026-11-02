@@ -143,6 +143,18 @@ pre-export check says so.
   dragging (a copy of the page put back for each new place, one undo step on letting go). Rows go
   into and out of groups and onto pages in the Pages list; a clipping mask's shape stays its top
   part. The Pages list drags the same way (layers.js, listdrag.js).
+- **Selecting several (2026-11-02):** ⌘-click (Ctrl-click on Windows, where Control-click isn't a
+  right-click) adds an object at once, so ⌘ held from the press of a drag moves the whole
+  selection unsnapped, as in Keynote, PowerPoint and the Finder (Matthew's choice, over a ⌘-drag
+  that moves the pressed object alone); on a selected object it takes it away only on letting go
+  without a drag. Shift-click still adds or takes away at once. A ⌘- or Shift-press on empty page
+  keeps the selection (a missed ⌘-click loses nothing) and its box adds. With Option held as the
+  box is let go, it takes what it touches where a click would pick it: a line within half its
+  width, an area fill's area, anything else its frame. **Select Same** (selectsame.js, his
+  choice of extras) matches any selected object's fill colour, line colour or width, fill and line
+  (with dash), the fonts, sizes or colours of its text runs, or its kind (a preset's name, text
+  box, line or arrow, picture, equation, zoom inset, one symbol's copies); "none" matches "none".
+  It keeps to the working level like every selection, so a group's parts count only inside it.
 - **PowerPoint slides in (2026-11-01):** Open goes through a slide picker (a picture of each
   slide, drawn by the PDF export at 320 px; one or several chosen), and a deck imported once is
   kept for the picker and the slides then chosen. Where slides dropped on the window go depends

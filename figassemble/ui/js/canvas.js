@@ -13,7 +13,7 @@ import { labelRoom } from "./brackets.js";
 import { applyTextStyle } from "./textstyles.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, frameMatrix, h, hitItem, invert, isMac, itemBBox, itemLabel,
-  itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch, rotate, s,
+  itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch, pointInPoly, rotate, s,
   shapeCatalog, svgMatrix, translate, uid,
 } from "./util.js";
 
@@ -39,6 +39,24 @@ export const COLOUR_VISION = {
 // The drawing tools that make preset shapes, and which preset each draws
 const TOOL_GEOMS = { rect: "rect", roundrect: "roundRect", ellipse: "ellipse", triangle: "triangle", arc: "arc",
   bracket: "rightBracket" };
+// The key held to add objects to the selection a click at a time: ⌘ on a Mac (where Control-click
+// is a right-click), Ctrl elsewhere
+const addKey = (e) => e.metaKey || (e.ctrlKey && !isMac);
+// Whether any of the stretch from a to b lies in a box [x0, y0, x1, y1] (Liang-Barsky clipping)
+function segInBox([ax, ay], [bx, by], [x0, y0, x1, y1]) {
+  const dx = bx - ax, dy = by - ay;
+  let t0 = 0, t1 = 1;
+  for (const [p, q] of [[-dx, ax - x0], [dx, x1 - ax], [-dy, ay - y0], [dy, y1 - ay]]) {
+    if (p === 0) {
+      if (q < 0) return false;
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) { if (r > t1) return false; t0 = Math.max(t0, r); }
+    else { if (r < t0) return false; t1 = Math.min(t1, r); }
+  }
+  return true;
+}
 
 export const canvas = {
   zoom: 1,
@@ -474,7 +492,7 @@ export const canvas = {
     if (this.op?.type === "guide") this.drawGuideLabel(o);
     if (this.op?.type === "marquee") {
       const [ax, ay] = this.op.start, [bx, by] = this.op.cur;
-      o.append(s("rect", { class: "marquee", x: Math.min(ax, bx), y: Math.min(ay, by),
+      o.append(s("rect", { class: this.op.touch ? "marquee touch" : "marquee", x: Math.min(ax, bx), y: Math.min(ay, by),
         width: Math.abs(bx - ax), height: Math.abs(by - ay) }));
     }
     if (this.editing) return;
@@ -555,6 +573,7 @@ export const canvas = {
   setMeasureKey(down) {
     if (this.altDown === down) return;
     this.altDown = down;
+    if (this.op?.type === "marquee") this.op.touch = down;   // a box takes what it touches while Option is held
     this.saidDistances = null;
     this.drawOverlay();
   },
@@ -675,6 +694,30 @@ export const canvas = {
     }
     return null;
   },
+  // Whether a box on the page [x0, y0, x1, y1] touches an object where a click would pick it: a
+  // line within half its width, an area fill in its area, a group by its parts, anything else by
+  // its frame (for an Option-drag box)
+  touches(it, box) {
+    if (it.hidden) return false;
+    if (it.type === "group") return it.items.some((c) => this.touches(c, box));
+    const mid = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
+    const edgesIn = (poly) => poly.some((q, i) => segInBox(q, poly[(i + 1) % poly.length], box));
+    if (it.type === "line") {
+      const w = (it.stroke?.width || 1) / 2, wide = [box[0] - w, box[1] - w, box[2] + w, box[3] + w];
+      const pts = lineSamples(it);
+      return pts.some((q, i) => i > 0 && segInBox(pts[i - 1], q, wide));
+    }
+    if (it.geom === "region") {
+      const rings = this.els.get(it.id)?.regionPath?.subpaths?.[0]?.cmds?.reduce((out, [op, ...v]) => {
+        if (op === "M") out.push([]);
+        if (op === "M" || op === "L") out[out.length - 1]?.push([v[0] + it.frame[0], v[1] + it.frame[1]]);
+        return out;
+      }, []) || [itemCorners(it)];
+      return rings.some((r) => r.length > 1 && edgesIn(r)) || this.inArea(it, mid);
+    }
+    const poly = itemCorners(it);
+    return edgesIn(poly) || pointInPoly(mid, poly);
+  },
   // Inside an area fill's area as last drawn (its rings, even-odd, so holes don't count)
   inArea(it, p) {
     const sub = this.els.get(it.id)?.regionPath?.subpaths?.[0];
@@ -731,17 +774,26 @@ export const canvas = {
     if (guide) return this.startGuide(guide.axis, guide.index);
     if (hit) {
       let sel = store.selection;
-      const oneOfSeveral = sel.length > 1 && sel.includes(hit.id);
-      if (e.shiftKey) sel = sel.includes(hit.id) ? sel.filter((i) => i !== hit.id) : [...sel, hit.id];
-      else if (!sel.includes(hit.id)) sel = [hit.id];
+      const was = sel.includes(hit.id), oneOfSeveral = sel.length > 1 && was, add = addKey(e);
+      // Shift-click adds or takes away at once. ⌘-click (Ctrl-click) adds at once, and takes away
+      // only on letting go without a drag, so a ⌘-drag moves the selection (without snapping)
+      if (e.shiftKey) sel = was ? sel.filter((i) => i !== hit.id) : [...sel, hit.id];
+      else if (!was) sel = add ? [...sel, hit.id] : [hit.id];
       store.select(sel);
       if (!e.shiftKey || sel.includes(hit.id)) this.startMove(p, e);
-      // A click without a drag on one of several selected objects makes it the key object
-      if (this.op?.type === "move" && oneOfSeveral && !e.shiftKey) this.op.keyCandidate = hit.id;
+      // Without a drag, a ⌘-click on a selected object takes it away, and a plain click on one of
+      // several selected objects makes it the key object
+      if (this.op?.type === "move" && !e.shiftKey) {
+        if (add && was) this.op.takeAway = hit.id;
+        else if (oneOfSeveral && !add) this.op.keyCandidate = hit.id;
+      }
       announce(describeItem(hit, store.doc));
     } else {
-      if (!e.shiftKey) store.select([]);
-      this.op = { type: "marquee", start: pt, cur: pt, add: e.shiftKey ? [...store.selection] : [] };
+      // A box from empty page; with Shift or ⌘ (Ctrl) it adds to the selection, so a ⌘-click
+      // that misses keeps what was selected. With Option (Alt) it takes what it touches
+      const add = e.shiftKey || addKey(e);
+      if (!add) store.select([]);
+      this.op = { type: "marquee", start: pt, cur: pt, add: add ? [...store.selection] : [], touch: e.altKey };
     }
   },
   pointerMove(e) {
@@ -759,7 +811,7 @@ export const canvas = {
       this.panY = op.pan[1] + pt[1] - op.start[1];
       return this.applyView();
     }
-    if (op.type === "marquee") { op.cur = pt; return this.drawOverlay(); }
+    if (op.type === "marquee") { op.cur = pt; op.touch = e.altKey; return this.drawOverlay(); }
     if (op.type === "measure" || op.type === "zoombox") { op.cur = p; return this.drawOverlay(); }
     if (op.type === "move") return this.moveTo(p, e);
     if (op.type === "resize") return this.resizeTo(p, e);
@@ -789,8 +841,10 @@ export const canvas = {
       const [ax, ay] = this.toPage(...op.start), [bx, by] = this.toPage(...op.cur);
       const box = [Math.min(ax, bx), Math.min(ay, by), Math.max(ax, bx), Math.max(ay, by)];
       if (box[2] - box[0] > 1e-6 || box[3] - box[1] > 1e-6) {
+        const touch = e.altKey;   // (Option held as the box is let go)
         const inside = store.scopeItems().filter((it) => {
           if (it.locked || it.hidden) return false;
+          if (touch) return this.touches(it, box);
           const b = itemBBox(it);
           return b[0] >= box[0] && b[1] >= box[1] && b[2] <= box[2] && b[3] <= box[3];
         }).map((it) => it.id);
@@ -837,6 +891,11 @@ export const canvas = {
     if (op.moved) store.endLive(op.label);
     else store.cancelLive();
     if (!op.moved && op.keyCandidate) this.onKeyClick?.(op.keyCandidate);
+    if (!op.moved && op.takeAway) {   // a ⌘-click on a selected object
+      store.select(store.selection.filter((i) => i !== op.takeAway));
+      const it = store.item(op.takeAway);
+      if (it) announce(`Deselected ${itemLabel(it, store.doc)}; ${store.selection.length} selected`);
+    }
     if (op.moved && store.selection.length === 1) announce(describeItem(store.selected()[0], store.doc));
     this.drawOverlay();
   },

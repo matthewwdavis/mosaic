@@ -97,8 +97,8 @@ Snapping is quick to get out of the way:
 
 Now drag the dose-response plot below the other two.
 
-To line up several objects at once, select them (click one, then **Shift**-click the others) and
-open the **Arrange** tab. Try **Top** under *Align* with the top two selected:
+To line up several objects at once, select them (click one, then **⌘**-click the others; on
+Windows, **Ctrl**-click; **Shift**-click works too) and open the **Arrange** tab. Try **Top** under *Align* with the top two selected:
 
 ![The Arrange tab with two plots selected](images/arrange.png)
 
