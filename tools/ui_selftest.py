@@ -30,11 +30,14 @@ def find_chrome() -> str | None:
     return next((c for c in cands if c and os.path.exists(c)), None)
 
 
-def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int = 40000, only: str | None = None) -> dict:
+def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int = 60000, only: str | None = None) -> dict:
     """Returns {"lines": SELFTEST lines, "errors": other console errors, "done": bool, "failed": bool}.
 
     Runs with its own settings folder, so it never touches ~/.figassemble (autosaves, recent
-    files, preferences), and its own clipboard, so it never touches the system's.
+    files, preferences), and its own clipboard, so it never touches the system's. `budget`: the
+    virtual time Chrome gives the page, which skips ahead whenever nothing is happening. The whole
+    run took 37 s of it in November 2026, more on Linux CI, so keep it well above as checks are
+    added (a run that runs out stops without its DONE line).
     """
     if not os.environ.get("FIGASSEMBLE_HOME"):
         os.environ["FIGASSEMBLE_HOME"] = tempfile.mkdtemp(prefix="figassemble-selftest-")
@@ -72,7 +75,7 @@ def main() -> int:
     ap.add_argument("--chrome", default=find_chrome())
     ap.add_argument("--shot", default="tools/output/ui_selftest.png")
     ap.add_argument("--out", default="tools/output/selftest")
-    ap.add_argument("--budget", type=int, default=40000, help="virtual time budget, ms")
+    ap.add_argument("--budget", type=int, default=60000, help="virtual time budget, ms (the whole run took 37 s in November 2026)")
     ap.add_argument("--only", help="run one part on its own, while working on it (objects: the Objects and Pages lists; slides: "
                     "PowerPoint slides; links: linked files updating)")
     args = ap.parse_args()
