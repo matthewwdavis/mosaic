@@ -2,5 +2,11 @@
  "owner": "matthewwdavis",
  "repo": "FigAssemble",
  "github_app_client_id": "Iv23lirW7d6EtCrtkxPi",
- "release_keys": []
+ "release_keys": [
+  {
+   "id": "48e19ef4013a52dd",
+   "public": "Me3JmiF1KWGxeMx5l1ETZaaObexWapIxceT0K2IzkXw=",
+   "note": "made 2026-11-01 on GM-Davis-MBP"
+  }
+ ]
 }
