@@ -280,6 +280,121 @@ async function linkedFileChecks(app) {
   }
 }
 
+// Updates (updates.py looks, downloads and installs; here, with the updater saying what each case
+// needs, what the editor shows): the status bar's note when a version is ready, What's new and
+// Restart now (unsaved work saved first, or kept as a copy to recover), Ask me first with Skip
+// this version, a failed install, signing in to GitHub, Preferences > Updates, What's new after
+// an update, and a document saved by a newer FigAssemble
+async function updateChecks(app) {
+  const { updates } = await import("./updates.js");
+  const notes = "What's new:\n\n- Exports twice as fast\n- Arrows snap to more places";
+  const v = { version: "9.9.9", notes, prerelease: false, env_changed: false, approved: false, go_back: false };
+  const base = { kind: "installed", mode: "auto", channel: "stable", access: "public", configured: true, error: null, busy: null,
+    failed: null, update: null, staged: null, previous: null, updated: null, installing: false, checked: Date.now() / 1000 };
+  const fake = async (st) => { await rpc("selftest_update", { ...base, ...st }); await updates.poll(); };
+  const chip = () => document.querySelector(".update-chip");
+  const dialog = () => [...document.querySelectorAll("dialog[open]")].at(-1);
+  const closeAll = () => { for (const d of document.querySelectorAll("dialog[open]")) d.close(); };
+  const buttonIn = (el, text) => [...(el?.querySelectorAll("button") || [])].find((b) => b.textContent === text);
+  const soon = async (cond, ms = 4000) => { for (let t = 0; t < ms; t += 100) { if (await cond()) return true; await wait(100); } return !!(await cond()); };
+  const restarting = async () => (await rpc("update_status")).restarting;
+  const keepDelay = updates.restartDelay;
+  updates.restartDelay = 50;
+  try {
+    store.setDoc(await rpc("new_document"));
+    // A downloaded update, with automatic updates: the status bar says so; What's new; Restart now
+    await fake({ staged: v, update: v });
+    check(!chip().hidden && chip().textContent === "FigAssemble 9.9.9 is ready" && /installs when you quit/.test(chip().title),
+      "a downloaded update shows in the status bar, saying it installs when FigAssemble quits", `${chip().hidden} ${chip().textContent}; ${chip().title}`);
+    chip().click();
+    let dlg = dialog();
+    check(dlg?.querySelector("h2")?.textContent === "FigAssemble 9.9.9" && dlg.querySelectorAll(".release-notes li").length === 2
+      && buttonIn(dlg, "Restart now") && /installs when you quit/.test(dlg.textContent),
+    "clicking it shows what's new in the version, with Restart now", dlg?.textContent);
+    buttonIn(dlg, "Restart now")?.click();
+    check(await soon(restarting) && /closes now and opens again/.test(dialog()?.textContent || ""),
+      "Restart now says FigAssemble closes and opens again with the update, and has it do so", dialog()?.textContent);
+    closeAll();
+    // With unsaved changes: save first, or restart without saving, keeping a copy to recover
+    await fake({ staged: v, update: v });
+    store.update("A change before updating", (doc) => { doc.pages[store.pageIndex].items.push(gRectFor("updRect", 10, 10, 20, 20)); });
+    const installing = updates.install("update");
+    await until(() => dialog()?.querySelector("h2")?.textContent === "Unsaved changes");
+    dlg = dialog();
+    const asked = !!(buttonIn(dlg, "Save and restart") && buttonIn(dlg, "Restart without saving"));
+    buttonIn(dlg, "Restart without saving")?.click();
+    await installing;
+    const kept = (await rpc("autosaved", null)).some((c) => c.path.includes(store.autosaveKey));
+    check(asked && kept && await restarting(), "with unsaved changes it asks first; restarting without saving keeps a copy to recover",
+      `${asked} ${kept}`);
+    closeAll();
+    await rpc("discard_autosave", store.autosaveKey);
+    store.dirty = false;
+    // Ask me first: the newer version is out; Skip this version
+    await fake({ mode: "ask", update: { version: "9.9.9", notes, prerelease: false } });
+    check(chip().textContent === "FigAssemble 9.9.9 is out", "with Ask me first, a newer version shows as out", chip().textContent);
+    chip().click();
+    dlg = dialog();
+    const choices = !!(buttonIn(dlg, "Update now") && buttonIn(dlg, "Skip this version"));
+    buttonIn(dlg, "Skip this version")?.click();
+    check(choices && await soon(async () => (await rpc("update_status")).skip === "9.9.9"),
+      "its What's new has Update now and Skip this version, which skips it", dlg?.textContent);
+    await rpc("update_skip", null);
+    // A failed install
+    await fake({ staged: v, failed: { version: "9.9.9", error: "the tools FigAssemble uses couldn't be updated" }, tries: 2, max_tries: 2 });
+    check(chip().textContent === "The update didn't install" && chip().classList.contains("warn"),
+      "an update that didn't install shows in the status bar", chip().textContent);
+    chip().click();
+    dlg = dialog();
+    check(/couldn't be updated/.test(dlg?.textContent) && /won't try again by itself/.test(dlg?.textContent)
+      && buttonIn(dlg, "Try again now") && buttonIn(dlg, "Show the log"), "it says why, and offers Try again now and the log", dlg?.textContent);
+    closeAll();
+    // Signing in to GitHub, while the repository is private: a code to enter on GitHub
+    await fake({ access: "sign_in" });
+    check(chip().textContent === "Sign in for updates", "while a sign-in is needed, the status bar offers it", chip().textContent);
+    chip().click();
+    await until(() => dialog()?.querySelector(".signin-code"));
+    dlg = dialog();
+    const shown = dlg?.querySelector(".signin-code")?.textContent === "WDJB-MJHT" && !!buttonIn(dlg, "Copy the code and open GitHub");
+    await rpc("selftest_update", { ...base, signin: { state: "done", login: "early-adopter" }, signed_in: "early-adopter" });
+    check(shown && await soon(() => /Signed in as early-adopter/.test(dlg.textContent)),
+      "signing in shows GitHub's code with a button to copy it and open GitHub, then who's signed in", dlg?.textContent);
+    closeAll();
+    // Preferences > Updates: the setting, test versions, what's going on, Go back
+    await fake({ staged: v, update: v, previous: { version: "9.9.8", notes: "", prerelease: false } });
+    await app.run("preferences");
+    const fs = [...document.querySelectorAll("dialog[open] fieldset")].find((f) => f.querySelector("legend")?.textContent === "Updates");
+    const sel = fs?.querySelector("select");
+    check(sel?.value === "auto" && fs.querySelector("input[type=checkbox]") && /9\.9\.9 is ready/.test(fs.querySelector(".update-status")?.textContent)
+      && buttonIn(fs, "Restart now") && buttonIn(fs, "Go back to 9.9.8"),
+    "Preferences has Updates: the setting, test versions, the version ready, Restart now and Go back", fs?.textContent);
+    if (sel) {
+      sel.value = "ask";
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    check(await soon(() => app.prefs.updates === "ask"), "choosing Ask me first keeps the setting", app.prefs.updates);
+    await app.savePrefs({ updates: "auto" });
+    closeAll();
+    // After an update: What's new, once
+    await rpc("selftest_update", { ...base, updated: { version: "9.9.9", from: "0.1.0", notes, go_back: false } });
+    await updates.poll(true);
+    dlg = dialog();
+    check(dlg?.querySelector("h2")?.textContent === "Updated to FigAssemble 9.9.9" && dlg.querySelectorAll(".release-notes li").length === 2,
+      "after an update, FigAssemble shows what's new", dlg?.textContent);
+    closeAll();
+    // A document saved by a newer FigAssemble
+    updates.newerDocument("99.0.0");
+    dlg = dialog();
+    check(dlg?.querySelector("h2")?.textContent === "Saved by a newer FigAssemble" && /99\.0\.0/.test(dlg.textContent) && /Save As/.test(dlg.textContent),
+      "a document saved by a newer FigAssemble warns that saving over it could lose things", dlg?.textContent);
+  } finally {
+    closeAll();
+    updates.restartDelay = keepDelay;
+    await rpc("selftest_update", null);
+    await updates.poll();
+  }
+}
+
 // PowerPoint slides into a figure: Open goes through the slide picker (pictures of the slides,
 // one or several chosen by click, Shift-, ⌘-click, double-click or keys); a deck dropped on the
 // page puts the chosen slides' objects there, dropped in the Pages list makes them pages in the
@@ -579,6 +694,7 @@ export async function run(app, params) {
     if (params.get("only") === "objects") { await objectsListChecks(app); throw ONLY; }   // just that part, while working on it
     if (params.get("only") === "slides") { await slidesChecks(app, ppt); throw ONLY; }
     if (params.get("only") === "links") { await linkedFileChecks(app); throw ONLY; }
+    if (params.get("only") === "updates") { await updateChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -1789,6 +1905,7 @@ export async function run(app, params) {
     await slidesChecks(app, ppt);
     info.slidesMs = Math.round(performance.now() - slidesFrom);
     await linkedFileChecks(app);
+    await updateChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

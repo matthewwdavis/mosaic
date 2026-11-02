@@ -1,9 +1,11 @@
 """Add FigAssemble to the Windows Start menu and desktop, starting it from this Python environment.
 
-    python packaging/windows/make_shortcuts.py [--no-desktop]
+    python packaging/windows/make_shortcuts.py [--no-desktop | --update]
 
 Run it with the environment's own Python (install-windows.bat does): the shortcuts start
-pythonw.exe -m figassemble from that environment, with FigAssemble's icon.
+pythonw.exe -m figassemble from that environment, with FigAssemble's icon. With --update (an
+update installing), the desktop shortcut is made again only if there is one, so one deleted
+stays deleted.
 """
 import argparse
 import os
@@ -27,6 +29,7 @@ def ps_quote(s: str) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-desktop", action="store_true")
+    ap.add_argument("--update", action="store_true", help="keep the desktop shortcut only if there is one")
     args = ap.parse_args()
     prefix = sys.prefix
     pythonw = os.path.join(prefix, "pythonw.exe")
@@ -40,13 +43,15 @@ def main() -> int:
     made = []
     for folder in folders:
         where = folder if folder.startswith("(") else ps_quote(folder)
-        script = (f"$s = New-Object -ComObject WScript.Shell; $p = Join-Path {where} 'FigAssemble.lnk'; "
+        keep = "if (-not (Test-Path $p)) { exit 0 }; " if args.update and folder.startswith("(") else ""
+        script = (f"$s = New-Object -ComObject WScript.Shell; $p = Join-Path {where} 'FigAssemble.lnk'; {keep}"
                   f"$l = $s.CreateShortcut($p); $l.TargetPath = {ps_quote(pythonw)}; $l.Arguments = '-m figassemble'; "
                   f"$l.WorkingDirectory = $env:USERPROFILE; $l.IconLocation = {ps_quote(icon)}; "
                   f"$l.Description = 'FigAssemble: assemble multi-panel figures'; $l.Save(); Write-Output $p")
         out = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
                              capture_output=True, text=True, check=True)
-        made.append(out.stdout.strip())
+        if out.stdout.strip():
+            made.append(out.stdout.strip())
     for p in made:
         print(p)
     return 0

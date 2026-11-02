@@ -13,6 +13,7 @@ import time
 import uuid
 import zipfile
 
+from . import __version__
 from .assets import KIND_EXT, AssetCache, get_cache, resolve_link
 from .model import FORMAT_VERSION, used_assets, validate
 
@@ -28,6 +29,7 @@ def save(doc: dict, path: str, cache: AssetCache | None = None, prune: bool = Tr
     warnings: list[str] = []
     doc = json.loads(json.dumps(doc))   # never mutate the caller's copy
     doc["meta"]["modified"] = time.time()
+    doc["meta"]["saved_by"] = __version__   # a newer FigAssemble's document warns when opened in an older one
     if prune:
         keep = used_assets(doc)
         doc["assets"] = {k: v for k, v in doc.get("assets", {}).items() if k in keep}
@@ -74,6 +76,11 @@ def load(path: str, cache: AssetCache | None = None) -> dict:
                 name = f"assets/{var['sha256']}{KIND_EXT.get(kind, '.' + kind)}"
                 if name in names:
                     cache.put_bytes(z.read(name), kind)
+    fmt = doc.get("figassemble")
+    if isinstance(fmt, int) and fmt > FORMAT_VERSION:
+        by = (doc.get("meta") or {}).get("saved_by")
+        raise ValueError(f"{os.path.basename(path)} was saved by a newer FigAssemble{f' ({by})' if by else ''}, "
+                         f"in a form this one ({__version__}) can't read. Update FigAssemble to open it.")
     problems = validate(doc)
     if any("version" in p for p in problems):
         raise ValueError("; ".join(problems))

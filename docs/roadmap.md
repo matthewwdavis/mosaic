@@ -111,6 +111,10 @@ Matthew's choices are in brackets.
 - [x] Tests for linked files updating, for rolling out to early adopters; they found that undo
       couldn't get past an update from a file (the next look put it back), so an undone update now
       stays undone until the file is saved again
+- [x] Updates for early adopters: FigAssemble looks for new versions on GitHub, installs them when
+      it quits (or asks first, or not at all), and checks each one's signature [private repo with
+      a one-time GitHub sign-in, ready to go public; a release command with a key backup; going
+      back a version, test versions first, a warning for documents from newer versions]
 
 ## Acceptance test (test slide)
 

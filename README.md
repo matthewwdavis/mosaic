@@ -41,12 +41,13 @@ everything FigAssemble needs, including conda (Miniforge) if you don't have it. 
 takes 5-15 minutes; nothing else on your computer is changed.
 
 **First, download FigAssemble.** This repository is private, so you need a GitHub account that
-Matthew has added to it. On this page, click the green **Code** button, then **Download ZIP**.
+Matthew has added to it. Open the [newest release](https://github.com/matthewwdavis/FigAssemble/releases/latest)
+and, under **Assets**, click **FigAssemble-…zip** (the one with the version number in its name).
 
 ### Mac
 
-1. Open the downloaded ZIP (double-click it in Downloads). You get a folder called
-   `FigAssemble-main`.
+1. Open the downloaded ZIP (double-click it in Downloads). You get a folder named after the
+   version, such as `FigAssemble-0.2.0`.
 2. In that folder, double-click **`install-mac.command`**.
    - If macOS says it can't open it (*"Apple could not verify…"*), click **Done**, open
      **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to
@@ -59,15 +60,22 @@ Matthew has added to it. On this page, click the green **Code** button, then **D
 
 ### Windows
 
-1. Right-click the downloaded ZIP and choose **Extract All**, then open the extracted
-   `FigAssemble-main` folder. (Run the installer from the extracted folder, not from inside the ZIP.)
+1. Right-click the downloaded ZIP and choose **Extract All**, then open the extracted folder (named
+   after the version, such as `FigAssemble-0.2.0`). Run the installer from the extracted folder,
+   not from inside the ZIP.
 2. Double-click **`install-windows.bat`**. If Windows says it *protected your PC*, click
    **More info**, then **Run anyway**.
 3. A window shows the progress. When it finishes, FigAssemble starts. From now on, start it from
    the **Start menu** or the **desktop** shortcut.
 
-**Updating:** download the newest ZIP and run the installer again. It updates FigAssemble and
-everything it uses, and keeps your settings. You can delete the downloaded folder after installing.
+**Updating:** FigAssemble updates itself. When a new version is out, it downloads it and installs it
+when you quit FigAssemble, then says what's new. **Settings → Updates** switches this to asking
+first, or off, and can go back to the version before. While the repository is private,
+FigAssemble asks you to sign in to GitHub once, to download updates (see the
+[guide](docs/guide.md#updates)). You can delete the downloaded folder after installing.
+
+Installed FigAssemble before it updated itself (version 0.1.0)? Download the newest release and
+run its installer once; it keeps your settings, and from then on FigAssemble updates itself.
 
 **Removing it:** see [the user guide](docs/guide.md#removing-figassemble).
 **If something goes wrong:** see [Troubleshooting](docs/guide.md#troubleshooting).

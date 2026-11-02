@@ -89,6 +89,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .status-zoom { display: inline-flex; align-items: center; gap: 0.1rem; }
 .status-zoom .zoom-label { min-width: 2.8rem; }
 .nudge-step { white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* A new version ready (or a failed install): the status bar's one note that asks for a click */
+.update-chip { white-space: nowrap; background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.update-chip.warn { background: var(--panel); border-color: var(--danger); color: var(--danger); }
 
 /* Shapes menu: a grid of shape icons in groups, beside its button in the tool bar */
 .shape-menu { position: fixed; z-index: 20; width: min(25.6rem, calc(100vw - 16px)); overflow-y: auto;
@@ -477,3 +480,12 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 .distance-label { fill: #d13438; }
 .distance-text { fill: #ffffff; font: 600 11px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
 .distance-target { fill: none; stroke: #d13438; stroke-width: 1; stroke-dasharray: 4 3; }
+
+/* Updates: What's new, and the code for signing in to GitHub */
+.whats-new { max-height: 50vh; overflow-y: auto; }
+.whats-new .notes-heading { font-weight: 600; margin-bottom: 0.2rem; }
+.release-notes { margin: 0.3rem 0 0.6rem; padding-left: 1.2rem; }
+.release-notes li { margin: 0.15rem 0; }
+.signin-code { font: 600 1.6rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.12em;
+  text-align: center; padding: 0.4rem; border: 1px dashed var(--line); border-radius: 0.4rem; user-select: all; }
+.update-status { margin: 0.3rem 0; }

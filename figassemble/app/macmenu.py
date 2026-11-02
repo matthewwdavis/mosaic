@@ -149,6 +149,7 @@ def build(window, api, spec: list, recent: list[str]) -> None:
     main = AppKit.NSMenu.alloc().initWithTitle_("Main menu")
     app = _submenu(main, APP_NAME)
     app.addItem_(_item(f"About {APP_NAME}", "about"))
+    app.addItem_(_item("Check for Updates…", "checkForUpdates"))
     app.addItem_(AppKit.NSMenuItem.separatorItem())
     app.addItem_(_item("Settings…", "preferences", (",", cmd)))
     app.addItem_(AppKit.NSMenuItem.separatorItem())
@@ -307,6 +308,12 @@ def smoke(window) -> dict:
         && window.FA.store.selection.length === 0; })()"""))
     results["Edit > Select All selects the page's objects"] = objects
     results["and a text field's text while one is typed in"] = text
+    # FigAssemble > Check for Updates…: says what there is (from a checkout, that it doesn't update itself)
+    on_main(lambda: choose([APP_NAME, "Check for Updates…"]))
+    said = wait(lambda: window.evaluate_js(
+        "[...document.querySelectorAll('dialog[open] h2')].some((e) => e.textContent === 'Check for updates')"))
+    window.evaluate_js("document.querySelectorAll('dialog[open]').forEach((d) => d.close())")
+    results["FigAssemble > Check for Updates… looks and says what there is"] = said
     results["Window and Help are macOS's own (the window list; Help's search box)"] = on_main(
         lambda: str(AppKit.NSApp.windowsMenu().title()) == "Window" and str(AppKit.NSApp.helpMenu().title()) == "Help")
     return {"passed": sum(results.values()), "total": len(results), "failed": [k for k, v in results.items() if not v]}

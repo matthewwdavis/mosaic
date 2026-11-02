@@ -19,6 +19,7 @@ from .. import __version__, connect, docfile, model, presets, themes
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
 from ..fonts import config_dir, get_font_index
 from ..resolve import Resolver
+from ..updates import parse_version
 from . import clipboard, powerpoint
 
 DECK_EXTENSIONS = (".pptx", ".pptm", ".potx")
@@ -38,6 +39,9 @@ PREFS_DEFAULTS = {
     "show_rulers": True, "show_grid": False, "show_guides": True, "grid": {"spacing": 72 / 2.54, "subdivisions": 10},
     # Arrow keys move a round amount that shrinks as you zoom in (False: always 1 pt)
     "nudge_zoom": True,
+    # Updates (updates.py): "auto" downloads a new version and installs it when FigAssemble quits,
+    # "ask" says so and waits for a click, "off" doesn't look; "test" takes test versions too
+    "updates": "auto", "update_channel": "stable",
     # Interface state: the ribbon's tab, the properties panel's tab for each kind of object, the
     # panel's folded sections, and the side panels' widths (rem; only those changed)
     "ribbon_tab": "home", "inspector_tabs": {}, "inspector_closed": [], "panel_widths": {},
@@ -90,6 +94,8 @@ class Api:
         self._index: tuple | None = None      # (folders, when, figure files in them) to relink pictures to
         self._dropped: dict[str, dict] = {}   # slides or shapes dragged in from PowerPoint, until taken
         self._scratch: str | None = None      # the editor self-test's own folder of figure files
+        self._updater = None                  # updates.Updater, made when first needed
+        self.restart_asked = False            # Restart now chosen (the self-test's window stays open)
 
     # Utilities ------------------------------------------------------------------------
 
@@ -187,7 +193,10 @@ class Api:
                     "suggested": os.path.splitext(path)[0] + docfile.EXTENSION}
         doc = docfile.load(path)
         self._remember(path)
-        return {"doc": doc, "path": path, "report": []}
+        # Saved by a newer FigAssemble: saving it here could drop what this version doesn't know
+        saved_by = (doc.get("meta") or {}).get("saved_by")
+        newer = saved_by if parse_version(saved_by) > parse_version(__version__) else None
+        return {"doc": doc, "path": path, "report": [], "newer": newer}
 
     # PowerPoint slides: decks opened or dropped (through the slide picker), slides and shapes
     # copied or dragged out of PowerPoint ---------------------------------------------------------
@@ -670,6 +679,90 @@ class Api:
         if self.window is not None:
             self.window.confirm_close = self._dirty
         return True
+
+    def open_url(self, url: str) -> bool:
+        """A web page in the browser (GitHub's sign-in page, the releases)."""
+        if not url.startswith(("https://", "http://127.0.0.1", "http://localhost")):
+            return False
+        import webbrowser
+        return webbrowser.open(url)
+
+    # Updates (updates.py): looked for in the background; the editor asks how it's going ---------
+
+    @property
+    def updater(self):
+        if self._updater is None:
+            from ..updates import Updater
+            self._updater = Updater(self.prefs_get)
+        return self._updater
+
+    def update_status(self) -> dict:
+        return self.updater.status()
+
+    def update_check(self) -> dict:
+        """Check now (it looks even with updates switched off)."""
+        return self.updater.check(manual=True)
+
+    def update_get(self, which: str = "update") -> dict:
+        """Download the update ("update") or the version before this one ("previous"), checked
+        and ready to install; then update_restart."""
+        from ..updates import UpdateError
+        try:
+            self.updater.get("previous" if which == "previous" else "update")
+        except UpdateError as exc:
+            raise RuntimeError(str(exc)) from None
+        return self.updater.status()
+
+    def update_restart(self) -> bool:
+        """Close FigAssemble, install the downloaded update and open it again (the editor has dealt
+        with unsaved changes first)."""
+        if not self.updater.restart_now():
+            return False
+        self.restart_asked = True
+        if self.window is not None and not os.environ.get("FIGASSEMBLE_FAKE_CLIPBOARD"):
+            self.window.confirm_close = False
+            threading.Timer(0.3, self.window.destroy).start()   # once this answer is back with the editor
+        return True
+
+    def update_skip(self, version: str | None) -> dict:
+        """Skip this version (None: install the one skipped after all)."""
+        return self.updater.skip(version)
+
+    def update_seen(self) -> dict:
+        return self.updater.seen()
+
+    def update_log(self) -> bool:
+        """Show the last update's installer log in Finder or Explorer."""
+        path = self.updater.status().get("log")
+        return bool(path) and self.reveal(path)
+
+    def github_signin_start(self) -> dict:
+        from ..updates import UpdateError
+        try:
+            return self.updater.signin_start()
+        except UpdateError as exc:
+            raise RuntimeError(str(exc)) from None
+
+    def github_signin_status(self) -> dict | None:
+        return self.updater.status().get("signin")
+
+    def github_signin_cancel(self) -> bool:
+        self.updater.signin_cancel()
+        return True
+
+    def github_signout(self) -> dict:
+        self.updater.signout()
+        return self.updater.status()
+
+    def selftest_update(self, fake: dict | None) -> dict:
+        """Have the updater say what the editor self-test needs (only while testing, with
+        FIGASSEMBLE_FAKE_CLIPBOARD); None puts it back."""
+        if not os.environ.get("FIGASSEMBLE_FAKE_CLIPBOARD"):
+            raise PermissionError("only for the editor self-test")
+        self.updater.fake = fake
+        self.updater.restart = False
+        self.restart_asked = False
+        return self.updater.status()
 
 
 def asset_preview_key(sha: str, kind: str) -> str:

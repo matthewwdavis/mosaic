@@ -11,6 +11,7 @@ def isolated_home(tmp_path_factory):
     """Keep caches out of ~/.figassemble while testing (the font index is reused across tests)."""
     home = tmp_path_factory.mktemp("figassemble-home")
     os.environ["FIGASSEMBLE_HOME"] = str(home)
+    os.environ["FIGASSEMBLE_KEYSTORE"] = "file"   # never this computer's Keychain or Credential Manager
     yield home
 
 

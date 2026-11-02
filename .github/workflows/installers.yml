@@ -1,5 +1,7 @@
 # Runs both installers on fresh machines without conda, as a collaborator would, and checks the
-# result. Only when the installers or what they install change (macOS minutes cost more), or by hand.
+# result; then the installed copy updates itself, goes back a version and takes a test version
+# (tools/update_e2e.py, from a stand-in GitHub). Only when the installers, what they install or
+# the updates change (macOS minutes cost more), or by hand.
 name: installers
 
 on:
@@ -12,6 +14,10 @@ on:
       - environment.yml
       - pyproject.toml
       - packaging/**
+      - figassemble/updates.py
+      - tools/release.py
+      - tools/fake_github.py
+      - tools/update_e2e.py
       - .github/workflows/installers.yml
 
 jobs:
@@ -35,6 +41,10 @@ jobs:
           "$py" -c "import figassemble, os; ui = os.path.join(os.path.dirname(figassemble.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(figassemble.__file__)"
           "$py" -c "import Foundation; name = Foundation.NSBundle.mainBundle().infoDictionary()['CFBundleName']; assert name == 'FigAssemble', name"
           "$py" -m figassemble export --help
+      - name: The installed copy updates itself, goes back and takes a test version
+        run: |
+          py="$RUNNER_TEMP/Applications/FigAssemble.app/Contents/MacOS/python"
+          "$py" tools/update_e2e.py --python "$py"
 
   windows:
     runs-on: windows-latest
@@ -56,3 +66,11 @@ jobs:
           & $py -c "import figassemble, os; ui = os.path.join(os.path.dirname(figassemble.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(figassemble.__file__)"
           & $py -m figassemble export --help
           if ($LASTEXITCODE -ne 0) { throw "figassemble didn't start" }
+      - name: The installed copy updates itself, goes back and takes a test version
+        shell: pwsh
+        run: |
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\FigAssemble.lnk'
+          $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath
+          $py = Join-Path (Split-Path $target) 'python.exe'
+          & $py tools/update_e2e.py --python $py
+          if ($LASTEXITCODE -ne 0) { throw "updating didn't work" }

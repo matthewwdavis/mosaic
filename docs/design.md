@@ -206,6 +206,41 @@ pre-export check says so.
   again; the next save of the file, or Redo, brings an update. It's remembered only while the
   document is open, so a document opened later catches up with its files. Looks also wait while
   a drag is in progress. Found by the linked-files tests (tests/test_links.py, linkedFileChecks).
+- **Updates (2026-11-01):** installed copies update themselves from GitHub releases, for rolling
+  out to early adopters while changes come often. Matthew's choices: the repository stays private
+  for now, with a one-time GitHub sign-in in FigAssemble, made so that going public needs no
+  change; new versions install automatically by default, with Ask me first and Off in Settings
+  (his rule for automatic behaviour: the setting always shows its state, and Check for updates
+  works whichever is chosen); releases come from a command on his Mac, with a backup of the key
+  for a new computer; going back a version, test versions first, and a warning on opening a
+  document saved by a newer version. How:
+  - *Not Sparkle or WinSparkle:* they replace a self-contained app, and FigAssemble lives in a
+    conda environment made by its installers. An update runs the new version's own installer
+    (already tested in CI on fresh machines) in an update mode, after FigAssemble closes: Windows
+    can't replace files a running Python has open. conda runs only when `environment.yml`
+    changed (its SHA-256 is kept in the environment), so most updates take seconds.
+  - *Signed with a key on Matthew's Mac, not just downloaded from GitHub:* collaborators on a
+    personal repository can push and make releases, so GitHub's word isn't enough for code that
+    installs on everyone's computer. Ed25519 (`cryptography`), the public keys in
+    `data/updates.json`; a key in GitHub's secrets would be readable by the same collaborators.
+  - *Signing in:* a GitHub App with Contents: read-only, signed in to with a code (the device
+    flow, which needs no client secret, so nothing secret ships in the app). Its tokens can read
+    only repositories the app is installed on and the person can see, and expire after 8 hours
+    (renewed with a refresh token). An OAuth app would need the `repo` scope: every private
+    repository the person has, writable. A token built into the app would leak with it and
+    couldn't be replaced once it expired. Without a sign-in FigAssemble looks anyway, so a
+    public repository needs none. A sign-in is never sent on to the host GitHub redirects
+    downloads to (redirects are followed by hand).
+  - *Install at quit:* a downloaded update installs when the last FigAssemble window closes, or
+    straight away with Restart now (unsaved work saved first, or kept as a recovery copy). It
+    stops trying by itself after two failures. A FigAssemble opened while one installs waits.
+  - *Test versions* are GitHub pre-releases; `release.py promote` makes one a full release,
+    without rebuilding it (the signature covers the files, not the channel). *Going back*
+    installs the newest release before the running version and skips the one gone back from
+    until a newer one comes.
+  - *Newer documents:* every save records the version that saved it (`meta.saved_by`); an older
+    version says so on opening, and a document in a newer format version explains itself
+    instead of "unsupported document version".
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.
@@ -235,7 +270,8 @@ figassemble/
   app/            local HTTP server + JSON-RPC, pywebview window, native drag and drop
   ui/             HTML/CSS/JS editor (no build step, no framework); canvas.js draws the page,
                   grid and guides and does the snapping, rulers.js the rulers
-  cli.py          `figassemble` (GUI), `figassemble export|import-pptx|preflight`
+  updates.py      updates: GitHub releases, signatures, the GitHub sign-in, installing at quit
+  cli.py          `figassemble` (GUI), `figassemble export|import-pptx|update`
 ```
 
 - **Python is the single source of geometry and text layout.** The UI sends items to the

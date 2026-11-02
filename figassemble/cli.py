@@ -4,6 +4,7 @@
     figassemble export fig.figasm -f pdf,png --dpi 600 [-o out/base] [--pages 1,3]
     figassemble import-pptx deck.pptx [--slides 13] [-o fig.figasm] [--search DIR]
     figassemble fonts                                  list installed font families
+    figassemble update [--install | --go-back] [--test] look for an update (and install it)
 """
 from __future__ import annotations
 
@@ -55,14 +56,21 @@ def cmd_fonts(_args) -> int:
     return 0
 
 
+def cmd_update(args) -> int:
+    from .updates import cli
+    return cli(args)
+
+
 def cmd_gui(args) -> int:
+    from .updates import wait_for_install
+    wait_for_install()   # opened again straight after quitting, while an update installs
     from .app.window import run_app
     return run_app(args.document, browser=args.browser, port=args.port)
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    if not argv or (argv[0] not in ("export", "import-pptx", "fonts", "gui", "-h", "--help")):
+    if not argv or (argv[0] not in ("export", "import-pptx", "fonts", "update", "gui", "-h", "--help")):
         argv = ["gui"] + argv
     p = argparse.ArgumentParser(prog="figassemble", description="Assemble multi-panel figures.")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -88,6 +96,12 @@ def main(argv: list[str] | None = None) -> int:
 
     f = sub.add_parser("fonts", help="list installed font families")
     f.set_defaults(func=cmd_fonts)
+
+    u = sub.add_parser("update", help="look for a newer version (and install it)")
+    u.add_argument("--install", action="store_true", help="download the update and install it")
+    u.add_argument("--go-back", action="store_true", help="install the version before this one")
+    u.add_argument("--test", action="store_true", help="take test versions too")
+    u.set_defaults(func=cmd_update)
 
     g = sub.add_parser("gui", help="open the app (the default)")
     g.add_argument("document", nargs="?")

@@ -10,6 +10,7 @@ import { describeLook, differs as looksDiffer, styledObjects } from "./objectsty
 import { describeFormat, differs, paragraphs } from "./textstyles.js";
 import { contextMenu } from "./contextmenu.js";
 import { listDrag } from "./listdrag.js";
+import { updates } from "./updates.js";
 import { intoPlace, locate, moveItems, moveToPage, slotPlaces, treeRows } from "./layers.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, s, shapeName, toUnit } from "./util.js";
 
@@ -1001,6 +1002,7 @@ export const panels = {
         h("p", { class: "hint" }, "The finer lines appear once you zoom in far enough to see them apart. "
           + "Things snap only to lines you can see.")),
       this.recoveryFieldset(),
+      updates.settingsFieldset(),
       h("fieldset", {}, h("legend", {}, "New objects"),
         numField("Default text size", p.text?.size || 6, "pt", (v) => this.app.savePrefs({ text: { ...(p.text || {}), size: v } }), { step: 0.5 }),
         numField("Default line width", p.stroke_width || 1, "pt", set("stroke_width"), { step: 0.25 }),

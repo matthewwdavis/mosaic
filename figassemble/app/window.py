@@ -43,6 +43,12 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         except Exception as exc:   # noqa: BLE001 (it just keeps Python's name)
             print(f"Couldn't name the app: {exc}", file=sys.stderr, flush=True)
     smoke = bool(os.environ.get("FIGASSEMBLE_SMOKETEST"))
+    # Updates: looked for shortly after starting and every few hours (not while testing); one
+    # downloaded installs when this window closes (updates.py)
+    updater = api.updater
+    updater.register()
+    if not smoke and not os.environ.get("FIGASSEMBLE_NO_UPDATES"):
+        updater.start()
     window = webview.create_window("FigAssemble", url, width=1440, height=920, min_size=(960, 640),
                                    background_color="#F4F4F2", text_select=False, hidden=smoke)
     api.window = window
@@ -137,6 +143,11 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         print(f"SMOKE window closed in {time.time() - closing_started[0]:.2f} s", flush=True)
     else:
         webview.start(debug=bool(os.environ.get("FIGASSEMBLE_DEBUG")), localization=wording)
+    updater.stop()
+    try:
+        updater.on_quit()
+    except Exception as exc:   # noqa: BLE001 (it tries again at the next quit)
+        print(f"The update couldn't start installing: {exc}", file=sys.stderr, flush=True)
     return 0
 
 

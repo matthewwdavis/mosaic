@@ -40,10 +40,11 @@ figassemble/
   export/                   PDF, SVG, PNG/TIFF/JPEG writers, conversions, pre-export check
   importers/                PowerPoint slides -> pages
   app/                      local server, JSON-RPC API, the app window
+  updates.py                updates: finding, checking, downloading and installing new versions
   ui/                       the editor: HTML, CSS and JavaScript (no build step)
 examples/                   sample plots for the tutorial (made by make_examples.R)
 packaging/                  the Mac app and the Windows shortcuts
-tools/                      self-test runner, screenshots, render comparisons
+tools/                      self-test runner, screenshots, render comparisons, releases
 ```
 
 The engine (Python) is the single source of geometry and text layout. The editor sends items to
@@ -58,11 +59,12 @@ python tools/ui_selftest.py plot.svg plot.pdf  # the editor self-test on your ow
 
 The **editor self-test** (`figassemble/ui/js/selftest.js`) drives the real editor with pointer
 and keyboard events: drawing, snapping, guides, align, connectors, dashes, right-click menus,
-export, PowerPoint slides and more, about 350 checks. `tests/test_ui.py` runs it in headless
+export, PowerPoint slides, updates and more, about 370 checks. `tests/test_ui.py` runs it in headless
 Chrome. Besides a plot's SVG and PDF it takes PowerPoint's files from `tests/data/powerpoint`: a
 deck and a copy of it, and what PowerPoint put on the clipboard for a copied slide (`.slides`) and
 shapes (`.gvml`). `tools/ui_selftest.py ... --only slides` runs just the PowerPoint part, and
-`--only links` just linked files updating (a test figure re-saved while placed). To run
+`--only links` just linked files updating (a test figure re-saved while placed), and `--only
+updates` the update screens (with the updater saying what each case needs). To run
 it in the app's own window (WebKit on a Mac):
 
 ```sh
@@ -84,7 +86,7 @@ hidden window can't be dragged onto) through the drag methods `figassemble/app/m
 and plays a slide drag to the `SlideWatch` that follows PowerPoint's real ones, with a scripted
 drag pasteboard, mouse button and pointer: `SMOKE PowerPoint drags: 9 of 9 passed`. Last, the
 menu bar: its menus, the app's name, the shortcuts, and items run as AppKit would run them:
-`SMOKE menus: 9 of 9 passed`.
+`SMOKE menus: 10 of 10 passed`.
 
 Slides and shapes copied in PowerPoint come from its own clipboard formats, and a slide dragged
 out of it is only a reference to the slide (see the PowerPoint decision in [design.md](design.md)).
@@ -101,8 +103,9 @@ a Mac, the Windows clipboard API on Windows. The editor self-test sets
 touch the real one.
 
 GitHub Actions runs the tests on Windows and Linux for every push (`.github/workflows/tests.yml`).
-`installers.yml` runs both installers on fresh Mac and Windows machines when they or what they
-install change, or when started by hand from the Actions tab.
+`installers.yml` runs both installers on fresh Mac and Windows machines when they, what they
+install or the updates change, or when started by hand from the Actions tab; then the installed
+copy updates itself for real (see [Releases and updates](#releases-and-updates)).
 
 ## Documentation pictures
 
@@ -122,4 +125,105 @@ update the `figassemble` environment from `environment.yml`, install FigAssemble
 editable, so the downloaded folder can be deleted), and add the app (Mac) or shortcuts (Windows).
 For testing without touching a real installation: `FIGASSEMBLE_ENV` (environment name),
 `FIGASSEMBLE_APP_DIR` (Mac app folder) and `FIGASSEMBLE_NO_OPEN=1` (don't start FigAssemble or
-wait for a key at the end).
+wait for a key at the end). On a development machine, always set `FIGASSEMBLE_ENV`: the default
+environment name is the same as the development environment's, and the installer would replace
+the editable install with a copy.
+
+The installers also leave notes in the environment's `etc/figassemble` folder: `installer` (this
+copy may update itself), `environment.sha256` (what the environment was made from) and, on a Mac,
+`app_dir`. Updates run the new version's installer with `FIGASSEMBLE_UPDATE=1` (no questions),
+`FIGASSEMBLE_PREFIX` (the environment; conda runs only if `environment.yml` changed),
+`FIGASSEMBLE_WAIT_PID` (wait for FigAssemble to close), `FIGASSEMBLE_RESULT` (where to write `ok`
+or `failed: why`) and `FIGASSEMBLE_LOCK` (removed at the end).
+
+## Releases and updates
+
+Installed copies update themselves from GitHub releases (`figassemble/updates.py`; how it looks
+to people is in the [guide](guide.md#updates)). A release is the repository at its tag as a ZIP,
+which is also what people install from, and `release.json`: the version, the ZIP's SHA-256 and
+size, the SHA-256 of `environment.yml` and what's new, signed with the release key (Ed25519).
+Installed copies accept only releases signed with a key listed in
+`figassemble/data/updates.json`. Collaborators on a personal repository can push and make
+releases, so the key, not GitHub, decides what installs on everyone's computer.
+
+### Setting up, once
+
+1. **The GitHub app, for signing in while the repository is private.** Open
+   [this pre-filled form](https://github.com/settings/apps/new?name=FigAssemble%20Updates&description=Lets%20FigAssemble%20download%20its%20updates%20from%20its%20private%20repository&url=https://github.com/matthewwdavis/FigAssemble&public=true&webhook_active=false&contents=read)
+   (name, homepage, no webhook, Contents: read-only, installable by any account so collaborators
+   can authorize it; it reads only repositories it's installed on). Tick **Enable Device Flow**,
+   then **Create GitHub App**. Put its **Client ID** in `figassemble/data/updates.json`
+   (`github_app_client_id`). Then **Install App** → your account → **Only select repositories** →
+   FigAssemble. Keep user tokens expiring (the default); FigAssemble renews them itself.
+2. **The release key.** In your own Terminal window (not through Claude: it shows the private
+   key, and a Claude session keeps everything shown in its transcript):
+
+   ```sh
+   conda activate figassemble
+   python tools/release.py key new
+   ```
+
+   It keeps the key in the Mac's Keychain, adds its public half to `figassemble/data/updates.json`
+   and shows a backup line to keep off the computer (the Passwords app, a password manager, or on
+   paper). Commit `data/updates.json`; installed copies trust the key once a release with it is
+   installed.
+
+### Publishing
+
+```sh
+python tools/release.py publish                # main as the next version (0.2.1 after 0.2.0)
+python tools/release.py publish 0.3.0 --test   # a test version, for those who take them
+python tools/release.py promote 0.3.0          # the test version, tried, goes to everyone
+python tools/release.py list                   # the releases, and how often each was downloaded
+```
+
+`publish` needs a clean `main` that matches GitHub's and passed the tests on GitHub (or
+`--skip-ci-check`). It drafts What's new from the commit messages since the last release for you
+to rewrite in plain words, then sets the version in `figassemble/__init__.py` (the one place it's
+written; `pyproject.toml` reads it from there), commits and tags it, builds and signs the ZIP,
+pushes, and makes the GitHub release. A test version is a GitHub pre-release; `promote` makes it
+a full one.
+
+### The key on another computer, and if it's lost or leaks
+
+- **A new computer:** `python tools/release.py key restore` and paste the backup;
+  `key check` says whether installed copies trust it.
+- **Lost, with no backup:** `key new --replace`, commit `data/updates.json` and publish. Installed
+  copies don't trust the new key, so everyone installs that release by hand once (download it,
+  run the installer); after that they update as before. Then take the old key out of
+  `data/updates.json`.
+- **Leaked:** make a new key (`key new --replace`, which lists it beside the old one), commit, put
+  the old key back for one release (`key restore` with its backup) and publish: installed copies
+  accept it and from then on trust the new key too. Then `key restore` the new key, take the old
+  one out of `data/updates.json`, commit and publish again.
+
+### When the repository goes public
+
+Nothing needs changing: an installed copy that isn't signed in looks without a sign-in first,
+finds the releases and stops asking. The GitHub app can stay or be deleted (copies signed in with
+it then carry on without). Take the GitHub-account step out of the README's install section.
+
+### How an update installs
+
+The updater looks shortly after FigAssemble starts and every 6 hours, and downloads what it
+finds to `~/.figassemble/updates` (`release.json` checked against the trusted keys, then the ZIP
+against its SHA-256 and size), and unpacks it. When FigAssemble quits (or after Restart now),
+it starts the new version's installer in update mode and writes a lock with its process; a
+FigAssemble opened meanwhile waits for it (`wait_for_install`). The installer writes `ok` or
+`failed: why`, which the next start reads: What's new, or the reason, retried at the next quit
+(twice). The last FigAssemble to close installs an update (`updates/running`). A copy run from a
+checkout or an editable install never updates itself (`install_kind`).
+
+### Testing updates
+
+- `tests/test_updates.py` runs the updater against a stand-in for GitHub
+  (`tools/fake_github.py`): private and public repositories, sign-in and refresh, redirects to a
+  file host that refuses a sign-in, tampered or wrongly signed releases, channels, skip and going
+  back, installing at quit, and what the last install left.
+- `tools/update_e2e.py` (in `installers.yml`) has a copy made by the installer update itself
+  through the real installers, go back, and take a test version.
+- By hand: `python tools/release.py testkey key.txt` (prints the public key) and
+  `python tools/release.py local --version 9.9.9 --key-file key.txt --out releases/` make a
+  release; `python tools/fake_github.py serve releases/ --token T` serves it. Point a copy
+  installed for testing (never the development environment) at it with `FIGASSEMBLE_UPDATE_API`
+  and `FIGASSEMBLE_UPDATE_WEB` (the address it prints) and `FIGASSEMBLE_UPDATE_TEST_KEY`.

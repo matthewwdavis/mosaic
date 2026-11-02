@@ -15,6 +15,7 @@ import { canHold, copiesOf, editGroup, finishEdits, makeSymbol, placedItems, sym
 import { middle, panelAt } from "./labels.js";
 import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
+import { updates } from "./updates.js";
 import { rulers } from "./rulers.js";
 import { splitters } from "./splitters.js";
 import { store } from "./store.js";
@@ -158,6 +159,7 @@ const app = {
     canvas.fit();
     if (res.report?.length) panels.reportDialog("Imported from PowerPoint", res.report);
     announce(`Opened ${res.doc.meta?.title || "document"}, ${res.doc.pages.length} pages`);
+    if (res.newer) updates.newerDocument(res.newer);
   },
   async save(as = false) {
     let path = store.path;
@@ -1941,6 +1943,7 @@ app.commands = {
     announce("Unlinked: the picture now uses the copy stored in the document");
   }),
   preferences: cmd("Preferences", () => panels.preferencesDialog(), `${M},`, (e) => mod(e) && e.key === ",", "Settings"),
+  checkForUpdates: cmd("Check for updates", () => updates.checkNow(), null, null, "Updates"),
   commandSearch: cmd("Search commands: type to find and run any command", () => panels.commandSearch(), `${M}/`, key("/"), "Search"),
   shortcuts: cmd("Keyboard shortcuts and help", () => panels.shortcutsDialog(), "?", (e) => plain(e) && e.key === "?", "Help"),
 };
@@ -2202,6 +2205,7 @@ async function start() {
     app.savePrefs({ show_guides: true }).then(() => announce("Guides shown")).catch(() => {});
   };
   panels.init(app);
+  updates.init(app, panels);   // the status bar's note when a new version is ready
   splitters.init(app);
   inspector.init(document.getElementById("inspector"), app);
   rpc("fonts").then((f) => { app.fonts = f; }).catch(() => {});
@@ -2230,7 +2234,7 @@ async function start() {
     if (store.dirty && store.doc) rpc("autosave", store.doc, store.autosaveKey).catch(() => {});
   }, 60000);
   window.addEventListener("beforeunload", (e) => { if (store.dirty && !app.info.native) { e.preventDefault(); e.returnValue = ""; } });
-  Object.assign(window.FA, { app, store, canvas, panels, inspector });   // for the smoke test's checks
+  Object.assign(window.FA, { app, store, canvas, panels, inspector, updates });   // for the smoke test's checks
   app.offerRecovery = offerRecovery;
   if (app.info.native && app.info.platform === "darwin") {
     // The Mac menu bar: File, Edit, View, Window and Help (macmenu.py), ticks kept up to date

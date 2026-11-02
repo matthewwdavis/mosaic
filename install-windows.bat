@@ -7,6 +7,12 @@ rem environment called "figassemble" with everything FigAssemble needs, and adds
 rem the Start menu and the desktop. Running it again updates an earlier installation. It needs
 rem an internet connection and about 2 GB of disk space; the first run takes 5-15 minutes.
 rem
+rem FigAssemble's own updates run this file from the new version (figassemble\updates.py), with
+rem FIGASSEMBLE_UPDATE=1 (no questions), FIGASSEMBLE_PREFIX (the environment to update; conda is
+rem needed only if environment.yml changed), FIGASSEMBLE_WAIT_PID (wait for FigAssemble to
+rem close), FIGASSEMBLE_RESULT (a file to write "ok" or "failed: why" to) and FIGASSEMBLE_LOCK (a
+rem file to delete at the end).
+rem
 rem For testing: FIGASSEMBLE_ENV (environment name), FIGASSEMBLE_NO_OPEN=1 (don't start
 rem FigAssemble or wait for a key at the end).
 setlocal EnableExtensions EnableDelayedExpansion
@@ -18,16 +24,25 @@ if not exist environment.yml (
   goto failed
 )
 
-rem 1. Conda: use the one you have, or install Miniforge
-set "CONDA="
-for %%D in ("%USERPROFILE%\miniforge3" "%USERPROFILE%\mambaforge" "%USERPROFILE%\miniconda3" "%USERPROFILE%\anaconda3" "%LOCALAPPDATA%\miniforge3" "%PROGRAMDATA%\miniforge3" "%PROGRAMDATA%\miniconda3" "%PROGRAMDATA%\anaconda3") do (
-  if not defined CONDA if exist "%%~D\Scripts\conda.exe" set "CONDA=%%~D\Scripts\conda.exe"
-)
-if not defined CONDA (
-  for /f "delims=" %%C in ('where conda 2^>nul') do (
-    if not defined CONDA if exist "%%~dpC..\Scripts\conda.exe" set "CONDA=%%~dpC..\Scripts\conda.exe"
+rem 0. An update from FigAssemble itself: it closes first
+if defined FIGASSEMBLE_WAIT_PID (
+  echo.
+  echo ==^> Waiting for FigAssemble to close
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Wait-Process -Id %FIGASSEMBLE_WAIT_PID% -Timeout 300 -ErrorAction SilentlyContinue; if (Get-Process -Id %FIGASSEMBLE_WAIT_PID% -ErrorAction SilentlyContinue) { exit 1 }"
+  if errorlevel 1 (
+    set "WHY=FigAssemble didn't close"
+    goto failed
   )
 )
+
+rem What the environment is made from, to tell whether an update needs conda
+set "ENV_HASH="
+for /f "delims=" %%H in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-FileHash -Algorithm SHA256 environment.yml).Hash.ToLower()"') do set "ENV_HASH=%%H"
+
+if defined FIGASSEMBLE_PREFIX goto update_env
+
+rem 1. Conda: use the one you have, or install Miniforge
+call :find_conda
 if not defined CONDA (
   echo.
   echo ==^> Installing conda ^(Miniforge^) into !USERPROFILE!\miniforge3
@@ -77,10 +92,38 @@ if not defined PREFIX (
   set "WHY=the new environment's Python couldn't be found"
   goto failed
 )
-if not exist "%PREFIX%\python.exe" (
-  set "WHY=the new environment's Python isn't in %PREFIX%"
+goto env_done
+
+rem 2. An update: the environment FigAssemble runs in, brought up to date only if what it needs changed
+:update_env
+set "PREFIX=%FIGASSEMBLE_PREFIX%"
+set "OLD_HASH="
+if exist "%PREFIX%\etc\figassemble\environment.sha256" set /p OLD_HASH=<"%PREFIX%\etc\figassemble\environment.sha256"
+if defined ENV_HASH if /i "%OLD_HASH%"=="%ENV_HASH%" (
+  echo.
+  echo ==^> The tools FigAssemble uses are up to date
+  goto env_done
+)
+call :find_conda
+if not defined CONDA (
+  set "WHY=this update needs conda, and conda wasn't found"
   goto failed
 )
+echo.
+echo ==^> Updating the tools FigAssemble uses ^(this can take a few minutes^)
+"%CONDA%" env update -p "%PREFIX%" -f environment.yml --prune
+if errorlevel 1 (
+  set "WHY=the tools FigAssemble uses couldn't be updated (the log says why)"
+  goto failed
+)
+
+:env_done
+if not exist "%PREFIX%\python.exe" (
+  set "WHY=FigAssemble's environment isn't in %PREFIX%"
+  goto failed
+)
+if not exist "%PREFIX%\etc\figassemble" mkdir "%PREFIX%\etc\figassemble"
+if defined ENV_HASH (echo !ENV_HASH!)>"%PREFIX%\etc\figassemble\environment.sha256"
 
 rem 3. FigAssemble itself, copied into the environment (this folder can be deleted afterwards)
 echo.
@@ -91,27 +134,60 @@ if errorlevel 1 (
   goto failed
 )
 
-rem 4. Shortcuts in the Start menu and on the desktop
+rem 4. Shortcuts in the Start menu and on the desktop (an update keeps a desktop shortcut only if there is one)
 echo.
 echo ==^> Adding FigAssemble to the Start menu and the desktop
-"%PREFIX%\python.exe" packaging\windows\make_shortcuts.py
+set "SHORTCUT_ARGS="
+if defined FIGASSEMBLE_UPDATE set "SHORTCUT_ARGS=--update"
+"%PREFIX%\python.exe" packaging\windows\make_shortcuts.py %SHORTCUT_ARGS%
 if errorlevel 1 (
   set "WHY=the shortcuts couldn't be made; FigAssemble itself is installed"
   goto failed
 )
+rem A note for FigAssemble's updates: installed by this installer
+(echo windows)>"%PREFIX%\etc\figassemble\installer"
 
+if defined FIGASSEMBLE_RESULT (echo ok)>"%FIGASSEMBLE_RESULT%"
+if defined FIGASSEMBLE_LOCK del "%FIGASSEMBLE_LOCK%" >nul 2>nul
 echo.
 echo FigAssemble is installed. Start it from the Start menu or the desktop.
-echo To update it later, download the newest version and run this installer again.
+if not defined FIGASSEMBLE_UPDATE echo From now on it updates itself (Settings, Updates).
 if not "%FIGASSEMBLE_NO_OPEN%"=="" exit /b 0
+rem From the user's folder: started from this folder, Python would run the copy of FigAssemble in it
+cd /d "%USERPROFILE%"
 start "" "%PREFIX%\pythonw.exe" -m figassemble
+if defined FIGASSEMBLE_UPDATE exit /b 0
 echo.
 pause
 exit /b 0
+
+rem Conda: the one on the PATH or in a usual place, or the base installation the environment is in
+:find_conda
+set "CONDA="
+for %%D in ("%USERPROFILE%\miniforge3" "%USERPROFILE%\mambaforge" "%USERPROFILE%\miniconda3" "%USERPROFILE%\anaconda3" "%LOCALAPPDATA%\miniforge3" "%PROGRAMDATA%\miniforge3" "%PROGRAMDATA%\miniconda3" "%PROGRAMDATA%\anaconda3") do (
+  if not defined CONDA if exist "%%~D\Scripts\conda.exe" set "CONDA=%%~D\Scripts\conda.exe"
+)
+if not defined CONDA (
+  for /f "delims=" %%C in ('where conda 2^>nul') do (
+    if not defined CONDA if exist "%%~dpC..\Scripts\conda.exe" set "CONDA=%%~dpC..\Scripts\conda.exe"
+  )
+)
+if not defined CONDA if defined FIGASSEMBLE_PREFIX (
+  if exist "%FIGASSEMBLE_PREFIX%\..\..\Scripts\conda.exe" set "CONDA=%FIGASSEMBLE_PREFIX%\..\..\Scripts\conda.exe"
+)
+goto :eof
 
 :failed
 echo.
 echo The installation stopped: %WHY%
 echo You can run this installer again after fixing the problem.
+if defined FIGASSEMBLE_RESULT (echo failed: !WHY!)>"%FIGASSEMBLE_RESULT%"
+if defined FIGASSEMBLE_LOCK del "%FIGASSEMBLE_LOCK%" >nul 2>nul
+rem An update that didn't go in: open the version there is, which says what happened
+if defined FIGASSEMBLE_UPDATE if "%FIGASSEMBLE_NO_OPEN%"=="" if defined PREFIX if exist "%PREFIX%\pythonw.exe" (
+  cd /d "%USERPROFILE%"
+  start "" "!PREFIX!\pythonw.exe" -m figassemble
+  exit /b 1
+)
 if "%FIGASSEMBLE_NO_OPEN%"=="" pause
 exit /b 1

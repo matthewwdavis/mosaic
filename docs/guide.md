@@ -24,6 +24,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 - [Saving, linked files and recovery](#saving-linked-files-and-recovery)
 - [PowerPoint slides](#powerpoint-slides)
 - [Settings](#settings)
+- [Updates](#updates)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Accessibility](#accessibility)
 - [Command line](#command-line)
@@ -882,12 +883,55 @@ The gear button (⌘,):
 - **Rulers, grid and guides:** what's shown, snapping, the grid's spacing and how many finer lines
   each square has.
 - **Unsaved work:** recovery copies kept from earlier sessions, with Delete all.
+- **Updates:** whether new versions install by themselves, ask first or aren't looked for; test
+  versions; going back a version (see [Updates](#updates)).
 - **New objects:** default text size, line width, and panel label size and case.
 
 <img src="images/themes.png" alt="The theme gallery in Settings" width="420">
 
 The version number is at the bottom. Settings are kept in a `.figassemble` folder in your home
-folder, along with recovery copies and a cache of rendered previews.
+folder, along with recovery copies, downloaded updates and a cache of rendered previews.
+
+## Updates
+
+FigAssemble updates itself. Shortly after it starts, and every few hours while it's open, it
+looks on GitHub for a newer version. **Settings → Updates** chooses what happens then, and shows
+the version you have, whether a newer one is ready and when it last looked:
+
+- **Install it automatically** (the default): the new version downloads in the background, and
+  the status bar says when it's ready. It installs when you quit FigAssemble, in about a minute (a
+  few minutes when the tools FigAssemble uses are updated too). Click the note to see what's new,
+  or **Restart now** to install it straight away: FigAssemble closes, installs it and opens again.
+  Unsaved changes are saved first, or kept as a copy that FigAssemble offers back when it opens.
+- **Ask me first:** the status bar says a new version is out, and nothing downloads or installs
+  until you click **Update now**. **Skip this version** waits for the one after it.
+- **Don't check for updates:** FigAssemble doesn't look. **Check for updates** (in the FigAssemble
+  menu on a Mac, or type it in the command search, ⌘/) still looks when you ask.
+
+More:
+
+- **Test versions:** **Get test versions too** installs versions that are newer but less tried,
+  before everyone else gets them. Switch it off to wait for the full releases.
+- **Going back:** if a new version breaks something, **Go back to** (the version before) in
+  Settings → Updates installs that version and opens FigAssemble again. Automatic updates then
+  skip the version you went back from; the one after it installs as usual.
+- **What's new** shows once after each update.
+- **Every update is checked.** Each release is signed with FigAssemble's release key, and
+  FigAssemble installs only a release whose signature matches. Anything else is refused.
+- **Signing in to GitHub, for now.** While FigAssemble's repository is private, FigAssemble signs
+  in to GitHub, once, to download updates. Click **Sign in for updates** in the status bar (or
+  **Sign in to GitHub…** in Settings → Updates), then **Copy the code and open GitHub**. On the
+  GitHub page, paste the code and click **Authorize**. FigAssemble can then only read
+  FigAssemble's repository, and only because your account was added to it. The sign-in is kept in
+  the Mac's Keychain or Windows' Credential Manager; **Sign out of GitHub** forgets it.
+- **Documents saved by a newer version.** A document records which version of FigAssemble saved
+  it. Opened in an older version (say, by a co-author who doesn't update), FigAssemble says so:
+  things that version doesn't know about may not show, and saving over the document could lose
+  them. Update first, or save your changes as a copy (**Save as**).
+- **Several FigAssemble windows open** (Windows): the update installs when the last one closes.
+
+Copies of FigAssemble installed before it updated itself (version 0.1.0) need one last update by
+hand: download the newest release and run its installer.
 
 ## Keyboard shortcuts
 
@@ -963,6 +1007,7 @@ figassemble figure.figasm                      # open a document
 figassemble export figure.figasm -f pdf,svg,png --dpi 600
 figassemble import-pptx deck.pptx --slides 13  # PowerPoint slides -> figure.figasm
 figassemble --browser                          # use a web browser instead of the app window
+figassemble update                             # look for an update (--install installs it)
 ```
 
 ## Troubleshooting
@@ -980,6 +1025,16 @@ connection or disk space. Fix that and run the installer again; it carries on fr
 to. If it keeps failing, [report a problem](https://github.com/matthewwdavis/FigAssemble/issues/new?template=problem.yml)
 and paste the last lines of the installer's window.
 
+**An update didn't install.** The status bar says so: click it for the reason, and **Show the log**
+for the installer's messages. FigAssemble tries again when you next quit it, and after a second
+failure waits for you to click **Try again now**. You can always update by hand: download the
+newest release and run its installer. If it keeps failing, [report a problem](https://github.com/matthewwdavis/FigAssemble/issues/new?template=problem.yml)
+with the log attached.
+
+**Updates say your GitHub account can't see FigAssemble's releases.** The repository is private:
+ask Matthew to add your GitHub account to it. If you signed in with another account, use **Sign
+out of GitHub** in Settings → Updates and sign in again.
+
 **A picture says "Linked file not found".** The file has moved or been renamed. The picture uses
 the copy stored in the document, so nothing is lost. Use **Replace…** to link it to the file's new
 location.
@@ -996,10 +1051,12 @@ with a screenshot if you can.
 **Mac:** drag **FigAssemble** from Applications to the Trash. To remove what it installed too, open
 Terminal and run `~/miniforge3/bin/conda env remove -n figassemble` (use your own conda if you
 had one before). If the installer installed Miniforge and you don't use conda for anything else,
-delete the `miniforge3` folder in your home folder. Settings and recovery copies are in
-`~/.figassemble`.
+delete the `miniforge3` folder in your home folder. Settings, recovery copies and downloaded
+updates are in `~/.figassemble`; the GitHub sign-in is the "FigAssemble GitHub sign-in" item in
+Keychain Access.
 
 **Windows:** delete the FigAssemble shortcuts from the desktop and Start menu. Run
 `%USERPROFILE%\miniforge3\Scripts\conda.exe env remove -n figassemble` in a Command Prompt. If the
-installer installed Miniforge, you can uninstall it under **Settings → Apps**. Settings and
-recovery copies are in `%USERPROFILE%\.figassemble`.
+installer installed Miniforge, you can uninstall it under **Settings → Apps**. Settings, recovery
+copies and downloaded updates are in `%USERPROFILE%\.figassemble`; the GitHub sign-in is the
+"FigAssemble GitHub sign-in" entry in Credential Manager (Windows Credentials).
