@@ -471,16 +471,24 @@ const app = {
     announce(`Replaced with ${r.asset.name}`);
   },
 
-  // Linked files that change on disk refresh in place, keeping each picture's scale
+  // Linked files that change on disk refresh in place, keeping each picture's scale (not while
+  // dragging; the next look takes it). An update that was undone stays undone until the file
+  // is saved again (declined: asset id -> that version's copies)
+  declined: {},
   async refreshLinks() {
-    if (!store.doc || document.hidden) return;
+    if (!store.doc || document.hidden || store._live) return;
     const linked = {};
     for (const [id, a] of Object.entries(store.doc.assets)) if (a.auto_update) linked[id] = a;
     if (!Object.keys(linked).length) return;
     const { changed } = await rpc("refresh_assets", linked, store.path);
-    const ids = Object.keys(changed);
+    if (store._live) return;
+    const ids = Object.keys(changed).filter((id) => {
+      if (this.declined[id] && fileVersion(changed[id]).every((sha) => this.declined[id].has(sha))) return false;
+      delete this.declined[id];
+      return !!store.doc.assets[id];
+    });
     if (!ids.length) return;
-    store.update("Update from file", (doc) => {
+    store.update(UPDATE_FROM_FILE, (doc) => {
       for (const id of ids) {
         const old = doc.assets[id], neu = changed[id];
         const walk = (items) => items.forEach((it) => {
@@ -494,6 +502,26 @@ const app = {
       }
     });
     announce(`Updated ${ids.map((id) => changed[id].name).join(", ")} from ${ids.length === 1 ? "its file" : "their files"}`);
+  },
+  // Undo and redo. Undoing an update from a linked file keeps the version before it until the
+  // file is saved again (refreshLinks); redoing it takes the update back
+  undo() {
+    const before = store.doc.assets, label = store.undo();
+    if (label === UPDATE_FROM_FILE) {
+      for (const [id, a] of Object.entries(before)) {
+        const now = store.doc.assets[id];
+        if (now && fileVersion(now).join() !== fileVersion(a).join()) this.declined[id] = new Set(fileVersion(a));
+      }
+    }
+    announce(label ? `Undid ${label}` : "Nothing to undo");
+  },
+  redo() {
+    const label = store.redo();
+    for (const id of Object.keys(this.declined)) {
+      const a = store.doc.assets[id];
+      if (!a || fileVersion(a).every((sha) => this.declined[id].has(sha))) delete this.declined[id];
+    }
+    announce(label ? `Redid ${label}` : "Nothing to redo");
   },
 
   // Arranging -----------------------------------------------------------------------
@@ -1748,6 +1776,10 @@ const app = {
 };
 
 function dirOf(p) { return p ? p.replace(/[\\/][^\\/]*$/, "") : ""; }
+// The undo step of a picture updated from its linked file
+const UPDATE_FROM_FILE = "Update from file";
+// Which version of its files a picture shows: its copies' (PDF, SVG, PNG…) content hashes, in a fixed order
+function fileVersion(asset) { return Object.keys(asset.variants).sort().map((k) => asset.variants[k].sha256); }
 function reidPage(p) { p.id = uid("pg"); p.items = copyItems(p.items); return p; }
 
 // Commands --------------------------------------------------------------------------------
@@ -1773,8 +1805,8 @@ app.commands = {
   export: cmd("Export", () => panels.exportDialog(), `${M}E`, key("e"), "Export"),
   preflight: cmd("Check before export", () => panels.preflightDialog(), `${M}${S}E`, key("e", { shift: true }), "Check"),
   insertPicture: cmd("Insert picture", () => app.insertPicture(), "I", (e) => plain(e) && !e.shiftKey && e.key.toLowerCase() === "i", "Picture"),
-  undo: cmd("Undo", () => { const l = store.undo(); announce(l ? `Undid ${l}` : "Nothing to undo"); }, `${M}Z`, key("z"), "Undo"),
-  redo: cmd("Redo", () => { const l = store.redo(); announce(l ? `Redid ${l}` : "Nothing to redo"); }, `${M}${S}Z`,
+  undo: cmd("Undo", () => app.undo(), `${M}Z`, key("z"), "Undo"),
+  redo: cmd("Redo", () => app.redo(), `${M}${S}Z`,
     (e) => key("z", { shift: true })(e) || (!isMac && key("y")(e)), "Redo"),
   cut: cmd("Cut", () => app.copy(true), `${M}X`, key("x"), "Cut"),
   copy: cmd("Copy", () => app.copy(), `${M}C`, key("c"), "Copy"),

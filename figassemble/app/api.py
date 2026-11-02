@@ -10,6 +10,7 @@ import os
 import platform
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import zipfile
@@ -88,6 +89,7 @@ class Api:
         self._thumb_lock = threading.Lock()
         self._index: tuple | None = None      # (folders, when, figure files in them) to relink pictures to
         self._dropped: dict[str, dict] = {}   # slides or shapes dragged in from PowerPoint, until taken
+        self._scratch: str | None = None      # the editor self-test's own folder of figure files
 
     # Utilities ------------------------------------------------------------------------
 
@@ -450,6 +452,21 @@ class Api:
             raise PermissionError("only while testing")
         with open(path, "rb") as fh:
             return base64.b64encode(fh.read()).decode("ascii")
+
+    def selftest_scratch(self, name: str, data_b64: str) -> str:
+        """Write a figure file for the editor self-test into a folder of its own and return its
+        path; writing the same name again re-saves it, as R would (only while testing, with
+        FIGASSEMBLE_FAKE_CLIPBOARD, and only plain file names)."""
+        if not isinstance(clipboard.backend(), clipboard.FakeClipboard):
+            raise PermissionError("only while testing")
+        if not name or os.path.basename(name) != name or name in (".", ".."):
+            raise ValueError("a file name, without folders")
+        if self._scratch is None:
+            self._scratch = tempfile.mkdtemp(prefix="figassemble-selftest-files-")
+        path = os.path.join(self._scratch, name)
+        with open(path, "wb") as fh:
+            fh.write(base64.b64decode(data_b64))
+        return path
 
     def refresh_assets(self, assets: dict, doc_path: str | None = None) -> dict:
         """Re-read linked files that changed on disk; returns the updated asset records."""

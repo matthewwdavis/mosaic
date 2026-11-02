@@ -199,6 +199,13 @@ pre-export check says so.
   Option a tenth, Option+Shift resizes by one. Per his rule for automatic behaviour, the status
   bar shows the step and a click there switches to the old fixed 1 pt (the nudge_zoom setting;
   also View ▸ Arrow Keys Follow the Zoom and the command search).
+- **Undoing an update from a linked file (2026-11-01):** the editor looks at linked files every
+  2 s, and an update is an undo step. Undoing it used to last only until the next look, which
+  found the file newer than the picture and updated it again as a new step, so ⌘Z could never get
+  past it. Now the version undone is remembered (by its copies' content hashes) and not taken
+  again; the next save of the file, or Redo, brings an update. It's remembered only while the
+  document is open, so a document opened later catches up with its files. Looks also wait while
+  a drag is in progress. Found by the linked-files tests (tests/test_links.py, linkedFileChecks).
 - **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   "FigAssemble" is a working name; a fun name comes later.

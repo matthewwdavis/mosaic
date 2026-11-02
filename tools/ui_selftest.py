@@ -73,7 +73,8 @@ def main() -> int:
     ap.add_argument("--shot", default="tools/output/ui_selftest.png")
     ap.add_argument("--out", default="tools/output/selftest")
     ap.add_argument("--budget", type=int, default=40000, help="virtual time budget, ms")
-    ap.add_argument("--only", help="run one part on its own, while working on it (objects: the Objects and Pages lists; slides: PowerPoint slides)")
+    ap.add_argument("--only", help="run one part on its own, while working on it (objects: the Objects and Pages lists; slides: "
+                    "PowerPoint slides; links: linked files updating)")
     args = ap.parse_args()
     if not args.chrome:
         print("Chrome not found; pass --chrome PATH")

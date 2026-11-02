@@ -139,9 +139,11 @@ PowerPoint's slides and shapes as objects; right-click and choose **Paste as pic
 picture instead.
 
 - **Linked and stored:** a placed file stays **linked**, so when the file changes (you re-run your
-  R code), the picture updates within a couple of seconds and keeps its place and size. A copy is
-  also stored in the document, so it opens complete anywhere. Hold **Option (Alt)** while
-  dropping to store a copy without the link.
+  R code and it saves under the same name), the picture updates within a couple of seconds. It
+  keeps its place and its scale, so a plot saved larger gets larger on the page, from its top-left
+  corner. Undo (⌘Z) puts back the version before, which then stays until the file is saved again.
+  A copy is also stored in the document, so it opens complete anywhere. Hold **Option (Alt)**
+  while dropping to store a copy without the link.
 - **Copies:** if a plot was saved as PDF, SVG and PNG under one name, FigAssemble finds them all.
   Each export uses the matching copy unchanged:
 
@@ -789,8 +791,11 @@ under one name.
   a copy of each file, so it opens complete on another computer. **Save as** (⌘⇧S) saves a copy.
 - **Open** (⌘O) opens a `.figasm` document, or slides from a PowerPoint deck (see
   [PowerPoint slides](#powerpoint-slides)).
-- **Linked files** are checked every couple of seconds while the document is open. A changed file
-  updates its picture; a missing one falls back to the stored copy.
+- **Linked files** are checked every couple of seconds while the document is open and its window
+  is showing (if it's minimised, as soon as you come back to it; if it was closed, when you open
+  the document). A changed file updates its picture; a missing one falls back to the stored copy.
+  A figure saved under a new name (`plot_v2.svg`) isn't followed: point the picture at it once
+  with **Replace…**.
 - **Recovery:** unsaved work is copied every minute. If FigAssemble closes unexpectedly, it offers
   the work back next time. That window can also **Delete** copies you don't need, one at a time or
   all together. **Settings → Unsaved work** shows how many copies are kept and can delete them.

@@ -227,6 +227,59 @@ async function objectsListChecks(app) {
   await settle();
 }
 
+// Linked pictures follow their files: one re-saved under the same name, as R does, updates by
+// itself (the editor looks every 2 s while its window shows), keeping its place and scale. Undo
+// puts back the version before, which stays until the file is saved again; redo takes the update
+// back. (Whether the window shows is set here, so this runs the same in the smoke test's hidden
+// window; and waits are in elapsed time, since a hidden window's timers run slowly.)
+async function linkedFileChecks(app) {
+  const showing = (on) => Object.defineProperty(document, "hidden", { get: () => !on, configurable: true });
+  const soon = async (cond, ms) => { const t0 = performance.now(); while (!cond() && performance.now() - t0 < ms) await wait(50); return cond(); };
+  try {
+    showing(true);
+    store.setDoc(await rpc("new_document"));
+    canvas.fit();
+    await settle();
+    const plot = (w, colour, label) => btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}pt" height="50pt" viewBox="0 0 ${w} 50">`
+      + `<rect x="5" y="5" width="${w - 10}" height="30" fill="${colour}"/><text x="5" y="46" font-size="8">${label}</text></svg>`);
+    const path = await rpc("selftest_scratch", "linked_plot.svg", plot(100, "#336699", "first"));
+    await app.placeFiles([path], [80, 120], false);
+    const id = store.items().find((it) => it.type === "picture")?.id;
+    if (!id) return log(false, "a figure file is placed linked", path);
+    const asset = () => store.doc.assets[store.item(id).asset];
+    const frame = () => store.item(id).frame.map((v) => +v.toFixed(3)).join();
+    const live = () => document.getElementById("live").textContent;
+    store.update("Scale the plot", (doc) => { findItem(doc, id).frame = [80, 120, 150, 75]; });   // at 150%
+    const status = (await rpc("link_status", { [store.item(id).asset]: asset() }, null))[store.item(id).asset];
+    // Re-saved by R, wider and in another colour, while the window is hidden (minimised): it waits
+    showing(false);
+    await rpc("selftest_scratch", "linked_plot.svg", plot(140, "#993333", "second"));
+    await wait(3000);   // more than one 2 s look
+    const whileHidden = asset().size_pt.join();
+    showing(true);
+    await soon(() => asset().size_pt[0] === 140 && live() === "Updated linked_plot.svg from its file", 8000);
+    check(status === "linked" && whileHidden === "100,50" && asset().size_pt.join() === "140,50" && frame() === "80,120,210,75"
+      && live() === "Updated linked_plot.svg from its file",
+    "a linked picture whose file is re-saved under the same name updates by itself once the window shows, keeping its place and scale",
+    `${status}; hidden ${whileHidden}; ${asset().size_pt}; ${frame()}; ${live()}`);
+    // Undo: the version before stays, though the file on disk is newer
+    app.run("undo");
+    await wait(5000);   // the editor looks at the file at least twice meanwhile
+    check(asset().size_pt.join() === "100,50" && frame() === "80,120,150,75" && store.history.at(-1)?.label === "Scale the plot",
+      "undo puts back the version before, and it stays until the file is saved again",
+      `${asset().size_pt}; ${frame()}; ${store.history.at(-1)?.label}`);
+    app.run("redo");
+    const redone = asset().size_pt.join();
+    app.run("undo");
+    await rpc("selftest_scratch", "linked_plot.svg", plot(120, "#339933", "third"));
+    await soon(() => asset().size_pt[0] === 120, 8000);
+    check(redone === "140,50" && asset().size_pt.join() === "120,50" && frame() === "80,120,180,75",
+      "redo takes the update back, and the file saved again comes in", `${redone}; ${asset().size_pt}; ${frame()}`);
+  } finally {
+    delete document.hidden;   // the browser's own again
+  }
+}
+
 // PowerPoint slides into a figure: Open goes through the slide picker (pictures of the slides,
 // one or several chosen by click, Shift-, ⌘-click, double-click or keys); a deck dropped on the
 // page puts the chosen slides' objects there, dropped in the Pages list makes them pages in the
@@ -525,6 +578,7 @@ export async function run(app, params) {
     check(store.items().length === 0, "new document is empty");
     if (params.get("only") === "objects") { await objectsListChecks(app); throw ONLY; }   // just that part, while working on it
     if (params.get("only") === "slides") { await slidesChecks(app, ppt); throw ONLY; }
+    if (params.get("only") === "links") { await linkedFileChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -1734,6 +1788,7 @@ export async function run(app, params) {
     const slidesFrom = performance.now();
     await slidesChecks(app, ppt);
     info.slidesMs = Math.round(performance.now() - slidesFrom);
+    await linkedFileChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

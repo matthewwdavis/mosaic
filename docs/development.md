@@ -61,7 +61,8 @@ and keyboard events: drawing, snapping, guides, align, connectors, dashes, right
 export, PowerPoint slides and more, about 350 checks. `tests/test_ui.py` runs it in headless
 Chrome. Besides a plot's SVG and PDF it takes PowerPoint's files from `tests/data/powerpoint`: a
 deck and a copy of it, and what PowerPoint put on the clipboard for a copied slide (`.slides`) and
-shapes (`.gvml`). `tools/ui_selftest.py ... --only slides` runs just the PowerPoint part. To run
+shapes (`.gvml`). `tools/ui_selftest.py ... --only slides` runs just the PowerPoint part, and
+`--only links` just linked files updating (a test figure re-saved while placed). To run
 it in the app's own window (WebKit on a Mac):
 
 ```sh

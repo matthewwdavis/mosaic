@@ -108,6 +108,9 @@ Matthew's choices are in brackets.
 - [x] Arrow keys move less when zoomed in and more when zoomed out [round steps in the panels'
       units; Shift, Option and Option+Shift scale with it; the status bar shows the step and a
       click there switches to a fixed 1 pt]
+- [x] Tests for linked files updating, for rolling out to early adopters; they found that undo
+      couldn't get past an update from a file (the next look put it back), so an undone update now
+      stays undone until the file is saved again
 
 ## Acceptance test (test slide)
 
