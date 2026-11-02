@@ -56,7 +56,9 @@ def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int
                "--enable-logging=stderr", "--v=0", f"--screenshot={os.path.abspath(shot)}", url]
         if sys.platform.startswith("linux"):
             cmd.insert(1, "--no-sandbox")
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=400)
+        # (Chrome writes its log in UTF-8; Windows would read it in its own code page, which can't
+        # take some characters in the checks' names, such as ←)
+        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=400)
     srv.shutdown()
     if fake_before is None:
         os.environ.pop("FIGASSEMBLE_FAKE_CLIPBOARD", None)
