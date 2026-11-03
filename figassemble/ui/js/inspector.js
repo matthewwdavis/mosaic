@@ -13,6 +13,8 @@ import { DEFAULT_GAP } from "./gridlayout.js";
 import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
 import { differs as looksDiffer } from "./objectstyles.js";
 import { CORNER_NAMES } from "./labels.js";
+import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePicture, outlinePicture, pathPicture, routePicture,
+  shapePicture, stylePicture } from "./pictures.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, shapeCatalog,
@@ -43,26 +45,27 @@ function outlineKind(it) {
     : !!shapeCatalog.shapes[it.geom]?.closed);
   return { filled: it.type === "shape" && !!it.fill, lined, dashed: lined && !!st.dash && st.dash !== "solid", encloses };
 }
-// The outline's Sides choices on this object: none for a line, which has no inside
+// The outline's Sides choices on this object: inside and outside of what has an inside, else the
+// line's left and right as it goes from its start to its end (a line, an arc, an open curve)
 function outlineSides(k) {
-  if (k.filled && !k.lined) return [["outside", "Outside"], ["inside", "Inside"]];
-  if (k.lined && (k.filled || k.encloses)) return [["outside", "Outside"], ["inside", "Inside"], ["both", "Both sides"]];
-  return null;
+  if (k.filled || k.encloses) return [["outside", "Outside"], ["inside", "Inside"], ["both", "Both sides"]];
+  return [["left", "Left side"], ["right", "Right side"], ["both", "Both sides"]];
 }
 const OUTLINE_GAPS = [["filled", "Filled"], ["empty", "Empty"]];
 // An outline type as the Sides and Gaps it looks like on this object (resolve.with_outline).
 // The first types, drawn underneath, show on both sides of a line with no fill to hide one
 function outlineLook(type, k) {
   let t = type || "outside";
+  if (/^(left|right)/.test(t)) return { sides: t.startsWith("left") ? "left" : "right", gaps: t.endsWith("_gaps") ? "empty" : "filled" };
   if (!k.filled && !k.encloses && /^(inside|outside_only)/.test(t)) t = t.endsWith("_gaps") ? "both" : "both_filled";
   let sides = t.startsWith("inside") ? "inside" : t.startsWith("both") ? "both" : "outside";
   let gaps = ["outside", "outside_only", "inside", "both_filled"].includes(t) ? "filled" : "empty";
   if (!k.filled && (t === "outside" || t === "outside_gaps")) [sides, gaps] = ["both", "empty"];
-  if (!k.lined && sides === "both") sides = "outside";
   return { sides, gaps };
 }
 // The type that keeps to the chosen Sides and Gaps, whatever the fill becomes later
 function outlineType(sides, gaps) {
+  if (sides === "left" || sides === "right") return gaps === "empty" ? `${sides}_gaps` : sides;
   if (sides === "inside") return gaps === "empty" ? "inside_gaps" : "inside";
   if (sides === "both") return gaps === "empty" ? "both" : "both_filled";
   return gaps === "empty" ? "outside_only_gaps" : "outside_only";
@@ -374,9 +377,9 @@ export const inspector = {
         h("span", {}, `${name}: ${link ? `attached to ${canvas.siteLabel(link)}` : "not attached"}`),
         link ? button(`Detach the ${name.toLowerCase()}`, () => this.edit("Detach", (x) => { delete x[key]; }), "Detach", "small") : null);
     };
-    const route = selectField("Route", it.route === "elbow" ? "elbow" : "straight",
-      [["straight", it.points.length > 2 ? "Through its points" : "Straight"], ["elbow", "Elbow: level and upright stretches"]],
-      (v) => this.app.setRoute(v));
+    const route = pictureField("Route", it.route === "elbow" ? "elbow" : "straight",
+      [["straight", it.points.length > 2 ? "Through its points" : "Straight"], ["elbow", "Elbow: level and upright stretches"]]
+        .map(([value, label]) => ({ value, label, picture: () => routePicture(value) })), (v) => this.app.setRoute(v));
     return section("Connections", [row("start_link", "Start"), row("end_link", "End"), route,
       h("p", { class: "hint" }, "Drag an end onto a corner, the middle of a side, or a dash of another object to attach it; "
         + `it then follows that object. Hold ${this.app.mod.replace("+", "")} to drop an end without attaching.`
@@ -386,8 +389,8 @@ export const inspector = {
   // Its object style (objectstyles.js): which, whether this object differs from it, and making one
   objectStyleSection(it) {
     const styles = store.doc.object_styles || [], st = styles.find((x) => x.id === it.object_style);
-    const kids = [selectField("Object style", st ? st.id : "", [["", "None"], ...styles.map((x) => [x.id, x.name])],
-      (v) => this.app.useObjectStyle(v))];
+    const kids = [pictureField("Object style", st ? st.id : "", [{ value: "", label: "None", picture: () => stylePicture(it, null) },
+      ...styles.map((x) => ({ value: x.id, label: x.name, picture: () => stylePicture(it, x) }))], (v) => this.app.useObjectStyle(v))];
     if (st && looksDiffer(it, st)) {
       kids.push(h("p", { class: "hint" }, `This object differs from ${st.name}.`), h("div", { class: "button-row" },
         button(`Put this object back to ${st.name}`, () => this.app.clearObjectChanges(), "Clear changes"),
@@ -492,7 +495,7 @@ export const inspector = {
       });
       return section("Points", [
         radioField("Path", it.curve === "smooth" ? "smooth" : "straight",
-          [["straight", "Straight segments"], ["smooth", "Smooth curve"]],
+          [["straight", "Straight segments", pathPicture("straight")], ["smooth", "Smooth curve", pathPicture("smooth")]],
           (v) => this.edit(v === "smooth" ? "Curve line" : "Straight segments", (x) => { x.curve = v; })),
         ...rows,
         h("div", { class: "button-row" },
@@ -607,10 +610,12 @@ export const inspector = {
   // with the shape's adjustments and corner rounding
   cropShapeFields(it) {
     const mk = it.mask, info = mk && shapeCatalog.shapes[mk.geom];
-    const groups = [["No shape", [["", "None (the whole frame)"]]],
-      ...shapeCatalog.groups.map((g) => [g.title, g.shapes.filter((geom) => shapeCatalog.shapes[geom]?.closed)
-        .map((geom) => [geom, shapeName(geom)])]).filter(([, opts]) => opts.length)];
-    const kids = [groupedSelectField("Crop to shape", mk?.geom || "", groups, (v) => this.edit(v ? "Crop to shape" : "No shape crop", (o) => {
+    const groups = shapeCatalog.groups.map((g) => [g.title, g.shapes.filter((geom) => shapeCatalog.shapes[geom]?.closed)])
+      .filter(([, geoms]) => geoms.length);
+    const options = [{ value: "", label: "None (the whole frame)", picture: () => shapePicture(null) },
+      ...groups.flatMap(([heading, geoms]) => [{ heading }, ...geoms.map((geom) => ({ value: geom, label: shapeName(geom),
+        picture: () => shapePicture(geom) }))])];
+    const kids = [pictureField("Crop to shape", mk?.geom || "", options, (v) => this.edit(v ? "Crop to shape" : "No shape crop", (o) => {
       if (v) o.mask = { geom: v };
       else delete o.mask;
     }))];
@@ -771,9 +776,10 @@ export const inspector = {
     const info = shapeCatalog.shapes[it.geom];
     const kids = [];
     if (it.geom !== "custom") {
-      const groups = shapeCatalog.groups.map((g) => [g.title, g.shapes.map((geom) => [geom, shapeName(geom)])]);
-      if (!shapeCatalog.groups.some((g) => g.shapes.includes(it.geom))) groups.push(["From PowerPoint", [[it.geom, shapeName(it.geom)]]]);
-      kids.push(groupedSelectField("Shape", it.geom, groups, (v) => this.edit("Change shape", (o) => {
+      const groups = shapeCatalog.groups.map((g) => [g.title, g.shapes]);
+      if (!shapeCatalog.groups.some((g) => g.shapes.includes(it.geom))) groups.push(["From PowerPoint", [it.geom]]);
+      kids.push(pictureField("Shape", it.geom, groups.flatMap(([heading, geoms]) => [{ heading },
+        ...geoms.map((geom) => ({ value: geom, label: shapeName(geom), picture: () => shapePicture(geom) }))]), (v) => this.edit("Change shape", (o) => {
         o.geom = v;
         o.adj = {};
         if (!shapeCatalog.shapes[v]?.open) { o.arrow_start = null; o.arrow_end = null; }
@@ -822,7 +828,7 @@ export const inspector = {
     const f = it.fill, g = f?.gradient;
     const mode = !f ? "none" : g ? (g.type === "radial" ? "radial" : "linear") : "solid";
     const opts = [["none", "No fill"], ["solid", "Colour"], ["linear", "Linear gradient"], ["radial", "Radial gradient"]];
-    const kids = [selectField("Fill", mode, opts, (v) => this.edit("Fill", (o) => {
+    const kids = [pictureField("Fill", mode, opts.map(([value, label]) => ({ value, label, picture: () => fillPicture(it, value) })), (v) => this.edit("Fill", (o) => {
       const old = o.fill, og = old?.gradient;
       if (v === "none") o.fill = null;
       else if (v === "solid") o.fill = og ? { color: og.stops[0].color, opacity: og.stops[0].opacity ?? 1 }
@@ -854,7 +860,8 @@ export const inspector = {
     const out = [gradientBar(g)];
     if (g.type === "radial") {
       const at = CENTRES.find(([, c]) => c[0] === g.center?.[0] && c[1] === g.center?.[1])?.[0] || "middle";
-      out.push(selectField("Gradient from", at, CENTRES.map(([k, , label]) => [k, label]),
+      out.push(pictureField("Gradient from", at, CENTRES.map(([value, centre, label]) => ({ value, label,
+        picture: () => fillPicture({ fill: { gradient: g } }, "radial", centre) })),
         (v) => setG("Gradient centre", (gr) => { gr.center = CENTRES.find(([k]) => k === v)[1].slice(); })));
     } else {
       out.push(numField("Gradient angle", g.angle ?? 0, "deg", (v) => setG("Gradient angle", (gr) => {
@@ -881,14 +888,16 @@ export const inspector = {
   strokeSection(it) {
     const st = it.stroke;
     const kids = [];
-    if (it.type !== "line") kids.push(selectField("Line", st ? "solid" : "none", [["none", "No line"], ["solid", "Line"]], (v) =>
+    if (it.type !== "line") kids.push(pictureField("Line", st ? "solid" : "none", [["none", "No line"], ["solid", "Line"]]
+      .map(([value, label]) => ({ value, label, picture: () => linePicture(st, value === "solid") })), (v) =>
       this.edit(v === "none" ? "Remove line" : "Add line", (o) => { o.stroke = v === "none" ? null : { color: "#000000", width: this.app.prefs.stroke_width || 1, dash: "solid", cap: "round", join: "round", opacity: 1 }; })));
     if (st) {
       const set = (label, key, conv = (v) => v) => (v) => this.edit(label, (o) => { o.stroke = { ...o.stroke, [key]: conv(v) }; });
       kids.push(row(colorField("Line colour", st.color || "#000000",
         (v, sw) => this.edit("Line colour", (o) => { o.stroke = linked({ ...o.stroke, color: v }, sw); }), st.swatch),
         numField("Line width", st.width ?? 1, "pt", set("Line width", "width", (v) => Math.max(v, 0)), { min: 0, step: 0.25 })));
-      kids.push(selectField("Dash", typeof st.dash === "string" ? st.dash : "solid", DASHES, set("Dash", "dash")));
+      kids.push(pictureField("Dash", typeof st.dash === "string" ? st.dash : "solid",
+        DASHES.map(([value, label]) => ({ value, label, picture: () => dashPicture(st, value) })), set("Dash", "dash")));
       // Dashed lines get a dash (or dot) on every corner and end, evenly spaced between them;
       // unticked, the pattern runs on regardless of corners, as in PowerPoint
       if (st.dash && st.dash !== "solid") {
@@ -899,15 +908,17 @@ export const inspector = {
             else o.stroke.even_dashes = false;
           })));
       }
-      kids.push(row(selectField("Ends", st.cap || "flat", [["round", "Round"], ["flat", "Flat"], ["square", "Square"]], set("Line ends", "cap")),
-        selectField("Corners", st.join || "round", [["round", "Round"], ["miter", "Sharp"], ["bevel", "Bevelled"]], set("Corners", "join"))));
+      kids.push(row(pictureField("Ends", st.cap || "flat", [["round", "Round"], ["flat", "Flat"], ["square", "Square"]]
+        .map(([value, label]) => ({ value, label, picture: () => capPicture(st, value) })), set("Line ends", "cap")),
+      pictureField("Corners", st.join || "round", [["round", "Round"], ["miter", "Sharp"], ["bevel", "Bevelled"]]
+        .map(([value, label]) => ({ value, label, picture: () => joinPicture(st, value) })), set("Corners", "join"))));
       kids.push(transparencyField("Line transparency", st.opacity, (op) => this.edit("Line transparency", (o) => { o.stroke = { ...o.stroke, opacity: op }; })));
     }
     return section("Line", kids);
   },
   // A contour in a second colour around the whole arrow or shape (lines, heads and fill)
   outlineSection(it) {
-    const o = it.outline, k = outlineKind(it), sides = o ? outlineSides(k) : null, gaps = !!o && k.dashed;
+    const o = it.outline, k = outlineKind(it), inside = k.filled || k.encloses, sides = outlineSides(k);
     const kids = [checkField("Outline around it", !!o, (on) => this.edit(on ? "Add outline" : "Remove outline", (x) => {
       x.outline = on ? { color: contrastingOutline(x), width: 1, opacity: 1 } : null;
     }))];
@@ -917,28 +928,38 @@ export const inspector = {
         (v, sw) => this.edit("Outline colour", (x) => { x.outline = linked({ ...x.outline, color: v }, sw); }), o.swatch),
         numField("Outline thickness", o.width ?? 1, "pt", (v) => set("Outline thickness", "width")(Math.max(v, 0.05)), { min: 0.05, step: 0.25 })));
       kids.push(transparencyField("Outline transparency", o.opacity, (op) => set("Outline transparency", "opacity")(op)));
-      // Sides and Gaps each change only their half of the type
+      // Sides and Gaps each change only their half of the type; every choice is offered, greyed
+      // out with the reason where it would change nothing yet. (A line made from a closed one keeps
+      // its left or right side, shown as it is)
       const look = outlineLook(o.type, k);
+      if (!sides.some(([v]) => v === look.sides)) sides.push([look.sides, look.sides === "left" ? "Left side" : "Right side"]);
       const pick = (label, part) => (v) => set(label, "type")(outlineType(part === "sides" ? v : look.sides, part === "gaps" ? v : look.gaps));
-      const lists = [sides ? selectField("Sides", look.sides, sides, pick("Outline sides", "sides")) : null,
-        gaps ? selectField("Gaps", look.gaps, OUTLINE_GAPS, pick("Outline gaps", "gaps")) : null].filter(Boolean);
-      if (lists.length) kids.push(row(...lists));
+      kids.push(row(
+        pictureField("Sides", look.sides, sides.map(([value, label]) => ({ value, label,
+          picture: () => outlinePicture(it, outlineType(value, look.gaps), inside) })), pick("Outline sides", "sides"),
+        { disabled: k.lined || k.filled ? null : "For something with a line or a fill" }),
+        pictureField("Gaps", look.gaps, OUTLINE_GAPS.map(([value, label]) => ({ value, label,
+          picture: () => outlinePicture(it, outlineType(look.sides, value), inside) })), pick("Outline gaps", "gaps"),
+        { disabled: k.dashed ? null : "For dashed and dotted lines" })));
     }
     kids.push(h("p", { class: "hint" }, "A band of another colour around everything it draws, e.g. a white edge that keeps a black arrow "
       + "visible on a photo."
-      + (!sides ? "" : sides.length === 2 ? " Outside: a band round the fill. Inside: a band just inside its edge."
-        : ` Outside: only outside the shape. Inside: only inside it${k.filled ? ", over the fill" : ""}. Both sides: along both sides of the line.`)
-      + (gaps ? " Gaps filled: the outline runs on through the line's gaps. Gaps empty: it goes only round each dash or dot." : "")));
+      + (!o ? "" : inside ? ` Outside: only outside the shape. Inside: only inside it${k.filled ? ", over the fill" : ""}. Both sides: `
+        + `along both sides of the ${k.lined ? "line" : "edge"}.`
+        : " Left side or Right side: one side of the line, going from its start to its end. Both sides: along both sides.")
+      + (o && k.dashed ? " Gaps filled: the outline runs on through the line's gaps. Gaps empty: it goes only round each dash or dot." : "")));
     return section("Outline", kids);
   },
   endsSection(it) {
     const end = (key, label) => {
       const spec = it[key];
-      const out = [row(selectField(label, spec?.type || "none", HEADS, (v) => this.edit("Arrowhead", (o) => {
+      const out = [row(pictureField(label, spec?.type || "none", HEADS.map(([value, name]) => ({ value, label: name,
+        picture: () => headPicture(it, key, value, spec?.w || "med") })), (v) => this.edit("Arrowhead", (o) => {
         o[key] = v === "none" ? null : { ...(o[key] || {}), type: v, w: o[key]?.w || "med", len: o[key]?.len || "med" };
-      })), selectField(`${label} size`, spec?.w || "med", SIZES, (v) => this.edit("Arrowhead size", (o) => {
+      })), pictureField(`${label} size`, spec?.w || "med", SIZES.map(([value, name]) => ({ value, label: name,
+        picture: () => headPicture(it, key, spec?.type || "triangle", value) })), (v) => this.edit("Arrowhead size", (o) => {
         if (o[key]) o[key] = { ...o[key], w: v, len: v };
-      }), { disabled: !spec }))];
+      }), { disabled: spec ? null : "Choose an arrowhead first" }))];
       if (spec && ROUNDED_HEADS.includes(spec.type)) {
         out.push(numField(`${label} rounding`, (spec.rounding || 0) * 100, "%", (v) => this.edit("Arrowhead rounding", (o) => {
           if (!o[key]) return;
@@ -1152,9 +1173,34 @@ function textArea(text, value, onCommit) {
   ta.addEventListener("keydown", keepFieldKeys);
   return h("div", { class: "field" }, label(text, id), ta);
 }
-// A dropdown with its options in labelled groups: [[group title, [[value, label], ...]], ...]
-function groupedSelectField(text, value, groups, onChange) {
-  return selectField(text, value, groups.map(([group, options]) => ({ group, options })), onChange);
+// A choice shown as a small picture with its name: pressing it opens a menu with a picture beside
+// every choice (contextmenu.js), the current one ticked. options: { value, label, picture (() =>
+// an element), disabled (why it's greyed out) } or { heading } over a group. opts.disabled: why
+// no choice changes anything yet (greyed out, with the reason under it). Like a select, it has a
+// value, and choices (the values it offers)
+export function pictureField(text, value, options, onChange, opts = {}) {
+  const id = `f${++fieldId}`;
+  const choices = options.filter((o) => !o.heading);
+  const shown = choices.find((o) => o.value === value) || choices[0];
+  const why = opts.disabled ? h("p", { class: "hint why", id: `${id}-why` }, opts.disabled) : null;
+  const btn = h("button", { type: "button", id, class: "pic-select", "aria-haspopup": "menu", "aria-disabled": why ? "true" : null,
+    "aria-describedby": why ? `${id}-why` : null },
+  h("span", { class: "pic" }, shown?.picture?.() || null), h("span", { class: "pic-label" }, shown?.label ?? ""),
+  h("span", { class: "pic-arrow", "aria-hidden": "true" }, "▾"));
+  btn.value = value ?? "";
+  btn.choices = choices.map((o) => o.value);
+  const open = () => {
+    if (why) return;
+    const r = btn.getBoundingClientRect();
+    contextMenu.show(options.map((o) => (o.heading ? o : { label: o.label, value: o.value, picture: o.picture?.(),
+      checked: o.value === value, disabled: !!o.disabled, note: o.disabled || null,
+      run: () => { if (o.value !== value) onChange(o.value); } })), r.left, r.bottom + 2, btn, { label: text, focusChecked: true });
+  };
+  btn.addEventListener("click", open);
+  btn.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); open(); }
+  });
+  return h("div", { class: "field" }, label(text, id), btn, why);
 }
 // options: [value, label] pairs, or {group, options: [value, label] pairs} for a group with a heading
 export function selectField(text, value, options, onChange, opts = {}) {
@@ -1231,14 +1277,15 @@ function checkField(text, checked, onChange) {
   input.addEventListener("change", () => onChange(input.checked));
   return h("div", { class: "field check" }, input, label(text, id));
 }
+// options: [value, label] or [value, label, picture]
 function radioField(text, value, options, onChange) {
   const name = `r${++fieldId}`;
   return h("fieldset", { class: "radio-group" }, h("legend", {}, text),
-    ...options.map(([v, l]) => {
+    ...options.map(([v, l, picture]) => {
       const id = `${name}-${v}`;
       const input = h("input", { type: "radio", name, id, value: v, checked: v === value });
       input.addEventListener("change", () => { if (input.checked) onChange(v); });
-      return h("label", { for: id, class: "radio" }, input, h("span", {}, l));
+      return h("label", { for: id, class: "radio" }, input, picture ? h("span", { class: "pic" }, picture) : null, h("span", {}, l));
     }));
 }
 // A command as a small icon button (its name and shortcut in the tooltip)

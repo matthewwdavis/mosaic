@@ -8,7 +8,7 @@ import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
-import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints } from "./util.js";
+import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, shapeCatalog } from "./util.js";
 import { sameCommand } from "./selectsame.js";
 import { ringsOf, toPageOf } from "./pen.js";
 
@@ -16,14 +16,21 @@ const MMPT = 72 / 25.4;
 const gRectFor = (id, x, y, w, hh) => ({ id, type: "shape", geom: "rect", frame: [x, y, w, hh], rot: 0, flip_h: false, flip_v: false,
   stroke: { color: "#000000", width: 1, dash: "solid", cap: "flat", join: "miter", opacity: 1 }, fill: null });
 const near = (a, b, tol = 0.05) => Math.abs(a - b) < tol;
-// Set a properties-panel dropdown by its label, as a person would
+// Set a properties-panel dropdown by its label, as a person would: a picture menu by opening it and
+// clicking the choice (a greyed-out one does nothing)
 async function choose(label, value) {
   inspector.render();
   const l = [...document.querySelectorAll("#inspector label")].find((x) => x.textContent === label);
   const field = l && document.getElementById(l.htmlFor);
   if (!field) return false;
-  field.value = value;
-  field.dispatchEvent(new Event("change", { bubbles: true }));
+  if (field.classList.contains("pic-select")) {
+    field.click();
+    [...document.querySelectorAll(".context-menu .menu-item")].find((b) => b.dataset.value === String(value))?.click();
+    document.querySelector(".context-menu") && document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  } else {
+    field.value = value;
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+  }
   await new Promise((r) => setTimeout(r, 60));
   return true;
 }
@@ -1158,6 +1165,71 @@ async function exportNoteChecks(app, out) {
   }
 }
 
+// Picture menus: the Style tab's lists show the choice as a picture (drawn by the engine for a dash,
+// an arrowhead or an outline) with its name, and open a menu with a picture beside every choice,
+// starting on the ticked one; the keyboard opens and closes them. A list that changes nothing yet
+// is greyed out, saying why; a line's outline has its left and right sides; shapes come in groups
+async function pictureMenuChecks(app) {
+  const line = (id) => ({ id, type: "line", points: [[60, 80], [260, 80]], rot: 0, arrow_end: { type: "triangle", w: "med", len: "med" },
+    stroke: { color: "#1f3a93", width: 1.5, dash: "solid", cap: "round", join: "round", opacity: 1 } });
+  store.setDoc(await rpc("new_document"));
+  store.update("Picture menus", (doc) => doc.pages[0].items.push(line("pmLine"), { id: "pmStar", type: "shape", geom: "star5",
+    frame: [300, 40, 80, 80], rot: 0, flip_h: false, flip_v: false, fill: { color: "#cfe3ff", opacity: 1 },
+    stroke: { color: "#1f3a93", width: 1.5, dash: "solid", cap: "round", join: "round", opacity: 1 } }), { select: ["pmLine"] });
+  await settle();
+  inspector.render();
+  document.getElementById("itab-style")?.click();
+  const drawnIn = (el) => !!el?.querySelector(".pic-svg g")?.childElementCount;
+  const items = () => [...document.querySelectorAll(".context-menu .menu-item")];
+  const closeMenu = () => document.querySelector(".context-menu") && document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  let dash = fieldByLabel("Dash");
+  await until(() => drawnIn(dash), 4000);
+  check(dash?.classList.contains("pic-select") && dash.value === "solid" && dash.textContent.includes("Solid") && drawnIn(dash),
+    "the Dash list shows its choice as a picture drawn by the engine, with its name", dash?.outerHTML.slice(0, 160));
+  dash.click();
+  await until(() => items().length && items().every((b) => drawnIn(b)), 4000);
+  check(items().length === 9 && items().every((b) => drawnIn(b)) && document.activeElement === items()[0]
+    && items()[0].getAttribute("aria-checked") === "true", "its menu has a picture beside every dash, starting on the ticked one",
+  `${items().length} items, ${items().filter((b) => drawnIn(b)).length} drawn, focus on ${document.activeElement?.textContent}`);
+  items().find((b) => b.dataset.value === "lgDash")?.click();
+  await settle();
+  check(store.item("pmLine").stroke.dash === "lgDash" && !document.querySelector(".context-menu"), "choosing one sets it",
+    store.item("pmLine").stroke.dash);
+  inspector.render();
+  dash = fieldByLabel("Dash");
+  dash.focus();
+  dash.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
+  const onTicked = document.activeElement?.dataset.value === "lgDash";
+  document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  check(onTicked && !document.querySelector(".context-menu") && document.activeElement === dash,
+    "↓ opens it on the ticked choice, and Escape closes it, back on the list", `${onTicked} ${document.activeElement?.className}`);
+  const startSize = fieldByLabel("Start size");
+  startSize.click();
+  check(startSize.getAttribute("aria-disabled") === "true" && !document.querySelector(".context-menu")
+    && /Choose an arrowhead first/.test(startSize.closest(".field").textContent), "a list that changes nothing yet is greyed out, says why, and doesn't open",
+  `${startSize.getAttribute("aria-disabled")} ${startSize.closest(".field").textContent}`);
+  fieldByLabel("End").click();
+  await until(() => items().length && items().every((b) => drawnIn(b)), 4000);
+  check(items().length === 10 && items().every((b) => drawnIn(b)), "the arrowheads have pictures too", `${items().length}`);
+  closeMenu();
+  fieldByLabel("Outline around it")?.click();
+  await settle();
+  fieldByLabel("Sides").click();
+  await until(() => items().length && items().every((b) => drawnIn(b)), 4000);
+  check(items().map((b) => b.dataset.value).join() === "left,right,both" && items().every((b) => drawnIn(b))
+    && items().slice(0, 2).every((b) => b.querySelector("clipPath")), "a line's outline Sides are its left and right and both, each pictured",
+  items().map((b) => `${b.dataset.value} ${drawnIn(b)}`).join());
+  closeMenu();
+  store.select(["pmStar"]);
+  inspector.render();
+  fieldByLabel("Shape").click();
+  const headings = [...document.querySelectorAll(".context-menu .menu-heading")].map((x) => x.textContent);
+  check(headings.length === shapeCatalog.groups.length && document.activeElement?.dataset.value === "star5"
+    && items().every((b) => b.querySelector(".menu-pic svg")), "the Shape list comes in its groups, each shape with its icon, starting on its own",
+  `${headings.length} groups; on ${document.activeElement?.dataset.value}`);
+  closeMenu();
+}
+
 // Guides from the rulers: pointing at a ruler shows where a click would put a guide, rounded to a
 // fine step of its ticks (1 mm at 100%); a click puts it there (the top ruler a vertical guide, the
 // left a horizontal one; ⌘ exactly where clicked; on a guide's mark, nothing), and a drag still
@@ -1331,6 +1403,7 @@ export async function run(app, params) {
     if (params.get("only") === "vision") { await visionChecks(app); throw ONLY; }
     if (params.get("only") === "export") { await exportNoteChecks(app, out); throw ONLY; }
     if (params.get("only") === "guides") { await rulerGuideChecks(app); throw ONLY; }
+    if (params.get("only") === "pictures") { await pictureMenuChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -2161,14 +2234,17 @@ export async function run(app, params) {
     await settle();
     check(store.item(rect.id).outline.opacity === 0.5 && canvas.els.get(rect.id)?.g.innerHTML.includes('opacity="0.5"'),
       "outline transparency fades the contour as one piece", JSON.stringify(store.item(rect.id).outline));
-    // Outline Sides and Gaps, each offering only choices that look different. A rectangle's line
-    // goes all the way round it, so even unfilled it has Outside, Inside and Both sides (what an
-    // outline drawn underneath shows with no fill); Gaps only for a dashed or dotted line
-    const choicesOf = (label) => [...(fieldByLabel(label)?.options || [])].map((o) => o.value).join();
+    // Outline Sides and Gaps. A rectangle's line goes all the way round it, so even unfilled it
+    // has Outside, Inside and Both sides (what an outline drawn underneath shows with no fill);
+    // Gaps show greyed out, with the reason, until the line is dashed or dotted
+    const choicesOf = (label) => { const f = fieldByLabel(label); return (f?.choices || [...(f?.options || [])].map((o) => o.value)).join(); };
     const shownAs = (label) => fieldByLabel(label)?.value;
+    const greyed = (label) => fieldByLabel(label)?.getAttribute("aria-disabled") === "true";
     const drawnPaths = () => [...(canvas.els.get(rect.id)?.g.querySelectorAll("path") || [])].filter((p) => !p.closest("clipPath"));
-    check(choicesOf("Sides") === "outside,inside,both" && shownAs("Sides") === "both" && !fieldByLabel("Gaps"),
-      "an unfilled rectangle offers Outside, Inside or Both sides, and no gaps for a solid line", `${choicesOf("Sides")} ${shownAs("Sides")}`);
+    check(choicesOf("Sides") === "outside,inside,both" && shownAs("Sides") === "both" && greyed("Gaps")
+      && /For dashed and dotted lines/.test(fieldByLabel("Gaps")?.closest(".field")?.textContent || ""),
+    "an unfilled rectangle offers Outside, Inside or Both sides, and Gaps greyed out for a solid line, saying why",
+    `${choicesOf("Sides")} ${shownAs("Sides")} greyed ${greyed("Gaps")}`);
     store.update("Fill for the test", (doc) => { findItem(doc, rect.id).fill = { color: "#cfe3ff", opacity: 1 }; });
     await settle();
     check(shownAs("Sides") === "outside", "with a fill the same outline shows as Outside", shownAs("Sides"));
@@ -2191,8 +2267,8 @@ export async function run(app, params) {
     // A dashed line adds Gaps, keeping the sides chosen
     await choose("Dash", "dash");
     await settle();
-    check(choicesOf("Gaps") === "filled,empty" && shownAs("Sides") === "inside" && shownAs("Gaps") === "filled",
-      "a dashed line adds Gaps filled or empty, keeping the sides chosen", `${choicesOf("Gaps")} ${shownAs("Sides")} ${shownAs("Gaps")}`);
+    check(choicesOf("Gaps") === "filled,empty" && !greyed("Gaps") && shownAs("Sides") === "inside" && shownAs("Gaps") === "filled",
+      "a dashed line makes Gaps filled or empty choosable, keeping the sides chosen", `${choicesOf("Gaps")} ${shownAs("Sides")} ${shownAs("Gaps")}`);
     await choose("Gaps", "empty");
     await settle();
     check(store.item(rect.id).outline.type === "inside_gaps" && shownAs("Sides") === "inside",
@@ -2217,7 +2293,7 @@ export async function run(app, params) {
       "with no fill, Outside keeps the outline off the shape's inside", `${store.item(rect.id).outline.type} ${outsideClip?.outerHTML.slice(0, 120)}`);
     store.update("Outline type back", (doc) => { findItem(doc, rect.id).outline.type = "outside"; });
     await choose("Dash", "solid");
-    // A line has no inside: just Gaps, once it's dashed
+    // A line has no inside: its Sides are its left and right, going from its start to its end
     const arrowWas = JSON.parse(JSON.stringify(store.item(arrow.id)));
     store.update("Dashed outlined arrow for the test", (doc) => {
       const a = findItem(doc, arrow.id);
@@ -2226,8 +2302,16 @@ export async function run(app, params) {
     });
     store.select([arrow.id]);
     await settle();
-    check(!fieldByLabel("Sides") && choicesOf("Gaps") === "filled,empty" && shownAs("Gaps") === "empty",
-      "a dashed line offers only gaps filled or empty", `${choicesOf("Sides")} | ${choicesOf("Gaps")} ${shownAs("Gaps")}`);
+    check(choicesOf("Sides") === "left,right,both" && shownAs("Sides") === "both" && choicesOf("Gaps") === "filled,empty"
+      && shownAs("Gaps") === "empty", "a dashed line offers Left side, Right side or Both sides, and gaps filled or empty",
+    `${choicesOf("Sides")} ${shownAs("Sides")} | ${choicesOf("Gaps")} ${shownAs("Gaps")}`);
+    await choose("Sides", "left");
+    await settle();
+    const leftType = store.item(arrow.id).outline.type, oneSide = canvas.els.get(arrow.id)?.g.querySelector("clipPath");
+    await choose("Gaps", "filled");
+    await settle();
+    check(leftType === "left_gaps" && oneSide && store.item(arrow.id).outline.type === "left",
+      "Left side keeps the outline to one side of the line, with its gaps choice", `${leftType} ${!!oneSide} ${store.item(arrow.id).outline.type}`);
     store.update("Arrow back", (doc) => {
       const a = findItem(doc, arrow.id);
       a.stroke = arrowWas.stroke;
@@ -2563,6 +2647,7 @@ export async function run(app, params) {
     await visionChecks(app);
     await exportNoteChecks(app, out);
     await rulerGuideChecks(app);
+    await pictureMenuChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

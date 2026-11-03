@@ -12,7 +12,7 @@ import { contextMenu } from "./contextmenu.js";
 import { listDrag } from "./listdrag.js";
 import { updates } from "./updates.js";
 import { intoPlace, locate, moveItems, moveToPage, slotPlaces, treeRows } from "./layers.js";
-import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, s, shapeName, toUnit } from "./util.js";
+import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon, s, shapeName, toUnit } from "./util.js";
 
 // 24 x 24 stroke icons, drawn for FigAssemble; a few follow Feather's and Lucide's designs (their
 // notices are in THIRD_PARTY_NOTICES.md)
@@ -110,17 +110,6 @@ function fontUses(doc) {
 
 export function icon(name) {
   return pathIcon(ICONS[name] || "");
-}
-// An icon from path data in a 24 x 24 box (the Shapes menu's icons come from the engine)
-function pathIcon(d) {
-  const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svgEl.setAttribute("viewBox", "0 0 24 24");
-  svgEl.setAttribute("aria-hidden", "true");
-  svgEl.setAttribute("class", "icon");
-  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  p.setAttribute("d", d);
-  svgEl.append(p);
-  return svgEl;
 }
 
 export function sizeText(bytes) {

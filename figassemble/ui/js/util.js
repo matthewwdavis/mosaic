@@ -63,6 +63,12 @@ export function s(tag, attrs = {}) {
   for (const [k, v] of Object.entries(attrs)) if (v !== undefined && v !== null) el.setAttribute(k, v);
   return el;
 }
+// An icon from path data in a 24 x 24 box (the Shapes menu's icons come from the engine)
+export function pathIcon(d) {
+  const svgEl = s("svg", { viewBox: "0 0 24 24", "aria-hidden": "true", class: "icon" });
+  svgEl.append(s("path", { d }));
+  return svgEl;
+}
 
 // Matrices [a b c d e f], same convention as the Python engine
 export const I = [1, 0, 0, 1, 0, 0];

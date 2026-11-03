@@ -278,6 +278,31 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .radio { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.5rem; border: 1px solid var(--line);
   border-radius: 0.3rem; cursor: pointer; }
 .radio:has(input:checked) { background: var(--pressed); border-color: var(--sel); }
+.radio .pic { display: inline-flex; }
+/* Picture menus (inspector.pictureField): a choice shown as its picture and name, opening a menu of
+   them; greyed out with the reason under it where no choice changes anything yet */
+.pic-select { display: flex; align-items: center; gap: 0.45rem; width: 100%; min-height: 2rem; padding: 0.2rem 0.4rem;
+  border: 1px solid var(--line); border-radius: 0.3rem; background: var(--panel); text-align: left; cursor: pointer; }
+.pic-select:hover { background: var(--hover); }
+.pic-select[aria-disabled="true"] { opacity: 0.5; cursor: default; }
+.pic-select[aria-disabled="true"]:hover { background: var(--panel); }
+.pic-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pic-arrow { color: var(--muted); font-size: 0.75rem; }
+.pic { display: inline-flex; align-items: center; flex: none; }
+.pic svg, .menu-pic svg { display: block; forced-color-adjust: none; }
+.pic-select .pic-svg { max-width: 30px; height: auto; }   /* (full size in the menu; room for the name here) */
+.pic .icon, .menu-pic .icon { width: 1.25rem; height: 1.25rem; }
+.row:has(.why) { align-items: start; }
+.field .why { margin: 0.1rem 0 0; }
+.menu-pic { display: inline-flex; vertical-align: middle; margin-right: 0.55rem; }
+.menu-heading { padding: 0.45rem 0.5rem 0.15rem 2rem; font-size: 0.74rem; font-weight: 600; color: var(--muted); }
+.menu-note { color: var(--muted); }
+/* In the pictures: a hairline where a line ends, the edge of a fill's square, a crossed-out "none" */
+.pic-guide { stroke: var(--muted); stroke-width: 0.75; }
+.pic-box { stroke: var(--line); stroke-width: 1; }
+.pic-none, .pic-none-box { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.pic-none-box { stroke-dasharray: 2 2; }
+.pic-line { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .file-name { font-weight: 600; word-break: break-all; margin: 0.2rem 0; }
 .link-status { margin: 0.2rem 0; }
 .link-status.missing { color: var(--warn); }

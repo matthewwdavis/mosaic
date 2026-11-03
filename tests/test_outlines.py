@@ -64,9 +64,49 @@ def test_both_sides_gaps_filled_outlines_the_whole_dashed_line():
     assert kinds(prims) == ["outline-line", "line"] and pieces(prims[0]) == 1
 
 
-def test_a_shape_with_no_line_is_outlined_outside_whatever_the_type():
-    for t in ("outside", "both", "outside_gaps", "both_filled"):
+def test_a_shape_with_no_line_is_outlined_outside_or_along_its_edge():
+    for t in ("outside", "outside_gaps"):
         assert kinds(drawn(t, stroke=False)) == ["outline-fill", "fill"], t
+    # Both sides: a band along the fill's edge, twice the outline's width, half of it over the fill
+    for t in ("both", "both_filled"):
+        prims = drawn(t, stroke=False)
+        assert kinds(prims) == ["fill", "outline-line"], t
+        assert prims[1].stroke.width == 4 and prims[1].stroke.color == "#ff9900"
+
+
+def one_side(outline_type, dash="solid", head=None):
+    """A line going right, its outline of the given type: the clip that keeps it to one side."""
+    item = {"id": "l", "type": "line", "points": [[0, 0], [100, 0]], "stroke": {"color": "#000", "width": 2, "dash": dash},
+            "arrow_end": head, "outline": {"color": "#fff", "width": 3, "type": outline_type}}
+    prims = Resolver({"assets": {}}).resolve(item).prims
+    groups = [p for p in prims if isinstance(p, DrawGroup) and p.meta.get("role") == "outline"]
+    return prims, groups
+
+
+def test_one_side_of_a_line_is_kept_to_that_side():
+    # Going right on the page (y down), the left side is above the line and the right below it
+    for t, above in (("left", True), ("right", False), ("left_gaps", True), ("right_gaps", False)):
+        _prims, groups = one_side(t)
+        assert len(groups) == 1 and len(groups[0].clip) == 1, t
+        x0, y0, x1, y1 = groups[0].clip[0][0].bbox()
+        assert (y1 < 1e-6 and y0 < -5) if above else (y0 > -1e-6 and y1 > 5), (t, y0, y1)
+        assert x0 < -5 and x1 > 105, t   # carried on past both ends, for the arrowheads' outline
+
+
+def test_one_side_keeps_its_gaps_choice():
+    # Gaps filled ("left"): round the line drawn whole; gaps empty ("left_gaps"): round each dash
+    _prims, filled = one_side("left", dash="dash")
+    _prims, empty = one_side("left_gaps", dash="dash")
+    assert pieces(filled[0].prims[0]) == 1 and pieces(empty[0].prims[0]) > 1
+
+
+def test_one_side_with_an_arrowhead_keeps_the_heads_outline_to_that_side():
+    prims, groups = one_side("right", head={"type": "triangle", "w": "lg", "len": "lg"})
+    contours = groups[0].prims
+    assert len(contours) == 2   # the line's and the head's
+    x0, y0, x1, y1 = groups[0].clip[0][0].bbox()
+    head_box = contours[1].path.bbox()
+    assert y0 > -1e-6 and y1 >= head_box[3] and x1 >= head_box[2]
 
 
 def test_an_open_arrowhead_never_has_an_outline_over_its_line():

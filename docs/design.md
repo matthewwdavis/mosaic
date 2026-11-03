@@ -210,6 +210,20 @@ pre-export check says so.
   the canvas underneath, which could select or deselect what lay under the note. Fonts embedded for
   placed PDFs are reported as a note, not a warning (export results have `notes` beside
   `warnings`), so they show as a plain line and don't keep the note open (his choice).
+- **Picture menus; every outline choice on every object (2026-11-02, Matthew's choices):** each
+  list in the Style tab is a picture menu (inspector.pictureField): a button showing the choice's
+  picture and name, opening a menu (contextmenu.js, with pictures, group headings and greyed lines)
+  with a picture of every choice in the object's own colours and width (his choice over picture
+  buttons or a picture beside the list). Dashes, arrowheads and outlines are drawn by the engine
+  (one resolve request for a menu's pictures, kept by what they draw), so they look as on the page;
+  ends, corners, fills and routes are simple SVG drawings (pictures.js). This replaces the 10-31
+  rule of offering only outline choices that look different (his request): lines and open shapes
+  now have Left side and Right side (left or right going from start to end; resolve.with_outline
+  clips Both sides to a one-sided buffer of the line drawn whole, carried past its ends for the
+  arrowheads), his choice over "as if the ends were joined"; a fill with no line has Both sides (a
+  band along the edge, half over the fill). Choices that change nothing yet are greyed out with the
+  reason (his choice over hiding them or allowing them): Gaps on a solid line, Sides on something
+  with neither line nor fill, an arrowhead's size before there's an arrowhead.
 - **Guides from a click on a ruler; a guide's menu (2026-11-02, Matthew's choices):** clicking a
   ruler puts a guide at that spot, across it (the top ruler a vertical guide), while a drag out of
   a ruler still brings one out along it (his choice, as in Illustrator). He chose rounding to the

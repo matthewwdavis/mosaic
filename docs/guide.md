@@ -335,7 +335,8 @@ LaTeX's maths, not whole LaTeX documents).
   line to add one. The **Points** section lists every point's position and switches between
   **Smooth curve** and **Straight segments**.
 - **Style** tab: colour, width (in points), [dash](#dashes), line ends (round, flat or square),
-  corners, transparency.
+  corners, transparency. Every list there shows a small picture of each choice (see
+  [Shapes](#shapes)).
 - **Arrowheads:** each end can be none, triangle, stealth, open arrow, circle or diamond, small
   to large. **Rounding** (0-100%) rounds a pointed head's tip, which still ends exactly on the
   line's end. **Swap ends** swaps them.
@@ -371,16 +372,26 @@ LaTeX's maths, not whole LaTeX documents).
   from PowerPoint slides come in as they were.
 - **Outline around it**: a band in a second colour around everything the object draws, e.g. a white
   edge that keeps a black arrow visible on a photo. You set its thickness and transparency, and
-  where it goes with two lists, each showing only the choices that look different on the
-  selected object:
-  - **Sides**: **Outside** (only outside the shape), **Inside** (only inside it, over any fill)
-    or **Both sides** (along both sides of the line). A shape whose line goes all the way round
-    it has all three, filled or not. A fill with no line has Outside and Inside (a band just
-    inside its edge). A line, or an open shape such as an arc or a bracket, has no inside, so it
-    has no Sides list.
-  - **Gaps** (dashed or dotted lines only): **Filled**, the band runs on through the gaps
-    between dashes, or **Empty**, it goes only round each dash or dot.
+  where it goes with two lists, offered on every object:
+  - **Sides**, on something with an inside (a fill, or a line that goes all the way round):
+    **Outside** (only outside the shape), **Inside** (only inside it, over any fill) or **Both
+    sides** (along both sides of the line, or with no line, a band along the fill's edge, half
+    over it).
+  - **Sides**, on a line or an open shape such as an arc or a bracket: **Left side** or **Right
+    side** (one side of the line, going from its start to its end) or **Both sides**.
+  - **Gaps**: **Filled**, the band runs on through the gaps between dashes, or **Empty**, it goes
+    only round each dash or dot. On a solid line it's greyed out, since it changes nothing until
+    the line is dashed or dotted.
 - **Make editable curve** (arcs): turns an arc into a curve with points you can drag.
+
+**Pictures of the choices:** each list in the Style tab (the shape, fill, line, dash, ends,
+corners, arrowheads and their size, the outline's sides and gaps, a connector's route) shows its
+choice as a small picture beside its name. Click it, or press ↓, for a menu with a picture of
+every choice, in the object's own colours and line width: a dash, an arrowhead or an outline
+looks there exactly as it will on the page. A list greyed out changes nothing yet, and says
+why underneath (an arrowhead's size before there's an arrowhead, say).
+
+<img src="images/picturemenu.png" alt="The End arrowhead list open: a picture of each arrowhead beside its name" width="264">
 
 ## The pen and editing points
 

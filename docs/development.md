@@ -75,7 +75,8 @@ selection` selecting several objects and Select Same, `--only windows` New and O
 several windows (opening a window stood in for) and a .figasm dropped on the page, `--only
 sizes` page sizes (the Size menu, new documents' size), `--only vision` colour vision side by
 side and in command search, `--only export` the Export and Figure report windows closing with a
-note, and `--only guides` guides from clicking the rulers and a guide's right-click menu. To run it in
+note, `--only guides` guides from clicking the rulers and a guide's right-click menu, and `--only
+pictures` the Style tab's picture menus. To run it in
 the app's own window (WebKit on a Mac):
 
 ```sh

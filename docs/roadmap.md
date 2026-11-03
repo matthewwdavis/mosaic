@@ -143,6 +143,11 @@ Matthew's choices are in brackets.
       page names them, with Show in Finder and any warnings [Matthew's choices: the note, closing
       even with warnings, the report too]; fonts embedded for placed PDFs are a plain line that
       doesn't keep the note open
+- [x] Pictures for every Style-tab list (shape, fill, line, dash, ends, corners, arrowheads and
+      sizes, outline sides and gaps, route): picture menus, drawn by the engine where exactness
+      matters; outline sides on everything (Left side and Right side on lines and open shapes,
+      Both sides on fills with no line); lists that change nothing yet greyed out with the reason
+      [Matthew's choices]
 - [x] Click a ruler for a guide at that spot (top: vertical, left: horizontal), rounded to a fine
       step of its ticks, with a preview while pointing; drags out of a ruler stay as they were;
       right-click a guide or its ruler mark: Remove guide, Remove all guides, Hide guides

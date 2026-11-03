@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, replace
 
 from . import dashes, presets
 from .fonts import FontIndex
-from .geometry import (DrawPath, Fill, Matrix, Path, Stroke, arrowhead, dash_array, frame_matrix, head_outline,
+from .geometry import (DrawPath, Fill, Matrix, Path, Stroke, arrowhead, dash_array, flatten, frame_matrix, head_outline,
                        line_end_inside, make_gradient, round_shape_paths, sample_path, smooth_path)
 from .textlayout import GlyphRun, TextLayout, layout_text
 
@@ -161,13 +161,16 @@ def with_outline(prims: list, spec: dict | None, interior: list | None = None) -
       shape's area (clipped), over the fill and under the line, with a band just inside the
       area's edge that runs through a dashed line's gaps ("inside" only);
     - "outside_only", "outside_only_gaps": "outside" and "outside_gaps", but kept off the area
-      of a shape with no fill too, where the others show on both sides of the line.
+      of a shape with no fill too, where the others show on both sides of the line;
+    - "left", "left_gaps", "right", "right_gaps": one side of a line, left or right as it goes
+      from its start to its end: "both_filled" and "both" kept to that side (for lines and
+      curves with no inside, though any line has its sides).
 
     `interior` is the area an outline can keep inside or outside of, [(path, even_odd)]: the
     filled area, or the area an unfilled shape's own closed line goes round. Without one (a
     line) the inside and outside-only types go round both sides, keeping their gaps choice.
-    A shape with no line has only its outside to outline, whatever the type, or with
-    "inside" a band just inside its edge."""
+    A shape with no line has its outside to outline, a band just inside its edge with
+    "inside", or with "both" and "both_filled" a band along its edge, half each side."""
     if not spec or float(spec.get("width", 1.0)) <= 0:
         return prims
     kind = spec.get("type", "outside")
@@ -176,12 +179,20 @@ def with_outline(prims: list, spec: dict | None, interior: list | None = None) -
     dashed = any(_dashed(p) for p in prims if id(p) in strokes)
     if kind in ("inside", "inside_gaps", "outside_only", "outside_only_gaps") and not interior:
         kind = "both" if kind.endswith("_gaps") else "both_filled"
+    # One side of the line: Both sides, kept to that side
+    side = []
+    if kind in ("left", "left_gaps", "right", "right_gaps"):
+        side = _side_clip(prims, spec, left=kind.startswith("left"))
+        kind = "both" if kind.endswith("_gaps") else "both_filled"
     # Lines and arrowheads that can be seen through would show the outline under them: every
     # part of the outline is kept off what they paint
     marks = _see_through_clip([p for p in prims if id(p) not in body], prims, spec)
 
     def fade(contours, clip=None):
-        return _faded(contours, spec, (clip or []) + marks)
+        return _faded(contours, spec, (clip or []) + side + marks)
+    if not strokes and body and interior and kind in ("both", "both_filled"):
+        # No line: a band along the fill's edge, half outside it and half over it
+        return prims + fade(_edge_band(interior, spec))
     if kind in ("outside_only", "outside_only_gaps"):
         if body:   # the fill hides the inside already
             kind = kind.replace("_only", "")
@@ -272,6 +283,41 @@ def _edge_band(interior: list, spec: dict) -> list:
     outline's width along it, inside or outside."""
     stroke = Stroke(color=spec.get("color", "#ffffff"), width=2 * float(spec.get("width", 1.0)), cap="round", join="round")
     return [DrawPath(path, stroke=stroke, meta={"role": "outline"}) for path, _even_odd in interior]
+
+
+def _side_clip(prims: list, spec: dict, left: bool) -> list:
+    """A clip to one side of an item's lines, left or right as each goes from its start to its
+    end as seen on the page (y down): each line drawn whole, carried on past its ends so its
+    arrowheads keep to that side too, and widened on that side only (shapely)."""
+    import shapely
+    from shapely.geometry import LineString
+    from .regions import _path
+    lines = [_undashed(p) for p in prims if isinstance(p, DrawPath) and p.stroke is not None
+             and p.meta.get("role") not in ("line-end", "outline", "body")]
+    if not lines:
+        return []
+    # Far enough for the outline round the widest arrowhead (five times its line's width)
+    reach = 2 * float(spec.get("width", 1.0)) + 6 * max(p.stroke.width for p in lines) + 10.0
+    sides = []
+    for p in lines:
+        for pts in flatten(p.path):
+            pts = [q for i, q in enumerate(pts) if i == 0 or math.dist(q, pts[i - 1]) > 1e-6]
+            if len(pts) < 2:
+                continue
+            if math.dist(pts[0], pts[-1]) > 1e-6:
+                ends = []
+                for a, b in ((pts[0], pts[1]), (pts[-1], pts[-2])):
+                    d = math.dist(a, b)
+                    ends.append((a[0] + (a[0] - b[0]) / d * reach, a[1] + (a[1] - b[1]) / d * reach))
+                pts = [ends[0], *pts, ends[1]]
+            # (shapely's left is y up; on the page, y down, the line's left is its right)
+            sides.append(LineString(pts).buffer(-reach if left else reach, single_sided=True))
+    area = shapely.unary_union(sides) if sides else None
+    out = Path()
+    for face in shapely.get_parts(area) if area is not None else []:
+        if face.geom_type == "Polygon" and face.area > 1e-9:
+            out.segs += _path(face).segs
+    return [(out, False)] if out.segs else []
 
 
 def _inside_clip(interior: list) -> list:

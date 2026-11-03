@@ -377,6 +377,20 @@ export async function run(app, params) {
     document.getElementById("itab-style")?.click();
     return finish();
   }
+  if (scene === "picturemenu") {
+    // The arrow's End arrowhead list open: a picture of every arrowhead beside its name
+    store.select(["arrow"]);
+    inspector.render();
+    document.getElementById("itab-style")?.click();
+    inspector.render();
+    setTimeout(() => {
+      const l = [...document.querySelectorAll("#inspector label")].find((x) => x.textContent === "End");
+      const b = l && document.getElementById(l.htmlFor);
+      b?.scrollIntoView({ block: "center" });
+      b?.click();
+    }, 200);
+    return finish();
+  }
   if (scene === "annotated" || scene === "style") {
     store.select(["arrow"]);
     inspector.render();   // the panel draws on the next frame otherwise, after the tab is clicked

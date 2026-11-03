@@ -50,14 +50,20 @@ function fill(el, entries) {
       el.append(h("div", { class: "menu-sep", role: "separator" }));
       continue;
     }
+    if (e.heading) {
+      el.append(h("div", { class: "menu-heading", role: "presentation" }, e.heading));
+      continue;
+    }
     const checkable = e.checked !== undefined;
-    const item = h("button", { type: "button", class: "menu-item", tabindex: -1,
+    const item = h("button", { type: "button", class: "menu-item", tabindex: -1, "data-value": e.value,
       role: checkable ? "menuitemcheckbox" : "menuitem", "aria-checked": checkable ? String(!!e.checked) : null,
       "aria-disabled": e.disabled ? "true" : null, "aria-haspopup": e.items ? "menu" : null,
       "aria-expanded": e.items ? "false" : null },
     h("span", { class: "check", "aria-hidden": "true" }, checkable ? "✓" : ""),
     h("span", { class: "menu-label" },
-      e.swatch ? h("span", { class: "chip", style: { background: e.swatch }, "aria-hidden": "true" }) : null, e.label),
+      e.swatch ? h("span", { class: "chip", style: { background: e.swatch }, "aria-hidden": "true" }) : null,
+      e.picture ? h("span", { class: "menu-pic" }, e.picture) : null, e.label,
+      e.note ? h("span", { class: "menu-note" }, `: ${e.note}`) : null),
     e.items ? chevron() : e.keys ? h("kbd", {}, e.keys) : h("span"));
     item.addEventListener("click", () => contextMenu.choose(e, item));
     item.addEventListener("pointermove", () => {
@@ -72,17 +78,21 @@ function fill(el, entries) {
 
 export const contextMenu = {
   get open() { return !!menu; },
-  // entries: { label, keys, run, disabled, checked, swatch (a colour chip), items (a submenu's
-  // entries, instead of run) } or "-" for a line between groups
-  show(entries, x, y, returnFocus = document.activeElement) {
+  // entries: { label, keys, run, disabled, checked, swatch (a colour chip), picture (an element
+  // before the label), note (why it's greyed out, after it), value, items (a submenu's entries,
+  // instead of run) }, "-" for a line between groups or { heading } over a group.
+  // opts: label (the menu's name), focusChecked (start on the ticked line: a picture menu)
+  show(entries, x, y, returnFocus = document.activeElement, opts = {}) {
     this.close(false);
     back = returnFocus;
-    menu = h("div", { class: "popup-menu context-menu", role: "menu", "aria-label": "Commands" });
+    menu = h("div", { class: "popup-menu context-menu", role: "menu", "aria-label": opts.label || "Commands" });
     fill(menu, entries);
     document.body.append(menu);
     anchor = [x, y];
     place();
-    this.items()[0]?.focus({ preventScroll: true });
+    const start = (opts.focusChecked && this.items().find((b) => b.getAttribute("aria-checked") === "true")) || this.items()[0];
+    start?.focus({ preventScroll: true });
+    start?.scrollIntoView({ block: "nearest" });
   },
   items(el = menu) { return el ? [...el.querySelectorAll(".menu-item")] : []; },
   choose(e, item) {
