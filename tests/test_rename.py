@@ -14,7 +14,7 @@ def tree(folder):
     for d, _, names in os.walk(folder):
         for n in names:
             p = os.path.join(d, n)
-            out[os.path.relpath(p, folder)] = (os.path.getsize(p), os.path.getmtime(p))
+            out[os.path.relpath(p, folder).replace(os.sep, "/")] = (os.path.getsize(p), os.path.getmtime(p))
     return out
 
 
