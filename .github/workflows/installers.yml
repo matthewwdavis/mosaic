@@ -83,13 +83,18 @@ jobs:
       - name: Double-clicking a .figasm opens it in FigAssemble; decks have it under Open with
         shell: pwsh
         run: |
-          $assoc = cmd /c assoc .figasm
-          if ($assoc -ne '.figasm=FigAssemble.Document') { throw "assoc: $assoc" }
-          $ftype = cmd /c ftype FigAssemble.Document
-          if ($ftype -notmatch 'pythonw\.exe" -P -m figassemble "%1"$') { throw "ftype: $ftype" }
+          # Looked up as Explorer looks it up (assoc and ftype show only types registered for the
+          # whole machine; the installer registers them for the account)
+          Add-Type -Namespace Shell -Name Assoc -MemberDefinition '[DllImport("shlwapi.dll", CharSet = CharSet.Unicode)] public static extern uint AssocQueryString(int flags, int str, string assoc, string extra, System.Text.StringBuilder result, ref uint size);'
+          function Look($ext, $what) {
+            $sb = New-Object System.Text.StringBuilder 2048; $n = [uint32]2048
+            [void][Shell.Assoc]::AssocQueryString(0, $what, $ext, 'open', $sb, [ref]$n); $sb.ToString()
+          }
+          $command = Look '.figasm' 1   # ASSOCSTR_COMMAND
+          if ($command -notmatch 'pythonw\.exe" -P -m figassemble "%1"$') { throw "a .figasm opens with: $command" }
+          Write-Output "A .figasm opens with: $command; named: $(Look '.figasm' 4)"   # ASSOCSTR_FRIENDLYAPPNAME
           $deck = (Get-ItemProperty 'HKCU:\Software\Classes\.pptx\OpenWithProgids' -ErrorAction SilentlyContinue).'FigAssemble.Deck'
           if ($null -eq $deck) { throw "decks don't have FigAssemble under Open with" }
-          Write-Output "$assoc; $ftype"
       - name: The installed copy updates itself, goes back and takes a test version
         shell: pwsh
         run: |
