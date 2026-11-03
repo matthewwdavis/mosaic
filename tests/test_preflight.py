@@ -90,6 +90,23 @@ def test_lines_inside_a_placed_pdf_at_their_printed_size(tmp_path):
     assert preflight(doc, {"pages": [0]})["summary"]["thinnest_line_pt"] == 0.4
 
 
+def test_a_picture_stretched_unevenly(tmp_path):
+    f = pdf_file(tmp_path / "legend.pdf", b"0 0 0 RG 0.5 w 10 25 m 90 25 l S", size=(85, 10))
+    doc = page_with()
+    pic = place(doc, f)
+    assert not any("stretched" in m for m in messages(doc))
+    # As PowerPoint left a legend: 85 x 10 pt in an 84 x 9 pt frame
+    pic["frame"][2:] = [84.0, 9.0]
+    assert "Plot is stretched, 98.8% across and 90.0% down, so its text and curves are distorted " \
+           "(100% on its Picture tab puts it back)" in messages(doc)
+    assert next(f for f in preflight(doc, {"pages": [0]})["items"] if "stretched" in f["message"])["level"] == "warning"
+    # Scaled evenly, or turned a quarter, it isn't stretched
+    pic["frame"][2:] = [42.5, 5.0]
+    assert not any("stretched" in m for m in messages(doc))
+    pic["rot"] = 90.0
+    assert not any("stretched" in m for m in messages(doc))
+
+
 def test_what_counts_as_a_line_in_a_pdf(tmp_path):
     def widths(content, **kw):
         found = vectors.strokes(str(pdf_file(tmp_path / f"p{len(list(tmp_path.iterdir()))}.pdf", content, **kw)), "pdf", 0)
