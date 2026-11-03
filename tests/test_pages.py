@@ -30,6 +30,41 @@ def test_journal_figure_sizes():
         assert all(0 < t["width_mm"] < 200 for t in j["types"])
 
 
+def test_slide_and_poster_sizes():
+    # PowerPoint's slides (16:9 its default, exactly 960 x 540 pt; 4:3 its old Standard; 16:10) and
+    # the usual conference posters, each in its group of the size lists, the groups in order
+    assert journals.standard_size("Slide 16:9") == pytest.approx((960, 540), abs=0.001)
+    assert journals.standard_size("Slide 4:3") == pytest.approx((10 * 72, 7.5 * 72))
+    assert journals.standard_size("Slide 16:10") == pytest.approx((10 * 72, 6.25 * 72))
+    assert journals.standard_size("Poster 48 × 36 in") == pytest.approx((48 * 72, 36 * 72))
+    assert journals.standard_size("Poster A0") == pytest.approx((841 * MM, 1189 * MM))
+    groups = [s["group"] for s in journals.STANDARD_SIZES]
+    assert [g for i, g in enumerate(groups) if not i or groups[i - 1] != g] == ["Paper", "Slides", "Posters"]
+    assert journals.preset_size({"journal": "Nature", "type": "Single column"}) == pytest.approx((90 * MM, 170 * MM))
+    assert journals.preset_size({"standard": "Tabloid"}) is None and journals.preset_size(None) is None
+
+
+def test_new_documents_start_at_the_size_settings_give(tmp_path, monkeypatch):
+    from figassemble.app.api import Api
+    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))
+    api = Api()
+    assert api.new_document()["pages"][0]["preset"] == {"standard": "A4"}
+    api.prefs_set({"new_page": {"standard": "Slide 16:9"}})
+    page = api.new_document()["pages"][0]
+    assert (page["width"], page["height"]) == pytest.approx((960, 540), abs=0.001)
+    assert page["preset"] == {"standard": "Slide 16:9"}
+    api.prefs_set({"new_page": {"journal": "Nature", "type": "Double column"}})
+    page = api.new_document()["pages"][0]
+    assert (page["width"], page["height"]) == pytest.approx((180 * MM, 170 * MM))
+    assert page["preset"] == {"journal": "Nature", "type": "Double column"}
+    # A size this version doesn't have (a newer version's) gives A4
+    api.prefs_set({"new_page": {"standard": "Tabloid"}})
+    assert api.new_document()["pages"][0]["preset"] == {"standard": "A4"}
+    # Choosing A4 again leaves no choice of its own in the settings file
+    api.prefs_set({"new_page": {"standard": "A4"}})
+    assert "new_page" not in json.loads((tmp_path / "prefs.json").read_text())
+
+
 def test_old_settings_files_switch_to_centimetres(tmp_path, monkeypatch):
     from figassemble.app.api import Api
     monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))

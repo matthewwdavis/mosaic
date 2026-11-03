@@ -12,9 +12,10 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 import time
 import webbrowser
-from urllib.parse import quote, urlencode
+from urllib.parse import parse_qs, quote, urlencode
 
 from .api import Api
 from .server import start_server
@@ -27,6 +28,8 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
     extra = os.environ.get("FIGASSEMBLE_SMOKE_QUERY")   # e.g. the editor self-test, for testing
     if extra and "selftest" in extra:
         os.environ["FIGASSEMBLE_FAKE_CLIPBOARD"] = "1"   # the self-test's own clipboard, not the system's
+        if "out" not in parse_qs(extra):   # a folder for the files it saves (figures to drop, exports)
+            extra += "&out=" + quote(tempfile.mkdtemp(prefix="figassemble-selftest-"))
     if browser:
         url = base + ("?open=" + quote(os.path.abspath(document)) if document else "")
         if extra:

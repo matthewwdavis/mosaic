@@ -80,6 +80,12 @@ export async function run(app, params) {
   canvas.fit();
   await settle();
   if (scene === "page-size") return finish();
+  if (scene === "sizemenu") {
+    // The Size menu open on a 16:9 slide
+    inspector.setStandardSize("Slide 16:9");
+    setTimeout(() => app.run("pageSize"), 200);
+    return finish();
+  }
 
   // Step 2: the three sample plots, placed at true size (the last one stays selected)
   const placed = await rpc("add_files", ["growth_curves", "expression_bars", "dose_response"].map((n) => `${dir}/${n}.pdf`), false);
@@ -388,6 +394,7 @@ export async function run(app, params) {
     setTimeout(() => app.run("swatches"), 200);
     return finish();
   }
+  if (scene === "colourvision") { setTimeout(() => app.run("compareVision"), 200); return finish(); }
   if (scene === "search") {
     // Command search with "align" typed
     setTimeout(() => {

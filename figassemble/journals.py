@@ -1,4 +1,4 @@
-"""Page sizes: standard paper sizes and journal figure sizes.
+"""Page sizes: standard paper, slide and poster sizes, and journal figure sizes.
 
 Choosing a journal and a figure type sets the page to that type's width and the journal's
 maximum figure depth ("Fit to content" crops it afterwards). To add a journal, add an entry
@@ -15,11 +15,17 @@ from __future__ import annotations
 
 MM = 72.0 / 25.4
 
-# name, width mm, height mm (portrait)
+# name, width mm, height mm, and the group the size lists show it in. Slides are PowerPoint's
+# sizes (16:9 its default, 4:3 its old Standard, 16:10 its On-screen Show); posters the usual
+# conference sizes (48 x 36 in landscape, A0 portrait; Swap width and height turns either)
 STANDARD_SIZES = [
-    {"name": "A4", "width_mm": 210.0, "height_mm": 297.0},
-    {"name": "US Letter", "width_mm": 215.9, "height_mm": 279.4},
-    {"name": "Slide 16:9", "width_mm": 338.667, "height_mm": 190.5},
+    {"name": "A4", "width_mm": 210.0, "height_mm": 297.0, "group": "Paper"},
+    {"name": "US Letter", "width_mm": 215.9, "height_mm": 279.4, "group": "Paper"},
+    {"name": "Slide 16:9", "width_mm": 338.66667, "height_mm": 190.5, "group": "Slides"},
+    {"name": "Slide 4:3", "width_mm": 254.0, "height_mm": 190.5, "group": "Slides"},
+    {"name": "Slide 16:10", "width_mm": 254.0, "height_mm": 158.75, "group": "Slides"},
+    {"name": "Poster 48 × 36 in", "width_mm": 1219.2, "height_mm": 914.4, "group": "Posters"},
+    {"name": "Poster A0", "width_mm": 841.0, "height_mm": 1189.0, "group": "Posters"},
 ]
 DEFAULT_SIZE = "A4"
 
@@ -144,3 +150,16 @@ def journal_size(journal: str, figure_type: str) -> tuple[float, float]:
     j = next(j for j in JOURNALS if j["name"] == journal)
     t = next(t for t in j["types"] if t["name"] == figure_type)
     return t["width_mm"] * MM, j["depth_mm"] * MM
+
+
+def preset_size(preset) -> tuple[float, float] | None:
+    """The size a page preset names, {"standard": name} or {"journal": name, "type": figure type},
+    in points; None if this version has no such size (one a newer version added, say)."""
+    try:
+        if preset.get("standard"):
+            return standard_size(preset["standard"])
+        if preset.get("journal"):
+            return journal_size(preset["journal"], preset.get("type"))
+    except (AttributeError, StopIteration):
+        pass
+    return None

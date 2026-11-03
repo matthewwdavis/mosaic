@@ -36,6 +36,11 @@ export const COLOUR_VISION = {
     rows: [[1.255528, -0.076749, -0.178779], [-0.078411, 0.930809, 0.147602], [0.004733, 0.691367, 0.303900]] },
   greyscale: { name: "greyscale", rows: [[0.2126, 0.7152, 0.0722], [0.2126, 0.7152, 0.0722], [0.2126, 0.7152, 0.0722]] },
 };
+// A preview's matrix as an feColorMatrix's values (alpha kept), or null for normal vision
+export function visionMatrix(mode) {
+  const m = COLOUR_VISION[mode];
+  return m ? m.rows.map((r) => `${r.join(" ")} 0 0`).join(" ") + " 0 0 0 1 0" : null;
+}
 // The drawing tools that make preset shapes, and which preset each draws
 const TOOL_GEOMS = { rect: "rect", roundrect: "roundRect", ellipse: "ellipse", triangle: "triangle", arc: "arc",
   bracket: "rightBracket" };
@@ -1201,7 +1206,7 @@ export const canvas = {
   setColourVision(mode) {
     const m = COLOUR_VISION[mode];
     this.colourVision = m ? mode : "normal";
-    if (m) this.cvdMatrix.setAttribute("values", m.rows.map((r) => `${r.join(" ")} 0 0`).join(" ") + " 0 0 0 1 0");
+    if (m) this.cvdMatrix.setAttribute("values", visionMatrix(mode));
     for (const el of [this.pageRect, this.ghostLayer, this.itemsLayer]) {
       if (m) el.setAttribute("filter", "url(#fa-cvd)");
       else el.removeAttribute("filter");

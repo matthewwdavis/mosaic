@@ -60,6 +60,8 @@ The page is now 180 mm wide, Nature's double-column width, and 170 mm tall, the 
 figure may be. The note under the dropdowns gives the journal's sizes and where they come from.
 You'll shrink the height to fit the figure at the end.
 
+**Size**, in the Home tab, offers the same sizes, plus slides and posters, whatever is selected.
+
 ## 3. Place the plots
 
 Open the `examples` folder in Finder (Explorer on Windows) and drag **`growth_curves.pdf`**,
@@ -204,7 +206,8 @@ If FigAssemble ever closes unexpectedly, it offers your unsaved work back the ne
   scale bars, zoom insets, significance brackets, swatches and text styles, copying a style,
   curved arrows, the Shapes menu, gradient fills, outlines, area fills, combining shapes,
   clipping masks, editing inside groups, guides and the grid, checking colours for colour-blind
-  readers, themes, bringing in PowerPoint slides, and all the keyboard shortcuts.
+  readers (all the kinds side by side), slide and poster sizes, themes, bringing in PowerPoint
+  slides, and all the keyboard shortcuts.
 - Try it with your own figures, and **tell us what's confusing or missing**:
   [report a problem](https://github.com/matthewwdavis/FigAssemble/issues/new?template=problem.yml)
   or [suggest an idea](https://github.com/matthewwdavis/FigAssemble/issues/new?template=idea.yml).

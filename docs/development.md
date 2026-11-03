@@ -65,14 +65,16 @@ python tools/ui_selftest.py plot.svg plot.pdf  # the editor self-test on your ow
 
 The **editor self-test** (`figassemble/ui/js/selftest.js`) drives the real editor with pointer
 and keyboard events: drawing, snapping, guides, align, connectors, dashes, right-click menus,
-export, PowerPoint slides, updates, windows and more, about 420 checks. `tests/test_ui.py` runs it in headless
+export, PowerPoint slides, updates, windows, page sizes, colour vision and more, about 440 checks. `tests/test_ui.py` runs it in headless
 Chrome. Besides a plot's SVG and PDF it takes PowerPoint's files from `tests/data/powerpoint`: a
 deck and a copy of it, and what PowerPoint put on the clipboard for a copied slide (`.slides`) and
 shapes (`.gvml`). `tools/ui_selftest.py ... --only slides` runs just the PowerPoint part, and
 `--only links` just linked files updating (a test figure re-saved while placed), `--only
 updates` the update screens (with the updater saying what each case needs), `--only
-selection` selecting several objects and Select Same, and `--only windows` New and Open with
-several windows (opening a window stood in for) and a .figasm dropped on the page. To run it in
+selection` selecting several objects and Select Same, `--only windows` New and Open with
+several windows (opening a window stood in for) and a .figasm dropped on the page, `--only
+sizes` page sizes (the Size menu, new documents' size) and `--only vision` colour vision side by
+side and in command search. To run it in
 the app's own window (WebKit on a Mac):
 
 ```sh
@@ -82,7 +84,8 @@ FIGASSEMBLE_HOME=$(mktemp -d) FIGASSEMBLE_SMOKETEST=1 \
   python -m figassemble
 ```
 
-It prints `SELFTEST {...}` with every result, then `SMOKE ready errors=[]`. A hidden window's
+It prints `SELFTEST {...}` with every result, then `SMOKE ready errors=[]`. The figures it saves
+and its exports go in a temporary folder, unless the query gives one (`&out=/path`). A hidden window's
 timers run slowly, so this takes about seven minutes (it waits up to 15). Without
 `FIGASSEMBLE_SMOKE_QUERY` (keep `FIGASSEMBLE_HOME`, so it can't meet your own recovery copies
 and preferences) it checks that

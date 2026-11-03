@@ -1,8 +1,8 @@
 // Toolbar, pages and objects lists, status bar and dialogs.
 
 import { rpc } from "./api.js";
-import { canvas } from "./canvas.js";
-import { alignToField, button, colourVisionField, gapField, numField, selectField } from "./inspector.js";
+import { canvas, visionMatrix } from "./canvas.js";
+import { alignToField, button, colourVisionField, gapField, inspector, numField, pagePreset, selectField, standardOptions } from "./inspector.js";
 import { findItem, store } from "./store.js";
 import { PALETTES, colourHolders } from "./swatches.js";
 import { copiesOf } from "./symbols.js";
@@ -77,6 +77,7 @@ const ICONS = {
   guides: "M9 8v13M8 15h13M6.5 3h5L9 6zM3 12.5v5l3-2.5z",
   magnet: "M5 4h4.5v7.5a2.5 2.5 0 005 0V4H19v7.5a7 7 0 01-14 0zM5 8h4.5M14.5 8H19",
   closed: "M9 6l6 6-6 6", open: "M6 9l6 6 6-6",
+  pagesize: "M5 3h14v18H5zM9 15l6-6M11 9h4v4M9 11v4h4", compare: "M2 6h6v12H2zM9 6h6v12H9zM16 6h6v12h-6z",
 };
 
 // Which text objects (and pages) use each font; text in symbols counts, on no page of its own
@@ -207,6 +208,45 @@ export const panels = {
     }
   },
 
+  // Size (Home tab): the page as paper, a slide, a poster or a journal's figure, the sizes the
+  // Page panel has, whatever is selected; the page's size now is ticked
+  pageSizeButton() {
+    const b = this.toolButton("pageSize", "pagesize");
+    b.setAttribute("aria-haspopup", "menu");
+    b.querySelector(".tool-label").textContent = `${this.app.commands.pageSize.short} ▾`;
+    return b;
+  },
+  pageSizeMenu() {
+    if (this.ribbonTab !== "home") this.showTab("home");
+    const btn = document.querySelector('#rpanel-home [data-cmd="pageSize"]');
+    const info = this.app.info, len = (mm) => inspector.pageLength(mm);
+    const { standard, journal, type } = pagePreset(store.page(), info);
+    const entries = [];
+    (info.standard_sizes || []).forEach((sz, i, all) => {
+      if (i && sz.group !== all[i - 1].group) entries.push("-");
+      entries.push({ label: `${sz.name} (${len(sz.width_mm)} × ${len(sz.height_mm)})`, checked: standard?.name === sz.name,
+        run: () => inspector.setStandardSize(sz.name) });
+    });
+    // Every journal's figure types in one list, each journal's together (submenus go one level deep)
+    const journals = (info.journals || []).flatMap((j, i) => [i ? "-" : null, ...j.types.map((t) => ({
+      label: `${j.name}: ${t.name} (${len(t.width_mm)} × ${len(j.depth_mm)})`,
+      checked: journal?.name === j.name && type?.name === t.name, run: () => inspector.setJournalSize(j.name, t.name) }))]);
+    entries.push("-", { label: "Journal", items: journals }, "-",
+      { label: "Swap width and height", run: () => inspector.swapPage() },
+      { label: "Custom size…", run: () => this.customSizeDialog() });
+    const r = btn.getBoundingClientRect();
+    contextMenu.show(entries, r.left, r.bottom + 2, btn);
+  },
+  // Custom size… (the Size menu): the page's width and height, as the Page panel has them
+  customSizeDialog() {
+    const page = store.page(), pu = inspector.pageUnits();
+    this.dialog("Page size", h("div", {},
+      h("div", { class: "row" },
+        numField("Width", page.width, pu, (v) => inspector.setPageWidth(v), { min: 1 }),
+        numField("Height", page.height, pu, (v) => inspector.setPageHeight(v), { min: 1 })),
+      h("p", { class: "hint" }, `The size of ${page.name}. Objects stay where they are on it.`)));
+  },
+
   // Ribbon: tabs of labelled groups, like PowerPoint's; Snap, Check, Export, Settings and Help
   // stay in view on the right ------------------------------------------------------------------
 
@@ -224,7 +264,7 @@ export const panels = {
         group("Edit", t("undo", "undo"), t("redo", "redo")),
         group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste"), this.painterButton()),
         group("Objects", t("duplicate", "duplicate"), t("transformAgain", "again"), t("delete", "trash")),
-        group("Page", t("addPage", "plus"), t("fitPage", "fit")),
+        group("Page", t("addPage", "plus"), this.pageSizeButton(), t("fitPage", "fit")),
         group("Styles", t("swatches", "swatches"), t("textStyles", "textStyles"), t("objectStyles", "objectStyles"), t("fonts", "fonts")),
       ]],
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
@@ -247,7 +287,7 @@ export const panels = {
           this.toggleButton("toggleGrid", "grid", "show_grid", ". Things snap to it while it shows"),
           this.toggleButton("toggleGuides", "guides", "show_guides", ". Drag a new one out of a ruler")),
         group("Grid", t("gridSettings", "gear")),
-        group("Check colours", colourVisionField()),
+        group("Check colours", colourVisionField(), t("compareVision", "compare")),
       ]],
     ];
     const tabRow = h("div", { class: "ribbon-tabs", role: "tablist", "aria-label": "Command tabs" });
@@ -1004,6 +1044,11 @@ export const panels = {
           + "Things snap only to lines you can see.")),
       this.recoveryFieldset(),
       updates.settingsFieldset(),
+      h("fieldset", {}, h("legend", {}, "New documents"),
+        selectField("Page size", JSON.stringify(p.new_page || { standard: "A4" }), this.newPageOptions(),
+          (v) => this.app.savePrefs({ new_page: JSON.parse(v) })),
+        h("p", { class: "hint" }, "The size of the page each new document starts with. Size, in the Home tab, changes a "
+          + "page's size at any time.")),
       h("fieldset", {}, h("legend", {}, "New objects"),
         numField("Default text size", p.text?.size || 6, "pt", (v) => this.app.savePrefs({ text: { ...(p.text || {}), size: v } }), { step: 0.5 }),
         numField("Default line width", p.stroke_width || 1, "pt", set("stroke_width"), { step: 0.25 }),
@@ -1012,6 +1057,17 @@ export const panels = {
           (v) => this.app.savePrefs({ panel_label: { ...label, case: v } }))),
       h("p", { class: "hint version" }, `FigAssemble ${this.app.info.version}`),
     ));
+  },
+
+  // Every size a new document can start at: the standard sizes, then each journal's figure types
+  newPageOptions() {
+    const info = this.app.info, len = (mm) => inspector.pageLength(mm);
+    return [
+      ...standardOptions(info.standard_sizes, len).map((g) => ({ ...g,
+        options: g.options.map(([name, text]) => [JSON.stringify({ standard: name }), text]) })),
+      ...(info.journals || []).map((j) => ({ group: j.name, options: j.types.map((t) => [JSON.stringify({ journal: j.name, type: t.name }),
+        `${j.name}: ${t.name} (${len(t.width_mm)} × ${len(j.depth_mm)})`]) })),
+    ];
   },
 
   // Themes as preview tiles in groups; choosing one applies it at once. "Match the system"
@@ -1336,6 +1392,73 @@ export const panels = {
     });
   },
 
+  // Colour vision side by side: the page as it is and with each preview, all at once, copied from
+  // what the page shows now (never exported). Clicking one keeps previewing it on the page
+  async visionDialog() {
+    if (document.querySelector("dialog.cvd-dialog")) return;
+    if (canvas.editing) canvas.commitEdit();
+    await canvas.resolveNow();   // (objects still being drawn would be missing)
+    const page = store.page(), aspect = page.width / page.height;
+    const views = [["normal", "Normal vision", "as drawn"],
+      ["deuteranopia", "Red-green: deuteranopia", "no green cones; the most common"],
+      ["protanopia", "Red-green: protanopia", "no red cones"],
+      ["tritanopia", "Blue-yellow: tritanopia", "no blue cones; rare"],
+      ["greyscale", "Greyscale", "as printed in black and white"]];
+    // As many to a row as shows them biggest in the window, with room for their names
+    const GAP = 16, EDGE = 20, NAMES = 50;   // px between views, round a page inside its button, for its name
+    const room = [Math.min(window.innerWidth - 32, 1600) - 48, window.innerHeight * 0.86 - 170];
+    let cols = 1, w = 0;
+    for (let c = 1; c <= views.length; c++) {
+      const rows = Math.ceil(views.length / c);
+      const cw = Math.min((room[0] - (c - 1) * GAP) / c - EDGE, ((room[1] - (rows - 1) * GAP) / rows - NAMES - EDGE) * aspect);
+      if (cw > w) [cols, w] = [c, cw];
+    }
+    w = Math.max(80, Math.floor(w));
+    // The page's objects as drawn, without what marks them on screen (isolation mode's fading, the
+    // page's own preview). Ids go, so references to clips and gradients reach the page's own
+    const objects = () => {
+      const g = canvas.itemsLayer.cloneNode(true);
+      g.removeAttribute("filter");
+      for (const el of [g, ...g.querySelectorAll("*")]) {
+        el.removeAttribute("id");
+        el.removeAttribute("data-id");
+        el.classList.remove("outside-scope");
+      }
+      return g;
+    };
+    let dlg = null;
+    const view = ([mode, name, sub]) => {
+      const svg = s("svg", { viewBox: `0 0 ${page.width} ${page.height}`, width: w, height: Math.round(w / aspect), "aria-hidden": "true" });
+      const g = s("g");
+      const values = visionMatrix(mode);
+      if (values) {
+        const id = `fa-cvd-side-${mode}`;
+        const f = s("filter", { id, "color-interpolation-filters": "linearRGB", filterUnits: "userSpaceOnUse",
+          x: 0, y: 0, width: page.width, height: page.height });
+        f.append(s("feColorMatrix", { type: "matrix", values }));
+        const defs = s("defs");
+        defs.append(f);
+        svg.append(defs);
+        g.setAttribute("filter", `url(#${id})`);
+      }
+      g.append(s("rect", { width: page.width, height: page.height, fill: "#ffffff" }), objects());
+      svg.append(g);
+      const b = h("button", { type: "button", class: "cvd-view", "data-mode": mode,
+        "aria-pressed": String((canvas.colourVision || "normal") === mode),
+        "aria-label": mode === "normal" ? "Normal vision: no preview on the page" : `${name}, ${sub}: preview the page this way` },
+      svg, h("span", { class: "cvd-view-name" }, name), h("span", { class: "cvd-view-sub" }, sub));
+      b.addEventListener("click", () => { canvas.setColourVision(mode); dlg.close(); });
+      return b;
+    };
+    const many = store.doc.pages.length > 1;
+    dlg = this.dialog(`Colour vision side by side${many ? `: ${page.name}` : ""}`, h("div", {},
+      h("div", { class: "cvd-views", style: { gridTemplateColumns: `repeat(${cols}, auto)` } }, ...views.map(view)),
+      h("p", { class: "hint" }, "Each kind at full strength (Machado, Oliveira & Fernandes 2009), the strictest test: "
+        + "colours that stay apart here stay apart for milder colour blindness too. Click one to keep previewing it on "
+        + "the page. Nothing here changes the figure or its exports.")));
+    dlg.classList.add("cvd-dialog");
+  },
+
   // Command search (⌘/): type a few letters to find any command, then Enter runs it
   commandSearch() {
     if (document.querySelector("dialog.command-search")) return;
@@ -1348,7 +1471,7 @@ export const panels = {
     let shown = [], at = 0;
     const score = (c, q) => {
       if (!q) return 1;
-      const text = `${c.label} ${c.short || ""}`.toLowerCase();
+      const text = `${c.label} ${c.short || ""} ${c.search || ""}`.toLowerCase();
       if (text.split(/[\s:,(]+/).some((w) => w.startsWith(q))) return 3;
       if (text.includes(q)) return 2;
       let i = 0;   // the letters in order, in a button's short name ("rul" for Rulers), not the long ones

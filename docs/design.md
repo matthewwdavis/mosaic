@@ -53,8 +53,8 @@ pre-export check says so.
 - **Units:** positions and sizes of objects in centimetres (changed from points on
   2026-10-31); font sizes and line widths always in points; page sizes in millimetres.
   Anyone can switch. Settings files store only real choices, so changed defaults reach everyone.
-- **Page sizes:** new pages are A4. The Page panel has a Standard size dropdown (A4, US Letter,
-  16:9 slide), a Journal dropdown and a Figure type dropdown; a journal type sets the column
+- **Page sizes:** new pages are A4. The Page panel has a Standard size dropdown (paper, slides
+  and posters since 2026-11-02, below), a Journal dropdown and a Figure type dropdown; a journal type sets the column
   width and the journal's maximum figure depth (e.g. Nature 90/180 mm x 170 mm; Science
   5.7/12.1/18.4 cm x 19.9 cm, leaving room for the legend). 14 journals (2026-10-31): Cell, G3,
   Genetics, Genome Biology, Genome Research, Heredity, MBE, Molecular Plant, Nature, New
@@ -180,6 +180,21 @@ pre-export check says so.
   (flock, or msvcrt on Windows), so another FigAssemble running at the same time doesn't offer
   them back as lost work. The lock goes when the window closes or the process ends, however it
   ends.
+- **Slides, posters and the Size menu (2026-11-02, Matthew's choices):** the standard sizes come
+  in groups: paper (A4, US Letter), slides as PowerPoint makes them (16:9 its default, exactly
+  960 x 540 pt; 4:3 its old Standard; 16:10) and posters (48 x 36 in, A0). He didn't take the
+  smaller 16:9 (Google Slides' 10 x 5.625 in). Size, in the Home tab, offers these and every
+  journal's figure sizes (one Journal submenu, as menus here go one level deep) whatever is
+  selected, with Swap width and height and Custom size…; the Page panel shows only with nothing
+  selected, which hid the sizes (his choice, recommended). Settings → New documents gives the
+  size new documents start at, any of the same sizes (his choice); a size this version doesn't
+  have falls back to A4.
+- **Colour vision side by side (2026-11-02, Matthew's choices):** Side by side (View tab, beside
+  the preview's list) shows the page normally and with each preview at once, from copies of what
+  the page shows: each copy has its own colour matrix filter, loses its ids (so its references
+  to clips and gradients reach the page's own definitions) and isolation mode's fading. Clicking
+  one previews it on the page. Command search finds each preview by "colour blind", "color
+  blind" or a kind's name. He didn't take a shortcut to step through the views.
 - **PowerPoint slides in (2026-11-01):** Open goes through a slide picker (a picture of each
   slide, drawn by the PDF export at 320 px; one or several chosen), and a deck imported once is
   kept for the picker and the slides then chosen. Where slides dropped on the window go depends

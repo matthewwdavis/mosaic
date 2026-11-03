@@ -421,6 +421,7 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   .shape-item:hover { outline: 1px solid Highlight; }
   .context-menu .menu-item:focus { outline: 2px solid Highlight; }
   .theme-tile[aria-checked="true"] { outline: 3px solid Highlight; }
+  .cvd-view[aria-pressed="true"] { outline: 2px solid Highlight; }
   .splitter:hover::after, .splitter.dragging::after, .splitter:focus-visible::after { background: Highlight; forced-color-adjust: none; }
   .context-menu .menu-item[aria-disabled="true"] { color: GrayText; opacity: 1; }
   .guides line, .snap-gap { stroke: Highlight; }
@@ -434,6 +435,17 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   align-items: center; padding: 0.3rem 0.4rem 0.3rem 0.8rem; border: 2px solid var(--sel); border-radius: 0.5rem;
   background: var(--panel); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
 .cvd-note[hidden] { display: none; }
+/* Colour vision side by side: the page five ways, as many to a row as shows them biggest (the
+   page's colours are the point, so the system's high-contrast colours stay off them) */
+.cvd-dialog { width: auto; max-width: calc(100vw - 32px); }
+.cvd-views { display: grid; gap: 1rem; justify-content: center; margin: 0.3rem 0 0.6rem; }
+.cvd-view { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.5rem; border: 2px solid transparent;
+  border-radius: 0.45rem; background: none; color: var(--text); font: inherit; cursor: pointer; }
+.cvd-view:hover { background: var(--hover); }
+.cvd-view[aria-pressed="true"] { border-color: var(--sel); }
+.cvd-view svg { display: block; margin-bottom: 0.3rem; box-shadow: 0 0 0 1px var(--line); forced-color-adjust: none; }
+.cvd-view-name { font-weight: 600; }
+.cvd-view-sub { color: var(--muted); font-size: 0.85rem; }
 
 /* Fonts dialog */
 .fonts { width: 100%; border-collapse: collapse; }

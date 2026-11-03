@@ -18,6 +18,7 @@ import zipfile
 from .. import __version__, connect, docfile, model, presets, themes
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
 from ..fonts import config_dir, get_font_index
+from ..journals import DEFAULT_SIZE
 from ..resolve import Resolver
 from ..updates import parse_version
 from . import clipboard, powerpoint
@@ -47,6 +48,8 @@ PREFS_DEFAULTS = {
     "ribbon_tab": "home", "inspector_tabs": {}, "inspector_closed": [], "panel_widths": {},
     # The journal Check last compared a page's size with (a page with a journal size uses its own)
     "check_journal": "",
+    # The page size new documents start at: {"standard": name} or {"journal": name, "type": figure type}
+    "new_page": {"standard": DEFAULT_SIZE},
 }
 PREFS_VERSION = 2
 
@@ -360,7 +363,8 @@ class Api:
     # Documents -------------------------------------------------------------------------
 
     def new_document(self) -> dict:
-        return model.new_document()
+        """A blank figure, its page the size Settings gives new documents."""
+        return model.new_document(page=self.prefs_get().get("new_page"))
 
     def open_document(self, path: str, slides: list[int] | None = None) -> dict:
         """A document, or a PowerPoint deck's slides (the numbers chosen; default all) as a new

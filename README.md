@@ -15,8 +15,8 @@ FigAssemble does the job people usually do in PowerPoint, without PowerPoint's d
   anything smaller than a journal allows.
 - **Placed files stay linked.** Re-run your R code and the panel updates by itself. A copy is also
   stored in the document, so it opens complete on a labmate's computer.
-- **Journal page sizes** are built in (Nature, Science, Cell, PNAS, PLOS Genetics and more), and
-  fonts that R leaves out of its PDFs are embedded when you export.
+- **Journal page sizes** are built in (Nature, Science, Cell, PNAS, PLOS Genetics and more), along
+  with slides and posters, and fonts that R leaves out of its PDFs are embedded when you export.
 - **Your PowerPoint figures come along.** Open a `.pptx` and choose its slides, drop a deck on the
   page or the Pages list, or copy slides and shapes in PowerPoint and paste them. Pictures, text,
   lines and shapes come in where they were, as objects you can edit. Pictures are relinked to the
@@ -27,8 +27,8 @@ FigAssemble does the job people usually do in PowerPoint, without PowerPoint's d
   measured, or read from ImageJ and OME-TIFF files), zoom insets, significance brackets, crop to
   shape, clipping masks and Pathfinder.
 - **Consistent colours and styles:** linked swatches and text styles (change one and everything
-  using it follows), colour-blind-safe palettes, a colour vision preview, and copying a style from
-  one object to others.
+  using it follows), colour-blind-safe palettes, colour vision previews (side by side too), and
+  copying a style from one object to others.
 
 > **Status: early version, for collaborators' feedback.** "FigAssemble" is a working name.
 > Developed and tested on a Mac; Windows should work but hasn't been tried on a real Windows
@@ -82,8 +82,9 @@ run its installer once; it keeps your settings, and from then on FigAssemble upd
 
 ## Quick start
 
-1. **Choose a page size.** With nothing selected, the panel on the right shows the page: pick a
-   **Journal** and **Figure type** (say *Nature*, *Double column*), or a standard size.
+1. **Choose a page size.** Click **Size** in the Home tab: a journal's figure size (say *Nature*,
+   *Double column*), paper, a slide or a poster. With nothing selected, the panel on the right
+   shows the page's size too.
 2. **Drop in your plots.** Drag PDF, SVG, PNG, JPEG or TIFF files from Finder or Explorer onto the
    page, copy them there and paste (⌘V), or use **Picture** (I) in the tools on the left. They land
    at true size and stay linked to their files.

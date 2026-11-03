@@ -131,6 +131,12 @@ Matthew's choices are in brackets.
       the figure and over staying open with no windows]; decks have FigAssemble under Open With; a
       .figasm dropped on the window adds its pages; rulers, grid, guides and snap are each
       window's own
+- [x] Slide and poster sizes beside paper: 16:9, 4:3 and 16:10 slides, 48 × 36 in and A0
+      posters; a Size menu in the Home tab, whatever is selected (journals' sizes too, Swap, Custom
+      size…); the size new documents start at, in Settings [Matthew's choices]
+- [x] Colour vision side by side: the page normally and with each preview at once (View tab),
+      and the previews in command search ("colour blind", "color blind", "deuter") [Matthew's
+      choices, over a shortcut stepping through them]
 
 ## Acceptance test (test slide)
 

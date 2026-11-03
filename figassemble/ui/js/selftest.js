@@ -2,7 +2,7 @@
 // Drives the real UI through pointer and keyboard events and reports through console.log.
 
 import { rpc } from "./api.js";
-import { canvas, findDeep } from "./canvas.js";
+import { canvas, findDeep, visionMatrix } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
@@ -961,6 +961,137 @@ async function windowChecks(app, out) {
   }
 }
 
+// Page sizes: slides and posters beside paper in the Page panel's list, the Home tab's Size menu
+// (whatever is selected, journals' sizes too, Swap and Custom size), and the size new documents
+// start at, from Settings
+async function pageSizeChecks(app) {
+  const menuItem = (text, sub = false) => [...document.querySelectorAll(`.context-menu${sub ? ".submenu" : ""} .menu-item`)]
+    .find((b) => b.querySelector(".menu-label").textContent.startsWith(text));
+  const sizeIs = (wmm, hmm) => near(store.page().width, wmm * MMPT, 0.01) && near(store.page().height, hmm * MMPT, 0.01);
+  store.setDoc(await rpc("new_document"));
+  await settle();
+  store.select([]);
+  const list = fieldByLabel("Standard size");
+  const groups = [...list.querySelectorAll("optgroup")].map((g) => `${g.label}: ${[...g.children].map((o) => o.value).join(", ")}`);
+  check(groups.join("; ") === "Paper: A4, US Letter; Slides: Slide 16:9, Slide 4:3, Slide 16:10; Posters: Poster 48 × 36 in, Poster A0",
+    "the Page panel's Standard size list has paper, slides and posters, in groups", groups.join("; "));
+  await choose("Standard size", "Slide 4:3");
+  check(sizeIs(254, 190.5) && store.page().preset?.standard === "Slide 4:3", "a 4:3 slide is 254 × 190.5 mm (10 × 7.5 in)", pageSize());
+  await choose("Standard size", "Slide 16:9");
+  check(near(store.page().width, 960, 0.01) && near(store.page().height, 540, 0.01), "a 16:9 slide is PowerPoint's 960 × 540 pt", pageSize());
+
+  // The Size menu, with an object selected: the page's size ticked, a poster chosen, the selection kept
+  store.update("Box", (doc) => doc.pages[store.pageIndex].items.push(gRectFor("szBox", 40, 40, 80, 50)), { select: ["szBox"] });
+  await settle();
+  const sizeBtn = document.querySelector('#rpanel-home [data-cmd="pageSize"]');
+  document.getElementById("rtab-view").click();
+  sizeBtn.click();
+  const ticked = [...document.querySelectorAll(".context-menu .menu-item[aria-checked=true]")].map((b) => b.textContent);
+  check(!document.getElementById("rpanel-home").hidden, "Size shows the Home tab, where it is (from command search, say)",
+    document.getElementById("rpanel-home").hidden);
+  check(document.querySelector(".context-menu") && ticked.length === 1 && /Slide 16:9/.test(ticked[0]) && menuItem("Poster A0")
+    && menuItem("Journal")?.getAttribute("aria-haspopup") === "menu", "Size (Home tab) lists the sizes with the page's own ticked, and the journals",
+    ticked.join() || "no menu");
+  menuItem("Poster A0").click();
+  check(sizeIs(841, 1189) && store.selection.join() === "szBox" && !document.querySelector(".context-menu"),
+    "choosing one sizes the page, keeping the selection", `${pageSize()}; ${store.selection}`);
+  sizeBtn.click();
+  menuItem("Journal").click();
+  const nature = menuItem("Nature: Double column", true);
+  check(nature && document.querySelectorAll(".context-menu.submenu .menu-item").length === 33,
+    "its Journal submenu has every journal's figure types", document.querySelectorAll(".context-menu.submenu .menu-item").length);
+  nature?.click();
+  check(sizeIs(180, 170) && store.page().preset?.journal === "Nature", "a journal's figure type from the menu", pageSize());
+  sizeBtn.click();
+  menuItem("Swap width and height").click();
+  check(sizeIs(170, 180), "Swap width and height turns the page", pageSize());
+  sizeBtn.click();
+  menuItem("Custom size").click();
+  const dlg = document.querySelector("dialog[open]");
+  const widthLabel = dlg && [...dlg.querySelectorAll("label")].find((l) => l.textContent === "Width");
+  const widthField = widthLabel && document.getElementById(widthLabel.htmlFor);
+  widthField.value = "100";
+  widthField.dispatchEvent(new Event("change", { bubbles: true }));
+  check(sizeIs(100, 180) && !store.page().preset, "Custom size… types the page's width and height", pageSize());
+  dlg.close();
+  await until(() => !document.querySelector("dialog[open]"));
+
+  // Settings: the size new documents start at
+  await app.run("preferences");
+  const prefs = document.querySelector("dialog[open]");
+  const sizeLabel = [...prefs.querySelectorAll("label")].find((l) => l.textContent === "Page size");
+  const startSize = sizeLabel && document.getElementById(sizeLabel.htmlFor);
+  const journalsListed = startSize ? [...startSize.querySelectorAll("optgroup")].map((g) => g.label) : [];
+  startSize.value = JSON.stringify({ standard: "Slide 16:10" });
+  startSize.dispatchEvent(new Event("change", { bubbles: true }));
+  await until(() => app.prefs.new_page?.standard === "Slide 16:10");
+  prefs.close();
+  await until(() => !document.querySelector("dialog[open]"));
+  await app.newDocument();
+  check(journalsListed.slice(0, 4).join() === "Paper,Slides,Posters,Cell" && sizeIs(254, 158.75)
+    && store.page().preset?.standard === "Slide 16:10", "Settings gives new documents a size: a 16:10 slide, 254 × 158.75 mm",
+  `${journalsListed.slice(0, 4)}; ${pageSize()}`);
+  await app.savePrefs({ new_page: { standard: "A4" } });
+  store.setDoc(await rpc("new_document"));
+  check(sizeIs(210, 297), "and back to A4", pageSize());
+}
+
+// Colour vision side by side: the page five ways at once, each view through its own filter over a
+// copy of the page's objects (not the page's own preview, no ids), and a click keeps one on the
+// page. Command search finds the views by "colour blind", "color blind" or a kind's name
+async function visionChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  const box = (id, x, colour) => ({ ...gRectFor(id, x, 60, 70, 70), fill: { color: colour, opacity: 1 } });
+  store.update("Colours", (doc) => doc.pages[0].items.push(box("cvRed", 40, "#d55e00"), box("cvGreen", 130, "#009e73")));
+  await settle();
+  canvas.setColourVision("protanopia");
+  document.querySelector('#rpanel-view [data-cmd="compareVision"]').click();
+  await until(() => document.querySelector("dialog.cvd-dialog"), 4000);
+  const dlg = document.querySelector("dialog.cvd-dialog");
+  const views = [...(dlg?.querySelectorAll(".cvd-view") || [])];
+  const filterOf = (v) => v.querySelector("svg > g")?.getAttribute("filter");
+  const matrixOf = (v) => v.querySelector("feColorMatrix")?.getAttribute("values") || null;
+  const copies = views.map((v) => v.querySelector("g.items"));
+  check(views.map((v) => v.dataset.mode).join() === "normal,deuteranopia,protanopia,tritanopia,greyscale"
+    && !filterOf(views[0]) && views.slice(1).every((v) => filterOf(v) === `url(#fa-cvd-side-${v.dataset.mode})`
+      && matrixOf(v) === visionMatrix(v.dataset.mode)),
+  "Side by side (View tab) shows the page normally and with each colour vision preview, each through its own filter",
+  views.map((v) => `${v.dataset.mode} ${filterOf(v)}`).join("; "));
+  check(copies.every((g) => g && g.children.length === canvas.itemsLayer.children.length && !g.getAttribute("filter")
+    && !g.querySelector("[id], [data-id]")), "each shows a copy of the page's objects, without the page's own preview or any ids",
+  copies.map((g) => g && `${g.children.length} ${g.getAttribute("filter")} ${!!g.querySelector("[id], [data-id]")}`).join("; "));
+  check(views.find((v) => v.getAttribute("aria-pressed") === "true")?.dataset.mode === "protanopia",
+    "the preview on the page now is marked", views.map((v) => v.getAttribute("aria-pressed")).join());
+  views[3].click();
+  await until(() => !document.querySelector("dialog.cvd-dialog[open]"));
+  check(canvas.colourVision === "tritanopia" && !document.querySelector(".cvd-note").hidden && !document.querySelector("dialog.cvd-dialog[open]"),
+    "clicking one keeps previewing it on the page", canvas.colourVision);
+  canvas.setColourVision("normal");
+
+  // Command search
+  const search = (q) => {
+    const input = document.querySelector("dialog.command-search input");
+    input.value = q;
+    input.dispatchEvent(new Event("input"));
+    return [...document.querySelectorAll("dialog.command-search [role=option]")].map((li) => li.textContent);
+  };
+  key("/", { metaKey: true, ctrlKey: true });
+  const ukFound = search("colour blind"), usFound = search("color blind"), grey = search("grayscale")[0] || "";
+  const deuter = search("deuter")[0] || "";
+  const input = document.querySelector("dialog.command-search input");
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+  await until(() => canvas.colourVision === "deuteranopia");
+  const visionCmds = (found) => found.filter((t) => t.startsWith("Colour vision")).length;
+  check(visionCmds(ukFound) === 6 && visionCmds(usFound) === 6 && /greyscale/.test(grey) && /deuteranopia/.test(deuter)
+    && canvas.colourVision === "deuteranopia", "command search finds the views by “colour blind”, “color blind” or a kind's name",
+  `${visionCmds(ukFound)} ${visionCmds(usFound)} ${grey} | ${deuter} -> ${canvas.colourVision}`);
+  canvas.setColourVision("normal");
+  for (const d of document.querySelectorAll("dialog[open]")) d.close();
+  const viewMenu = app.menuSpec().find((m) => m.title === "View").items.find((it) => it.title === "Colour-Vision Preview");
+  check(viewMenu?.items.some((it) => it.action === "compareVision"), "the Mac View menu has Side by Side… under Colour-Vision Preview",
+    JSON.stringify(viewMenu?.items.map((it) => it.title || it)));
+}
+
 export async function run(app, params) {
   let keepAids = false;
   const given = (params.get("files") || "").split(",").filter(Boolean);
@@ -983,6 +1114,8 @@ export async function run(app, params) {
     if (params.get("only") === "updates") { await updateChecks(app); throw ONLY; }
     if (params.get("only") === "selection") { await selectionChecks(app); throw ONLY; }
     if (params.get("only") === "windows") { await windowChecks(app, out); throw ONLY; }
+    if (params.get("only") === "sizes") { await pageSizeChecks(app); throw ONLY; }
+    if (params.get("only") === "vision") { await visionChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -2196,6 +2329,8 @@ export async function run(app, params) {
     await linkedFileChecks(app);
     await updateChecks(app);
     await windowChecks(app, out);
+    await pageSizeChecks(app);
+    await visionChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

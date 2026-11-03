@@ -37,7 +37,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 
 1. **Tabs** across the top, like PowerPoint's ribbon:
    - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; Duplicate, Again, Delete; Add page,
-     Fit page; Swatches, Text styles, Object styles, Fonts.
+     Size, Fit page; Swatches, Text styles, Object styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group and Grid, Order (see
      [Align and distribute](#align-and-distribute)).
    - **Figure**: scale bars (Scale bar, Measure), zoom insets, significance brackets (Bracket,
@@ -46,7 +46,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
    - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
      Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
-     a colour vision preview (Check colours).
+     a colour vision preview, and the page with each one side by side (Check colours).
 2. Each tab's commands, in labelled groups.
 3. **Always in view:** **Snap** (on when highlighted), **Check**, **Export**, **Settings**, **Help**.
 4. **Pages** of the document, and **Objects** on the current page, front to back. Each object has
@@ -78,7 +78,7 @@ object, so you can see the object's own edges while you move and resize it.
   Select All, Select Same, Copy Style, Paste Style. While you type in a box, they work on its
   text.
 - **View:** zoom, Fit Page and Centre Page; Rulers, Grid, Guides and Snap, ticked when on; the
-  colour-vision preview; full screen.
+  colour-vision preview, and Side by Side…; full screen.
 - **Window** and **Help:** Minimize and Zoom; keyboard shortcuts and help, Search Commands…, the
   user guide, and Report a Problem… or Suggest an Idea…. Help's search box finds any menu command.
 
@@ -86,7 +86,8 @@ Each menu command shows its shortcut. While a dialog is open, the menus wait, as
 
 **Command search (⌘/):** type a few letters of what you want, such as "align", "swatch" or
 "rulers", and press Enter to run the command (the arrow keys choose another). Each one shows its
-shortcut, so it's also a way to learn them.
+shortcut, so it's also a way to learn them. "Colour blind" (or "color blind") finds the colour
+vision previews.
 
 ![Command search with "align" typed](images/search.png)
 
@@ -97,7 +98,14 @@ screen readers (see [Accessibility](#accessibility)).
 
 With nothing selected (click the grey area or press Escape), the right panel shows the **Page**.
 
-- **Standard size**: A4, US Letter or a 16:9 slide. New pages are A4.
+- **Standard size**:
+  - **Paper:** A4 or US Letter.
+  - **Slides:** 16:9 (PowerPoint's default, 33.87 × 19.05 cm), 4:3 (25.4 × 19.05 cm) or 16:10
+    (25.4 × 15.88 cm).
+  - **Posters:** 48 × 36 in, or A0 (84.1 × 118.9 cm). Swap width and height turns either around.
+
+  New documents are A4, or the size chosen in Settings (**New documents**). New pages take the
+  size of the page they're added after.
 - **Journal** and **Figure type**: sets the page to that journal's column width and its greatest
   figure depth, e.g. Nature double column, 180 × 170 mm. Built in: Cell, G3, Genetics, Genome
   Biology, Genome Research, Heredity, Molecular Biology and Evolution, Molecular Plant, Nature,
@@ -108,6 +116,12 @@ With nothing selected (click the grey area or press Escape), the right panel sho
 - **Fit to content** (also **Fit page** in the Home tab): crops the page to what's on it, with
   no margin. On a journal page it keeps the column width and fits only the height.
 - **Background**: transparent (the default, which journals prefer) or white.
+
+**Size** (Home tab) offers the same sizes whatever is selected, with every journal's figure sizes
+under **Journal**, then **Swap width and height** and **Custom size…** to type the width and
+height. The page's size now has a tick.
+
+<img src="images/sizemenu.png" alt="The Size menu, with Slide 16:9 ticked" width="405">
 
 **Pages:** the + button above the Pages list adds a page with the same size, background and
 guides. The other buttons duplicate or delete the current page. Drag a page up or down the list to
@@ -757,7 +771,15 @@ Helvetica out) are embedded automatically on export.
 it: **Red-green: deuteranopia** (the most common), **Red-green: protanopia**, **Blue-yellow:
 tritanopia**, or **Greyscale** (as printed in black and white). Use it to check that colours that
 carry meaning stay apart. Only the page and its objects change, never the exported files; a note
-over the page says the preview is on, and its **Stop** button (or **Normal**) ends it.
+over the page says the preview is on, and its **Stop** button (or **Normal**) ends it. Each is
+the full form, the strictest test: colours that stay apart there stay apart for the milder, more
+common forms too.
+
+**Side by side** (beside the list) shows the page all five ways at once, to compare at a glance.
+Click one to keep previewing it on the page. Command search finds each view too: type "colour
+blind" (or "color blind"), or a name such as "deuter".
+
+![The page normally and with each colour vision preview](images/colourvision.png)
 
 **Export** (⌘E):
 
@@ -917,6 +939,8 @@ The gear button (⌘,):
 - **Unsaved work:** recovery copies kept from earlier sessions, with Delete all.
 - **Updates:** whether new versions install by themselves, ask first or aren't looked for; test
   versions; going back a version (see [Updates](#updates)).
+- **New documents:** the page size each new document starts with (A4 unless you choose another):
+  paper, a slide, a poster or a journal's figure size.
 - **New objects:** default text size, line width, and panel label size and case.
 
 <img src="images/themes.png" alt="The theme gallery in Settings" width="420">

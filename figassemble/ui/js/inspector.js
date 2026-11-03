@@ -193,52 +193,63 @@ export const inspector = {
 
   // Page -------------------------------------------------------------------------------
 
+  // A page length given in millimetres, in the units page sizes are shown in ("210 mm")
+  pageLength(mm) {
+    const pu = this.pageUnits();
+    return `${fmt(toUnit(mm * MM_PT, pu), 1)} ${UNIT_LABEL[pu]}`;
+  },
+  // The current page as a standard size, or as a journal's figure type (a journal on its own: its
+  // widest type, which most multi-panel figures need); from the Page panel and the Size menu
+  setStandardSize(name) {
+    const s = (this.app.info.standard_sizes || []).find((x) => x.name === name);
+    if (!s) return;
+    this.editPage(`${name} page`, (p) => { p.width = s.width_mm * MM_PT; p.height = s.height_mm * MM_PT; p.preset = { standard: name }; });
+    canvas.fit();
+    announce(`Page is now ${name}, ${this.pageLength(s.width_mm)} by ${this.pageLength(s.height_mm)}`);
+  },
+  setJournalSize(jname, tname) {
+    const j = (this.app.info.journals || []).find((x) => x.name === jname);
+    if (!j) { this.editPage("No journal size", (p) => { delete p.preset; }); return; }
+    const t = j.types.find((x) => x.name === tname) || j.types.reduce((a, b) => (b.width_mm > a.width_mm ? b : a));
+    this.editPage(`${j.name} ${t.name.toLowerCase()} page`, (p) => {
+      p.width = t.width_mm * MM_PT;
+      p.height = j.depth_mm * MM_PT;
+      p.preset = { journal: j.name, type: t.name };
+    });
+    canvas.fit();
+    announce(`Page is now a ${j.name} ${t.name.toLowerCase()} figure, ${this.pageLength(t.width_mm)} wide and ${this.pageLength(j.depth_mm)} deep`);
+  },
+  setPageWidth(v) { this.editPage("Page width", (p) => { p.width = Math.max(v, 1); delete p.preset; }); },
+  setPageHeight(v) {
+    this.editPage("Page height", (p) => {
+      p.height = Math.max(v, 1);
+      if (p.preset?.standard) delete p.preset;   // a journal figure may be shorter than the full depth
+    });
+  },
+  swapPage() { this.editPage("Rotate page", (p) => { [p.width, p.height] = [p.height, p.width]; delete p.preset; }); },
+
   pageSections() {
     const page = store.page();
     const pu = this.pageUnits();
     const { standard, journal, type } = pagePreset(page, this.app.info);
-    const standards = this.app.info.standard_sizes || [];
     const journals = this.app.info.journals || [];
-    const len = (mm) => `${fmt(toUnit(mm * MM_PT, pu), 1)} ${UNIT_LABEL[pu]}`;
-    const setStandard = (name) => {
-      const s = standards.find((x) => x.name === name);
-      if (!s) return;
-      this.editPage(`${name} page`, (p) => { p.width = s.width_mm * MM_PT; p.height = s.height_mm * MM_PT; p.preset = { standard: name }; });
-      canvas.fit();
-      announce(`Page is now ${name}, ${len(s.width_mm)} by ${len(s.height_mm)}`);
-    };
-    const setJournal = (jname, tname) => {
-      const j = journals.find((x) => x.name === jname);
-      if (!j) { this.editPage("No journal size", (p) => { delete p.preset; }); return; }
-      // A journal on its own starts at its widest figure type (most multi-panel figures)
-      const t = j.types.find((x) => x.name === tname) || j.types.reduce((a, b) => (b.width_mm > a.width_mm ? b : a));
-      this.editPage(`${j.name} ${t.name.toLowerCase()} page`, (p) => {
-        p.width = t.width_mm * MM_PT;
-        p.height = j.depth_mm * MM_PT;
-        p.preset = { journal: j.name, type: t.name };
-      });
-      canvas.fit();
-      announce(`Page is now a ${j.name} ${t.name.toLowerCase()} figure, ${len(t.width_mm)} wide and ${len(j.depth_mm)} deep`);
-    };
+    const len = (mm) => this.pageLength(mm);
     return [
       section("Page", [
         textField("Name", page.name, (v) => this.editPage("Rename page", (p) => { p.name = v || p.name; })),
         selectField("Standard size", standard ? standard.name : "",
-          [["", journal ? "—" : "Custom size"], ...standards.map((s) => [s.name, `${s.name} (${len(s.width_mm)} × ${len(s.height_mm)})`])],
-          setStandard),
+          [["", journal ? "—" : "Custom size"], ...standardOptions(this.app.info.standard_sizes, len)],
+          (v) => this.setStandardSize(v)),
         selectField("Journal", journal ? journal.name : "", [["", "None"], ...journals.map((j) => [j.name, j.name])],
-          (v) => setJournal(v)),
+          (v) => this.setJournalSize(v)),
         selectField("Figure type", type ? type.name : "",
           journal ? journal.types.map((t) => [t.name, `${t.name} — ${len(t.width_mm)} wide`]) : [["", "Choose a journal first"]],
-          (v) => setJournal(journal.name, v), { disabled: !journal }),
+          (v) => this.setJournalSize(journal.name, v), { disabled: !journal }),
         journal ? h("p", { class: "hint" }, `${journal.name}: ${journal.note} Source: ${journal.source}.`) : null,
-        row(numField("Width", page.width, pu, (v) => this.editPage("Page width", (p) => { p.width = Math.max(v, 1); delete p.preset; }), { min: 1 }),
-          numField("Height", page.height, pu, (v) => this.editPage("Page height", (p) => {
-            p.height = Math.max(v, 1);
-            if (p.preset?.standard) delete p.preset;   // a journal figure may be shorter than the full depth
-          }), { min: 1 })),
+        row(numField("Width", page.width, pu, (v) => this.setPageWidth(v), { min: 1 }),
+          numField("Height", page.height, pu, (v) => this.setPageHeight(v), { min: 1 })),
         h("div", { class: "button-row" },
-          button("Swap width and height", () => this.editPage("Rotate page", (p) => { [p.width, p.height] = [p.height, p.width]; delete p.preset; }), "⟲"),
+          button("Swap width and height", () => this.swapPage(), "⟲"),
           button(journal ? "Fit the page height to the content (keeps the column width)" : "Fit page to content",
             () => this.app.run("fitPage"), "Fit to content")),
         radioField("Background", page.background ? "white" : "none", [["none", "Transparent"], ["white", "White"]],
@@ -1062,6 +1073,17 @@ export function pagePreset(page, info) {
     && near(s.height_mm * MM_PT, page.height)) || null;
   return { journal: null, type: null, standard };
 }
+// The standard sizes as a list's options in their groups (Paper, Slides, Posters), each with its
+// size: len(mm) writes a length in the page units
+export function standardOptions(standards = [], len) {
+  const groups = [];
+  for (const s of standards) {
+    let g = groups.find((x) => x.group === s.group);
+    if (!g) groups.push((g = { group: s.group, options: [] }));
+    g.options.push([s.name, `${s.name} (${len(s.width_mm)} × ${len(s.height_mm)})`]);
+  }
+  return groups;
+}
 
 function digits(u) { return u === "in" || u === "cm" ? 3 : 2; }
 function kindName(it) {
@@ -1127,17 +1149,14 @@ function textArea(text, value, onCommit) {
 }
 // A dropdown with its options in labelled groups: [[group title, [[value, label], ...]], ...]
 function groupedSelectField(text, value, groups, onChange) {
-  const id = `f${++fieldId}`;
-  const sel = h("select", { id }, ...groups.map(([title, options]) => h("optgroup", { label: title },
-    ...options.map(([v, l]) => h("option", { value: v, selected: v === value ? "selected" : undefined }, l)))));
-  sel.value = value;
-  sel.addEventListener("change", () => onChange(sel.value));
-  return h("div", { class: "field" }, label(text, id), sel);
+  return selectField(text, value, groups.map(([group, options]) => ({ group, options })), onChange);
 }
+// options: [value, label] pairs, or {group, options: [value, label] pairs} for a group with a heading
 export function selectField(text, value, options, onChange, opts = {}) {
   const id = `f${++fieldId}`;
+  const option = ([v, l]) => h("option", { value: v, selected: v === value ? "selected" : undefined }, l);
   const sel = h("select", { id, disabled: opts.disabled },
-    ...options.map(([v, l]) => h("option", { value: v, selected: v === value ? "selected" : undefined }, l)));
+    ...options.map((o) => (o.group ? h("optgroup", { label: o.group }, ...o.options.map(option)) : option(o))));
   sel.value = value;
   sel.addEventListener("change", () => onChange(sel.value));
   return h("div", { class: "field" }, label(text, id), sel);

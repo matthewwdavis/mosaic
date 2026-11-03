@@ -58,7 +58,7 @@ import copy
 import time
 
 from .assets import new_id
-from .journals import DEFAULT_SIZE, standard_size
+from .journals import DEFAULT_SIZE, preset_size, standard_size
 
 FORMAT_VERSION = 1
 MM = 72.0 / 25.4
@@ -70,24 +70,34 @@ DEFAULT_STROKE = {"color": "#000000", "width": 1.0, "dash": "solid", "cap": "rou
 DEFAULT_TEXT_RUN = {"font": "Helvetica", "size": 6.0, "bold": False, "italic": False, "color": "#000000"}
 
 
-def new_page(name: str = "Page 1", width: float | None = None, height: float | None = None) -> dict:
+def new_page(name: str = "Page 1", width: float | None = None, height: float | None = None,
+             preset: dict | None = None) -> dict:
+    """A blank page: width x height points, else the size a preset names (journals.preset_size),
+    else A4."""
     page = {"id": new_id("pg"), "name": name, "background": None, "guides": {"x": [], "y": []}, "items": []}
+    size = preset_size(preset) if preset else None
     if width and height:
         page["width"], page["height"] = width, height
+    elif size:
+        page["width"], page["height"] = size
+        page["preset"] = ({"standard": preset["standard"]} if preset.get("standard")
+                          else {"journal": preset["journal"], "type": preset["type"]})
     else:
         page["width"], page["height"] = DEFAULT_PAGE
         page["preset"] = {"standard": DEFAULT_SIZE}
     return page
 
 
-def new_document(title: str = "Untitled figure") -> dict:
+def new_document(title: str = "Untitled figure", page: dict | None = None) -> dict:
+    """A blank document of one page, the size the preset `page` names ({"standard": "Slide 16:9"},
+    say), else A4."""
     now = time.time()
     return {
         "figassemble": FORMAT_VERSION,
         "meta": {"title": title, "created": now, "modified": now},
         "settings": {"units": "pt", "page_units": "mm"},
         "assets": {},
-        "pages": [new_page()],
+        "pages": [new_page(preset=page)],
     }
 
 

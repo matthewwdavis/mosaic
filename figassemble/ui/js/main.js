@@ -96,7 +96,8 @@ const app = {
         c("Fit Page in Window", "zoomFit"), c("Centre Page", "centrePage"), "-",
         tick("Rulers", "toggleRulers"), tick("Grid", "toggleGrid"), tick("Guides", "toggleGuides"), tick("Snap", "toggleSnap"),
         tick("Arrow Keys Follow the Zoom", "toggleNudgeZoom"), "-",
-        { title: "Colour-Vision Preview", items: VISION.map(([mode, title]) => tick(title, `vision:${mode}`)) }, "-",
+        { title: "Colour-Vision Preview", items: [...VISION.map(([mode, title]) => tick(title, `vision:${mode}`)), "-",
+          c("Side by Side…", "compareVision")] }, "-",
         { title: "Enter Full Screen", selector: "toggleFullScreen:", keys: "⌃⌘F" }] },
       { title: "Window", window: true },
       { title: "Help", help: true, items: [c("Keyboard Shortcuts and Help", "shortcuts"), c("Search Commands…", "commandSearch"), "-",
@@ -2111,6 +2112,7 @@ app.commands = {
   pageUp: cmd("Move page up", () => app.movePage(store.pageIndex, store.pageIndex - 1)),
   pageDown: cmd("Move page down", () => app.movePage(store.pageIndex, store.pageIndex + 1)),
   fitPage: cmd("Fit page to content", () => app.fitPage(), null, null, "Fit page"),
+  pageSize: cmd("Page size: paper, slide, poster and journal sizes for this page", () => panels.pageSizeMenu(), null, null, "Size"),
   addPoint: cmd("Add point to line", () => app.addPoint()),
   straighten: cmd("Make line straight", () => app.straighten()),
   shapeToCurve: cmd("Make editable curve", () => app.shapeToCurve()),
@@ -2136,6 +2138,17 @@ app.commands = {
   commandSearch: cmd("Search commands: type to find and run any command", () => panels.commandSearch(), `${M}/`, key("/"), "Search"),
   shortcuts: cmd("Keyboard shortcuts and help", () => panels.shortcutsDialog(), "?", (e) => plain(e) && e.key === "?", "Help"),
 };
+// The colour vision previews, and all of them side by side, as commands: command search finds them
+// by "colour blind", "color blind" or a kind's name
+const VISION_WORDS = "colour blind colourblind color blind colorblind";
+app.commands.compareVision = { ...cmd("Colour vision side by side: the page as seen with each kind of colour blindness",
+  () => panels.visionDialog(), null, null, "Side by side"), search: VISION_WORDS };
+for (const [mode, name] of [["normal", "normal vision (no preview)"], ["deuteranopia", "red-green colour blindness (deuteranopia)"],
+  ["protanopia", "red-green colour blindness (protanopia)"], ["tritanopia", "blue-yellow colour blindness (tritanopia)"],
+  ["greyscale", "greyscale"]]) {
+  app.commands[`vision${mode[0].toUpperCase()}${mode.slice(1)}`] = { ...cmd(`Colour vision preview: ${name}`,
+    () => canvas.setColourVision(mode)), search: mode === "greyscale" ? `${VISION_WORDS} grayscale` : VISION_WORDS };
+}
 
 // Keyboard ----------------------------------------------------------------------------------
 
