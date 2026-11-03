@@ -59,8 +59,10 @@ export function capPicture(st, cap) {
   return drawing([40, 14], s("line", { x1: 8, y1: 7, x2: 28, y2: 7, stroke: colourOf(st), "stroke-width": 6,
     "stroke-linecap": cap === "flat" ? "butt" : cap }), s("line", { x1: 28, y1: 1, x2: 28, y2: 13, class: "pic-guide" }));
 }
+// A right-angled corner of a line as thick as the picture allows, so a sharp corner is square, a
+// round one rounded and a bevelled one cut across (any thinner and they all look the same)
 export function joinPicture(st, join) {
-  return drawing([40, 14], s("polyline", { points: "9,12 20,3.5 31,12", fill: "none", stroke: colourOf(st), "stroke-width": 4.5,
+  return drawing([20, 20], s("polyline", { points: "0,7 13,7 13,20", fill: "none", stroke: colourOf(st), "stroke-width": 10,
     "stroke-linejoin": join, "stroke-linecap": "butt" }));
 }
 // A line with an arrowhead at the end the list is for, of the kind and size given
