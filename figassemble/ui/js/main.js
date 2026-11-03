@@ -1831,22 +1831,32 @@ const app = {
 
   // Pages ---------------------------------------------------------------------------
 
+  // An empty page like this one: its size (and the standard or journal size it is), background and guides
+  blankPageLike(cur, name) {
+    return { id: uid("pg"), name, width: cur.width, height: cur.height, background: cur.background,
+      ...(cur.preset ? { preset: { ...cur.preset } } : {}),
+      guides: { x: [...(cur.guides?.x || [])], y: [...(cur.guides?.y || [])] }, items: [] };
+  },
   addPage(copy = false) {
     const cur = store.page();
     // A new page starts with this page's size, background and guides
-    const page = copy ? reidPage(clone(cur)) : { id: uid("pg"), name: `Page ${store.doc.pages.length + 1}`,
-      width: cur.width, height: cur.height, background: cur.background,
-      guides: { x: [...(cur.guides?.x || [])], y: [...(cur.guides?.y || [])] }, items: [] };
+    const page = copy ? reidPage(clone(cur)) : this.blankPageLike(cur, `Page ${store.doc.pages.length + 1}`);
     if (copy) page.name = `${cur.name} copy`;
     store.update(copy ? "Duplicate page" : "Add page", (doc) => doc.pages.splice(store.pageIndex + 1, 0, page));
     store.setPage(store.pageIndex + 1);
     announce(`${copy ? "Duplicated" : "Added"} page ${store.pageIndex + 1}`);
   },
   async deletePage() {
-    if (store.doc.pages.length === 1) return announce("A document needs at least one page");
     const name = store.page().name;
     if (store.items().length && !(await panels.confirm("Delete page?", `Delete page “${name}” and everything on it? `
       + "You can undo this.", "Delete page"))) return;
+    // A document always has a page: the only one gives way to an empty page like it
+    if (store.doc.pages.length === 1) {
+      const blank = this.blankPageLike(store.page(), "Page 1");
+      store.update("Delete page", (doc) => { doc.pages.splice(0, 1, blank); store.selection = []; });
+      store.setPage(0);
+      return announce(`Deleted page ${name}; an empty page of the same size takes its place`);
+    }
     const i = store.pageIndex;
     // Move to a page that still exists before anything redraws
     store.update("Delete page", (doc) => {

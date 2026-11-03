@@ -137,6 +137,8 @@ Matthew's choices are in brackets.
 - [x] Colour vision side by side: the page normally and with each preview at once (View tab),
       and the previews in command search ("colour blind", "color blind", "deuter") [Matthew's
       choices, over a shortcut stepping through them]
+- [x] Deleting the only page leaves an empty page like it (size, background, guides) instead of
+      refusing; one with objects asks first, as any page does [Matthew's choices]
 
 ## Acceptance test (test slide)
 

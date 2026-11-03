@@ -124,10 +124,11 @@ height. The page's size now has a tick.
 <img src="images/sizemenu.png" alt="The Size menu, with Slide 16:9 ticked" width="405">
 
 **Pages:** the + button above the Pages list adds a page with the same size, background and
-guides. The other buttons duplicate or delete the current page. Drag a page up or down the list to
-move it (the others slide apart to make room), and double-click a page's name to rename it. Drop
-a PowerPoint deck in the list to add its slides as pages there. One document can hold versions of
-a figure side by side.
+guides. The other buttons duplicate or delete the current page. Deleting the only page leaves an
+empty page of the same size, background and guides in its place (a page with objects asks first;
+⌘Z brings it back). Drag a page up or down the list to move it (the others slide apart to make
+room), and double-click a page's name to rename it. Drop a PowerPoint deck in the list to add its
+slides as pages there. One document can hold versions of a figure side by side.
 
 ## Pictures
 

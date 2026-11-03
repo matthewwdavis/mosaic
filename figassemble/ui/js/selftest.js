@@ -1034,6 +1034,31 @@ async function pageSizeChecks(app) {
   await app.savePrefs({ new_page: { standard: "A4" } });
   store.setDoc(await rpc("new_document"));
   check(sizeIs(210, 297), "and back to A4", pageSize());
+
+  // Deleting the only page (from its menu in the Pages list): an empty page like it takes its
+  // place, with its size, background and guides (asked first, as for any page with objects; the
+  // self-test answers yes), and one undo brings it back
+  store.update("Only page", (doc) => {
+    Object.assign(doc.pages[0], { name: "Figure 3", width: 960, height: 540, background: "#ffffff",
+      preset: { standard: "Slide 16:9" }, guides: { x: [100], y: [] } });
+    doc.pages[0].items.push(gRectFor("onlyBox", 40, 40, 80, 50));
+  });
+  await settle();
+  const before = JSON.stringify(store.doc.pages);
+  document.querySelector('.page-list li[data-index="0"]').dispatchEvent(new MouseEvent("contextmenu",
+    { clientX: 40, clientY: 150, bubbles: true, cancelable: true, button: 2 }));
+  await until(() => document.querySelector(".context-menu"));
+  const del = menuItem("Delete page"), offered = !!del && del.getAttribute("aria-disabled") !== "true";
+  del?.click();
+  await until(() => !store.items().length);
+  const pg = store.page();
+  check(offered && store.doc.pages.length === 1 && !pg.items.length && pg.name === "Page 1" && pg.width === 960 && pg.height === 540
+    && pg.background === "#ffffff" && pg.preset?.standard === "Slide 16:9" && pg.guides.x.join() === "100"
+    && pg.id !== JSON.parse(before)[0].id, "deleting the only page leaves an empty page of its size, background and guides",
+  `${offered} ${JSON.stringify(pg)}`);
+  await app.undo();
+  check(JSON.stringify(store.doc.pages) === before, "and one undo brings it back", JSON.stringify(store.doc.pages[0]).slice(0, 200));
+  store.setDoc(await rpc("new_document"));
 }
 
 // Colour vision side by side: the page five ways at once, each view through its own filter over a

@@ -569,7 +569,7 @@ export const panels = {
     const c = (name, opts) => this.app.menuEntry(name, opts);
     const n = store.doc.pages.length;
     contextMenu.show([
-      c("addPage"), c("duplicatePage"), c("deletePage", { disabled: n < 2 }),
+      c("addPage"), c("duplicatePage"), c("deletePage"),
       "-",
       c("pageUp", { disabled: i === 0 }), c("pageDown", { disabled: i === n - 1 }),
       "-",

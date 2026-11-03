@@ -195,6 +195,11 @@ pre-export check says so.
   to clips and gradients reach the page's own definitions) and isolation mode's fading. Clicking
   one previews it on the page. Command search finds each preview by "colour blind", "color
   blind" or a kind's name. He didn't take a shortcut to step through the views.
+- **Deleting the only page (2026-11-02, Matthew's choices):** a document always has a page, so
+  deleting the only one puts an empty page like it in its place (its size, standard or journal
+  size, background and guides, named Page 1) rather than refusing; one with objects asks first, as
+  any page does. + Add page makes the same empty page, now keeping the page's standard or journal
+  size too.
 - **PowerPoint slides in (2026-11-01):** Open goes through a slide picker (a picture of each
   slide, drawn by the PDF export at 320 px; one or several chosen), and a deck imported once is
   kept for the picker and the slides then chosen. Where slides dropped on the window go depends
