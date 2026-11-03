@@ -7,7 +7,7 @@
 - [x] Assets: probing, sibling variants (PDF/SVG/PNG under one name), cache, linked + embedded
 - [x] Export: PDF (placed PDFs unchanged, lossless images, embedded font subsets), SVG (inline, scoped),
       PNG/TIFF/JPEG via PDFium; CMYK and EPS via Ghostscript (opt-in)
-- [x] .figasm document file; command-line export
+- [x] .mosaic document file; command-line export
 - [x] PowerPoint importer (test slide: a manuscript figure slide), relinking to R originals
 - [x] Linear gradient fills (PDF shading + soft mask, SVG linearGradient)
 - [x] Embed fonts missing from placed PDFs (R's pdf() Helvetica) without touching drawing instructions
@@ -98,11 +98,11 @@ Matthew's choices are in brackets.
       objects there, dropped in the Pages list makes them pages there; slides and shapes copied
       in PowerPoint paste as objects; slides dragged out of PowerPoint (Mac) come from their deck
       as last saved, since PowerPoint hands over only which slides they are]
-- [x] The Mac menu bar says FigAssemble, not python, and has the menus a Mac app has [File,
+- [x] The Mac menu bar says mosaic, not python, and has the menus a Mac app has [File,
       Edit, View, Window and Help, with the shortcuts; not Insert or Arrange; Mac only, as the
       ribbon does this job on Windows]
 - [x] Slide drags out of PowerPoint actually come in: PowerPoint refuses them to other apps, so
-      FigAssemble follows the drag itself [take them anyway, though the slide flies back]
+      mosaic follows the drag itself [take them anyway, though the slide flies back]
 - [x] A blank page takes the size of the slides put on it, pasted, dragged or from a dropped deck
       [any page with no objects; it becomes the first slide, and more slides become pages after it]
 - [x] Arrow keys move less when zoomed in and more when zoomed out [round steps in the panels'
@@ -111,7 +111,7 @@ Matthew's choices are in brackets.
 - [x] Tests for linked files updating, for rolling out to early adopters; they found that undo
       couldn't get past an update from a file (the next look put it back), so an undone update now
       stays undone until the file is saved again
-- [x] Updates for early adopters: FigAssemble looks for new versions on GitHub, installs them when
+- [x] Updates for early adopters: mosaic looks for new versions on GitHub, installs them when
       it quits (or asks first, or not at all), and checks each one's signature [private repo with
       a one-time GitHub sign-in, ready to go public; a release command with a key backup; going
       back a version, test versions first, a warning for documents from newer versions]
@@ -124,12 +124,12 @@ Matthew's choices are in brackets.
       held takes what it touches, and Select Same (fill colour, line colour, line width, fill and
       line, font, font size, text colour, kind of object) [chosen over Shift-click runs and
       Shift+arrows in the Objects list]
-- [x] Double-clicking a .figasm in Finder or Explorer opens it (the Mac app owns the type; the
+- [x] Double-clicking a .mosaic in Finder or Explorer opens it (the Mac app owns the type; the
       Windows installer registers it for the account), and each document has a window of its own:
       New, Open and Open Recent open a new window unless the front one is blank, a document open
       already comes to the front, closing the last window quits [Matthew's choices, over replacing
-      the figure and over staying open with no windows]; decks have FigAssemble under Open With; a
-      .figasm dropped on the window adds its pages; rulers, grid, guides and snap are each
+      the figure and over staying open with no windows]; decks have mosaic under Open With; a
+      .mosaic dropped on the window adds its pages; rulers, grid, guides and snap are each
       window's own
 - [x] Slide and poster sizes beside paper: 16:9, 4:3 and 16:10 slides, 48 × 36 in and A0
       posters; a Size menu in the Home tab, whatever is selected (journals' sizes too, Swap, Custom
@@ -152,6 +152,13 @@ Matthew's choices are in brackets.
       step of its ticks, with a preview while pointing; drags out of a ruler stay as they were;
       right-click a guide or its ruler mark: Remove guide, Remove all guides, Hide guides
       [Matthew's choices]
+- [x] Corner pictures on a thick line's outline (square, rounded, cut across); in the pictures,
+      colours too faint against the menu drawn grey (black in dark themes, white or pale yellow
+      in light ones) [Matthew's choices]
+- [x] Renamed mosaic, always lower case, inside and out (package, command, settings, app id,
+      GitHub repo, folder); documents save as .mosaic and .figasm ones still open; settings and
+      recovery copies copied over from ~/.figassemble once; a new icon, figure panels fitted
+      together as a mosaic [Matthew's choices]
 
 ## Acceptance test (test slide)
 
@@ -166,4 +173,3 @@ Matthew's choices are in brackets.
 
 - Importer coverage for every figure deck (vertical text, bullets)
 - Optional raster DPI cap / file-size targets for journal limits
-- Fun name

@@ -1,42 +1,42 @@
 @echo off
-rem Installs FigAssemble on Windows. Double-click this file (if Windows says it protected your
+rem Installs mosaic on Windows. Double-click this file (if Windows says it protected your
 rem PC, click "More info" and then "Run anyway").
 rem
 rem It installs conda (Miniforge, in your user folder) if you don't have conda yet, makes a conda
-rem environment called "figassemble" with everything FigAssemble needs, and adds FigAssemble to
+rem environment called "mosaic" with everything mosaic needs, and adds mosaic to
 rem the Start menu and the desktop. Running it again updates an earlier installation. It needs
 rem an internet connection and about 2 GB of disk space; the first run takes 5-15 minutes.
 rem
-rem FigAssemble's own updates run this file from the new version (figassemble\updates.py), with
-rem FIGASSEMBLE_UPDATE=1 (no questions), FIGASSEMBLE_PREFIX (the environment to update; conda is
-rem needed only if environment.yml changed), FIGASSEMBLE_WAIT_PID (wait for FigAssemble to
-rem close), FIGASSEMBLE_RESULT (a file to write "ok" or "failed: why" to) and FIGASSEMBLE_LOCK (a
+rem mosaic's own updates run this file from the new version (mosaic\updates.py), with
+rem MOSAIC_UPDATE=1 (no questions), MOSAIC_PREFIX (the environment to update; conda is
+rem needed only if environment.yml changed), MOSAIC_WAIT_PID (wait for mosaic to
+rem close), MOSAIC_RESULT (a file to write "ok" or "failed: why" to) and MOSAIC_LOCK (a
 rem file to delete at the end).
 rem
-rem For testing: FIGASSEMBLE_ENV (environment name), FIGASSEMBLE_NO_OPEN=1 (don't start
-rem FigAssemble or wait for a key at the end).
+rem For testing: MOSAIC_ENV (environment name), MOSAIC_NO_OPEN=1 (don't start
+rem mosaic or wait for a key at the end).
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
-set "ENV_NAME=%FIGASSEMBLE_ENV%"
-if "%ENV_NAME%"=="" set "ENV_NAME=figassemble"
+set "ENV_NAME=%MOSAIC_ENV%"
+if "%ENV_NAME%"=="" set "ENV_NAME=mosaic"
 if not exist environment.yml (
-  set "WHY=run this file from inside the FigAssemble folder you downloaded"
+  set "WHY=run this file from inside the mosaic folder you downloaded"
   goto failed
 )
 
-rem 0. An update from FigAssemble itself: it closes first
-if defined FIGASSEMBLE_WAIT_PID (
+rem 0. An update from mosaic itself: it closes first
+if defined MOSAIC_WAIT_PID (
   echo.
-  echo ==^> Waiting for FigAssemble to close
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "Wait-Process -Id %FIGASSEMBLE_WAIT_PID% -Timeout 300 -ErrorAction SilentlyContinue; if (Get-Process -Id %FIGASSEMBLE_WAIT_PID% -ErrorAction SilentlyContinue) { exit 1 }"
+  echo ==^> Waiting for mosaic to close
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Wait-Process -Id %MOSAIC_WAIT_PID% -Timeout 300 -ErrorAction SilentlyContinue; if (Get-Process -Id %MOSAIC_WAIT_PID% -ErrorAction SilentlyContinue) { exit 1 }"
   if errorlevel 1 (
-    set "WHY=FigAssemble didn't close"
+    set "WHY=mosaic didn't close"
     goto failed
   )
 )
 
 set "ENV_HASH="
-if defined FIGASSEMBLE_PREFIX goto update_env
+if defined MOSAIC_PREFIX goto update_env
 
 rem 1. Conda: use the one you have, or install Miniforge
 call :find_conda
@@ -67,7 +67,7 @@ rem 2. The environment: made the first time, brought up to date after that
 "%CONDA%" env list | findstr /b /c:"%ENV_NAME% " >nul
 if errorlevel 1 (
   echo.
-  echo ==^> Making the "%ENV_NAME%" environment ^(this downloads the tools FigAssemble uses^)
+  echo ==^> Making the "%ENV_NAME%" environment ^(this downloads the tools mosaic uses^)
   "%CONDA%" env create -n "%ENV_NAME%" -f environment.yml
 ) else (
   echo.
@@ -81,7 +81,7 @@ if errorlevel 1 (
 rem The environment's folder, from its own Python (it isn't always inside conda's folder); read
 rem back from a file, since a for /f around this command would need its quotes and brackets escaped
 set "PREFIX="
-set "PREFIX_FILE=%TEMP%\figassemble-prefix.txt"
+set "PREFIX_FILE=%TEMP%\mosaic-prefix.txt"
 "%CONDA%" run -n "%ENV_NAME%" python -c "import sys; print(sys.prefix)" > "%PREFIX_FILE%"
 if exist "%PREFIX_FILE%" set /p PREFIX=<"%PREFIX_FILE%"
 del "%PREFIX_FILE%" >nul 2>nul
@@ -91,19 +91,19 @@ if not defined PREFIX (
 )
 goto env_done
 
-rem 2. An update: the environment FigAssemble runs in, brought up to date only if what it needs changed
+rem 2. An update: the environment mosaic runs in, brought up to date only if what it needs changed
 :update_env
-set "PREFIX=%FIGASSEMBLE_PREFIX%"
+set "PREFIX=%MOSAIC_PREFIX%"
 if not exist "%PREFIX%\python.exe" (
-  set "WHY=FigAssemble's environment isn't in %PREFIX% any more"
+  set "WHY=mosaic's environment isn't in %PREFIX% any more"
   goto failed
 )
 call :env_hash
 set "OLD_HASH="
-if exist "%PREFIX%\etc\figassemble\environment.sha256" set /p OLD_HASH=<"%PREFIX%\etc\figassemble\environment.sha256"
+if exist "%PREFIX%\etc\mosaic\environment.sha256" set /p OLD_HASH=<"%PREFIX%\etc\mosaic\environment.sha256"
 if defined ENV_HASH if /i "%OLD_HASH%"=="%ENV_HASH%" (
   echo.
-  echo ==^> The tools FigAssemble uses are up to date
+  echo ==^> The tools mosaic uses are up to date
   goto env_done
 )
 call :find_conda
@@ -112,54 +112,54 @@ if not defined CONDA (
   goto failed
 )
 echo.
-echo ==^> Updating the tools FigAssemble uses ^(this can take a few minutes^)
+echo ==^> Updating the tools mosaic uses ^(this can take a few minutes^)
 "%CONDA%" env update -p "%PREFIX%" -f environment.yml --prune
 if errorlevel 1 (
-  set "WHY=the tools FigAssemble uses couldn't be updated (the log says why)"
+  set "WHY=the tools mosaic uses couldn't be updated (the log says why)"
   goto failed
 )
 
 :env_done
 if not exist "%PREFIX%\python.exe" (
-  set "WHY=FigAssemble's environment isn't in %PREFIX%"
+  set "WHY=mosaic's environment isn't in %PREFIX%"
   goto failed
 )
-if not exist "%PREFIX%\etc\figassemble" mkdir "%PREFIX%\etc\figassemble"
+if not exist "%PREFIX%\etc\mosaic" mkdir "%PREFIX%\etc\mosaic"
 if not defined ENV_HASH call :env_hash
-if defined ENV_HASH (echo !ENV_HASH!)>"%PREFIX%\etc\figassemble\environment.sha256"
+if defined ENV_HASH (echo !ENV_HASH!)>"%PREFIX%\etc\mosaic\environment.sha256"
 
-rem 3. FigAssemble itself, copied into the environment (this folder can be deleted afterwards)
+rem 3. mosaic itself, copied into the environment (this folder can be deleted afterwards)
 echo.
-echo ==^> Installing FigAssemble
+echo ==^> Installing mosaic
 "%PREFIX%\python.exe" -m pip install --upgrade --no-warn-script-location .
 if errorlevel 1 (
-  set "WHY=FigAssemble couldn't be installed (the messages above say why)"
+  set "WHY=mosaic couldn't be installed (the messages above say why)"
   goto failed
 )
 
 rem 4. Shortcuts in the Start menu and on the desktop (an update keeps a desktop shortcut only if there is one)
 echo.
-echo ==^> Adding FigAssemble to the Start menu and the desktop
+echo ==^> Adding mosaic to the Start menu and the desktop
 set "SHORTCUT_ARGS="
-if defined FIGASSEMBLE_UPDATE set "SHORTCUT_ARGS=--update"
+if defined MOSAIC_UPDATE set "SHORTCUT_ARGS=--update"
 "%PREFIX%\python.exe" packaging\windows\make_shortcuts.py %SHORTCUT_ARGS%
 if errorlevel 1 (
-  set "WHY=the shortcuts couldn't be made; FigAssemble itself is installed"
+  set "WHY=the shortcuts couldn't be made; mosaic itself is installed"
   goto failed
 )
-rem A note for FigAssemble's updates: installed by this installer
-(echo windows)>"%PREFIX%\etc\figassemble\installer"
+rem A note for mosaic's updates: installed by this installer
+(echo windows)>"%PREFIX%\etc\mosaic\installer"
 
-if defined FIGASSEMBLE_RESULT (echo ok)>"%FIGASSEMBLE_RESULT%"
-if defined FIGASSEMBLE_LOCK del "%FIGASSEMBLE_LOCK%" >nul 2>nul
+if defined MOSAIC_RESULT (echo ok)>"%MOSAIC_RESULT%"
+if defined MOSAIC_LOCK del "%MOSAIC_LOCK%" >nul 2>nul
 echo.
-echo FigAssemble is installed. Start it from the Start menu or the desktop.
-if not defined FIGASSEMBLE_UPDATE echo From now on it updates itself (Settings, Updates).
-if not "%FIGASSEMBLE_NO_OPEN%"=="" exit /b 0
-rem From the user's folder: started from this folder, Python would run the copy of FigAssemble in it
+echo mosaic is installed. Start it from the Start menu or the desktop.
+if not defined MOSAIC_UPDATE echo From now on it updates itself (Settings, Updates).
+if not "%MOSAIC_NO_OPEN%"=="" exit /b 0
+rem From the user's folder: started from this folder, Python would run the copy of mosaic in it
 cd /d "%USERPROFILE%"
-start "" "%PREFIX%\pythonw.exe" -m figassemble
-if defined FIGASSEMBLE_UPDATE exit /b 0
+start "" "%PREFIX%\pythonw.exe" -m mosaic
+if defined MOSAIC_UPDATE exit /b 0
 echo.
 pause
 exit /b 0
@@ -168,7 +168,7 @@ rem What the environment is made from (environment.yml's SHA-256, from the envir
 rem Python), to tell whether an update needs conda; read back from a file, as above
 :env_hash
 set "ENV_HASH="
-set "HASH_FILE=%TEMP%\figassemble-env-hash.txt"
+set "HASH_FILE=%TEMP%\mosaic-env-hash.txt"
 "%PREFIX%\python.exe" -I -c "import hashlib; print(hashlib.sha256(open('environment.yml', 'rb').read()).hexdigest())" > "%HASH_FILE%"
 if exist "%HASH_FILE%" set /p ENV_HASH=<"%HASH_FILE%"
 del "%HASH_FILE%" >nul 2>nul
@@ -185,8 +185,8 @@ if not defined CONDA (
     if not defined CONDA if exist "%%~dpC..\Scripts\conda.exe" set "CONDA=%%~dpC..\Scripts\conda.exe"
   )
 )
-if not defined CONDA if defined FIGASSEMBLE_PREFIX (
-  if exist "%FIGASSEMBLE_PREFIX%\..\..\Scripts\conda.exe" set "CONDA=%FIGASSEMBLE_PREFIX%\..\..\Scripts\conda.exe"
+if not defined CONDA if defined MOSAIC_PREFIX (
+  if exist "%MOSAIC_PREFIX%\..\..\Scripts\conda.exe" set "CONDA=%MOSAIC_PREFIX%\..\..\Scripts\conda.exe"
 )
 goto :eof
 
@@ -194,13 +194,13 @@ goto :eof
 echo.
 echo The installation stopped: %WHY%
 echo You can run this installer again after fixing the problem.
-if defined FIGASSEMBLE_RESULT (echo failed: !WHY!)>"%FIGASSEMBLE_RESULT%"
-if defined FIGASSEMBLE_LOCK del "%FIGASSEMBLE_LOCK%" >nul 2>nul
+if defined MOSAIC_RESULT (echo failed: !WHY!)>"%MOSAIC_RESULT%"
+if defined MOSAIC_LOCK del "%MOSAIC_LOCK%" >nul 2>nul
 rem An update that didn't go in: open the version there is, which says what happened
-if defined FIGASSEMBLE_UPDATE if "%FIGASSEMBLE_NO_OPEN%"=="" if defined PREFIX if exist "%PREFIX%\pythonw.exe" (
+if defined MOSAIC_UPDATE if "%MOSAIC_NO_OPEN%"=="" if defined PREFIX if exist "%PREFIX%\pythonw.exe" (
   cd /d "%USERPROFILE%"
-  start "" "!PREFIX!\pythonw.exe" -m figassemble
+  start "" "!PREFIX!\pythonw.exe" -m mosaic
   exit /b 1
 )
-if "%FIGASSEMBLE_NO_OPEN%"=="" pause
+if "%MOSAIC_NO_OPEN%"=="" pause
 exit /b 1

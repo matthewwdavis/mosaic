@@ -8,16 +8,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 @pytest.fixture(scope="session", autouse=True)
 def isolated_home(tmp_path_factory):
-    """Keep caches out of ~/.figassemble while testing (the font index is reused across tests)."""
-    home = tmp_path_factory.mktemp("figassemble-home")
-    os.environ["FIGASSEMBLE_HOME"] = str(home)
-    os.environ["FIGASSEMBLE_KEYSTORE"] = "file"   # never this computer's Keychain or Credential Manager
+    """Keep caches out of ~/.mosaic while testing (the font index is reused across tests)."""
+    home = tmp_path_factory.mktemp("mosaic-home")
+    os.environ["MOSAIC_HOME"] = str(home)
+    os.environ["MOSAIC_KEYSTORE"] = "file"   # never this computer's Keychain or Credential Manager
     yield home
 
 
 @pytest.fixture
 def cache(tmp_path):
-    from figassemble.assets import AssetCache
+    from mosaic.assets import AssetCache
     return AssetCache(str(tmp_path / "cache"))
 
 

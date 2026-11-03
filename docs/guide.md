@@ -1,6 +1,6 @@
-# FigAssemble user guide
+# mosaic user guide
 
-Everything FigAssemble does, by topic. New to it? Start with the [tutorial](tutorial.md).
+Everything mosaic does, by topic. New to it? Start with the [tutorial](tutorial.md).
 Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift** for **⇧**.
 
 - [The window](#the-window)
@@ -29,11 +29,11 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 - [Accessibility](#accessibility)
 - [Command line](#command-line)
 - [Troubleshooting](#troubleshooting)
-- [Removing FigAssemble](#removing-figassemble)
+- [Removing mosaic](#removing-mosaic)
 
 ## The window
 
-![The FigAssemble window, numbered](images/window-tour.png)
+![The mosaic window, numbered](images/window-tour.png)
 
 1. **Tabs** across the top, like PowerPoint's ribbon:
    - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; Duplicate, Again, Delete; Add page,
@@ -63,14 +63,14 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
    document is saved.
 
 **Panel widths:** drag the inner edge of either side panel to make it wider or narrower (or
-focus the edge and use the arrow keys). Double-click the edge to put the panel back. FigAssemble
+focus the edge and use the arrow keys). Double-click the edge to put the panel back. mosaic
 remembers the widths.
 
 **Selection:** the box around a selected object, and its handles, stand a few pixels outside the
 object, so you can see the object's own edges while you move and resize it.
 
 **The menu bar** (Mac): along the top of the screen, as for any Mac app.
-- **FigAssemble:** About FigAssemble, Settings… (⌘,), Hide, Quit.
+- **mosaic:** About mosaic, Settings… (⌘,), Hide, Quit.
 - **File:** New, Open…, Open Recent, Close, Save, Save As…, Export…, Check Before Export…, Figure
   Report…. New and Open open a window of their own (see
   [Saving](#saving-linked-files-and-recovery)), and the menus work in the window in front.
@@ -136,13 +136,13 @@ slides as pages there. One document can hold versions of a figure side by side.
 copy the files in Finder or Explorer and paste them (⌘V). They land at **true size**, exactly as
 the file says. Several files at once arrive in a cascade. Dropped on a page in the Pages list,
 they go on that page. A PowerPoint deck dropped on the window brings in its slides instead (see
-[PowerPoint slides](#powerpoint-slides)), and a FigAssemble document its pages (see
+[PowerPoint slides](#powerpoint-slides)), and a mosaic document its pages (see
 [Saving](#saving-linked-files-and-recovery)).
 
 **Pasting** (⌘V, the Paste button, or right-click → Paste to paste where you clicked) takes
 whatever was copied last:
 
-- **Objects** copied in FigAssemble, in this document or another.
+- **Objects** copied in mosaic, in this document or another.
 - **Files** copied in Finder or Explorer: placed linked, as if you'd dropped them.
 - **Slides and shapes** copied in PowerPoint: as objects you can edit, where they were on the slide
   (see [PowerPoint slides](#powerpoint-slides)).
@@ -165,7 +165,7 @@ picture instead.
   update by mistake: **Roll back** rolls them back, **Cancel** keeps the update.
   A copy is also stored in the document, so it opens complete anywhere. Hold **Option (Alt)**
   while dropping to store a copy without the link.
-- **Copies:** if a plot was saved as PDF, SVG and PNG under one name, FigAssemble finds them all.
+- **Copies:** if a plot was saved as PDF, SVG and PNG under one name, mosaic finds them all.
   Each export uses the matching copy unchanged:
 
   | Placed as | PDF export | SVG export | PNG / TIFF export |
@@ -208,7 +208,7 @@ resized or cropped.
 
 1. **Give the picture a scale** in its Picture tab's **Scale** section, in any of three ways:
    - **From the file:** microscope images saved by ImageJ/Fiji or as OME-TIFF carry their pixel
-     size, and FigAssemble uses it when you place them (the section says "from the file").
+     size, and mosaic uses it when you place them (the section says "from the file").
    - **Type it:** the size of one pixel (e.g. 0.65 µm) and its unit. For a PDF or SVG, it's the
      length of one point of the original.
    - **Measure it:** click **Measure…** (or **Measure** on the Figure tab), drag along something of
@@ -430,7 +430,7 @@ the parts of a Venn diagram, a region between curves, a wedge outlined by lines.
 
 ![A Venn diagram whose three areas are filled](images/areafill.png)
 
-Choose **Fill area** (F) in the tools on the left and click inside an enclosed space. FigAssemble
+Choose **Fill area** (F) in the tools on the left and click inside an enclosed space. mosaic
 adds a fill that exactly covers it, behind the lines and shapes round it, and selects it so you
 can choose its colour, or a gradient, in the Style tab.
 
@@ -464,7 +464,7 @@ it's an ordinary shape (**Make an ordinary shape** in its Arrange tab).
 
 Choose a dash in the **Line** section (round dot, short dash, dash, dash-dot, long dash…).
 
-FigAssemble puts a dash (or a dot) **on every corner**, bend and line end, rounded corners
+mosaic puts a dash (or a dot) **on every corner**, bend and line end, rounded corners
 included, and spaces the dashes evenly between them. PowerPoint runs the pattern on regardless,
 so dots crowd at corners and closed outlines get a squeezed spot. Untick **Even dashes** for
 PowerPoint's spacing, e.g. to match an existing figure. Dashed lines from PowerPoint decks get
@@ -828,7 +828,7 @@ Your choices are remembered for next time.
 When the files are written, the window closes and a note at the top of the page names them, with
 **Show in Finder** (Show in Explorer on Windows). It goes after 10 seconds, but stays while you
 point at it. If the export has warnings (a font that doesn't allow embedding, say), the note lists
-them and stays until you close it (×). Fonts FigAssemble embedded for placed PDFs (R's `pdf()`
+them and stays until you close it (×). Fonts mosaic embedded for placed PDFs (R's `pdf()`
 leaves Helvetica out) are listed as a plain line, since that's it doing its job; they don't keep
 the note open. If the export fails, the window stays open and says why.
 
@@ -867,20 +867,20 @@ under one name. As with exporting, the window then closes and a note names the f
 
 ## Saving, linked files and recovery
 
-- **Save** (⌘S) writes a `.figasm` document. It holds your pages, the links to placed files, and
+- **Save** (⌘S) writes a `.mosaic` document. It holds your pages, the links to placed files, and
   a copy of each file, so it opens complete on another computer. **Save as** (⌘⇧S) saves a copy.
-- **Open** a `.figasm` document by double-clicking it in Finder or Explorer, or by dropping it on
-  FigAssemble in the Dock. Or use **Open** (⌘O), which also opens slides from a PowerPoint deck
+- **Open** a `.mosaic` document by double-clicking it in Finder or Explorer, or by dropping it on
+  mosaic in the Dock. Or use **Open** (⌘O), which also opens slides from a PowerPoint deck
   (see [PowerPoint slides](#powerpoint-slides)).
 - **Each document has a window of its own.** New (⌘N), Open and Open Recent open a new window,
   unless the window in front is blank (nothing on its pages and nothing unsaved): then they use
   it. A document that's open already comes to the front instead of opening twice. **Close** (⌘W)
   closes a window, asking first if it has unsaved changes, and closing the last one quits
-  FigAssemble. On Windows, each document double-clicked in Explorer opens in a FigAssemble window
+  mosaic. On Windows, each document double-clicked in Explorer opens in a mosaic window
   of its own.
 - **Rulers, grid, guides and snapping** are switched for each window on its own. A new window
   starts with the ones you switched last. Settings apply to every window.
-- **A `.figasm` dropped on the window** adds its pages to the figure that's open: after the page
+- **A `.mosaic` dropped on the window** adds its pages to the figure that's open: after the page
   you drop it on, or where you drop it in the Pages list. A blank page takes the first one's
   place, as for slides. The swatches, symbols and styles those pages use come with them.
 - **Linked files** are checked every couple of seconds while the document is open and its window
@@ -888,21 +888,21 @@ under one name. As with exporting, the window then closes and a note names the f
   the document). A changed file updates its picture; a missing one falls back to the stored copy.
   A figure saved under a new name (`plot_v2.svg`) isn't followed: point the picture at it once
   with **Replace…**.
-- **Recovery:** unsaved work is copied every minute. If FigAssemble closes unexpectedly, it offers
+- **Recovery:** unsaved work is copied every minute. If mosaic closes unexpectedly, it offers
   the work back next time. That window can also **Delete** copies you don't need, one at a time or
   all together. **Settings → Unsaved work** shows how many copies are kept and can delete them.
   Deleting always asks first, since these are the only copies of work that was never saved.
 
 ## PowerPoint slides
 
-Slides from your PowerPoint decks come into FigAssemble in four ways. Whichever way, their
+Slides from your PowerPoint decks come into mosaic in four ways. Whichever way, their
 pictures, text, lines, arrows and shapes come in as objects you can edit, and every PowerPoint
 shape comes in as itself.
 
 <img src="images/slides.png" alt="The slide picker: four slides drawn small, two of them chosen, with Open 2 slides" width="750">
 
 - **Open** (⌘O) a `.pptx` file to make a new document of the slides you choose. Or right-click
-  the deck in Finder or Explorer and choose **Open With** → **FigAssemble** (PowerPoint stays the
+  the deck in Finder or Explorer and choose **Open With** → **mosaic** (PowerPoint stays the
   app a double-click opens it in). When the deck has more than one slide, the **slide picker**
   shows each one small, with its number, its title and **Hidden** for a slide hidden in the slide
   show:
@@ -919,21 +919,21 @@ shape comes in as itself.
   - Dropped in the Pages list, the slides become new pages there. While you drag, a line shows
     where they'll go.
 - **Copy and paste:** in PowerPoint, select slides in the slide list, or shapes on a slide, and
-  copy (⌘C). Paste (⌘V) in FigAssemble. They come in where they were on the slide, or at the point
+  copy (⌘C). Paste (⌘V) in mosaic. They come in where they were on the slide, or at the point
   you right-clicked if you chose Paste from the menu there. **Paste as picture** (right-click)
   pastes a picture of them instead.
 - **Drag slides out of PowerPoint** (Mac) onto the page or into the Pages list, as with a deck
-  file. PowerPoint only hands over which slides they are, so FigAssemble reads them from the deck
+  file. PowerPoint only hands over which slides they are, so mosaic reads them from the deck
   as it was last saved, and says so. Save the deck in PowerPoint first if you've changed those
-  slides. If more than one deck open in PowerPoint has slides like them, FigAssemble asks which
+  slides. If more than one deck open in PowerPoint has slides like them, mosaic asks which
   deck you dragged from. On Windows, use copy and paste instead.
-  - PowerPoint lets only its own windows accept dragged slides, so FigAssemble watches the drag
-    itself. While the pointer is over FigAssemble's window, the page or the Pages list shows where
+  - PowerPoint lets only its own windows accept dragged slides, so mosaic watches the drag
+    itself. While the pointer is over mosaic's window, the page or the Pages list shows where
     the slides will go. When you let go, the slide flies back to PowerPoint, as it does whenever
-    PowerPoint thinks a drop was refused, but the slides still come into FigAssemble.
+    PowerPoint thinks a drop was refused, but the slides still come into mosaic.
     *Bringing in the slide…* shows on the page while the deck is read, which takes a few seconds
     the first time for a big deck.
-  - If you press Escape to cancel a drag while it's over FigAssemble's window, the slides still
+  - If you press Escape to cancel a drag while it's over mosaic's window, the slides still
     come in when you let go. Undo (⌘Z) takes them out.
 
 **A blank page takes the slide's size.** Slides added to a page with no objects on it (guides don't
@@ -947,7 +947,7 @@ Slides or shapes added to a figure come out again with one undo, which also puts
 page's size.
 
 **Pictures** are relinked to the original figure files where they can be found, so the PDF or SVG
-your R code saved is used instead of PowerPoint's copy. FigAssemble looks in the nearest folder
+your R code saved is used instead of PowerPoint's copy. mosaic looks in the nearest folder
 called **Figures** above the deck (where R notebooks usually save plots), or else in the deck's own
 folder. For pasted shapes it looks near the deck they came from. Pasted slides don't say which deck
 they came from, so on a Mac it looks near each deck PowerPoint has open. It also looks near the
@@ -961,7 +961,7 @@ shows one only when something couldn't come across.
 The gear button (⌘,):
 
 - **Theme:** how the interface looks. Click a picture to switch at once:
-  - FigAssemble's own Light, Dark and High contrast;
+  - mosaic's own Light, Dark and High contrast;
   - a dozen RStudio favourites: Textmate, Tomorrow, Solarized Light, Dawn, Xcode, Tomorrow Night,
     Solarized Dark, Monokai, Dracula, Cobalt, Material and Twilight;
   - some originals: Pistachio, Walnut, Alfalfa, Lab notebook, Blueprint, Chalkboard and Terminal.
@@ -984,23 +984,23 @@ The gear button (⌘,):
 
 <img src="images/themes.png" alt="The theme gallery in Settings" width="420">
 
-The version number is at the bottom. Settings are kept in a `.figassemble` folder in your home
+The version number is at the bottom. Settings are kept in a `.mosaic` folder in your home
 folder, along with recovery copies, downloaded updates and a cache of rendered previews.
 
 ## Updates
 
-FigAssemble updates itself. Shortly after it starts, and every few hours while it's open, it
+mosaic updates itself. Shortly after it starts, and every few hours while it's open, it
 looks on GitHub for a newer version. **Settings → Updates** chooses what happens then, and shows
 the version you have, whether a newer one is ready and when it last looked:
 
 - **Install it automatically** (the default): the new version downloads in the background, and
-  the status bar says when it's ready. It installs when you quit FigAssemble, in about a minute (a
-  few minutes when the tools FigAssemble uses are updated too). Click the note to see what's new,
-  or **Restart now** to install it straight away: FigAssemble closes, installs it and opens again.
-  Unsaved changes are saved first, or kept as a copy that FigAssemble offers back when it opens.
+  the status bar says when it's ready. It installs when you quit mosaic, in about a minute (a
+  few minutes when the tools mosaic uses are updated too). Click the note to see what's new,
+  or **Restart now** to install it straight away: mosaic closes, installs it and opens again.
+  Unsaved changes are saved first, or kept as a copy that mosaic offers back when it opens.
 - **Ask me first:** the status bar says a new version is out, and nothing downloads or installs
   until you click **Update now**. **Skip this version** waits for the one after it.
-- **Don't check for updates:** FigAssemble doesn't look. **Check for updates** (in the FigAssemble
+- **Don't check for updates:** mosaic doesn't look. **Check for updates** (in the mosaic
   menu on a Mac, or type it in the command search, ⌘/) still looks when you ask.
 
 More:
@@ -1008,29 +1008,29 @@ More:
 - **Test versions:** **Get test versions too** installs versions that are newer but less tried,
   before everyone else gets them. Switch it off to wait for the full releases.
 - **Going back:** if a new version breaks something, **Go back to** (the version before) in
-  Settings → Updates installs that version and opens FigAssemble again. Automatic updates then
+  Settings → Updates installs that version and opens mosaic again. Automatic updates then
   skip the version you went back from; the one after it installs as usual.
 - **What's new** shows once after each update.
-- **Every update is checked.** Each release is signed with FigAssemble's release key, and
-  FigAssemble installs only a release whose signature matches. Anything else is refused.
-- **Signing in to GitHub, for now.** While FigAssemble's repository is private, FigAssemble signs
+- **Every update is checked.** Each release is signed with mosaic's release key, and
+  mosaic installs only a release whose signature matches. Anything else is refused.
+- **Signing in to GitHub, for now.** While mosaic's repository is private, mosaic signs
   in to GitHub, once, to download updates. Click **Sign in for updates** in the status bar (or
   **Sign in to GitHub…** in Settings → Updates), then **Copy the code and open GitHub**. On the
-  GitHub page, paste the code and click **Authorize**. FigAssemble can then only read
-  FigAssemble's repository, and only because your account was added to it. The sign-in is kept in
+  GitHub page, paste the code and click **Authorize**. mosaic can then only read
+  mosaic's repository, and only because your account was added to it. The sign-in is kept in
   the Mac's Keychain or Windows' Credential Manager; **Sign out of GitHub** forgets it.
-- **Documents saved by a newer version.** A document records which version of FigAssemble saved
-  it. Opened in an older version (say, by a co-author who doesn't update), FigAssemble says so:
+- **Documents saved by a newer version.** A document records which version of mosaic saved
+  it. Opened in an older version (say, by a co-author who doesn't update), mosaic says so:
   things that version doesn't know about may not show, and saving over the document could lose
   them. Update first, or save your changes as a copy (**Save as**).
-- **Several FigAssemble windows open** (Windows): the update installs when the last one closes.
+- **Several mosaic windows open** (Windows): the update installs when the last one closes.
 
-Copies of FigAssemble installed before it updated itself (version 0.1.0) need one last update by
+Copies of mosaic installed before it updated itself (version 0.1.0) need one last update by
 hand: download the newest release and run its installer.
 
 ## Keyboard shortcuts
 
-Press **?** in FigAssemble for this list.
+Press **?** in mosaic for this list.
 
 | Action | Mac | Windows |
 |---|---|---|
@@ -1097,16 +1097,16 @@ Export still work, saving what you've typed.
 
 ## Command line
 
-FigAssemble can also run from a terminal, with its conda environment active
-(`conda activate figassemble`):
+mosaic can also run from a terminal, with its conda environment active
+(`conda activate mosaic`):
 
 ```sh
-figassemble                                    # open the app
-figassemble figure.figasm                      # open a document
-figassemble export figure.figasm -f pdf,svg,png --dpi 600
-figassemble import-pptx deck.pptx --slides 13  # PowerPoint slides -> figure.figasm
-figassemble --browser                          # use a web browser instead of the app window
-figassemble update                             # look for an update (--install installs it)
+mosaic                                    # open the app
+mosaic figure.mosaic                      # open a document
+mosaic export figure.mosaic -f pdf,svg,png --dpi 600
+mosaic import-pptx deck.pptx --slides 13  # PowerPoint slides -> figure.mosaic
+mosaic --browser                          # use a web browser instead of the app window
+mosaic update                             # look for an update (--install installs it)
 ```
 
 ## Troubleshooting
@@ -1121,16 +1121,16 @@ extracted the ZIP first and are running the installer from the extracted folder.
 
 **The installer stopped with a message.** It says which step failed. Most often it's the internet
 connection or disk space. Fix that and run the installer again; it carries on from where it got
-to. If it keeps failing, [report a problem](https://github.com/matthewwdavis/FigAssemble/issues/new?template=problem.yml)
+to. If it keeps failing, [report a problem](https://github.com/matthewwdavis/mosaic/issues/new?template=problem.yml)
 and paste the last lines of the installer's window.
 
 **An update didn't install.** The status bar says so: click it for the reason, and **Show the log**
-for the installer's messages. FigAssemble tries again when you next quit it, and after a second
+for the installer's messages. mosaic tries again when you next quit it, and after a second
 failure waits for you to click **Try again now**. You can always update by hand: download the
-newest release and run its installer. If it keeps failing, [report a problem](https://github.com/matthewwdavis/FigAssemble/issues/new?template=problem.yml)
+newest release and run its installer. If it keeps failing, [report a problem](https://github.com/matthewwdavis/mosaic/issues/new?template=problem.yml)
 with the log attached.
 
-**Updates say your GitHub account can't see FigAssemble's releases.** The repository is private:
+**Updates say your GitHub account can't see mosaic's releases.** The repository is private:
 ask Matthew to add your GitHub account to it. If you signed in with another account, use **Sign
 out of GitHub** in Settings → Updates and sign in again.
 
@@ -1138,31 +1138,32 @@ out of GitHub** in Settings → Updates and sign in again.
 the copy stored in the document, so nothing is lost. Use **Replace…** to link it to the file's new
 location.
 
-**Text looks different from my R plot.** FigAssemble shows placed files exactly as they are.
-If R saved Helvetica without embedding it, FigAssemble embeds it on export, using Arial (same
+**Text looks different from my R plot.** mosaic shows placed files exactly as they are.
+If R saved Helvetica without embedding it, mosaic embeds it on export, using Arial (same
 widths) if Helvetica isn't on your computer.
 
-**Something else.** Please [report a problem](https://github.com/matthewwdavis/FigAssemble/issues/new?template=problem.yml),
+**Something else.** Please [report a problem](https://github.com/matthewwdavis/mosaic/issues/new?template=problem.yml),
 with a screenshot if you can.
 
-## Removing FigAssemble
+## Removing mosaic
 
-**Mac:** drag **FigAssemble** from Applications to the Trash. To remove what it installed too, open
-Terminal and run `~/miniforge3/bin/conda env remove -n figassemble` (use your own conda if you
+**Mac:** drag **mosaic** from Applications to the Trash. To remove what it installed too, open
+Terminal and run `~/miniforge3/bin/conda env remove -n mosaic` (use your own conda if you
 had one before). If the installer installed Miniforge and you don't use conda for anything else,
 delete the `miniforge3` folder in your home folder. Settings, recovery copies and downloaded
-updates are in `~/.figassemble`; the GitHub sign-in is the "FigAssemble GitHub sign-in" item in
-Keychain Access.
+updates are in `~/.mosaic`; the GitHub sign-in is the "mosaic GitHub sign-in" item in
+Keychain Access. From when mosaic was called FigAssemble, there may also be a `~/.figassemble`
+folder and a "FigAssemble GitHub sign-in" item; mosaic copied what it needed from them.
 
-**Windows:** delete the FigAssemble shortcuts from the desktop and Start menu. So that `.figasm`
-files and decks no longer open in FigAssemble, run these two lines in a Command Prompt:
+**Windows:** delete the mosaic shortcuts from the desktop and Start menu. So that `.mosaic`
+files and decks no longer open in mosaic, run these two lines in a Command Prompt:
 
 ```bat
-for %k in (.figasm FigAssemble.Document FigAssemble.Deck) do reg delete HKCU\Software\Classes\%k /f
-for %e in (.pptx .pptm .potx) do reg delete HKCU\Software\Classes\%e\OpenWithProgids /v FigAssemble.Deck /f
+for %k in (.mosaic .figasm mosaic.Document mosaic.Deck) do reg delete HKCU\Software\Classes\%k /f
+for %e in (.pptx .pptm .potx) do reg delete HKCU\Software\Classes\%e\OpenWithProgids /v mosaic.Deck /f
 ```
 
-Run `%USERPROFILE%\miniforge3\Scripts\conda.exe env remove -n figassemble` in a Command Prompt. If the
+Run `%USERPROFILE%\miniforge3\Scripts\conda.exe env remove -n mosaic` in a Command Prompt. If the
 installer installed Miniforge, you can uninstall it under **Settings → Apps**. Settings, recovery
-copies and downloaded updates are in `%USERPROFILE%\.figassemble`; the GitHub sign-in is the
-"FigAssemble GitHub sign-in" entry in Credential Manager (Windows Credentials).
+copies and downloaded updates are in `%USERPROFILE%\.mosaic`; the GitHub sign-in is the
+"mosaic GitHub sign-in" entry in Credential Manager (Windows Credentials).

@@ -4,7 +4,7 @@ import csv
 
 import pypdfium2 as pdfium
 
-from figassemble import assets, model, report
+from mosaic import assets, model, report
 
 
 def figure(fixtures, cache):

@@ -1,6 +1,6 @@
-# FigAssemble design
+# mosaic design
 
-FigAssemble is a small desktop app for assembling multi-panel scientific figures:
+mosaic is a small desktop app for assembling multi-panel scientific figures:
 place plots and images on a page of any size, add text, lines, arrows and shapes,
 and export PDF, SVG, PNG or TIFF without the format conversions that degrade
 PowerPoint figures.
@@ -8,7 +8,7 @@ PowerPoint figures.
 ## Core rule: never convert a file unless the output format forces it
 
 PowerPoint rewrites inserted SVGs, wraps inserted PDFs in EMF frames, and its PDF
-export draws every picture as a ~300 dpi bitmap (some JPEG). FigAssemble keeps each
+export draws every picture as a ~300 dpi bitmap (some JPEG). mosaic keeps each
 placed file in its original form and writes it once, straight into the output:
 
 | Placed file | PDF export | SVG export | PNG / TIFF export |
@@ -17,7 +17,7 @@ placed file in its original form and writes it once, straight into the output:
 | SVG | SVG -> PDF conversion, only if no PDF copy exists | markup copied in unchanged (IDs prefixed) | rendered from the PDF copy or converted SVG |
 | PNG / JPEG / TIFF | image data embedded losslessly (JPEG bytes passed through) | embedded as a data URI, byte-identical | resampled once to the export DPI |
 
-R notebooks save every plot as PDF + SVG + PNG under one name. FigAssemble links all
+R notebooks save every plot as PDF + SVG + PNG under one name. mosaic links all
 copies of a plot ("variants") and uses the matching original for each export, so the
 normal case involves no conversion at all. When a conversion is unavoidable, the
 pre-export check says so.
@@ -131,7 +131,7 @@ pre-export check says so.
   recovered document keeps its copy's name, so saving it clears the copy.
 - **Collaborators (2026-10-31):** installers that set up conda too (Matthew's choice):
   `install-mac.command` / `install-windows.bat` install Miniforge if there's no conda, then the
-  environment, a non-editable FigAssemble and the app or shortcuts; re-running updates. Docs:
+  environment, a non-editable mosaic and the app or shortcuts; re-running updates. Docs:
   README (install, quick start, feedback) + tutorial + user guide, with screenshots of neutral
   sample plots (his unpublished figures stay out); feedback through GitHub issue forms.
 - **Objects list (2026-11-01):** a tree of the page's objects, front to back, groups opening to
@@ -155,11 +155,13 @@ pre-export check says so.
   (with dash), the fonts, sizes or colours of its text runs, or its kind (a preset's name, text
   box, line or arrow, picture, equation, zoom inset, one symbol's copies); "none" matches "none".
   It keeps to the working level like every selection, so a group's parts count only inside it.
-- **Documents and windows (2026-11-02):** a .figasm double-clicked opens in FigAssemble, and each
+- **Documents and windows (2026-11-02):** a .mosaic double-clicked opens in mosaic, and each
   document has a window of its own (Matthew's choice, over replacing the open figure). The Mac
-  app owns the type (`org.figassemble.figasm`, declared in its Info.plist, registered with
-  LaunchServices as the app is made) and takes decks as an alternative, for Open With. macOS
-  sends documents as an "open documents" Apple event, at launch and while running; FigAssemble
+  app owns the types (`io.github.matthewwdavis.mosaic.document` for .mosaic, and
+  `org.figassemble.figasm` for .figasm, from when it was called FigAssemble; declared in its
+  Info.plist, registered with LaunchServices as the app is made) and takes decks as an
+  alternative, for Open With. macOS
+  sends documents as an "open documents" Apple event, at launch and while running; mosaic
   installs its own handler for it (macopen.py) in applicationWillFinishLaunching, as Apple
   documents, rather than going through pywebview's delegate. The windows share one process and
   one engine: each editor sends its window's number with every request, so dialogs, the title
@@ -168,16 +170,16 @@ pre-export check says so.
   a new one. A document open already comes to the front, and closing the last window quits (his
   choice, over staying open with no windows). Documents arriving before the first editor has
   started wait until the launch has finished (applicationDidFinishLaunching), so a double-click
-  that starts FigAssemble opens the document in the first window. The Mac menu bar works in the
+  that starts mosaic opens the document in the first window. The Mac menu bar works in the
   window in front, which sends its own ticks when it comes to the front. On Windows the installer
   registers the type in HKEY_CURRENT_USER (no administrator needed), and each double-click starts a
-  FigAssemble of its own, as Notepad does (his choice, over sending it to the open window).
+  mosaic of its own, as Notepad does (his choice, over sending it to the open window).
   Rulers, grid, guides, snap and the interface's state are each window's own (his choice), while
-  Settings are shared: a window takes changes from another when it comes to the front. A .figasm
+  Settings are shared: a window takes changes from another when it comes to the front. A .mosaic
   dropped on the window adds its pages (his choice, over opening it), with the swatches,
   symbols, styles and pictures they use. One that's the same here is shared, and one whose id
   means something else here gets a new id. Recovery copies a window is writing are locked
-  (flock, or msvcrt on Windows), so another FigAssemble running at the same time doesn't offer
+  (flock, or msvcrt on Windows), so another mosaic running at the same time doesn't offer
   them back as lost work. The lock goes when the window closes or the process ends, however it
   ends.
 - **Slides, posters and the Size menu (2026-11-02, Matthew's choices):** the standard sizes come
@@ -234,6 +236,17 @@ pre-export check says so.
   the guide with its position (his extra). A press that moves less than 4 px is a click. A guide's
   right-click menu (on the page where no object covers it, or its mark on a ruler) has Remove
   guide, Remove all guides and Hide guides (his choices; not under objects).
+- **Renamed mosaic (2026-11-03, Matthew's choices):** FigAssemble became mosaic, always lower
+  case, wherever people see it and inside too: the Python package and command `mosaic`, MOSAIC_*
+  settings, the Mac app's id io.github.matthewwdavis.mosaic, Windows' mosaic.Document and
+  mosaic.Deck, the GitHub repo matthewwdavis/mosaic and the folder ~/Projects/mosaic. Documents
+  save as .mosaic; a .figasm opens, and saves as itself (its "figassemble" format key reads as
+  "mosaic"). The settings folder is ~/.mosaic, made the first time from ~/.figassemble (settings,
+  recovery copies renamed .mosaic, math fonts; not the caches), which stays as it was. The GitHub
+  sign-in moves to "mosaic GitHub sign-in", read once from FigAssemble's entry. The release key's
+  Keychain entry and its backup's prefix keep FigAssemble's names, since renaming them means key
+  steps only Matthew runs. The icon is figure panels fitted together as a mosaic of tiles, in the
+  Okabe-Ito colours (his choice over a tiled "m" and stone-like tesserae).
 - **PowerPoint slides in (2026-11-01):** Open goes through a slide picker (a picture of each
   slide, drawn by the PDF export at 320 px; one or several chosen), and a deck imported once is
   kept for the picker and the slides then chosen. Where slides dropped on the window go depends
@@ -270,12 +283,12 @@ pre-export check says so.
   Copied shapes don't change the page. While dragged slides are read (5.5 s the first time for
   a large deck of figures), the drop area stays on the page saying so.
 - **Mac menu bar (2026-11-01):** macOS names an app from its main bundle, and conda's Python has
-  none, so the menu bar said "python". FigAssemble.app now links the environment's Python into
+  none, so the menu bar said "python". mosaic.app now links the environment's Python into
   itself and runs it from there, which makes the app the main bundle (its name, icon and
   version), as for any Mac app; started from a terminal, it sets LaunchServices' display name
   (the call Java's -Xdock:name makes). Changing the bundle's CFBundleName at run time doesn't
   rename it. pywebview's menus have no shortcuts, so the menu bar is made with AppKit
-  (macmenu.py) from the editor's description of it: FigAssemble, File, Edit, View, Window, Help
+  (macmenu.py) from the editor's description of it: mosaic, File, Edit, View, Window, Help
   (Matthew's choice of menus; not Insert or Arrange, and Mac only, since on Windows the ribbon
   does this job, as in Office). Menu items run the editor's commands as their keys do, and wait
   while a dialog is open. Cut, Copy, Paste, Undo, Redo, Select All and Delete ask the editor
@@ -299,15 +312,15 @@ pre-export check says so.
   a drag is in progress. Found by the linked-files tests (tests/test_links.py, linkedFileChecks).
 - **Updates (2026-11-01):** installed copies update themselves from GitHub releases, for rolling
   out to early adopters while changes come often. Matthew's choices: the repository stays private
-  for now, with a one-time GitHub sign-in in FigAssemble, made so that going public needs no
+  for now, with a one-time GitHub sign-in in mosaic, made so that going public needs no
   change; new versions install automatically by default, with Ask me first and Off in Settings
   (his rule for automatic behaviour: the setting always shows its state, and Check for updates
   works whichever is chosen); releases come from a command on his Mac, with a backup of the key
   for a new computer; going back a version, test versions first, and a warning on opening a
   document saved by a newer version. How:
-  - *Not Sparkle or WinSparkle:* they replace a self-contained app, and FigAssemble lives in a
+  - *Not Sparkle or WinSparkle:* they replace a self-contained app, and mosaic lives in a
     conda environment made by its installers. An update runs the new version's own installer
-    (already tested in CI on fresh machines) in an update mode, after FigAssemble closes: Windows
+    (already tested in CI on fresh machines) in an update mode, after mosaic closes: Windows
     can't replace files a running Python has open. conda runs only when `environment.yml`
     changed (its SHA-256 is kept in the environment), so most updates take seconds.
   - *Signed with a key on Matthew's Mac, not just downloaded from GitHub:* collaborators on a
@@ -319,12 +332,12 @@ pre-export check says so.
     only repositories the app is installed on and the person can see, and expire after 8 hours
     (renewed with a refresh token). An OAuth app would need the `repo` scope: every private
     repository the person has, writable. A token built into the app would leak with it and
-    couldn't be replaced once it expired. Without a sign-in FigAssemble looks anyway, so a
+    couldn't be replaced once it expired. Without a sign-in mosaic looks anyway, so a
     public repository needs none. A sign-in is never sent on to the host GitHub redirects
     downloads to (redirects are followed by hand).
-  - *Install at quit:* a downloaded update installs when the last FigAssemble window closes, or
+  - *Install at quit:* a downloaded update installs when the last mosaic window closes, or
     straight away with Restart now (unsaved work saved first, or kept as a recovery copy). It
-    stops trying by itself after two failures. A FigAssemble opened while one installs waits.
+    stops trying by itself after two failures. A mosaic opened while one installs waits.
   - *Test versions* are GitHub pre-releases; `release.py promote` makes one a full release,
     without rebuilding it (the signature covers the files, not the channel). *Going back*
     installs the newest release before the running version and skips the one gone back from
@@ -335,7 +348,7 @@ pre-export check says so.
 - **Licenses, for a public release (2026-11-01):** MIT for the code and CC BY 4.0 for the
   documentation and pictures (Matthew's choice; Creative Commons advises against its licenses
   for software). Checked for others' material first: no code from other projects; the icons
-  were drawn for FigAssemble, but compared with Feather, Lucide and Tabler (6,705 icons) four
+  were drawn for mosaic, but compared with Feather, Lucide and Tabler (6,705 icons) four
   simple ones are identical to Feather's and six follow Feather's or Lucide's designs, which he
   chose to keep with credit (both are MIT/ISC); the twelve RStudio-favourite themes keep their
   names, with their authors credited; PowerPoint's shape formulas carry Ecma's notice, whose
@@ -343,9 +356,9 @@ pre-export check says so.
   his unpublished manuscript decks and scripts were reworded out of the current files (they
   remain in the git history). Open: whether UC Davis, as his employer, should be the copyright
   holder.
-- **Repository:** `~/Projects/FigAssemble`, private GitHub repo `matthewwdavis/FigAssemble`;
+- **Repository:** `~/Projects/mosaic`, private GitHub repo `matthewwdavis/mosaic`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
-  "FigAssemble" is a working name; a fun name comes later.
+  Called FigAssemble, a working name, until 2026-11-03, when Matthew named it mosaic.
 - **Acceptance test for the first version:** rebuild a slide of one of Matthew's manuscript
   figure decks and match or beat the figure his own script makes from the same R files (from
   their PDFs, and from their SVGs), using PowerPoint's own export of the slide as the layout
@@ -354,9 +367,9 @@ pre-export check says so.
 ## Architecture
 
 ```
-figassemble/
+mosaic/
   model.py        document JSON: defaults, validation, ids
-  docfile.py      .figasm container (zip: document.json + embedded assets)
+  docfile.py      .mosaic container (zip: document.json + embedded assets)
   assets.py       linked/embedded files, sibling variants, intrinsic sizes, change detection
   geometry.py     matrices, paths, corner rounding, arrowheads, dashes
   presets.py      PowerPoint's 187 preset shapes from their formulas; handles; the Shapes menu
@@ -372,7 +385,7 @@ figassemble/
   ui/             HTML/CSS/JS editor (no build step, no framework); canvas.js draws the page,
                   grid and guides and does the snapping, rulers.js the rulers
   updates.py      updates: GitHub releases, signatures, the GitHub sign-in, installing at quit
-  cli.py          `figassemble` (GUI), `figassemble export|import-pptx|update`
+  cli.py          `mosaic` (GUI), `mosaic export|import-pptx|update`
 ```
 
 - **Python is the single source of geometry and text layout.** The UI sends items to the
@@ -383,7 +396,7 @@ figassemble/
   apart from an asset cache. Save, export and preflight send the whole document.
 - **Coordinates:** points (1/72 in), page space, origin top-left, y down. Rotation is
   clockwise about the frame centre; flips apply before rotation (same as PowerPoint).
-- **Document file:** `.figasm`, a zip holding `document.json` (stored uncompressed, readable
+- **Document file:** `.mosaic`, a zip holding `document.json` (stored uncompressed, readable
   with `unzip -p`) and `assets/<sha256>.<ext>` copies of every placed file and its variants.
 - **Shapes follow DrawingML** (PowerPoint's model): preset names, adjust values, line
   ends, dash presets and text-box insets, so imported slides render the same and the

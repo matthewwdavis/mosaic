@@ -1,5 +1,5 @@
-# Sample plots for the FigAssemble tutorial: made-up data, saved the way an R notebook saves a
-# figure (PDF, PNG at 600 dpi and SVG under one name), so FigAssemble finds all three copies.
+# Sample plots for the mosaic tutorial: made-up data, saved the way an R notebook saves a
+# figure (PDF, PNG at 600 dpi and SVG under one name), so mosaic finds all three copies.
 #
 #   Rscript examples/make_examples.R      (from the repository's top folder)
 #

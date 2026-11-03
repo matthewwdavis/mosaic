@@ -3,8 +3,8 @@ import math
 
 import pytest
 
-from figassemble import connect
-from figassemble.app.api import Api
+from mosaic import connect
+from mosaic.app.api import Api
 
 
 def sites(geom, stroke=None, w=100, h=60, **kw):
@@ -59,7 +59,7 @@ def test_dashed_outlines_add_each_dashs_ends_and_middle():
 
 
 def test_the_engine_returns_connection_points(tmp_path, monkeypatch):
-    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))
+    monkeypatch.setenv("MOSAIC_HOME", str(tmp_path))
     api = Api()
     shape = {"id": "s", "type": "shape", "geom": "rect", "frame": [10, 10, 50, 30], "rot": 0, "fill": None,
              "stroke": {"color": "#000000", "width": 1}}

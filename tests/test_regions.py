@@ -1,11 +1,11 @@
-"""Area fills that follow their lines (figassemble/regions.py, Resolver._region)."""
+"""Area fills that follow their lines (mosaic/regions.py, Resolver._region)."""
 import copy
 
 import pikepdf
 
-from figassemble import regions
-from figassemble.export.run import export_document
-from figassemble.resolve import Resolver
+from mosaic import regions
+from mosaic.export.run import export_document
+from mosaic.resolve import Resolver
 
 ST = {"color": "#000000", "width": 1.5, "cap": "round", "join": "round"}
 
@@ -69,7 +69,7 @@ def test_dashed_outlines_and_what_encloses_nothing():
 
 
 def test_drawn_and_exported_with_its_page(tmp_path):
-    from figassemble.app.api import Api
+    from mosaic.app.api import Api
     items = triangle()
     found = regions.area_at(items, [100, 120])
     fill = {"id": "f", "type": "shape", "geom": "region", "region": {"items": found["items"], "seed": found["seed"]},
@@ -96,7 +96,7 @@ def test_drawn_and_exported_with_its_page(tmp_path):
 
 
 def test_an_area_fill_can_be_outlined_just_inside_its_edge():
-    from figassemble.resolve import DrawGroup
+    from mosaic.resolve import DrawGroup
     items = triangle()
     found = regions.area_at(items, [100, 120])
     fill = {"id": "f", "type": "shape", "geom": "region", "region": {"items": found["items"], "seed": found["seed"]},

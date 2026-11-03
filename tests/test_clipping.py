@@ -4,11 +4,11 @@ import pikepdf
 from lxml import etree
 from PIL import Image
 
-from figassemble import assets, model
-from figassemble.app.api import Api
-from figassemble.export.preflight import preflight
-from figassemble.export.run import export_document
-from figassemble.resolve import DrawGroup, DrawPicture, Resolver, flat_prims
+from mosaic import assets, model
+from mosaic.app.api import Api
+from mosaic.export.preflight import preflight
+from mosaic.export.run import export_document
+from mosaic.resolve import DrawGroup, DrawPicture, Resolver, flat_prims
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
 

@@ -33,19 +33,19 @@ def find_chrome() -> str | None:
 def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int = 120000, only: str | None = None) -> dict:
     """Returns {"lines": SELFTEST lines, "errors": other console errors, "done": bool, "failed": bool}.
 
-    Runs with its own settings folder, so it never touches ~/.figassemble (autosaves, recent
+    Runs with its own settings folder, so it never touches ~/.mosaic (autosaves, recent
     files, preferences), and its own clipboard, so it never touches the system's. `budget`: the
     virtual time Chrome gives the page, which skips ahead whenever nothing is happening. The whole
     run took 54 s of it on 2026-11-02 on a Mac (37 s at the start of the month), more on CI, so keep
     it well above as checks are added (a run that runs out stops without its DONE line).
     """
-    if not os.environ.get("FIGASSEMBLE_HOME"):
-        os.environ["FIGASSEMBLE_HOME"] = tempfile.mkdtemp(prefix="figassemble-selftest-")
-    from figassemble.app.api import Api
-    from figassemble.app.server import start_server
+    if not os.environ.get("MOSAIC_HOME"):
+        os.environ["MOSAIC_HOME"] = tempfile.mkdtemp(prefix="mosaic-selftest-")
+    from mosaic.app.api import Api
+    from mosaic.app.server import start_server
     os.makedirs(out, exist_ok=True)
-    fake_before = os.environ.get("FIGASSEMBLE_FAKE_CLIPBOARD")
-    os.environ["FIGASSEMBLE_FAKE_CLIPBOARD"] = "1"
+    fake_before = os.environ.get("MOSAIC_FAKE_CLIPBOARD")
+    os.environ["MOSAIC_FAKE_CLIPBOARD"] = "1"
     srv = start_server(Api())
     query = urllib.parse.urlencode({"selftest": 1, "files": ",".join(os.path.abspath(f) for f in files),
                                     "out": os.path.abspath(out), "finalSelect": "curve", **({"only": only} if only else {})})
@@ -61,9 +61,9 @@ def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int
         proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=400)
     srv.shutdown()
     if fake_before is None:
-        os.environ.pop("FIGASSEMBLE_FAKE_CLIPBOARD", None)
+        os.environ.pop("MOSAIC_FAKE_CLIPBOARD", None)
     else:
-        os.environ["FIGASSEMBLE_FAKE_CLIPBOARD"] = fake_before
+        os.environ["MOSAIC_FAKE_CLIPBOARD"] = fake_before
     lines = [m.group(1) for m in re.finditer(r'CONSOLE[^\n]*?"(SELFTEST[^"]*)"', proc.stderr)]
     errors = [m.group(0) for m in re.finditer(r'CONSOLE[^\n]*?"(?!SELFTEST)[^"\n]*(Error|error)[^\n]*', proc.stderr)]
     done = any(line.startswith("SELFTEST DONE") for line in lines)
@@ -79,8 +79,8 @@ def main() -> int:
     ap.add_argument("--out", default="tools/output/selftest")
     ap.add_argument("--budget", type=int, default=120000, help="virtual time budget, ms (the whole run took 54 s on 2026-11-02)")
     ap.add_argument("--only", help="run one part on its own, while working on it (objects: the Objects and Pages lists; slides: "
-                    "PowerPoint slides; links: linked files updating; updates: updating FigAssemble; selection: selecting "
-                    "several objects and Select Same; windows: New and Open in windows of their own, a .figasm "
+                    "PowerPoint slides; links: linked files updating; updates: updating mosaic; selection: selecting "
+                    "several objects and Select Same; windows: New and Open in windows of their own, a .mosaic "
                     "dropped on the page; sizes: page sizes, the Size menu and new documents' size; vision: colour "
                     "vision side by side and in command search; export: the window closing after an export, and its note; guides: clicking the rulers for guides, and a guide's right-click menu; pictures: the Style tab's picture menus)")
     args = ap.parse_args()

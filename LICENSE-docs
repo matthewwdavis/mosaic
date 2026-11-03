@@ -1,4 +1,4 @@
-FigAssemble's documentation and pictures are licensed under the Creative Commons Attribution
+mosaic's documentation and pictures are licensed under the Creative Commons Attribution
 4.0 International License (CC BY 4.0): README.md, everything in docs/ (the user guide,
 tutorial, design notes and roadmap, and the screenshots in docs/images) and the example plots in
 examples/ (their PDF, PNG and SVG files). The code, examples/make_examples.R included, is under
@@ -7,8 +7,8 @@ THIRD_PARTY_NOTICES.md.
 
 Copyright (c) 2026 Matthew Davis
 
-To credit it: "FigAssemble documentation by Matthew Davis, CC BY 4.0", with a link to
-https://github.com/matthewwdavis/FigAssemble and to the license,
+To credit it: "mosaic documentation by Matthew Davis, CC BY 4.0", with a link to
+https://github.com/matthewwdavis/mosaic and to the license,
 https://creativecommons.org/licenses/by/4.0/
 
 The license's full text follows, as published at

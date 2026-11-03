@@ -1,11 +1,11 @@
-"""Interface themes (figassemble/themes.py): readable in every theme, and applied from the first paint."""
+"""Interface themes (mosaic/themes.py): readable in every theme, and applied from the first paint."""
 import os
 import re
 import urllib.request
 
-from figassemble import themes
+from mosaic import themes
 
-UI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "figassemble", "ui")
+UI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mosaic", "ui")
 
 
 def test_every_theme_is_readable():
@@ -46,8 +46,8 @@ def test_css_fallback_is_the_light_theme():
 
 
 def test_server_writes_the_chosen_theme_into_the_page():
-    from figassemble.app.api import Api
-    from figassemble.app.server import start_server
+    from mosaic.app.api import Api
+    from mosaic.app.server import start_server
     api = Api()
     api.prefs_set({"theme": "walnut"})
     srv = start_server(api)

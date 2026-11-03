@@ -3,8 +3,8 @@ marks, data or grid lines, and the box round its ink."""
 import pikepdf
 import pytest
 
-from figassemble import vectors
-from figassemble.app.api import Api
+from mosaic import vectors
+from mosaic.app.api import Api
 
 
 def pdf_file(path, content: bytes, size=(200, 100)):

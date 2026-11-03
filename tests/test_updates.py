@@ -1,9 +1,9 @@
-"""Updates (figassemble/updates.py), against a stand-in for GitHub (tools/fake_github.py): finding
+"""Updates (mosaic/updates.py), against a stand-in for GitHub (tools/fake_github.py): finding
 a release on the right channel, downloading it with or without a sign-in (and never sending the
 sign-in on to the host files are redirected to), refusing anything not signed with a trusted key
 or not matching its signature, signing in with a code and refreshing the sign-in, Ask me first,
-skipping a version and going back to the one before, when an update installs as FigAssemble
-quits, how the last install went, and documents saved by a newer FigAssemble. The installers
+skipping a version and going back to the one before, when an update installs as mosaic
+quits, how the last install went, and documents saved by a newer mosaic. The installers
 themselves are tried for real on Mac and Windows in CI (tools/update_e2e.py)."""
 import base64
 import json
@@ -14,8 +14,8 @@ import zipfile
 
 import pytest
 
-from figassemble import docfile, model, updates
-from figassemble.app.api import Api
+from mosaic import docfile, model, updates
+from mosaic.app.api import Api
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
@@ -34,17 +34,17 @@ def keypair():
 @pytest.fixture
 def key(monkeypatch):
     private, public = keypair()
-    monkeypatch.setenv("FIGASSEMBLE_UPDATE_TEST_KEY", public)
+    monkeypatch.setenv("MOSAIC_UPDATE_TEST_KEY", public)
     return private
 
 
 @pytest.fixture
 def source(tmp_path):
-    """A small stand-in for FigAssemble's folder: the installers, environment.yml and the package."""
+    """A small stand-in for mosaic's folder: the installers, environment.yml and the package."""
     src = tmp_path / "src"
-    (src / "figassemble").mkdir(parents=True)
-    (src / "figassemble" / "__init__.py").write_text('__version__ = "0.0.0"\n')
-    (src / "environment.yml").write_text("name: figassemble\ndependencies:\n  - python=3.12\n")
+    (src / "mosaic").mkdir(parents=True)
+    (src / "mosaic" / "__init__.py").write_text('__version__ = "0.0.0"\n')
+    (src / "environment.yml").write_text("name: mosaic\ndependencies:\n  - python=3.12\n")
     (src / "install-mac.command").write_text("#!/bin/bash\necho installing\n")
     (src / "install-windows.bat").write_bytes(b"@echo off\r\necho installing\r\n")
     return src
@@ -54,7 +54,7 @@ def publish(folder, source, version, private_key, prerelease=False, zip_name=Non
     """A signed release, as tools/release.py makes one, into the fake GitHub's folder."""
     work = folder.parent / f"build-{version}"
     work.mkdir(exist_ok=True)
-    zpath = work / (zip_name or f"FigAssemble-{version}.zip")
+    zpath = work / (zip_name or f"mosaic-{version}.zip")
     release.zip_tree(str(source), version, str(zpath))
     manifest = release.manifest_for(str(zpath), version, (source / "environment.yml").read_bytes(), NOTES)
     if tamper:
@@ -67,15 +67,15 @@ def publish(folder, source, version, private_key, prerelease=False, zip_name=Non
 
 @pytest.fixture
 def github(tmp_path, monkeypatch):
-    """The fake GitHub, with FigAssemble pointed at it, installed (so it may update) and with a
+    """The fake GitHub, with mosaic pointed at it, installed (so it may update) and with a
     GitHub app to sign in with."""
     folder = tmp_path / "releases"
     folder.mkdir()
     gh = fake_github.FakeGitHub(str(folder), private=True).start()
-    monkeypatch.setenv("FIGASSEMBLE_UPDATE_API", gh.api)
-    monkeypatch.setenv("FIGASSEMBLE_UPDATE_WEB", gh.web)
-    monkeypatch.setenv("FIGASSEMBLE_UPDATE_KIND", "installed")
-    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("MOSAIC_UPDATE_API", gh.api)
+    monkeypatch.setenv("MOSAIC_UPDATE_WEB", gh.web)
+    monkeypatch.setenv("MOSAIC_UPDATE_KIND", "installed")
+    monkeypatch.setenv("MOSAIC_HOME", str(tmp_path / "home"))
     monkeypatch.setattr(updates, "INSTALLER", "install-mac.command")   # (Linux has no installer of its own)
     info = {**updates.settings(), "github_app_client_id": "Iv1.test"}
     monkeypatch.setattr(updates, "settings", lambda: info)
@@ -90,7 +90,7 @@ def make(prefs=None, version="0.1.0"):
 
 
 def sign_in(gh, up):
-    """Signed in already: a token the fake GitHub accepts, kept as FigAssemble keeps it."""
+    """Signed in already: a token the fake GitHub accepts, kept as mosaic keeps it."""
     gh.tokens.add("ghu_kept")
     up.keystore.set(json.dumps({"access_token": "ghu_kept", "login": "early-adopter"}))
     up._creds = ...
@@ -103,15 +103,15 @@ def test_versions_compare_as_numbers():
 
 
 def test_only_a_trusted_key_and_unchanged_bytes_pass(key):
-    signed = updates.sign_manifest({"app": "FigAssemble", "version": "0.2.0"}, key)
+    signed = updates.sign_manifest({"app": "mosaic", "version": "0.2.0"}, key)
     assert updates.verify_manifest(signed)["version"] == "0.2.0"
     changed = dict(signed, payload=base64.b64encode(base64.b64decode(signed["payload"]).replace(b"0.2.0", b"9.2.0")).decode())
     other, _ = keypair()
     with pytest.raises(updates.UpdateError, match="signature doesn't match"):
         updates.verify_manifest(changed)
-    with pytest.raises(updates.UpdateError, match="isn't signed with a key this FigAssemble trusts"):
-        updates.verify_manifest(updates.sign_manifest({"app": "FigAssemble", "version": "0.2.0"}, other))
-    with pytest.raises(updates.UpdateError, match="isn't for FigAssemble"):
+    with pytest.raises(updates.UpdateError, match="isn't signed with a key this mosaic trusts"):
+        updates.verify_manifest(updates.sign_manifest({"app": "mosaic", "version": "0.2.0"}, other))
+    with pytest.raises(updates.UpdateError, match="isn't for mosaic"):
         updates.verify_manifest(updates.sign_manifest({"app": "Something else", "version": "0.2.0"}, key))
     with pytest.raises(updates.UpdateError):
         updates.verify_manifest({"format": 2})
@@ -140,7 +140,7 @@ def test_a_private_repository_needs_a_sign_in_and_the_files_come_without_it(gith
     staged = up.state["staged"]
     assert staged["version"] == "0.2.0" and staged["notes"] == NOTES and staged["env_changed"] is True
     assert os.path.isfile(os.path.join(staged["dir"], "install-mac.command"))
-    assert "0.2.0" in open(os.path.join(staged["dir"], "figassemble", "__init__.py")).read()
+    assert "0.2.0" in open(os.path.join(staged["dir"], "mosaic", "__init__.py")).read()
     files = [s for s in github.seen if s[0] == "objects"]
     assert files and all(auth is None for _, _, auth in files)   # the sign-in stayed with GitHub's API
     assert all(tok == "ghu_kept" for host, path, tok in github.seen if host == "api" and "/releases" in path)
@@ -159,11 +159,11 @@ def test_anything_not_matching_its_signature_is_refused(github, source, key):
 
     def bigger(manifest, zpath):   # the ZIP swapped after signing
         with zipfile.ZipFile(zpath, "a") as z:
-            z.writestr("FigAssemble-0.2.0/extra.py", "print('not in the signed release')")
+            z.writestr("mosaic-0.2.0/extra.py", "print('not in the signed release')")
     publish(github.folder_path, source, "0.2.0", key, tamper=bigger)
     st = make().check()
     assert st["staged"] is None and ("doesn't match the signed release" in st["error"] or "bigger than the release says" in st["error"])
-    # Signed with a key FigAssemble doesn't trust
+    # Signed with a key mosaic doesn't trust
     other, _ = keypair()
     publish(github.folder_path, source, "0.2.1", other)
     st = make().check()
@@ -194,7 +194,7 @@ def test_signing_in_with_a_code_and_refreshing_the_sign_in(github, source, key):
     token = up._token()
     assert token and token != kept["access_token"] and json.loads(up.keystore.get())["login"] == "early-adopter"
     assert kept["refresh_token"] not in github.refresh_tokens
-    # Withdrawn on GitHub: FigAssemble forgets it and asks to sign in again
+    # Withdrawn on GitHub: mosaic forgets it and asks to sign in again
     github.tokens.clear()
     github.refresh_tokens.clear()
     st = up.check(manual=True)
@@ -226,7 +226,7 @@ def test_ask_first_skip_and_go_back(github, source, key):
     assert staged["version"] == "0.1.9" and staged["go_back"] and up.state["skip"] == "0.2.0"
 
 
-def test_when_an_update_installs_as_figassemble_quits(github, source, key, monkeypatch):
+def test_when_an_update_installs_as_mosaic_quits(github, source, key, monkeypatch):
     github.private = False
     publish(github.folder_path, source, "0.2.0", key)
     launched = []
@@ -238,7 +238,7 @@ def test_when_an_update_installs_as_figassemble_quits(github, source, key, monke
     tired = make()
     tired.state["tries"] = {"0.2.0": updates.MAX_TRIES}
     assert not tired.on_quit() and len(launched) == 1   # failed twice: it waits for a click
-    # Another FigAssemble still open: the last one to close installs it
+    # Another mosaic still open: the last one to close installs it
     other = os.path.join(updates.updates_dir(), "running", str(os.getppid()))
     open(other, "w").close()
     assert not make().on_quit() and len(launched) == 1
@@ -269,19 +269,19 @@ def test_how_the_last_install_went(github, monkeypatch):
 
 @pytest.mark.skipif(sys.platform not in ("darwin", "win32"), reason="the installers are a Mac's and Windows'")
 def test_the_installer_starts_with_what_it_needs(tmp_path, monkeypatch):
-    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("FIGASSEMBLE_UPDATE_KIND", "installed")
-    top = tmp_path / "FigAssemble-0.2.0"
+    monkeypatch.setenv("MOSAIC_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("MOSAIC_UPDATE_KIND", "installed")
+    top = tmp_path / "mosaic-0.2.0"
     top.mkdir()
     out = tmp_path / "seen.txt"
     if sys.platform == "darwin":
         (top / updates.INSTALLER).write_text(
-            f'#!/bin/bash\nprintf "%s|%s|%s\\n" "$FIGASSEMBLE_PREFIX" "$FIGASSEMBLE_NO_OPEN" "$FIGASSEMBLE_WAIT_PID" > "{out}"\n'
-            'echo ok > "$FIGASSEMBLE_RESULT"\nrm -f "$FIGASSEMBLE_LOCK"\n')
+            f'#!/bin/bash\nprintf "%s|%s|%s\\n" "$MOSAIC_PREFIX" "$MOSAIC_NO_OPEN" "$MOSAIC_WAIT_PID" > "{out}"\n'
+            'echo ok > "$MOSAIC_RESULT"\nrm -f "$MOSAIC_LOCK"\n')
     else:   # (bytes: written as text, Windows would double the line ends' CR)
         (top / updates.INSTALLER).write_bytes(
-            f'@echo off\r\n(echo %FIGASSEMBLE_PREFIX%^|%FIGASSEMBLE_NO_OPEN%^|%FIGASSEMBLE_WAIT_PID%)>"{out}"\r\n'
-            '(echo ok)>"%FIGASSEMBLE_RESULT%"\r\ndel "%FIGASSEMBLE_LOCK%"\r\n'.encode())
+            f'@echo off\r\n(echo %MOSAIC_PREFIX%^|%MOSAIC_NO_OPEN%^|%MOSAIC_WAIT_PID%)>"{out}"\r\n'
+            '(echo ok)>"%MOSAIC_RESULT%"\r\ndel "%MOSAIC_LOCK%"\r\n'.encode())
     up = make()
     assert up.launch({"version": "0.2.0", "dir": str(top), "notes": NOTES})
     assert up.state["installing"]["version"] == "0.2.0"
@@ -295,8 +295,8 @@ def test_the_installer_starts_with_what_it_needs(tmp_path, monkeypatch):
 
 
 def test_the_sign_in_is_kept_for_this_user(tmp_path, monkeypatch):
-    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))
-    store = updates.Keystore("FigAssemble test")
+    monkeypatch.setenv("MOSAIC_HOME", str(tmp_path))
+    store = updates.Keystore("mosaic test")
     assert store.backend == "file" and store.get() is None
     store.set('{"access_token": "x"}')
     assert store.get() == '{"access_token": "x"}'
@@ -308,8 +308,8 @@ def test_the_sign_in_is_kept_for_this_user(tmp_path, monkeypatch):
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows' Credential Manager")
 def test_windows_keeps_the_sign_in_in_its_credential_manager(monkeypatch):
-    monkeypatch.setenv("FIGASSEMBLE_KEYSTORE", "windows")
-    store = updates.Keystore("FigAssemble test entry")
+    monkeypatch.setenv("MOSAIC_KEYSTORE", "windows")
+    store = updates.Keystore("mosaic test entry")
     store.set('{"access_token": "ghu_test"}')
     try:
         assert store.get() == '{"access_token": "ghu_test"}'
@@ -325,37 +325,37 @@ def test_a_release_zip_unpacks_only_inside_its_folder(tmp_path, monkeypatch, sou
     good = tmp_path / "good.zip"
     release.zip_tree(str(source), "0.2.0", str(good))
     top = updates.extract(str(good), str(tmp_path / "out"))
-    assert os.path.basename(top) == "FigAssemble-0.2.0" and os.path.isfile(os.path.join(top, "install-mac.command"))
+    assert os.path.basename(top) == "mosaic-0.2.0" and os.path.isfile(os.path.join(top, "install-mac.command"))
     bad = tmp_path / "bad.zip"
     with zipfile.ZipFile(bad, "w") as z:
-        z.writestr("FigAssemble/install-mac.command", "")
+        z.writestr("mosaic/install-mac.command", "")
         z.writestr("../../escaped.txt", "outside")
     with pytest.raises(updates.UpdateError, match="outside its folder"):
         updates.extract(str(bad), str(tmp_path / "out2"))
 
 
 def test_a_checkout_doesnt_update_itself(monkeypatch):
-    monkeypatch.delenv("FIGASSEMBLE_UPDATE_KIND", raising=False)
+    monkeypatch.delenv("MOSAIC_UPDATE_KIND", raising=False)
     assert updates.install_kind() == "source"   # (these tests run from the repository)
     assert make().check()["staged"] is None
 
 
 def test_documents_say_which_version_saved_them(tmp_path):
-    path = str(tmp_path / "figure.figasm")
+    path = str(tmp_path / "figure.mosaic")
     docfile.save(model.new_document(), path)
     doc = docfile.load(path)
     assert doc["meta"]["saved_by"] == updates.__version__
     assert Api().open_document(path)["newer"] is None
-    # Saved by a newer FigAssemble: opened, with a warning
+    # Saved by a newer mosaic: opened, with a warning
     doc["meta"]["saved_by"] = "99.0.0"
     with zipfile.ZipFile(path, "w") as z:
         z.writestr(docfile.DOC_NAME, json.dumps(doc))
     assert Api().open_document(path)["newer"] == "99.0.0"
     # In a form this version can't read: it says to update
-    doc["figassemble"] = model.FORMAT_VERSION + 1
+    doc["mosaic"] = model.FORMAT_VERSION + 1
     with zipfile.ZipFile(path, "w") as z:
         z.writestr(docfile.DOC_NAME, json.dumps(doc))
-    with pytest.raises(ValueError, match=r"saved by a newer FigAssemble \(99\.0\.0\).*Update FigAssemble"):
+    with pytest.raises(ValueError, match=r"saved by a newer mosaic \(99\.0\.0\).*Update mosaic"):
         docfile.load(path)
 
 
@@ -374,11 +374,11 @@ def test_the_release_keys_backup_catches_a_typo():
 def test_opened_again_while_an_update_installs_it_waits(tmp_path, monkeypatch):
     import subprocess
     import threading
-    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))
+    monkeypatch.setenv("MOSAIC_HOME", str(tmp_path))
     closed = []
     monkeypatch.setattr(updates, "_waiting_notice", lambda version: (lambda: closed.append(version)))
     installer = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(1.5)"])
-    threading.Thread(target=installer.wait, daemon=True).start()   # (as the system does once FigAssemble has gone)
+    threading.Thread(target=installer.wait, daemon=True).start()   # (as the system does once mosaic has gone)
     with open(os.path.join(updates.updates_dir(), updates.LOCK), "w") as fh:
         json.dump({"pid": installer.pid, "version": "0.2.0", "started": time.time()}, fh)
     t0 = time.time()

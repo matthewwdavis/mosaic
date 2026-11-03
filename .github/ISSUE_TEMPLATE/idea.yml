@@ -1,12 +1,12 @@
 name: Suggest an idea
-description: Something FigAssemble should do, or do differently
+description: Something mosaic should do, or do differently
 title: "Idea: "
 labels: ["enhancement"]
 body:
   - type: textarea
     id: idea
     attributes:
-      label: What would you like FigAssemble to do?
+      label: What would you like mosaic to do?
     validations:
       required: true
   - type: textarea

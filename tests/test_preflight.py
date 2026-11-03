@@ -4,9 +4,9 @@ import numpy as np
 import pikepdf
 import pytest
 
-from figassemble import assets, model, vectors
-from figassemble.export.preflight import preflight
-from figassemble.journals import MM
+from mosaic import assets, model, vectors
+from mosaic.export.preflight import preflight
+from mosaic.journals import MM
 
 
 def page_with(*items, width=200.0, height=150.0):

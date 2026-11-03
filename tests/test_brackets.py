@@ -1,5 +1,5 @@
 """Significance brackets: a bar with end ticks and its label beyond it (resolve._bracket)."""
-from figassemble.resolve import DrawText, Resolver
+from mosaic.resolve import DrawText, Resolver
 
 
 def drawn(**kw):

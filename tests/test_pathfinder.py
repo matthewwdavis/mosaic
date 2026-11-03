@@ -1,8 +1,8 @@
 """Pathfinder: shapes combined into one freeform shape, curves kept (pathfinder.py)."""
 import pytest
 
-from figassemble.pathfinder import _to_skia, combine
-from figassemble.resolve import Resolver, item_area
+from mosaic.pathfinder import _to_skia, combine
+from mosaic.resolve import Resolver, item_area
 
 
 def square(id_, x, y, colour, rot=0):

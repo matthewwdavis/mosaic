@@ -1,4 +1,4 @@
-name: figassemble
+name: mosaic
 channels:
   - conda-forge
 dependencies:

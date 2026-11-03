@@ -2,11 +2,11 @@
 import pikepdf
 from lxml import etree
 
-from figassemble import presets
-from figassemble.export.run import export_document
-from figassemble.export.svgwriter import fragment
-from figassemble.geometry import DrawPath
-from figassemble.resolve import DrawGroup, Resolver
+from mosaic import presets
+from mosaic.export.run import export_document
+from mosaic.export.svgwriter import fragment
+from mosaic.geometry import DrawPath
+from mosaic.resolve import DrawGroup, Resolver
 
 
 def drawn(outline_type, dash="solid", stroke=True, fill=True, geom="rect"):
@@ -194,7 +194,7 @@ def test_an_area_of_several_paths_is_clipped_to_their_union():
 
 
 def test_clipped_outlines_in_svg_pdf_and_the_editor(tmp_path):
-    from figassemble.app.api import Api
+    from mosaic.app.api import Api
     doc = Api().new_document()
     item = {"id": "r", "type": "shape", "geom": "rect", "frame": [20, 20, 120, 60], "rot": 0, "fill": None,
             "stroke": {"color": "#000", "width": 2, "dash": "dash"},
@@ -249,7 +249,7 @@ def test_a_see_through_fill_doesnt_show_the_outline_through_it():
 def test_see_through_lines_dont_show_the_outline_through_them():
     from shapely.geometry import Point
 
-    from figassemble.regions import _covered
+    from mosaic.regions import _covered
 
     def visible(item):
         """Where the outline may show: inside its clip (None if it isn't clipped)."""

@@ -4,9 +4,9 @@ import numpy as np
 import pikepdf
 from PIL import Image
 
-from figassemble import connect, model
-from figassemble.export.run import export_document
-from figassemble.resolve import DrawGroup, Resolver
+from mosaic import connect, model
+from mosaic.export.run import export_document
+from mosaic.resolve import DrawGroup, Resolver
 
 
 def arrow(opacity=0.5, head="triangle", **kw):

@@ -1,7 +1,7 @@
 """Settings: saved and read from several requests at once without one undoing another."""
 import threading
 
-from figassemble.app.api import Api
+from mosaic.app.api import Api
 
 
 def test_settings_hold_with_requests_at_once():

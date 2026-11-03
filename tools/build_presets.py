@@ -1,4 +1,4 @@
-"""Convert DrawingML's presetShapeDefinitions.xml into figassemble/data/presets.json.
+"""Convert DrawingML's presetShapeDefinitions.xml into mosaic/data/presets.json.
 
 The XML is published with the Office Open XML standard (ECMA-376 Part 1, "DrawingML
 geometries"); LibreOffice keeps a copy at oox/source/drawingml/customshapes/. Ecma's copyright
@@ -14,7 +14,7 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parent.parent / "figassemble" / "data" / "presets.json"
+OUT = Path(__file__).resolve().parent.parent / "mosaic" / "data" / "presets.json"
 
 
 def local(tag: str) -> str:

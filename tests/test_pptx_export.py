@@ -5,9 +5,9 @@ import zipfile
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-from figassemble import assets, model
-from figassemble.export.run import export_document
-from figassemble.importers.pptx import import_pptx
+from mosaic import assets, model
+from mosaic.export.run import export_document
+from mosaic.importers.pptx import import_pptx
 
 
 def stroke(**kw):

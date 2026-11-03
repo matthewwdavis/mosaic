@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from figassemble import journals, model
+from mosaic import journals, model
 
 MM = 72 / 25.4
 
@@ -45,8 +45,8 @@ def test_slide_and_poster_sizes():
 
 
 def test_new_documents_start_at_the_size_settings_give(tmp_path, monkeypatch):
-    from figassemble.app.api import Api
-    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))
+    from mosaic.app.api import Api
+    monkeypatch.setenv("MOSAIC_HOME", str(tmp_path))
     api = Api()
     assert api.new_document()["pages"][0]["preset"] == {"standard": "A4"}
     api.prefs_set({"new_page": {"standard": "Slide 16:9"}})
@@ -66,8 +66,8 @@ def test_new_documents_start_at_the_size_settings_give(tmp_path, monkeypatch):
 
 
 def test_old_settings_files_switch_to_centimetres(tmp_path, monkeypatch):
-    from figassemble.app.api import Api
-    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))
+    from mosaic.app.api import Api
+    monkeypatch.setenv("MOSAIC_HOME", str(tmp_path))
     # Version 1 wrote every default, including points, alongside real choices
     (tmp_path / "prefs.json").write_text(json.dumps({"units": "pt", "theme": "dark", "recent": []}))
     api = Api()
@@ -83,7 +83,7 @@ def test_old_settings_files_switch_to_centimetres(tmp_path, monkeypatch):
 
 def test_guides_are_never_exported(cache, tmp_path):
     import pikepdf
-    from figassemble.export.run import export_document
+    from mosaic.export.run import export_document
     outputs = []
     for guides in ({"x": [], "y": []}, {"x": [36.0, 100.0], "y": [50.0]}):
         doc = model.new_document("guides")
@@ -100,8 +100,8 @@ def test_guides_are_never_exported(cache, tmp_path):
 
 
 def test_layout_aid_settings(tmp_path, monkeypatch):
-    from figassemble.app.api import Api
-    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))
+    from mosaic.app.api import Api
+    monkeypatch.setenv("MOSAIC_HOME", str(tmp_path))
     api = Api()
     prefs = api.prefs_get()
     # Rulers and guides show, the grid doesn't; snapping is on; the grid is 1 cm squares of 1 mm lines
@@ -113,8 +113,8 @@ def test_layout_aid_settings(tmp_path, monkeypatch):
 
 
 def test_recovery_copies_can_be_listed_and_deleted(tmp_path, monkeypatch):
-    from figassemble.app.api import Api
-    monkeypatch.setenv("FIGASSEMBLE_HOME", str(tmp_path))
+    from mosaic.app.api import Api
+    monkeypatch.setenv("MOSAIC_HOME", str(tmp_path))
     api = Api()
     doc = model.new_document("Figure 3 draft")
     doc["pages"][0]["items"].append(model.text_item("a", 2, 2))
@@ -123,8 +123,8 @@ def test_recovery_copies_can_be_listed_and_deleted(tmp_path, monkeypatch):
     kept = api.autosaved(exclude_key="doc-now")     # this session's own copy is left out
     assert [(k["title"], k["pages"], k["objects"]) for k in kept] == [("Figure 3 draft", 1, 1)]
     assert kept[0]["bytes"] > 0
-    outside = tmp_path / "not-an-autosave.figasm"
+    outside = tmp_path / "not-an-autosave.mosaic"
     outside.write_text("keep me")
     left = api.delete_autosaves([kept[0]["path"], str(outside)], exclude_key="doc-now")
-    assert left == [] and outside.exists()               # only FigAssemble's own copies go
+    assert left == [] and outside.exists()               # only mosaic's own copies go
     assert [k["title"] for k in api.autosaved()] == ["Other"]

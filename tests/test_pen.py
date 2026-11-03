@@ -3,9 +3,9 @@ adjustments and corner rounding built in), drawn exactly as before."""
 import numpy as np
 from PIL import Image
 
-from figassemble import model
-from figassemble.export.run import export_document
-from figassemble.resolve import Resolver, shape_to_custom
+from mosaic import model
+from mosaic.export.run import export_document
+from mosaic.resolve import Resolver, shape_to_custom
 
 
 def shape(geom, **kw):

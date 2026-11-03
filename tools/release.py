@@ -1,10 +1,10 @@
-"""Publish a FigAssemble release, which installed copies then update to (figassemble/updates.py).
+"""Publish a mosaic release, which installed copies then update to (mosaic/updates.py).
 
     python tools/release.py key new          make the release key (once): kept in this Mac's Keychain,
                                              with a backup for you to keep somewhere safe
     python tools/release.py key backup       show the backup again
     python tools/release.py key restore      put the key on this computer from its backup (a new computer)
-    python tools/release.py key check        is the key here, and does FigAssemble trust it?
+    python tools/release.py key check        is the key here, and does mosaic trust it?
     python tools/release.py publish [VERSION] [--test] [--notes FILE] [--yes]
                                              release main as VERSION (default: the next patch version);
                                              --test makes it a test version, for testers only
@@ -17,7 +17,7 @@ they show the private key, and anything shown in a Claude session is kept in its
 A release is the repository at its tag as a ZIP (what people install from, and what updates
 install) and release.json, which says the version, the ZIP's SHA-256 and size and what changed,
 signed with the release key. Installed copies accept only releases signed with a key listed in
-figassemble/data/updates.json.
+mosaic/data/updates.json.
 
 For the tests and CI there are also `testkey` (a throwaway key in a file) and `local` (a release
 from a folder, signed with that key, into tools/fake_github.py's folder).
@@ -41,11 +41,11 @@ import zipfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from figassemble import updates  # noqa: E402
+from mosaic import updates  # noqa: E402
 
 KEY_SERVICE = "FigAssemble release key"
 BACKUP_PREFIX = "figassemble-release-key-1"
-DATA = os.path.join(ROOT, "figassemble", "data", "updates.json")
+DATA = os.path.join(ROOT, "mosaic", "data", "updates.json")
 OUT = os.path.join(ROOT, "dist", "release")
 SKIP = {".git", "__pycache__", "dist", "build", ".pytest_cache", "claude-commands.log", ".DS_Store"}
 
@@ -117,15 +117,15 @@ def key_new(args) -> None:
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     if keystore().get() and not args.replace:
         die("This computer already has a release key (`key check` shows it). To make another one anyway, "
-            "add --replace; FigAssemble keeps trusting the old one until you take it out of "
-            "figassemble/data/updates.json.")
+            "add --replace; mosaic keeps trusting the old one until you take it out of "
+            "mosaic/data/updates.json.")
     raw = Ed25519PrivateKey.generate().private_bytes_raw()
     text = backup_text(raw)
     keystore().set(text)
     trust(public_of(raw), f"made {time.strftime('%Y-%m-%d')} on {platform.node()}")
     print(f"""
 A release key is made and kept in this computer's {'Keychain' if sys.platform == 'darwin' else 'key store'}.
-FigAssemble will trust it once figassemble/data/updates.json (which now lists it) is committed and
+mosaic will trust it once mosaic/data/updates.json (which now lists it) is committed and
 released.
 
 Its backup, the one way to sign releases from another computer:
@@ -133,7 +133,7 @@ Its backup, the one way to sign releases from another computer:
     {text}
 
 Keep it somewhere safe that isn't this computer: the Passwords app (it syncs to your other Apple
-devices), another password manager, or printed and filed. Anyone who has it can sign FigAssemble
+devices), another password manager, or printed and filed. Anyone who has it can sign mosaic
 updates, so don't email it or put it in the repository. On a new computer:
 python tools/release.py key restore
 """)
@@ -148,7 +148,7 @@ def key_backup(_args) -> None:
     raw = load_key()
     if raw is None:
         die("There's no release key on this computer (`key new` makes one, `key restore` brings one back).")
-    if input("This shows the private release key; anyone who has it can sign FigAssemble updates. Show it? [y/N] ")\
+    if input("This shows the private release key; anyone who has it can sign mosaic updates. Show it? [y/N] ")\
             .strip().lower() != "y":
         return
     print(f"\n    {backup_text(raw)}\n")
@@ -164,8 +164,8 @@ def key_restore(_args) -> None:
     keystore().set(backup_text(raw))
     known = trusted()
     print(f"The release key ({kid}) is kept on this computer now."
-          + ("" if kid in known else "\nFigAssemble doesn't list it as trusted, though: releases signed with it won't "
-             "install until a release that trusts it (figassemble/data/updates.json) has been installed by hand."))
+          + ("" if kid in known else "\nmosaic doesn't list it as trusted, though: releases signed with it won't "
+             "install until a release that trusts it (mosaic/data/updates.json) has been installed by hand."))
 
 
 def key_check(_args) -> None:
@@ -175,7 +175,7 @@ def key_check(_args) -> None:
     kid = updates.key_id(public_of(raw))
     known = trusted()
     print(f"This computer has release key {kid}: " + (f"trusted ({known[kid]})." if kid in known else
-                                                       "NOT trusted by figassemble/data/updates.json."))
+                                                       "NOT trusted by mosaic/data/updates.json."))
 
 
 # Building a release ----------------------------------------------------------------------------
@@ -191,7 +191,7 @@ def manifest_for(zip_path: str, version: str, environment: bytes, notes: str, co
 
 def zip_tree(src: str, version: str, out_zip: str) -> None:
     """A release ZIP from a folder (for the tests and CI), with that version in __init__.py."""
-    top = f"FigAssemble-{version}"
+    top = f"mosaic-{version}"
     with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as z:
         for d, dirs, files in os.walk(src):
             dirs[:] = sorted(x for x in dirs if x not in SKIP and not x.endswith(".egg-info"))
@@ -200,7 +200,7 @@ def zip_tree(src: str, version: str, out_zip: str) -> None:
                     continue
                 path = os.path.join(d, f)
                 rel = os.path.relpath(path, src).replace(os.sep, "/")
-                if rel == "figassemble/__init__.py":
+                if rel == "mosaic/__init__.py":
                     text = re.sub(r'__version__ = "[^"]*"', f'__version__ = "{version}"', open(path, encoding="utf-8").read())
                     z.writestr(f"{top}/{rel}", text)
                 else:
@@ -221,7 +221,7 @@ def local(args) -> None:
     from fake_github import add_release
     raw = base64.b64decode(open(args.key_file).read().strip())
     with tempfile.TemporaryDirectory() as tmp:
-        zpath = os.path.join(tmp, f"FigAssemble-{args.version}.zip")
+        zpath = os.path.join(tmp, f"mosaic-{args.version}.zip")
         zip_tree(args.src, args.version, zpath)
         env = open(os.path.join(args.src, "environment.yml"), "rb").read()
         signed = updates.sign_manifest(manifest_for(zpath, args.version, env, args.notes), raw)
@@ -278,13 +278,13 @@ def publish(args) -> None:
     if raw is None:
         die("There's no release key on this computer (`key restore` brings it back from its backup).")
     kid = updates.key_id(public_of(raw))
-    if kid not in trusted(run("git", "show", "HEAD:figassemble/data/updates.json")):
-        die(f"The release key here ({kid}) isn't in the committed figassemble/data/updates.json, so installed "
+    if kid not in trusted(run("git", "show", "HEAD:mosaic/data/updates.json")):
+        die(f"The release key here ({kid}) isn't in the committed mosaic/data/updates.json, so installed "
             "copies wouldn't accept the release. Commit it first.")
     sha = run("git", "rev-parse", "HEAD")
     if not args.skip_ci_check and not ci_passed(sha):
         die(f"The tests haven't passed on GitHub for {sha[:7]} (yet?). Wait for them, or add --skip-ci-check.")
-    init = os.path.join(ROOT, "figassemble", "__init__.py")
+    init = os.path.join(ROOT, "mosaic", "__init__.py")
     current = re.search(r'__version__ = "([^"]*)"', open(init, encoding="utf-8").read()).group(1)
     existing = tags()
     version = args.version or next_version(current, existing)
@@ -301,9 +301,9 @@ def publish(args) -> None:
             fh.write(draft_notes(since))
         print(f"What's new, drafted from the commits since {since or 'the start'}: {path}")
         if not args.yes:
-            input("Edit it into plain words for the people using FigAssemble, save it, then press Return to go on. ")
+            input("Edit it into plain words for the people using mosaic, save it, then press Return to go on. ")
         notes = open(path, encoding="utf-8").read()
-    print(f"\nReleasing FigAssemble {version}{' as a test version' if args.test else ''} from {sha[:7]}.")
+    print(f"\nReleasing mosaic {version}{' as a test version' if args.test else ''} from {sha[:7]}.")
     if not args.yes and input("Go ahead? [y/N] ").strip().lower() != "y":
         return
     # The version, committed and tagged; the ZIP is the tagged commit
@@ -311,12 +311,12 @@ def publish(args) -> None:
     with open(init, "w", encoding="utf-8") as fh:
         fh.write(re.sub(r'__version__ = "[^"]*"', f'__version__ = "{version}"', text))
     message = f"Release {version}" + ("\n\n" + "\n".join(args.trailer) if args.trailer else "")
-    run("git", "commit", "-q", "-m", message, "--", "figassemble/__init__.py")
+    run("git", "commit", "-q", "-m", message, "--", "mosaic/__init__.py")
     tag = f"v{version}"
-    run("git", "tag", "-a", tag, "-m", f"FigAssemble {version}")
+    run("git", "tag", "-a", tag, "-m", f"mosaic {version}")
     try:
-        zpath = os.path.join(OUT, f"FigAssemble-{version}.zip")
-        run("git", "archive", "--format=zip", f"--prefix=FigAssemble-{version}/", "-o", zpath, tag)
+        zpath = os.path.join(OUT, f"mosaic-{version}.zip")
+        run("git", "archive", "--format=zip", f"--prefix=mosaic-{version}/", "-o", zpath, tag)
         env = subprocess.run(["git", "show", f"{tag}:environment.yml"], cwd=ROOT, capture_output=True, check=True).stdout
         signed = updates.sign_manifest(manifest_for(zpath, version, env, notes, run("git", "rev-parse", tag)), raw)
         updates.verify_manifest(signed)   # (trusted by this checkout: the same keys)
@@ -332,20 +332,20 @@ def publish(args) -> None:
         raise
     run("git", "push", "-q", "origin", "main")
     run("git", "push", "-q", "origin", tag)
-    cmd = ["gh", "release", "create", tag, zpath, mpath, "--repo", repo(), "--title", f"FigAssemble {version}",
+    cmd = ["gh", "release", "create", tag, zpath, mpath, "--repo", repo(), "--title", f"mosaic {version}",
            "--notes-file", notes_path]
     if args.test:
         cmd += ["--prerelease", "--latest=false"]
     url = run(*cmd)
-    print(f"\nReleased FigAssemble {version}{' (test version)' if args.test else ''}: {url}")
-    print("Installed copies find it within a few hours (at once when FigAssemble next starts)."
+    print(f"\nReleased mosaic {version}{' (test version)' if args.test else ''}: {url}")
+    print("Installed copies find it within a few hours (at once when mosaic next starts)."
           + (f"\nWhen it has been tried: python tools/release.py promote {version}" if args.test else ""))
 
 
 def promote(args) -> None:
     tag = f"v{args.version.lstrip('vV')}"
     run("gh", "release", "edit", tag, "--repo", repo(), "--prerelease=false", "--latest")
-    print(f"{tag} is a full release now: everyone's FigAssemble takes it.")
+    print(f"{tag} is a full release now: everyone's mosaic takes it.")
 
 
 def list_releases(_args) -> None:

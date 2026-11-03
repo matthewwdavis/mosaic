@@ -5,10 +5,10 @@ import pytest
 from lxml import etree
 from PIL import Image
 
-from figassemble import assets, docfile, model
-from figassemble.export.run import export_document
-from figassemble.fonts import resolve_face
-from figassemble.textlayout import AUTOFIT_EXTRA, LINE_FACTOR
+from mosaic import assets, docfile, model
+from mosaic.export.run import export_document
+from mosaic.fonts import resolve_face
+from mosaic.textlayout import AUTOFIT_EXTRA, LINE_FACTOR
 
 
 def make_doc(fixtures, cache):
@@ -113,7 +113,7 @@ def test_raster_export_size_and_dpi(fixtures, cache, tmp_path):
 
 def test_document_round_trip_embeds_assets(fixtures, cache, tmp_path):
     doc, aid = make_doc(fixtures, cache)
-    path = str(tmp_path / "fig.figasm")
+    path = str(tmp_path / "fig.mosaic")
     assert docfile.save(doc, path, cache) == []
     other = assets.AssetCache(str(tmp_path / "other-cache"))
     loaded = docfile.load(path, other)
@@ -140,7 +140,7 @@ def test_unembedded_fonts_in_placed_pdfs_get_embedded(cache, tmp_path):
     doc["assets"][aid] = asset
     doc["pages"][0]["items"].append(model.picture_item(aid, asset, 0, 0))
     out = export_document(doc, str(tmp_path / "out"), ["pdf"], cache=cache)
-    # (a note, not a warning: FigAssemble doing its job)
+    # (a note, not a warning: mosaic doing its job)
     assert any("embedded fonts" in n for n in out["notes"]) and not any("embedded fonts" in w for w in out["warnings"])
     pdf = pikepdf.open(out["files"][0])
     form = next(iter(pdf.pages[0].Resources.XObject.values()))
@@ -172,7 +172,7 @@ def test_faded_outline_exports_as_a_group(cache, tmp_path):
 
 
 def test_autofit_height_follows_powerpoint_model():
-    from figassemble.resolve import Resolver
+    from mosaic.resolve import Resolver
     face, _ = resolve_face("Helvetica")
     item = {"id": "t", "type": "shape", "geom": "rect", "frame": [0, 0, 50, 5], "stroke": None, "fill": None,
             "text": {"paragraphs": [{"runs": [{"t": "x", "size": 6}]}, {"runs": [{"t": "y", "size": 6}]}],

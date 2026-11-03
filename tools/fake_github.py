@@ -1,4 +1,4 @@
-"""A stand-in for the parts of GitHub that FigAssemble's updates use, for the tests and CI: the
+"""A stand-in for the parts of GitHub that mosaic's updates use, for the tests and CI: the
 repository and its releases (private, or public), release files through the API (redirected,
 like GitHub, to another host that refuses a sign-in, like Amazon S3), the download links of a
 public repository, and signing in with a code (the device flow) and refreshing the sign-in.
@@ -8,7 +8,7 @@ public repository, and signing in with a code (the device flow) and refreshing t
 FOLDER holds releases.json (add_release writes it) and the release files. In the tests:
 
     with FakeGitHub(folder, private=True) as gh:
-        os.environ["FIGASSEMBLE_UPDATE_API"] = gh.api ...
+        os.environ["MOSAIC_UPDATE_API"] = gh.api ...
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-OWNER, REPO = "matthewwdavis", "FigAssemble"
+OWNER, REPO = "matthewwdavis", "mosaic"
 
 
 def add_release(folder: str, tag: str, files: list[str], prerelease: bool = False, body: str = "",

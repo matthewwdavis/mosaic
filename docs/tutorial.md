@@ -1,16 +1,16 @@
 # Tutorial: your first figure
 
 In about 15 minutes you'll build this three-panel figure for a Nature double-column page, and
-meet most of what FigAssemble does along the way:
+meet most of what mosaic does along the way:
 
 ![The finished figure, as exported](images/tutorial-result.png)
 
-You'll need FigAssemble installed (see [Install](../README.md#install)) and the three sample
-plots from the **`examples`** folder in the FigAssemble folder you downloaded. If you deleted that
+You'll need mosaic installed (see [Install](../README.md#install)) and the three sample
+plots from the **`examples`** folder in the mosaic folder you downloaded. If you deleted that
 folder, download the ZIP again.
 
 The sample plots were made in R and saved the usual way: each one as a **PDF**, an **SVG** and a
-**PNG** under the same name. FigAssemble finds all three copies and uses the right one for each
+**PNG** under the same name. mosaic finds all three copies and uses the right one for each
 kind of export. (The data are made up; [`examples/make_examples.R`](../examples/make_examples.R)
 draws them.)
 
@@ -18,9 +18,9 @@ Shortcuts are written for a Mac. On Windows use **Ctrl** for **⌘** and **Shift
 
 ## 1. A quick look around
 
-Open FigAssemble. Here's the window with a finished figure in it:
+Open mosaic. Here's the window with a finished figure in it:
 
-![The FigAssemble window, numbered](images/window-tour.png)
+![The mosaic window, numbered](images/window-tour.png)
 
 1. **Tabs**, like PowerPoint's ribbon: **Home** (files, undo, clipboard, pages, swatches and
    styles), **Arrange** (align, distribute, match sizes, group, order), **Figure** (scale bars,
@@ -66,11 +66,11 @@ You'll shrink the height to fit the figure at the end.
 
 Open the `examples` folder in Finder (Explorer on Windows) and drag **`growth_curves.pdf`**,
 **`expression_bars.pdf`** and **`dose_response.pdf`** onto the page. Or select the three files,
-copy them (⌘C) and paste them into FigAssemble (⌘V), or click **Picture** at the bottom of the
+copy them (⌘C) and paste them into mosaic (⌘V), or click **Picture** at the bottom of the
 tools and choose them.
 
 They land at **true size**: 100%, exactly as R saved them, so their 6 pt text is still 6 pt. Drag
-them apart if they overlap, then click one to see what FigAssemble knows about it:
+them apart if they overlap, then click one to see what mosaic knows about it:
 
 ![Three plots placed, one selected, with its Picture tab showing](images/placed.png)
 
@@ -133,7 +133,7 @@ the page's own commands.
 
 Press **P** (the **Label** tool) and click just above the top-left corner of the growth curves:
 an **a** appears, in bold 8 pt Helvetica. Press **P** again and click above the bar chart for
-**b**, then above the dose-response plot for **c**. FigAssemble picks the next unused letter each
+**b**, then above the dose-response plot for **c**. mosaic picks the next unused letter each
 time.
 
 ![Panel labels a, b and c added](images/labels.png)
@@ -192,13 +192,13 @@ click **Export…** and choose where to save them.
 
 ## 9. Save it
 
-Press **⌘S** to save the document as a `.figasm` file. It keeps the links to your plot files and
+Press **⌘S** to save the document as a `.mosaic` file. It keeps the links to your plot files and
 a copy of each one too, so you can send it to a labmate and it opens complete. If a linked file
-has moved, FigAssemble uses the stored copy and the Picture tab says so. To come back to it,
+has moved, mosaic uses the stored copy and the Picture tab says so. To come back to it,
 double-click the file in Finder or Explorer. Each figure opens in a window of its own, so you
 can have the next one open beside it.
 
-If FigAssemble ever closes unexpectedly, it offers your unsaved work back the next time it starts.
+If mosaic ever closes unexpectedly, it offers your unsaved work back the next time it starts.
 
 ## Where next
 
@@ -209,5 +209,5 @@ If FigAssemble ever closes unexpectedly, it offers your unsaved work back the ne
   readers (all the kinds side by side), slide and poster sizes, themes, bringing in PowerPoint
   slides, and all the keyboard shortcuts.
 - Try it with your own figures, and **tell us what's confusing or missing**:
-  [report a problem](https://github.com/matthewwdavis/FigAssemble/issues/new?template=problem.yml)
-  or [suggest an idea](https://github.com/matthewwdavis/FigAssemble/issues/new?template=idea.yml).
+  [report a problem](https://github.com/matthewwdavis/mosaic/issues/new?template=problem.yml)
+  or [suggest an idea](https://github.com/matthewwdavis/mosaic/issues/new?template=idea.yml).

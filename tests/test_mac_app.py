@@ -1,12 +1,12 @@
-"""The Mac app: FigAssemble.app runs Python from inside itself, so macOS takes the app's name
-from it (packaging/macos/make_app.py), and the menu bar's pieces (figassemble/app/macmenu.py)."""
+"""The Mac app: mosaic.app runs Python from inside itself, so macOS takes the app's name
+from it (packaging/macos/make_app.py), and the menu bar's pieces (mosaic/app/macmenu.py)."""
 import os
 import subprocess
 import sys
 
 import pytest
 
-from figassemble.app import macmenu
+from mosaic.app import macmenu
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 mac = pytest.mark.skipif(sys.platform != "darwin", reason="a Mac's")
@@ -28,14 +28,14 @@ def test_shortcuts_as_menu_keys():
 def test_the_app_runs_python_from_inside_itself(tmp_path):
     subprocess.run([sys.executable, os.path.join(ROOT, "packaging", "macos", "make_app.py"), "--dest", str(tmp_path), "--no-register"],
                    check=True, capture_output=True)
-    folder = tmp_path / "FigAssemble.app" / "Contents" / "MacOS"
+    folder = tmp_path / "mosaic.app" / "Contents" / "MacOS"
     py = folder / "python"
     assert py.is_symlink() and os.path.realpath(py) == os.path.realpath(sys.executable)
-    assert '"$(dirname "$0")/python" -m figassemble' in (folder / "FigAssemble").read_text()
+    assert '"$(dirname "$0")/python" -m mosaic' in (folder / "mosaic").read_text()
     out = subprocess.run([str(py), "-c", "import Foundation, sys; b = Foundation.NSBundle.mainBundle(); "
                           "print(b.infoDictionary()['CFBundleName']); print(b.bundlePath()); print(sys.prefix)"],
                          check=True, capture_output=True, text=True).stdout.splitlines()
-    assert out[0] == "FigAssemble" and out[1].endswith("FigAssemble.app")
+    assert out[0] == "mosaic" and out[1].endswith("mosaic.app")
     assert os.path.realpath(out[2]) == os.path.realpath(sys.prefix)   # its own environment, found from there
 
 
@@ -58,9 +58,9 @@ def test_menus_from_the_editors_description():
     assert menu.itemAtIndex_(6).representedObject() == "url:https://example.org/guide"
     macmenu.set_checks({"toggleRulers": False, "vision:greyscale": True})
     assert menu.itemAtIndex_(3).state() == 0 and menu.itemAtIndex_(5).submenu().itemAtIndex_(0).state() == 1
-    macmenu.set_recent(["/no/such/folder/fig one.figasm", __file__])
+    macmenu.set_recent(["/no/such/folder/fig one.mosaic", __file__])
     recent = menu.itemAtIndex_(2).submenu()
-    assert [str(i.title()) for i in recent.itemArray()] == ["fig one.figasm", os.path.basename(__file__), "", "Clear Menu"]
+    assert [str(i.title()) for i in recent.itemArray()] == ["fig one.mosaic", os.path.basename(__file__), "", "Clear Menu"]
     assert not recent.itemAtIndex_(0).isEnabled() and recent.itemAtIndex_(1).isEnabled()   # gone; there
     assert recent.itemAtIndex_(1).representedObject() == f"open:{__file__}"
     macmenu.set_recent([])

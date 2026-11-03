@@ -8,9 +8,9 @@ import pikepdf
 import pypdfium2 as pdfium
 from lxml import etree
 
-from figassemble import equations
-from figassemble.app.api import Api
-from figassemble.assets import probe
+from mosaic import equations
+from mosaic.app.api import Api
+from mosaic.assets import probe
 
 
 def ink_box(pdf):

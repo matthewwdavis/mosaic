@@ -3,8 +3,8 @@ requires = ["setuptools>=77"]   # (license as an SPDX expression)
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "figassemble"
-dynamic = ["version"]   # figassemble/__init__.py
+name = "mosaic"
+dynamic = ["version"]   # mosaic/__init__.py
 description = "Assemble multi-panel scientific figures without lossy format conversions"
 license = "MIT"   # the code; the documentation is CC BY 4.0 (LICENSE-docs)
 license-files = ["LICENSE", "LICENSE-docs", "THIRD_PARTY_NOTICES.md"]
@@ -25,16 +25,16 @@ dependencies = [
 ]
 
 [project.scripts]
-figassemble = "figassemble.cli:main"
+mosaic = "mosaic.cli:main"
 
 [tool.setuptools.dynamic]
-version = {attr = "figassemble.__version__"}
+version = {attr = "mosaic.__version__"}
 
 [tool.setuptools.packages.find]
-include = ["figassemble*"]
+include = ["mosaic*"]
 
 [tool.setuptools.package-data]
-figassemble = ["ui/**/*", "data/*"]
+mosaic = ["ui/**/*", "data/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

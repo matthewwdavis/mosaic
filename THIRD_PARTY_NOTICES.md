@@ -1,6 +1,6 @@
 # Third-party notices
 
-FigAssemble's code is under the MIT License ([LICENSE](LICENSE)) and its documentation and
+mosaic's code is under the MIT License ([LICENSE](LICENSE)) and its documentation and
 pictures under CC BY 4.0 ([LICENSE-docs](LICENSE-docs)). These parts come from others, and are
 used under their notices below.
 
@@ -9,13 +9,13 @@ used under their notices below.
 - [Interface themes after code-editor themes](#interface-themes-after-code-editor-themes)
 - [Colour palettes and the colour-vision preview](#colour-palettes-and-the-colour-vision-preview)
 - [Test files made with python-pptx](#test-files-made-with-python-pptx)
-- [Software FigAssemble uses](#software-figassemble-uses) (installed separately)
+- [Software mosaic uses](#software-mosaic-uses) (installed separately)
 
 ## PowerPoint's preset shapes (Ecma International)
 
-`figassemble/data/presets.json` holds the formulas, adjust handles and paths of DrawingML's 187
+`mosaic/data/presets.json` holds the formulas, adjust handles and paths of DrawingML's 187
 preset shapes, converted by `tools/build_presets.py` from `presetShapeDefinitions.xml`, which is
-published with ECMA-376, *Office Open XML File Formats*, Part 1. FigAssemble uses it to draw
+published with ECMA-376, *Office Open XML File Formats*, Part 1. mosaic uses it to draw
 PowerPoint's shapes as PowerPoint does, and to read and write them in PowerPoint files.
 
 > COPYRIGHT NOTICE
@@ -61,7 +61,7 @@ PowerPoint's shapes as PowerPoint does, and to read and write them in PowerPoint
 
 ## Icons after Feather and Lucide
 
-FigAssemble's interface icons (`ICONS` in `figassemble/ui/js/panels.js`) were drawn for it, in
+mosaic's interface icons (`ICONS` in `mosaic/ui/js/panels.js`) were drawn for it, in
 the style of [Feather](https://feathericons.com) and [Lucide](https://lucide.dev). Some follow
 their designs closely: Transform again (their "repeat"), Text (Feather's "type"), Fill area
 (Lucide's "paint-bucket"), the two eye icons for showing and hiding (their "eye" and
@@ -116,9 +116,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ## Interface themes after code-editor themes
 
-Twelve of the interface themes (`figassemble/themes.py`, "RStudio favourites") take their
+Twelve of the interface themes (`mosaic/themes.py`, "RStudio favourites") take their
 colours, and their names, from code-editor themes of the same names, as RStudio ships them.
-Only colour values were taken, applied to FigAssemble's own interface; no theme files are
+Only colour values were taken, applied to mosaic's own interface; no theme files are
 included. Thanks to their authors:
 
 - **Textmate** and **Dawn:** themes of the TextMate editor
@@ -133,8 +133,8 @@ included. Thanks to their authors:
 
 ## Colour palettes and the colour-vision preview
 
-The ready-made palettes (`figassemble/ui/js/swatches.js`) and the colour-vision preview
-(`figassemble/ui/js/canvas.js`) use published colour values:
+The ready-made palettes (`mosaic/ui/js/swatches.js`) and the colour-vision preview
+(`mosaic/ui/js/canvas.js`) use published colour values:
 
 - **Okabe-Ito:** Masataka Okabe and Kei Ito, *Color Universal Design (CUD): how to make figures
   and presentations that are friendly to colorblind people* (2008).
@@ -176,9 +176,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## Software FigAssemble uses
+## Software mosaic uses
 
-None of these is part of FigAssemble or included in its repository: the installers install them
+None of these is part of mosaic or included in its repository: the installers install them
 from conda-forge and PyPI (`environment.yml`), each under its own license.
 
 | Software | License |
@@ -201,4 +201,4 @@ from conda-forge and PyPI (`environment.yml`), each under its own license.
 | Poppler (optional; its pdftocairo) | GPL-2.0 or GPL-3.0 |
 | librsvg (optional; its rsvg-convert) | LGPL-2.1 or later |
 
-FigAssemble runs Ghostscript, Poppler and librsvg as separate programs, when they're installed.
+mosaic runs Ghostscript, Poppler and librsvg as separate programs, when they're installed.

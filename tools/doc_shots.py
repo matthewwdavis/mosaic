@@ -2,7 +2,7 @@
 
     python tools/doc_shots.py [scene ...]        (writes docs/images/; all scenes by default)
 
-Each scene (figassemble/ui/js/docshots.js) builds the tutorial figure from the sample plots in
+Each scene (mosaic/ui/js/docshots.js) builds the tutorial figure from the sample plots in
 examples/ up to one step. Headless Chrome takes each picture at twice the window's size, then it's
 scaled down so the text stays crisp; some are cropped to the part that matters, and the window
 tour gets numbered callouts. Run it again whenever the interface changes.
@@ -111,9 +111,9 @@ def main() -> int:
     if not chrome:
         print("Chrome not found")
         return 1
-    os.environ.setdefault("FIGASSEMBLE_HOME", tempfile.mkdtemp(prefix="figassemble-docshots-"))
-    from figassemble.app.api import Api
-    from figassemble.app.server import start_server
+    os.environ.setdefault("MOSAIC_HOME", tempfile.mkdtemp(prefix="mosaic-docshots-"))
+    from mosaic.app.api import Api
+    from mosaic.app.server import start_server
     os.makedirs(OUT, exist_ok=True)
     scenes = sys.argv[1:] or list(SCENES)
     srv = start_server(Api())

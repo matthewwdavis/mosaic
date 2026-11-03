@@ -3,9 +3,9 @@ import math
 
 import pytest
 
-from figassemble import presets
-from figassemble.geometry import DrawPath, Path, corner_count, flatten, head_outline, round_corners
-from figassemble.resolve import Resolver, line_end_trim
+from mosaic import presets
+from mosaic.geometry import DrawPath, Path, corner_count, flatten, head_outline, round_corners
+from mosaic.resolve import Resolver, line_end_trim
 
 
 def points(path, per_curve=32):

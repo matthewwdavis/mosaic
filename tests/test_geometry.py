@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from figassemble.geometry import (Matrix, Path, arrowhead, dash_array, frame_matrix, preset_paths)
+from mosaic.geometry import (Matrix, Path, arrowhead, dash_array, frame_matrix, preset_paths)
 
 
 def close(a, b, tol=1e-6):
@@ -10,7 +10,7 @@ def close(a, b, tol=1e-6):
 
 
 def test_number_formatting_keeps_whole_numbers():
-    from figassemble.geometry import _fmt
+    from mosaic.geometry import _fmt
     assert _fmt(300, 0) == "300"
     assert _fmt(180.0, 2) == "180"
     assert _fmt(0.25, 4) == "0.25"
@@ -75,7 +75,7 @@ def test_trim_line_end():
 
 
 def test_smooth_path_passes_through_points_smoothly():
-    from figassemble.geometry import smooth_path
+    from mosaic.geometry import smooth_path
     pts = [(0, 0), (40, -25), (90, 10), (130, -5)]
     p = smooth_path(pts)
     curves = [s for s in p.segs if s[0] == "C"]
@@ -92,8 +92,8 @@ def test_smooth_path_passes_through_points_smoothly():
 
 
 def test_curved_arrow_keeps_its_tip_on_the_end_point():
-    from figassemble.geometry import DrawPath
-    from figassemble.resolve import Resolver
+    from mosaic.geometry import DrawPath
+    from mosaic.resolve import Resolver
     item = {"id": "c", "type": "line", "curve": "smooth", "points": [[0, 0], [50, -30], [100, 0]],
             "stroke": {"width": 1, "color": "#000000", "cap": "round"},
             "arrow_end": {"type": "triangle", "w": "sm", "len": "sm"}}
@@ -105,7 +105,7 @@ def test_curved_arrow_keeps_its_tip_on_the_end_point():
 
 
 def test_outline_sits_under_line_and_head():
-    from figassemble.resolve import DrawGroup, Resolver
+    from mosaic.resolve import DrawGroup, Resolver
     item = {"id": "o", "type": "line", "points": [[0, 0], [100, 0]],
             "stroke": {"width": 1, "color": "#000000", "cap": "round"},
             "arrow_end": {"type": "triangle", "w": "sm", "len": "sm"},
@@ -122,7 +122,7 @@ def test_outline_sits_under_line_and_head():
 
 
 def test_outline_of_flat_dashed_line_wraps_dash_ends():
-    from figassemble.resolve import Resolver
+    from mosaic.resolve import Resolver
     # PowerPoint's continuous dash pattern (even spacing switched off; see test_dashes.py)
     item = {"id": "d", "type": "line", "points": [[0, 0], [100, 0]],
             "stroke": {"width": 1, "color": "#000000", "cap": "flat", "dash": "dash", "even_dashes": False},
@@ -134,8 +134,8 @@ def test_outline_of_flat_dashed_line_wraps_dash_ends():
 
 
 def test_arc_becomes_editable_curve():
-    from figassemble.geometry import DrawPath
-    from figassemble.resolve import Resolver, shape_to_curve
+    from mosaic.geometry import DrawPath
+    from mosaic.resolve import Resolver, shape_to_curve
     arc = {"id": "a1", "type": "shape", "geom": "arc", "frame": [10, 10, 60, 40], "rot": 30,
            "adj": {"adj1": 270, "adj2": 0}, "stroke": {"width": 1, "color": "#000000"},
            "arrow_end": {"type": "triangle", "w": "sm", "len": "sm"}}
@@ -161,7 +161,7 @@ def test_trim_curve_end_by_arc_length():
 def test_pathway_arrowheads():
     """Bar, half arrow, open circle and open triangle: drawn as lines in the line's colour; the
     line runs to a bar or half arrow and stops at an open head's edge."""
-    from figassemble.resolve import Resolver
+    from mosaic.resolve import Resolver
 
     def drawn(head):
         item = {"id": "l", "type": "line", "points": [[0, 0], [60, 0]], "arrow_start": None,

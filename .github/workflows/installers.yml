@@ -14,7 +14,7 @@ on:
       - environment.yml
       - pyproject.toml
       - packaging/**
-      - figassemble/updates.py
+      - mosaic/updates.py
       - tools/release.py
       - tools/fake_github.py
       - tools/update_e2e.py
@@ -28,36 +28,36 @@ jobs:
       - name: Run the Mac installer
         run: bash install-mac.command
         env:
-          FIGASSEMBLE_NO_OPEN: "1"
-          FIGASSEMBLE_APP_DIR: ${{ runner.temp }}/Applications
-      - name: Check the app and the installed copy of FigAssemble
+          MOSAIC_NO_OPEN: "1"
+          MOSAIC_APP_DIR: ${{ runner.temp }}/Applications
+      - name: Check the app and the installed copy of mosaic
         run: |
-          app="$RUNNER_TEMP/Applications/FigAssemble.app/Contents/MacOS/FigAssemble"
+          app="$RUNNER_TEMP/Applications/mosaic.app/Contents/MacOS/mosaic"
           test -x "$app"
-          # The environment's Python, linked into the app, runs from there so macOS names it FigAssemble
-          py="$RUNNER_TEMP/Applications/FigAssemble.app/Contents/MacOS/python"
+          # The environment's Python, linked into the app, runs from there so macOS names it mosaic
+          py="$RUNNER_TEMP/Applications/mosaic.app/Contents/MacOS/python"
           test -L "$py"
           cd "$RUNNER_TEMP"   # away from the source folder, so the installed copy is the one tested
-          "$py" -c "import figassemble, os; ui = os.path.join(os.path.dirname(figassemble.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(figassemble.__file__)"
-          "$py" -c "import Foundation; name = Foundation.NSBundle.mainBundle().infoDictionary()['CFBundleName']; assert name == 'FigAssemble', name"
-          "$py" -m figassemble export --help
-      - name: Double-clicking a .figasm opens it in the installed app
+          "$py" -c "import mosaic, os; ui = os.path.join(os.path.dirname(mosaic.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(mosaic.__file__)"
+          "$py" -c "import Foundation; name = Foundation.NSBundle.mainBundle().infoDictionary()['CFBundleName']; assert name == 'mosaic', name"
+          "$py" -m mosaic export --help
+      - name: Double-clicking a .mosaic opens it in the installed app
         run: |
-          py="$RUNNER_TEMP/Applications/FigAssemble.app/Contents/MacOS/python"
+          py="$RUNNER_TEMP/Applications/mosaic.app/Contents/MacOS/python"
           cd "$RUNNER_TEMP"
-          "$py" -c "from figassemble import docfile, model; docfile.save(model.new_document('Test'), 'test.figasm')"
+          "$py" -c "from mosaic import docfile, model; docfile.save(model.new_document('Test'), 'test.mosaic')"
           "$py" -c "
           import os
           from AppKit import NSWorkspace
           from Foundation import NSURL
-          app = NSWorkspace.sharedWorkspace().URLForApplicationToOpenURL_(NSURL.fileURLWithPath_(os.path.abspath('test.figasm')))
-          want = os.path.realpath(os.path.join(os.environ['RUNNER_TEMP'], 'Applications', 'FigAssemble.app'))
+          app = NSWorkspace.sharedWorkspace().URLForApplicationToOpenURL_(NSURL.fileURLWithPath_(os.path.abspath('test.mosaic')))
+          want = os.path.realpath(os.path.join(os.environ['RUNNER_TEMP'], 'Applications', 'mosaic.app'))
           assert app is not None and os.path.realpath(str(app.path())) == want, app
-          print('A .figasm opens in', app.path())
+          print('A .mosaic opens in', app.path())
           "
       - name: The installed copy updates itself, goes back and takes a test version
         run: |
-          py="$RUNNER_TEMP/Applications/FigAssemble.app/Contents/MacOS/python"
+          py="$RUNNER_TEMP/Applications/mosaic.app/Contents/MacOS/python"
           "$py" tools/update_e2e.py --python "$py"
 
   windows:
@@ -68,19 +68,19 @@ jobs:
         shell: cmd
         run: install-windows.bat
         env:
-          FIGASSEMBLE_NO_OPEN: "1"
-      - name: Check the shortcuts and the installed copy of FigAssemble
+          MOSAIC_NO_OPEN: "1"
+      - name: Check the shortcuts and the installed copy of mosaic
         shell: pwsh
         run: |
-          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\FigAssemble.lnk'
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\mosaic.lnk'
           if (-not (Test-Path $lnk)) { throw "no Start menu shortcut" }
           $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath
           $py = Join-Path (Split-Path $target) 'python.exe'
           Set-Location $env:RUNNER_TEMP   # away from the source folder, so the installed copy is the one tested
-          & $py -c "import figassemble, os; ui = os.path.join(os.path.dirname(figassemble.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(figassemble.__file__)"
-          & $py -m figassemble export --help
-          if ($LASTEXITCODE -ne 0) { throw "figassemble didn't start" }
-      - name: Double-clicking a .figasm opens it in FigAssemble; decks have it under Open with
+          & $py -c "import mosaic, os; ui = os.path.join(os.path.dirname(mosaic.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(mosaic.__file__)"
+          & $py -m mosaic export --help
+          if ($LASTEXITCODE -ne 0) { throw "mosaic didn't start" }
+      - name: Double-clicking a .mosaic opens it in mosaic; decks have it under Open with
         shell: pwsh
         run: |
           # Looked up as Explorer looks it up (assoc and ftype show only types registered for the
@@ -90,15 +90,15 @@ jobs:
             $sb = New-Object System.Text.StringBuilder 2048; $n = [uint32]2048
             [void][Shell.Assoc]::AssocQueryString(0, $what, $ext, 'open', $sb, [ref]$n); $sb.ToString()
           }
-          $command = Look '.figasm' 1   # ASSOCSTR_COMMAND
-          if ($command -notmatch 'pythonw\.exe" -P -m figassemble "%1"$') { throw "a .figasm opens with: $command" }
-          Write-Output "A .figasm opens with: $command; named: $(Look '.figasm' 4)"   # ASSOCSTR_FRIENDLYAPPNAME
-          $deck = (Get-ItemProperty 'HKCU:\Software\Classes\.pptx\OpenWithProgids' -ErrorAction SilentlyContinue).'FigAssemble.Deck'
-          if ($null -eq $deck) { throw "decks don't have FigAssemble under Open with" }
+          $command = Look '.mosaic' 1   # ASSOCSTR_COMMAND
+          if ($command -notmatch 'pythonw\.exe" -P -m mosaic "%1"$') { throw "a .mosaic opens with: $command" }
+          Write-Output "A .mosaic opens with: $command; named: $(Look '.mosaic' 4)"   # ASSOCSTR_FRIENDLYAPPNAME
+          $deck = (Get-ItemProperty 'HKCU:\Software\Classes\.pptx\OpenWithProgids' -ErrorAction SilentlyContinue).'mosaic.Deck'
+          if ($null -eq $deck) { throw "decks don't have mosaic under Open with" }
       - name: The installed copy updates itself, goes back and takes a test version
         shell: pwsh
         run: |
-          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\FigAssemble.lnk'
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\mosaic.lnk'
           $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath
           $py = Join-Path (Split-Path $target) 'python.exe'
           & $py tools/update_e2e.py --python $py

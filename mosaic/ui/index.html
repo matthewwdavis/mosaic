@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mosaic</title>
+  <link rel="stylesheet" href="css/app.css">
+  <style id="theme-vars"></style>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#stage">Skip to the page</a>
+  <header class="topbar">
+    <div id="ribbon" class="ribbon"></div>
+  </header>
+  <div class="workspace">
+    <nav class="sidebar left" aria-label="Pages and objects">
+      <section id="pages" class="panel" aria-labelledby="pages-title"></section>
+      <section id="layers" class="panel layers" aria-label="Objects on this page"></section>
+    </nav>
+    <div id="toolbox" class="toolbox" role="toolbar" aria-orientation="vertical" aria-label="Drawing tools"></div>
+    <main class="stage-wrap">
+      <div id="stage" class="stage" tabindex="0" role="application" aria-roledescription="figure page"
+           aria-label="Page" aria-describedby="stage-help"></div>
+      <p id="stage-help" class="visually-hidden">
+        Tab and Shift+Tab move between objects. Arrow keys move the selected object by one point,
+        with Shift by ten. Enter edits text or crops a picture. Escape finishes.
+        Press question mark for all keyboard shortcuts.
+      </p>
+      <div class="drop-hint" aria-hidden="true">Drop to place at true size</div>
+    </main>
+    <aside id="inspector" class="sidebar right inspector" aria-label="Properties"></aside>
+  </div>
+  <footer id="status" class="statusbar"></footer>
+</body>
+</html>

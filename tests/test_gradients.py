@@ -5,9 +5,9 @@ import os
 import pikepdf
 from lxml import etree
 
-from figassemble.export.run import export_document
-from figassemble.geometry import Matrix, make_gradient
-from figassemble.importers.drawingml import ColorContext, Theme, parse_fill
+from mosaic.export.run import export_document
+from mosaic.geometry import Matrix, make_gradient
+from mosaic.importers.drawingml import ColorContext, Theme, parse_fill
 
 TWO = [{"pos": 0, "color": "#1f3a93", "opacity": 1}, {"pos": 1, "color": "#ffd166", "opacity": 0.5}]
 
@@ -23,7 +23,7 @@ def test_radial_reaches_the_farthest_corner():
 
 
 def test_radial_gradient_in_svg_and_pdf(tmp_path):
-    from figassemble.app.api import Api
+    from mosaic.app.api import Api
     doc = Api().new_document()
     doc["pages"][0]["items"] = [{"id": "e", "type": "shape", "geom": "ellipse", "frame": [20, 20, 120, 60], "rot": 0,
                                  "stroke": None, "fill": {"color": "#1f3a93", "opacity": 1,

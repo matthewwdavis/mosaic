@@ -1,8 +1,8 @@
 """Scale bars: a picture's scale read from microscope TIFFs, and the bar the engine draws."""
 from PIL import Image, TiffImagePlugin
 
-from figassemble.assets import probe
-from figassemble.resolve import DrawText, Resolver
+from mosaic.assets import probe
+from mosaic.resolve import DrawText, Resolver
 
 
 def tiff(path, description=None, resolution=None):

@@ -4,9 +4,9 @@ import re
 
 import pytest
 
-from figassemble import dashes, model, presets
-from figassemble.geometry import Path, dash_array
-from figassemble.resolve import Resolver
+from mosaic import dashes, model, presets
+from mosaic.geometry import Path, dash_array
+from mosaic.resolve import Resolver
 
 
 def pieces(path: Path):
@@ -120,7 +120,7 @@ def test_outline_hugs_flat_dashes():
 
 def test_exports_draw_dashes_without_a_dash_pattern(cache, tmp_path):
     import pikepdf
-    from figassemble.export.run import export_document
+    from mosaic.export.run import export_document
     doc = model.new_document()
     doc["pages"][0]["items"].append({"id": "s", "type": "shape", "geom": "roundRect", "frame": [10, 10, 80, 40],
                                      "rot": 0, "fill": None,

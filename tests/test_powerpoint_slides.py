@@ -10,10 +10,10 @@ import struct
 import pytest
 from PIL import Image
 
-from figassemble.app import clipboard as cb
-from figassemble.app import powerpoint
-from figassemble.importers.gvml import import_shapes
-from figassemble.importers.pptx import DeckImporter, slide_ids
+from mosaic.app import clipboard as cb
+from mosaic.app import powerpoint
+from mosaic.importers.gvml import import_shapes
+from mosaic.importers.pptx import DeckImporter, slide_ids
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "powerpoint")
 DECK = os.path.join(DATA, "example_deck.pptx")
@@ -33,7 +33,7 @@ def descriptor(source: str) -> bytes:
 
 @pytest.fixture
 def fake(monkeypatch):
-    monkeypatch.setenv("FIGASSEMBLE_FAKE_CLIPBOARD", "1")
+    monkeypatch.setenv("MOSAIC_FAKE_CLIPBOARD", "1")
     monkeypatch.setattr(cb, "_fake", None)
     return cb.backend()
 
@@ -86,7 +86,7 @@ def test_copied_shapes_come_in_editable(cache):
 
 
 def test_page_thumbnail(cache):
-    from figassemble.export.run import page_thumbnail
+    from mosaic.export.run import page_thumbnail
     doc, _ = DeckImporter(DECK, None, True, cache).run([2])
     im = page_thumbnail(doc, 0, 320, cache)
     assert im.size == (320, 180) and im.getpixel((0, 0))[:3] == (255, 255, 255)
@@ -118,11 +118,11 @@ def test_plan_takes_slides_and_shapes_before_their_picture(fake, fixtures):
 
 
 def test_api_pastes_slides_and_shapes(fake, monkeypatch):
-    from figassemble.app.api import Api
+    from mosaic.app.api import Api
     monkeypatch.setattr(powerpoint, "open_decks", lambda: [])   # not the decks open on this computer
     api = Api()
     fake.put({"slides": os.path.join(DATA, "copied_slide.slides")})
-    doc_path = os.path.join(DATA, "figure.figasm")   # (not saved: only where its pictures may be)
+    doc_path = os.path.join(DATA, "figure.mosaic")   # (not saved: only where its pictures may be)
     r = api.clipboard_paste("auto", None, doc_path)
     assert r["kind"] == "slides" and r["key"].startswith("copied:") and len(r["pages"]) == 1
     assert len(r["pages"][0]["items"]) == 6 and list(r["assets"].values())[0]["name"].startswith("example_scatter")
@@ -136,7 +136,7 @@ def test_api_pastes_slides_and_shapes(fake, monkeypatch):
 # The slide picker ------------------------------------------------------------------------------
 
 def test_picker_api(tmp_path, monkeypatch):
-    from figassemble.app.api import Api
+    from mosaic.app.api import Api
     monkeypatch.setattr(powerpoint, "open_decks", lambda: [])   # not the decks open on this computer
     api = Api()
     deck = tmp_path / "Figures" / "deck.pptx"
@@ -153,7 +153,7 @@ def test_picker_api(tmp_path, monkeypatch):
     assert got["report"][0].startswith("relinked image2.png") and got["report"][-1].startswith("slide 3:")
     opened = api.open_document(str(deck), [2, 4])
     assert [p["name"] for p in opened["doc"]["pages"]] == ["Slide 2", "Slide 4"] and opened["path"] is None
-    assert opened["suggested"].endswith("deck.figasm") and opened["doc"]["meta"]["imported_from"] == str(deck)
+    assert opened["suggested"].endswith("deck.mosaic") and opened["doc"]["meta"]["imported_from"] == str(deck)
     assert len(api.open_document(str(deck))["doc"]["pages"]) == 4   # no slides chosen: all of them
     # Pages are copies: changing one doesn't change the next time they're asked for
     got["pages"][0]["items"].clear()
@@ -192,14 +192,14 @@ def test_dragged_slides_are_found_in_open_decks(tmp_path):
 def test_the_window_a_drag_is_over():
     """The frontmost window at a point, from macOS's list of windows on screen (front to back):
     the drag image, pop-up menus and invisible windows are looked through."""
-    from figassemble.app.macdrag import front_window
+    from mosaic.app.macdrag import front_window
 
     def win(number, x, y, w, h, layer=0, alpha=1):
         return {"kCGWindowNumber": number, "kCGWindowLayer": layer, "kCGWindowAlpha": alpha,
                 "kCGWindowBounds": {"X": x, "Y": y, "Width": w, "Height": h}}
     windows = [win(1, 0, 0, 120, 90, layer=500), win(2, 0, 0, 900, 900, alpha=0), win(3, 300, 0, 200, 200),
                win(4, 0, 0, 400, 300), win(5, -1000, -500, 900, 400)]
-    assert front_window(windows, 10, 10) == 4   # FigAssemble's, under the drag image and an invisible window
+    assert front_window(windows, 10, 10) == 4   # mosaic's, under the drag image and an invisible window
     assert front_window(windows, 350, 50) == 3   # PowerPoint's, in front of it
     assert front_window(windows, -500, -300) == 5   # on a second display
     assert front_window(windows, 600, 600) is None
@@ -208,7 +208,7 @@ def test_the_window_a_drag_is_over():
 def test_slide_thumbnails_dragged_out_of_powerpoint_are_followed():
     """PowerPoint lets only its own windows take slide thumbnails, so macOS hands the web view no
     drag at all; SlideWatch follows it instead, from the drag pasteboard and the pointer."""
-    from figassemble.app.macdrag import SlideWatch
+    from mosaic.app.macdrag import SlideWatch
     told = []
 
     class View:

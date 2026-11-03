@@ -1,4 +1,4 @@
-"""Paste from other apps: reading the clipboard (figassemble/app/clipboard.py) and what a paste
+"""Paste from other apps: reading the clipboard (mosaic/app/clipboard.py) and what a paste
 puts on the page (Api.clipboard_paste)."""
 import io
 import os
@@ -8,7 +8,7 @@ import sys
 import pytest
 from PIL import Image
 
-from figassemble.app import clipboard as cb
+from mosaic.app import clipboard as cb
 
 
 def show(paras):
@@ -38,7 +38,7 @@ def png(size=(20, 10), dpi=None) -> bytes:
 
 @pytest.fixture
 def fake(monkeypatch):
-    monkeypatch.setenv("FIGASSEMBLE_FAKE_CLIPBOARD", "1")
+    monkeypatch.setenv("MOSAIC_FAKE_CLIPBOARD", "1")
     monkeypatch.setattr(cb, "_fake", None)
     return cb.backend()
 
@@ -94,8 +94,8 @@ def test_plan_order(fake, fixtures):
     # Copied files come first (the Finder adds their names and an icon)
     fake.put({"files": [fixtures["pdf"], "/no/such/file.pdf"], "text": "plot.pdf", "tiff": {"size": [8, 8]}})
     assert cb.plan(fake) == ("files", [fixtures["pdf"]])
-    # FigAssemble's own copies: objects, or "own" while the editor's copy is still the newest
-    n = fake.put({"text": 'figassemble:{"items": []}'})
+    # mosaic's own copies: objects, or "own" while the editor's copy is still the newest
+    n = fake.put({"text": 'mosaic:{"items": []}'})
     assert cb.plan(fake) == ("objects", '{"items": []}') and cb.plan(fake, own_count=n) == ("own", None)
     fake.put({})
     assert cb.plan(fake) == ("none", None) and cb.plan(fake, "picture") == ("none", None)
@@ -129,7 +129,7 @@ def test_tiff_takes_the_largest_image():
 
 
 def test_api_paste(fake, fixtures):
-    from figassemble.app.api import Api
+    from mosaic.app.api import Api
     api = Api()
     assert api.app_info()["clipboard"] is True
     api.clipboard_fake({"text": "Plain and bold", "html": "Plain and <b>bold</b>"})
@@ -146,7 +146,7 @@ def test_api_paste(fake, fixtures):
     r = api.clipboard_paste()
     assert r["kind"] == "files" and r["results"][0]["asset"]["variants"]["svg"]["src"] == fixtures["svg"]
     # The editor's copy: "own" until something else is copied
-    n = api.clipboard_copied('figassemble:{"items": [], "assets": {}, "page": "p"}')
+    n = api.clipboard_copied('mosaic:{"items": [], "assets": {}, "page": "p"}')
     assert api.clipboard_paste("auto", n) == {"kind": "own"} and api.clipboard_kinds(n) == {"available": True, "own": True}
     assert api.clipboard_paste()["kind"] == "objects"
     api.clipboard_fake({"text": "Newer"})
@@ -154,8 +154,8 @@ def test_api_paste(fake, fixtures):
 
 
 def test_fake_only_with_the_test_clipboard(monkeypatch):
-    from figassemble.app.api import Api
-    monkeypatch.delenv("FIGASSEMBLE_FAKE_CLIPBOARD", raising=False)
+    from mosaic.app.api import Api
+    monkeypatch.delenv("MOSAIC_FAKE_CLIPBOARD", raising=False)
     with pytest.raises(PermissionError):
         Api().clipboard_fake({"text": "x"})
 

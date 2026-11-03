@@ -4,10 +4,10 @@ import numpy as np
 from lxml import etree
 from PIL import Image
 
-from figassemble import model
-from figassemble.export.preflight import preflight
-from figassemble.export.run import export_document
-from figassemble.resolve import DrawGroup, DrawPath, DrawText, Resolver, flat_prims
+from mosaic import model
+from mosaic.export.preflight import preflight
+from mosaic.export.run import export_document
+from mosaic.resolve import DrawGroup, DrawPath, DrawText, Resolver, flat_prims
 
 SYMBOL = {"id": "sym1", "name": "Cell", "size": [40.0, 20.0], "items": [
     {"id": "box", "type": "shape", "geom": "rect", "frame": [0, 0, 40, 20], "rot": 0,

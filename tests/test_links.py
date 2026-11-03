@@ -9,9 +9,9 @@ import shutil
 
 import pikepdf
 
-from figassemble import docfile, model
-from figassemble.app.api import Api
-from figassemble.assets import new_asset
+from mosaic import docfile, model
+from mosaic.app.api import Api
+from mosaic.assets import new_asset
 
 
 def svg(w: float, colour: str = "#336699", label: str = "first") -> str:
@@ -99,12 +99,12 @@ def test_a_document_moved_with_its_figures_finds_them_beside_it(tmp_path):
     doc = model.new_document()
     doc["assets"][aid] = asset
     doc["pages"][0]["items"].append(model.picture_item(aid, asset, 20, 20))
-    docfile.save(doc, str(first / "figure.figasm"))
+    docfile.save(doc, str(first / "figure.mosaic"))
     moved = tmp_path / "moved"
     shutil.move(str(first), str(moved))   # the whole folder, figures and all
-    doc = docfile.load(str(moved / "figure.figasm"))
+    doc = docfile.load(str(moved / "figure.mosaic"))
     api = Api()
-    assert api.link_status(doc["assets"], str(moved / "figure.figasm")) == {aid: "linked"}
+    assert api.link_status(doc["assets"], str(moved / "figure.mosaic")) == {aid: "linked"}
     resave(str(moved / "Figures" / "plot.svg"), svg(140, "#993333", "second"))
-    changed = api.refresh_assets(doc["assets"], str(moved / "figure.figasm"))["changed"]
+    changed = api.refresh_assets(doc["assets"], str(moved / "figure.mosaic"))["changed"]
     assert changed[aid]["size_pt"] == [140.0, 50.0]
