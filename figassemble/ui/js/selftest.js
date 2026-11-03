@@ -8,7 +8,7 @@ import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
-import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, shapeCatalog } from "./util.js";
+import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog } from "./util.js";
 import { sameCommand } from "./selectsame.js";
 import { ringsOf, toPageOf } from "./pen.js";
 
@@ -1228,6 +1228,56 @@ async function pictureMenuChecks(app) {
     && items().every((b) => b.querySelector(".menu-pic svg")), "the Shape list comes in its groups, each shape with its icon, starting on its own",
   `${headings.length} groups; on ${document.activeElement?.dataset.value}`);
   closeMenu();
+  store.select(["pmLine"]);
+  inspector.render();
+  fieldByLabel("Corners").click();
+  const corners = items().map((b) => b.querySelector(".menu-pic path")?.getAttribute("d"));
+  check(new Set(corners).size === 3 && items().every((b) => b.querySelectorAll(".menu-pic path").length === 2),
+    "the Corners pictures are a thick line's outline, its corner square, rounded or cut across", corners.join(" | "));
+  closeMenu();
+  // A colour too faint to see against the menu is pictured grey (on the menu's highlighted row, in
+  // that row's text colour); one that stands out keeps its own
+  const panel = getComputedStyle(document.documentElement).getPropertyValue("--panel").trim();
+  const strong = luminance(parseHex(panel) || "#ffffff") > 0.18 ? "#000000" : "#ffffff";
+  const recolour = async (color) => {
+    store.update("Line colour", (doc) => {
+      const l = doc.pages[0].items.find((i) => i.id === "pmLine");
+      l.stroke = { ...l.stroke, color };
+    }, { select: ["pmLine"] });
+    await settle();
+    inspector.render();
+    await until(() => drawnIn(fieldByLabel("Dash")), 4000);
+    return fieldByLabel("Dash").querySelector(".pic-svg");
+  };
+  const faint = await recolour(panel);
+  check(faint.classList.contains("pic-ink") && faint.innerHTML.includes("currentColor") && !faint.innerHTML.includes(panel)
+    && fieldByLabel("Corners").querySelector("path")?.getAttribute("fill") === "currentColor",
+  "a line the colour of the menu is pictured grey", faint.innerHTML.slice(0, 160));
+  fieldByLabel("Dash").click();
+  await until(() => items().length && items().every((b) => drawnIn(b)), 4000);
+  const probe = document.body.appendChild(document.createElement("span"));
+  probe.style.color = "var(--muted)";
+  const grey = getComputedStyle(probe).color, colour = (el) => el && getComputedStyle(el).color;
+  probe.remove();
+  const [on, off] = [document.activeElement, items().find((b) => b !== document.activeElement)];
+  check(colour(off?.querySelector(".pic-ink")) === grey && (!on?.matches(":focus") || colour(on.querySelector(".pic-ink")) === colour(on)),
+    "in its menu too, the highlighted row's in that row's text colour",
+    `${colour(off?.querySelector(".pic-ink"))} vs ${grey}; ${colour(on?.querySelector(".pic-ink"))} vs ${colour(on)}`);
+  closeMenu();
+  const own = await recolour(strong);
+  check(own.innerHTML.includes(strong) && !own.innerHTML.includes("currentColor"), "a line that stands out against the menu keeps its colour",
+    own.innerHTML.slice(0, 160));
+  // Changing to a theme it's faint in pictures it grey at once (dark for a black line, light for a white one)
+  const keep = { theme: app.prefs.theme, theme_day: app.prefs.theme_day, theme_night: app.prefs.theme_night };
+  const other = strong === "#000000" ? "dark" : "light", panelNow = () => getComputedStyle(document.documentElement).getPropertyValue("--panel").trim();
+  await app.savePrefs({ theme: other });
+  await until(() => panelNow() === (app.info.themes || []).find((t) => t.id === other)?.colors.panel, 4000);
+  const greyNow = () => fieldByLabel("Dash")?.querySelector(".pic-svg")?.innerHTML.includes("currentColor");
+  await until(() => greyNow(), 4000);
+  check(greyNow(), `changing to the ${other === "dark" ? "Dark" : "Light"} theme, where it's faint, pictures it grey at once`,
+    fieldByLabel("Dash")?.querySelector(".pic-svg")?.innerHTML.slice(0, 160));
+  await app.savePrefs(keep);
+  await until(() => panelNow() === panel, 4000);
 }
 
 // Guides from the rulers: pointing at a ruler shows where a click would put a guide, rounded to a

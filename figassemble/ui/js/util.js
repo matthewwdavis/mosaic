@@ -28,6 +28,18 @@ export function uid(prefix) {
 
 export const clone = (o) => JSON.parse(JSON.stringify(o));
 export const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+// "#1a2b3c", "1A2B3C" or "#abc" -> "#1a2b3c"; anything else -> null
+export function parseHex(text) {
+  let c = String(text || "").trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(c)) c = [...c].map((x) => x + x).join("");
+  return /^[0-9a-f]{6}$/i.test(c) ? `#${c.toLowerCase()}` : null;
+}
+// A "#rrggbb" colour's relative luminance, 0 for black to 1 for white, as contrast ratios use it
+export function luminance(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
 export const isMac = navigator.platform.toUpperCase().includes("MAC") || /Mac/.test(navigator.userAgent);
 export const MOD = isMac ? "⌘" : "Ctrl+";
 

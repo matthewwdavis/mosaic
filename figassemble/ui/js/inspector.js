@@ -17,8 +17,8 @@ import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePic
   shapePicture, stylePicture } from "./pictures.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
-  UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, shapeCatalog,
-  shapeName, toUnit,
+  UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, luminance,
+  parseHex, shapeCatalog, shapeName, toUnit,
 } from "./util.js";
 
 const DASHES = [["solid", "Solid"], ["sysDot", "Round dot"], ["sysDash", "Short dash"], ["dash", "Dash"],
@@ -1253,12 +1253,6 @@ function colorField(text, value, onChange, swatch = null) {
   return h("div", { class: "field color" }, label(text, id), h("div", { class: "color-row" }, picker, code, choose),
     sw ? h("div", { class: "swatch-link" }, `Swatch: ${sw.name}`) : null);
 }
-// "#1a2b3c", "1A2B3C" or "#abc" -> "#1a2b3c"; anything else -> null
-export function parseHex(s) {
-  let c = String(s || "").trim().replace(/^#/, "");
-  if (/^[0-9a-f]{3}$/i.test(c)) c = [...c].map((x) => x + x).join("");
-  return /^[0-9a-f]{6}$/i.test(c) ? `#${c.toLowerCase()}` : null;
-}
 // Transparency in percent (0 = solid), as PowerPoint shows it; items store opacity
 function transparencyField(text, opacity, onCommit) {
   return numField(text, (1 - (opacity ?? 1)) * 100, "%", (v) => onCommit(Math.min(Math.max(1 - v / 100, 0), 1)),
@@ -1267,9 +1261,7 @@ function transparencyField(text, opacity, onCommit) {
 // White around dark things, black around light ones
 function contrastingOutline(it) {
   const main = parseHex(it.type === "line" ? it.stroke?.color : (it.fill?.color || it.stroke?.color)) || "#000000";
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(main.slice(i, i + 2), 16) / 255)
-    .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? "#000000" : "#ffffff";
+  return luminance(main) > 0.4 ? "#000000" : "#ffffff";
 }
 function checkField(text, checked, onChange) {
   const id = `f${++fieldId}`;

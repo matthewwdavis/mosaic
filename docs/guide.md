@@ -388,8 +388,11 @@ LaTeX's maths, not whole LaTeX documents).
 corners, arrowheads and their size, the outline's sides and gaps, a connector's route) shows its
 choice as a small picture beside its name. Click it, or press ↓, for a menu with a picture of
 every choice, in the object's own colours and line width: a dash, an arrowhead or an outline
-looks there exactly as it will on the page. A list greyed out changes nothing yet, and says
-why underneath (an arrowhead's size before there's an arrowhead, say).
+looks there exactly as it will on the page. A colour too faint to see against the menu is
+shown grey instead: a black line in a dark theme, a white or pale yellow one in a light theme.
+The corners are drawn on a thick line's outline, so you can see whether its corner is square
+(Sharp), rounded (Round) or cut across (Bevelled). A list greyed out changes nothing yet, and
+says why underneath (an arrowhead's size before there's an arrowhead, say).
 
 <img src="images/picturemenu.png" alt="The End arrowhead list open: a picture of each arrowhead beside its name" width="264">
 

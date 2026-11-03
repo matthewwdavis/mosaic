@@ -303,6 +303,10 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .pic-none, .pic-none-box { fill: none; stroke: var(--muted); stroke-width: 1.2; }
 .pic-none-box { stroke-dasharray: 2 2; }
 .pic-line { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+/* An object's colour too faint to see against the menu is drawn in currentColor (pictures.js ink):
+   grey, or the text colour of the menu's highlighted row */
+.pic-ink { color: var(--muted); }
+.context-menu .menu-item:focus .pic-ink { color: inherit; }
 .file-name { font-weight: 600; word-break: break-all; margin: 0.2rem 0; }
 .link-status { margin: 0.2rem 0; }
 .link-status.missing { color: var(--warn); }

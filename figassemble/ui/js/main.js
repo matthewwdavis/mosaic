@@ -2421,11 +2421,14 @@ function applyTheme(p) {
     if (key.join("|") !== themeKey) return;
     document.getElementById("theme-vars").textContent = css;
     document.dispatchEvent(new CustomEvent("fa-prefs", { detail: app.prefs }));   // the rulers redraw in it
+    inspector.render();   // and the Style tab's pictures (pictures.js ink)
   }).catch(() => {});
 }
-// The system switching between light and dark: the rulers (drawn, not styled) follow
+// The system switching between light and dark: the rulers (drawn, not styled) and the Style tab's
+// pictures follow
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
   document.dispatchEvent(new CustomEvent("fa-prefs", { detail: app.prefs }));
+  inspector.render();
 });
 
 // Start-up ------------------------------------------------------------------------------------

@@ -1,20 +1,33 @@
 // Small pictures of the Style tab's choices, for its picture menus (inspector.pictureField): a
 // dash, a line's end or corner, an arrowhead, an outline's sides and gaps, a fill, a shape, in the
-// object's own colours. Dashes, arrowheads and outlines are drawn by the engine, exactly as on the
-// page; ends, corners, fills and routes are simple drawings of the same thing.
+// object's own colours (grey where one is too faint to see against the menu). Dashes, arrowheads and
+// outlines are drawn by the engine, exactly as on the page; ends, corners, fills and routes are
+// simple drawings of the same thing.
 
 import { rpc } from "./api.js";
-import { pathIcon, s, shapeCatalog } from "./util.js";
+import { luminance, parseHex, pathIcon, s, shapeCatalog } from "./util.js";
 
 const LINE_BOX = [44, 14];       // a line's picture, points (shown at 1 px a point)
 const SHAPE_BOX = [44, 18];
+const FAINT = 2;                 // contrast with the menu below which a colour is too faint to see (white on white 1, black on white 21)
+const FAINT_INK = "#fe01fd";     // stands in for currentColor in what the engine draws
 const cache = new Map();         // what an engine picture draws (its item as JSON) -> its SVG
 let queue = null, made = 0;
+
+// The colour to draw something of the object's in: its own, or the menu's grey where that's too
+// faint to see against the menu (black in a dark theme, white or pale yellow in a light one). The
+// grey is currentColor, from .pic-ink in app.css, so a highlighted menu row's text colour takes over
+function ink(color, faint = "currentColor") {
+  const c = parseHex(color), bg = parseHex(getComputedStyle(document.documentElement).getPropertyValue("--panel"));
+  if (!c || !bg) return color;
+  const [a, b] = [luminance(c), luminance(bg)];
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) < FAINT ? faint : color;
+}
 
 // An item drawn by the engine in a box of points, filled in when the drawing arrives. Pictures
 // asked for together go in one request, and each drawing is kept for next time
 function enginePicture(item, [w, ht]) {
-  const svg = s("svg", { viewBox: `0 0 ${w} ${ht}`, width: w, height: ht, class: "pic-svg", "aria-hidden": "true" });
+  const svg = s("svg", { viewBox: `0 0 ${w} ${ht}`, width: w, height: ht, class: "pic-svg pic-ink", "aria-hidden": "true" });
   const g = s("g");
   svg.append(g);
   const key = JSON.stringify(item);
@@ -30,8 +43,9 @@ function enginePicture(item, [w, ht]) {
       let drawn = [];
       try { drawn = await rpc("resolve", {}, asked.map(([, a]) => ({ ...a.item, id: `pic${++made}` })), [], []); } catch { return; }
       asked.forEach(([k, a], i) => {
-        cache.set(k, drawn[i]?.svg || "");
-        for (const el of a.els) el.innerHTML = drawn[i]?.svg || "";
+        const got = (drawn[i]?.svg || "").replaceAll(FAINT_INK, "currentColor");
+        cache.set(k, got);
+        for (const el of a.els) el.innerHTML = got;
       });
     });
   }
@@ -45,10 +59,16 @@ function drawing([w, ht], ...parts) {
   svg.append(...parts);
   return svg;
 }
+// A drawing in the object's colours, grey where they're too faint (ink)
+function inkDrawing(box, ...parts) {
+  const svg = drawing(box, ...parts);
+  svg.classList.add("pic-ink");
+  return svg;
+}
 // The object's line for a picture: its colour and dash, thick enough to see, thin enough to fit
-const pictureStroke = (st, extra = {}) => ({ color: "#000000", cap: "round", join: "round", ...(st || {}), opacity: 1,
-  width: Math.min(Math.max(st?.width ?? 1, 0.75), 2.5), ...extra });
-const colourOf = (st) => st?.color || "#000000";
+const pictureStroke = (st, extra = {}) => ({ cap: "round", join: "round", ...(st || {}), opacity: 1,
+  width: Math.min(Math.max(st?.width ?? 1, 0.75), 2.5), ...extra, color: ink(st?.color || "#000000", FAINT_INK) });
+const colourOf = (st) => ink(st?.color || "#000000");
 const across = () => ({ type: "line", points: [[4, LINE_BOX[1] / 2], [LINE_BOX[0] - 4, LINE_BOX[1] / 2]] });
 
 export function dashPicture(st, dash) {
@@ -56,14 +76,19 @@ export function dashPicture(st, dash) {
 }
 // A thick stub ending at a hairline, so a round or square end shows how far past it it reaches
 export function capPicture(st, cap) {
-  return drawing([40, 14], s("line", { x1: 8, y1: 7, x2: 28, y2: 7, stroke: colourOf(st), "stroke-width": 6,
+  return inkDrawing([40, 14], s("line", { x1: 8, y1: 7, x2: 28, y2: 7, stroke: colourOf(st), "stroke-width": 6,
     "stroke-linecap": cap === "flat" ? "butt" : cap }), s("line", { x1: 28, y1: 1, x2: 28, y2: 13, class: "pic-guide" }));
 }
-// A right-angled corner of a line as thick as the picture allows, so a sharp corner is square, a
-// round one rounded and a bevelled one cut across (any thinner and they all look the same)
+// A right-angled corner of a thick line, drawn as its outline with the inside lightly shaded, so a
+// sharp corner is square, a round one rounded and a bevelled one cut across. (A solid line thin
+// enough to look light can't show them apart: they differ only at the outer edge of a thick line.)
 export function joinPicture(st, join) {
-  return drawing([20, 20], s("polyline", { points: "0,7 13,7 13,20", fill: "none", stroke: colourOf(st), "stroke-width": 10,
-    "stroke-linejoin": join, "stroke-linecap": "butt" }));
+  const [x, y, half, bottom] = [14.25, 7.75, 5.5, 20];   // the corner, half the line's width, the picture's bottom
+  const top = `M0 ${y - half}H${join === "miter" ? x + half : x}`
+    + (join === "round" ? `A${half} ${half} 0 0 1 ${x + half} ${y}` : join === "bevel" ? `L${x + half} ${y}` : "");
+  const colour = colourOf(st);
+  return inkDrawing([22, 20], s("path", { d: `${top}V${bottom}H${x - half}V${y + half}H0Z`, fill: colour, "fill-opacity": 0.25 }),
+    s("path", { d: `${top}V${bottom}M0 ${y + half}H${x - half}V${bottom}`, fill: "none", stroke: colour, "stroke-width": 1.5 }));
 }
 // A line with an arrowhead at the end the list is for, of the kind and size given
 export function headPicture(it, end, type, size) {
@@ -75,14 +100,15 @@ export function headPicture(it, end, type, size) {
 // line across for something with no inside, else its own shape (a rounded box for a freeform)
 function miniature(it, look, hasInside) {
   const stroke = look.stroke ? pictureStroke(look.stroke, { width: 1.5 }) : null;
-  const outline = look.outline ? { ...look.outline, opacity: 1, width: Math.min(Math.max(look.outline.width ?? 1, 1.5), 2.5) } : null;
+  const outline = look.outline ? { ...look.outline, opacity: 1, width: Math.min(Math.max(look.outline.width ?? 1, 1.5), 2.5),
+    color: ink(look.outline.color || "#ffffff", FAINT_INK) } : null;
   if (!hasInside) {
     return enginePicture({ ...across(), stroke, outline, arrow_start: look.arrow_start || null, arrow_end: look.arrow_end || null }, LINE_BOX);
   }
   const info = shapeCatalog.shapes[it.geom];
   const geom = it.geom !== "custom" && info?.closed ? it.geom : "roundRect";
   return enginePicture({ type: "shape", geom, adj: geom === it.geom ? it.adj : undefined, rounding: it.rounding, frame: [9, 4, 26, 10],
-    rot: 0, fill: look.fill ? { ...look.fill } : null, stroke, outline }, SHAPE_BOX);
+    rot: 0, fill: look.fill ? { ...look.fill, color: ink(look.fill.color, FAINT_INK) } : null, stroke, outline }, SHAPE_BOX);
 }
 // The object with its outline's sides and gaps as given, in its own dash, so gaps show
 export function outlinePicture(it, type, hasInside) {
@@ -120,7 +146,7 @@ export function fillPicture(it, mode, center = null) {
 }
 // A shape's line or none
 export function linePicture(st, on) {
-  return drawing([16, 16], s("rect", { x: 2, y: 2, width: 12, height: 12, rx: 1.5, fill: "none",
+  return inkDrawing([16, 16], s("rect", { x: 2, y: 2, width: 12, height: 12, rx: 1.5, fill: "none",
     ...(on ? { stroke: colourOf(st || {}), "stroke-width": 2 } : { class: "pic-none-box" }) }));
 }
 export function routePicture(route) {
