@@ -69,6 +69,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
   min-width: 2.65rem; min-height: 2.9rem; padding: 0.25rem 0.22rem; border: 1px solid transparent;
   border-radius: 0.4rem; background: transparent; cursor: pointer; }
 .tool:hover { background: var(--hover); }
+.tool-split { display: flex; align-items: stretch; }   /* a button with ▾ beside it for its choices (Zoom inset) */
+.tool-split .tool:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.tool.tool-more { min-width: 0; padding: 0.25rem 0.12rem; color: var(--muted); font-size: 0.75rem;
+  border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .tool[aria-pressed="true"] { background: var(--pressed); border-color: var(--sel); }
 .tool.primary { background: var(--accent); color: var(--accent-text); padding: 0.25rem 0.8rem; }
 .tool.primary:hover { filter: brightness(1.08); }

@@ -159,6 +159,13 @@ export function pathPicture(curve) {
     ? s("path", { d: "M5 11 C10 2 15 2 20 7 S30 12 35 3", class: "pic-line" })
     : s("polyline", { points: "5,11 15,3 25,11 35,3", class: "pic-line" }));
 }
+// A zoom inset's shape: a rectangle, a rounded rectangle, an ellipse or a circle
+export function zoomShapePicture(shape) {
+  const el = shape === "ellipse" ? s("ellipse", { cx: 10, cy: 9, rx: 8, ry: 5.5 }) : shape === "circle" ? s("circle", { cx: 10, cy: 9, r: 6.5 })
+    : s("rect", { x: 2.5, y: 3.5, width: 15, height: 11, rx: shape === "round" ? 3.5 : 0 });
+  el.setAttribute("class", "pic-line");
+  return drawing([20, 18], el);
+}
 // A shape's icon, as in the Shapes menu
 export function shapePicture(geom) {
   return geom ? pathIcon(shapeCatalog.shapes[geom]?.icon || "M4 6h16v12H4z") : drawing([16, 16], s("rect", { x: 2, y: 2,

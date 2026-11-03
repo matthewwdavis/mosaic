@@ -273,6 +273,18 @@ export async function run(app, params) {
     void f;
     return finish();
   }
+  if (scene === "zoomshapes") {
+    // The dose-response plot's steep part circled and shown enlarged in a round inset, zoomed in
+    store.update("Narrower", (doc) => { const it = doc.pages[0].items.find((i) => i.id === c); it.frame[2] *= 0.6; it.frame[3] *= 0.6; });
+    const g = fr(c), d = g[3] * 0.38;
+    app.addZoomInset(c, [g[0] + g[2] * 0.56 - d / 2, g[1] + g[3] * 0.45 - d / 2, d, d], "circle");
+    const inset = store.selected()[0].frame;
+    store.select([]);
+    centreOn((g[0] + inset[0] + inset[2]) / 2, (Math.min(g[1], inset[1]) + Math.max(g[1] + g[3], inset[1] + inset[3])) / 2, 1.6);
+    await settle();
+    await new Promise((r) => setTimeout(r, 1000));   // the clip comes from the engine
+    return finish();
+  }
   if (scene === "cropshape") {
     // The bar chart cropped to a rounded rectangle, with its Picture tab
     store.update("Crop to shape", (doc) => { doc.pages[0].items.find((i) => i.id === b).mask = { geom: "roundRect", adj: { adj: 0.3 } }; },

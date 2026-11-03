@@ -12,6 +12,8 @@ import { contextMenu } from "./contextmenu.js";
 import { listDrag } from "./listdrag.js";
 import { updates } from "./updates.js";
 import { intoPlace, locate, moveItems, moveToPage, slotPlaces, treeRows } from "./layers.js";
+import { zoomShapePicture } from "./pictures.js";
+import { ZOOM_SHAPES } from "./zoom.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon, s, shapeName, toUnit } from "./util.js";
 
 // 24 x 24 stroke icons, drawn for mosaic; a few follow Feather's and Lucide's designs (their
@@ -233,6 +235,17 @@ export const panels = {
     const r = btn.getBoundingClientRect();
     contextMenu.show(entries, r.left, r.bottom + 2, btn);
   },
+  // Zoom inset (Figure tab): a click drags a rectangle, and ▾ beside it offers every shape
+  zoomInsetButton() {
+    const more = h("button", { type: "button", class: "tool tool-more", title: "Zoom inset shapes", "aria-label": "Zoom inset shapes",
+      "aria-haspopup": "menu", tabindex: -1 }, "▾");
+    more.addEventListener("click", () => {
+      const r = more.getBoundingClientRect();
+      contextMenu.show(ZOOM_SHAPES.map(([cmd, shape, label]) => ({ label, picture: zoomShapePicture(shape), run: () => this.app.run(cmd) })),
+        r.left, r.bottom + 2, more, { label: "Zoom inset shapes" });
+    });
+    return h("div", { class: "tool-split" }, this.toolButton("zoomInset", "zoomInset"), more);
+  },
   // Custom size… (the Size menu): the page's width and height, as the Page panel has them
   customSizeDialog() {
     const page = store.page(), pu = inspector.pageUnits();
@@ -266,7 +279,7 @@ export const panels = {
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
       ["figure", "Figure", [
         group("Scale", t("addScaleBar", "scalebar"), t("measureScale", "measure")),
-        group("Zoom", t("zoomInset", "zoomInset")),
+        group("Zoom", this.zoomInsetButton()),
         group("Significance", t("toolSigBracket", "sigBracket"), t("stackBrackets", "stackBrackets")),
         group("Symbols", t("makeSymbol", "symbol"), t("symbols", "symbols")),
         group("Maths", t("equation", "equation")),

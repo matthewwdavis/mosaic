@@ -18,10 +18,11 @@ import { panels } from "./panels.js";
 import { updates } from "./updates.js";
 import { rulers } from "./rulers.js";
 import { splitters } from "./splitters.js";
-import { store } from "./store.js";
+import { findItem, store } from "./store.js";
 import { applyStyle, styleOf } from "./styles.js";
 import { SAME, sameAs, sameCommand } from "./selectsame.js";
 import { barFrame, niceLength, pageScale, pxPerPt, scaleText } from "./scalebar.js";
+import { ZOOM_ROUNDING, zoomShape } from "./zoom.js";
 import { stackLevels } from "./brackets.js";
 import { colourHolders, swatchById } from "./swatches.js";
 import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, setFormat } from "./textstyles.js";
@@ -951,21 +952,24 @@ const app = {
     this.setPictureScale(pic.id, value / (lenPage / pageScale(pic, asset)), unit, "measured");
   },
   // Zoom insets (zoom.js): a box on a picture, the area enlarged beside it, and two lines between
-  // them, all in one colour (Okabe-Ito's orange shows on dark images and white pages alike)
-  addZoomInset(picId, rect) {
+  // them, all in one colour (Okabe-Ito's orange shows on dark images and white pages alike). The
+  // box is a rectangle, a rounded rectangle, an ellipse or a circle, and the inset takes its shape
+  addZoomInset(picId, rect, shape = "rect") {
     const pic = store.item(picId);
     if (!pic) return;
     const [px, py, pw, ph] = pic.frame;
     const x0 = Math.max(rect[0], px), y0 = Math.max(rect[1], py);
     const box = [x0, y0, Math.min(rect[0] + rect[2], px + pw) - x0, Math.min(rect[1] + rect[3], py + ph) - y0];
+    if (shape === "circle") box[2] = box[3] = Math.min(box[2], box[3]);   // (a circle cut short by the picture's edge)
     if (!(box[2] > 0.5 && box[3] > 0.5)) return;
     const page = store.page(), colour = "#e69f00";
     const iw = Math.min(box[2] * 3, Math.max(pw, box[2] * 1.5)), ih = (iw * box[3]) / box[2];
     let [ix, iy] = [px + pw + 12, py];   // to its right if the page has room, or else below it
     if (ix + iw > page.width) [ix, iy] = [px, py + ph + 12];
     const stroke = (w) => ({ color: colour, width: w, dash: "solid", cap: "round", join: "miter", opacity: 1 });
-    const boxItem = { id: uid("it"), type: "shape", geom: "rect", frame: box, rot: 0, flip_h: false, flip_v: false, fill: null,
-      stroke: stroke(1), zoom: { picture: pic.id } };
+    const boxItem = { id: uid("it"), type: "shape", geom: shape === "ellipse" || shape === "circle" ? "ellipse" : "rect", frame: box,
+      rot: 0, flip_h: false, flip_v: false, fill: null, stroke: stroke(1),
+      ...(shape === "round" ? { rounding: ZOOM_ROUNDING } : {}), zoom: { picture: pic.id, ...(shape === "circle" ? { circle: true } : {}) } };
     const inset = { ...clone(pic), id: uid("it"), name: `${itemLabel(pic, store.doc)}, enlarged`, frame: [ix, iy, iw, ih],
       inset: { box: boxItem.id }, border: { color: colour, width: 1 } };
     delete inset.mask;
@@ -977,6 +981,61 @@ const app = {
       items.push(...lines, inset);
     }, { select: [inset.id] });
     announce("Added a zoom inset: drag the box to show another area, or the inset to place it");
+  },
+  // A zoom inset's shape, from its box's panel or its inset's: both change while they share it,
+  // as the inset is cropped to its box's shape (zoom.js); an inset with a shape of its own alone
+  setZoomShape(id, shape) {
+    store.update("Zoom inset shape", (doc) => {
+      const items = doc.pages[store.pageIndex].items, it = findItem(items, id);
+      const box = it?.zoom ? it : it?.inset && findItem(items, it.inset.box);
+      if (!box?.zoom) return;
+      if (it.inset && box.zoom.own_shapes) {
+        if (shape === "rect") delete it.mask;
+        else it.mask = shape === "round" ? { geom: "rect", rounding: it.mask?.rounding || ZOOM_ROUNDING } : { geom: "ellipse" };
+        return;
+      }
+      box.geom = shape === "ellipse" || shape === "circle" ? "ellipse" : "rect";
+      delete box.adj;
+      if (shape === "round") box.rounding = box.rounding || ZOOM_ROUNDING;
+      else delete box.rounding;
+      if (shape === "circle" && !box.zoom.circle) {   // round about its middle, keeping its area
+        const [x, y, w, ht] = box.frame, d = Math.sqrt(w * ht);
+        box.frame = [x + (w - d) / 2, y + (ht - d) / 2, d, d];
+      }
+      if (shape === "circle") box.zoom.circle = true;
+      else delete box.zoom.circle;
+    });
+  },
+  setZoomRounding(id, amount) {
+    store.update("Corner rounding", (doc) => {
+      const items = doc.pages[store.pageIndex].items, it = findItem(items, id);
+      const box = it?.zoom ? it : it?.inset && findItem(items, it.inset.box);
+      if (!box?.zoom) return;
+      if (it.inset && box.zoom.own_shapes) it.mask = { ...it.mask, rounding: amount };
+      else box.rounding = amount;
+    });
+  },
+  // The box and inset sharing their shape, or each with its own; shared again from the inset's
+  // panel, the box takes the inset's shape (from the box's, the inset takes the box's)
+  matchZoomShapes(id, on) {
+    store.update(on ? "Same shape for the zoom inset" : "Own shapes for the zoom inset", (doc) => {
+      const items = doc.pages[store.pageIndex].items, it = findItem(items, id);
+      const box = it?.zoom ? it : it?.inset && findItem(items, it.inset.box);
+      if (!box?.zoom) return;
+      if (!on) {
+        box.zoom.own_shapes = true;
+        return;
+      }
+      delete box.zoom.own_shapes;
+      if (!it.inset) return;
+      const mk = it.mask || { geom: "rect" }, circle = box.zoom.circle && zoomShape(it) === "ellipse";
+      box.geom = mk.geom;
+      for (const k of ["adj", "rounding"]) {
+        if (mk[k] !== undefined) box[k] = mk[k];
+        else delete box[k];
+      }
+      if (!circle) delete box.zoom.circle;
+    });
   },
   // Significance brackets (brackets.js) stacked in tidy levels
   stackBrackets() {
@@ -2056,6 +2115,12 @@ app.commands = {
     "Measure"),
   zoomInset: cmd("Zoom inset: drag a box on a picture to show that area enlarged beside it", () => canvas.startZoom(), null, null,
     "Zoom inset"),
+  zoomInsetRound: cmd("Zoom inset, rounded rectangle: drag a box with rounded corners on a picture to show that area enlarged",
+    () => canvas.startZoom("round"), null, null, "Rounded rectangle"),
+  zoomInsetEllipse: cmd("Zoom inset, ellipse: drag an ellipse on a picture to show that area enlarged beside it",
+    () => canvas.startZoom("ellipse"), null, null, "Ellipse"),
+  zoomInsetCircle: cmd("Zoom inset, circle: drag a circle on a picture to show that area enlarged beside it",
+    () => canvas.startZoom("circle"), null, null, "Circle"),
   toolSigBracket: cmd("Significance bracket: drag across the bars it compares (or upright)", () => canvas.setTool("sigbracket"),
     null, null, "Bracket"),
   stackBrackets: cmd("Stack the selected brackets in tidy levels, the narrowest lowest", () => app.stackBrackets(), null, null, "Stack"),
@@ -2443,7 +2508,7 @@ async function start() {
   canvas.onTransform = (t) => app.noteTransform(t);
   canvas.onPaint = (hit, keyboard) => app.paintStyle(hit, keyboard);
   canvas.onMeasure = (id, len) => app.measured(id, len);
-  canvas.onZoomBox = (id, box) => app.addZoomInset(id, box);
+  canvas.onZoomBox = (id, box, shape) => app.addZoomInset(id, box, shape);
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.onEditSymbol = (id) => app.editSymbol(id);
   canvas.onEditEquation = (id) => app.editEquation(id);

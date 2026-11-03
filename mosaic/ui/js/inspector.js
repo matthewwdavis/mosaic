@@ -14,7 +14,8 @@ import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
 import { differs as looksDiffer } from "./objectstyles.js";
 import { CORNER_NAMES } from "./labels.js";
 import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePicture, outlinePicture, pathPicture, routePicture,
-  shapePicture, stylePicture } from "./pictures.js";
+  shapePicture, stylePicture, zoomShapePicture } from "./pictures.js";
+import { ZOOM_SHAPES, zoomShape } from "./zoom.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, luminance,
@@ -520,7 +521,7 @@ export const inspector = {
         h("p", { class: "hint" }, `${fmt(toUnit(b[2] - b[0], u), 2)} × ${fmt(toUnit(b[3] - b[1], u), 2)} ${UNIT_LABEL[u]}`)]);
     }
     const [x, y, w, hh] = it.frame;
-    const lockAspect = it.type === "picture";
+    const lockAspect = it.type === "picture" || !!it.zoom?.circle;
     // Typed changes count as transforms too, for Transform Again (⌘⇧D), measured from the object
     // as it is now (the numbers here can be from before a drag)
     const now = () => store.item(it.id);
@@ -557,7 +558,8 @@ export const inspector = {
           toggle("Flip horizontally", !!it.flip_h, (on) => this.edit("Flip", (o) => { o.flip_h = on; }), "⇋"),
           toggle("Flip vertically", !!it.flip_v, (on) => this.edit("Flip", (o) => { o.flip_v = on; }), "⇵"))),
     ];
-    if (lockAspect) kids.push(h("p", { class: "hint" }, "Width and height keep the picture's proportions."));
+    if (lockAspect) kids.push(h("p", { class: "hint" }, it.zoom?.circle ? "Width and height stay equal, so the circle stays round."
+      : "Width and height keep the picture's proportions."));
     if (it.type === "picture") {
       kids.push(transparencyField("Transparency", it.opacity, (op) => this.edit("Transparency", (o) => { o.opacity = op; })));
     }
@@ -598,7 +600,7 @@ export const inspector = {
           o.frame[2] = sw * (1 - o.crop[0] - o.crop[2]);
           o.frame[3] = sh * (1 - o.crop[1] - o.crop[3]);
         }), "100%")),
-      ...this.cropShapeFields(it),
+      ...(it.inset ? [] : this.cropShapeFields(it)),   // (an inset's shape is set in its Zoom inset section)
       selectField("Export from", it.source || "auto", exportKinds, (v) => this.edit("Export source", (o) => { o.source = v; })),
       h("div", { class: "button-row" },
         button("Replace with another file", () => this.app.run("replacePicture"), "Replace…"),
@@ -662,15 +664,34 @@ export const inspector = {
   insetSection(it) {
     const box = store.item(it.inset.box), pic = box?.zoom && store.item(box.zoom.picture);
     return section("Zoom inset", [
+      ...(box?.zoom ? this.zoomShapeFields(box, it, false) : []),
       h("p", { class: "hint" }, box && pic ? `It shows the area in its box on ${itemLabel(pic, store.doc)}, enlarged, and follows `
         + "the box. Resize it to enlarge it more or less." : "Its box has gone, so it stays as it is."),
       box ? button("Select its box on the picture", () => store.select([box.id]), "Select the box") : null]);
+  },
+  // A zoom inset's shape, on its box's panel and its inset's: the Shape list, Corner rounding for
+  // a rounded rectangle, and whether the two share their shape (zoom.js)
+  zoomShapeFields(box, inset, onBox) {
+    const same = !box.zoom.own_shapes, it = onBox ? box : inset, mine = same || onBox;
+    const shape = zoomShape(mine ? box : inset), geom = mine ? box.geom : inset.mask?.geom;
+    const options = ZOOM_SHAPES.filter(([, sh]) => sh !== "circle" || mine)   // (an inset on its own keeps the box's proportions)
+      .map(([, sh, label]) => ({ value: sh, label, picture: () => zoomShapePicture(sh) }));
+    if (shape === "other") options.push({ value: "other", label: shapeName(geom), picture: () => shapePicture(geom) });
+    const kids = [pictureField("Zoom shape", shape, options, (v) => { if (v !== "other") this.app.setZoomShape(it.id, v); })];
+    if (shape === "round") {
+      kids.push(numField("Corner rounding", ((mine ? box.rounding : inset.mask?.rounding) || 0) * 100, "%",
+        (v) => this.app.setZoomRounding(it.id, Math.min(Math.max(v, 0), 100) / 100), { min: 0, max: 100, step: 5 }));
+    }
+    kids.push(checkField(onBox ? "Same shape as the inset" : "Same shape as the box", same, (on) => this.app.matchZoomShapes(it.id, on)));
+    if (!same && !onBox) kids.push(h("p", { class: "hint" }, "Its proportions follow the box's, so it's round only when the box is."));
+    return kids;
   },
   zoomBoxSection(it) {
     const all = [], walk = (its) => its.forEach((x) => { all.push(x); if (x.type === "group") walk(x.items); });
     walk(store.items());
     const inset = all.find((x) => x.inset?.box === it.id);
     return section("Zoom inset", [
+      ...(inset ? this.zoomShapeFields(it, inset, true) : []),
       h("p", { class: "hint" }, inset ? "Its area is shown enlarged in the inset, which follows it: drag or resize the box to show "
         + "another area. It stays over the same part of its picture when the picture moves." : "Its inset has gone."),
       inset ? button("Select the enlarged copy", () => store.select([inset.id]), "Select the inset") : null]);

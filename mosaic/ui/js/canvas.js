@@ -8,7 +8,7 @@ import { followLabels, panelAt } from "./labels.js";
 import { finishEdits } from "./symbols.js";
 import { moveHandle, moveNode, nearestOn, ringsOf, segments, splitAt, toLocal, toPageOf, toggleSmooth, writeRings } from "./pen.js";
 import { followScaleBars } from "./scalebar.js";
-import { followZooms } from "./zoom.js";
+import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
 import { labelRoom } from "./brackets.js";
 import { applyTextStyle } from "./textstyles.js";
 import {
@@ -282,7 +282,10 @@ export const canvas = {
       overflow: "hidden" });
     const img = s("image", { width: sw, height: sh, preserveAspectRatio: "none", href: this.previewUrl(it, asset) });
     inner.append(img);
-    e.g.replaceChildren(inner);
+    // (a shape crop clips this, in the frame's own units: on the inner svg it would be in the file's)
+    const framed = s("g");
+    framed.append(inner);
+    e.g.replaceChildren(framed);
     e.g.setAttribute("transform", svgMatrix(m));
     e.g.setAttribute("opacity", it.opacity ?? 1);
     // A border round the frame, or round the shape it's cropped to (once the engine sends it)
@@ -292,7 +295,7 @@ export const canvas = {
         "stroke-width": it.border.width, x: 0, y: 0, width: it.frame[2], height: it.frame[3] });
       e.g.append(e.borderEl);
     }
-    this.clipTo(e, it.id, it.mask ? it : null, true, inner);   // cropped to a shape, in its own frame
+    this.clipTo(e, it.id, it.mask ? it : null, true, framed);   // cropped to a shape, in its own frame
   },
   // A clip from the engine (area_path): a picture's crop shape in its frame, or a clipping
   // mask's shape on the page. Asked for again only when the shape changes
@@ -494,8 +497,11 @@ export const canvas = {
     }
     if (this.op?.type === "zoombox") {
       const [a, b] = [this.toScreen(...this.op.start), this.toScreen(...this.op.cur)];
-      o.append(s("rect", { class: "measure-line", x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]),
-        width: Math.abs(b[0] - a[0]), height: Math.abs(b[1] - a[1]), fill: "none" }));
+      const [x, y, w, ht] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])];
+      const shape = this.op.shape, r = shape === "round" ? (ZOOM_ROUNDING * Math.min(w, ht)) / 2 : 0;
+      o.append(shape === "ellipse" || shape === "circle"
+        ? s("ellipse", { class: "measure-line", cx: x + w / 2, cy: y + ht / 2, rx: w / 2, ry: ht / 2, fill: "none" })
+        : s("rect", { class: "measure-line", x, y, width: w, height: ht, rx: r, fill: "none" }));
       return;
     }
     this.drawSnapGuides(o);
@@ -763,10 +769,10 @@ export const canvas = {
     if (this.tool === "fill") { this.onFillArea?.(p); return; }
     if (this.tool === "painter") { this.onPaint?.(this.itemAt(p)); return; }
     if (this.tool === "measure") { this.op = { type: "measure", start: p, cur: p }; return; }
-    if (this.tool === "zoom") {   // a box dragged on a picture, for a zoom inset
-      const pic = this.itemAt(p);
+    if (this.tool === "zoom") {   // a box dragged on a picture, for a zoom inset (under another's box, say)
+      const pic = store.scopeItems().findLast((it) => it.type === "picture" && !it.locked && hitItem(it, p, 4 / this.k));
       if (pic?.type !== "picture") { announce("Drag on a picture to box the area to enlarge"); return; }
-      this.op = { type: "zoombox", pic: pic.id, start: p, cur: p };
+      this.op = { type: "zoombox", pic: pic.id, start: p, cur: p, shape: this.zoomShape || "rect" };
       return;
     }
     if (this.tool === "pen") return this.penDown(p, e);
@@ -824,6 +830,11 @@ export const canvas = {
       return this.applyView();
     }
     if (op.type === "marquee") { op.cur = pt; op.touch = e.altKey; return this.drawOverlay(); }
+    if (op.type === "zoombox" && op.shape === "circle") {   // a circle: as far as the pointer went either way
+      const d = Math.max(Math.abs(p[0] - op.start[0]), Math.abs(p[1] - op.start[1]));
+      op.cur = [op.start[0] + (p[0] < op.start[0] ? -d : d), op.start[1] + (p[1] < op.start[1] ? -d : d)];
+      return this.drawOverlay();
+    }
     if (op.type === "measure" || op.type === "zoombox") { op.cur = p; return this.drawOverlay(); }
     if (op.type === "move") return this.moveTo(p, e);
     if (op.type === "resize") return this.resizeTo(p, e);
@@ -879,7 +890,7 @@ export const canvas = {
       this.drawOverlay();
       const box = [Math.min(op.start[0], op.cur[0]), Math.min(op.start[1], op.cur[1]),
         Math.abs(op.cur[0] - op.start[0]), Math.abs(op.cur[1] - op.start[1])];
-      if (!cancelled && box[2] * this.k > 4 && box[3] * this.k > 4) this.onZoomBox?.(op.pic, box);
+      if (!cancelled && box[2] * this.k > 4 && box[3] * this.k > 4) this.onZoomBox?.(op.pic, box, op.shape);
       return;
     }
     if (op.type === "measure") {   // a known length drawn on a picture, for its scale
@@ -997,9 +1008,12 @@ export const canvas = {
     else if (hit.type === "shape") this.startEdit(hit.id);
   },
   // A zoom inset: the next drag boxes the area of a picture to enlarge
-  startZoom() {
+  // A zoom inset's box, dragged next: a rectangle, a rounded rectangle, an ellipse or a circle
+  startZoom(shape = "rect") {
+    this.zoomShape = shape;
     this.setTool("zoom");
-    announce("Drag a box on a picture around the area to enlarge");
+    announce(`Drag ${{ rect: "a box", round: "a rounded box", ellipse: "an ellipse", circle: "a circle" }[shape] || "a box"} on a picture `
+      + "around the area to enlarge");
   },
   // Measure a known length on a picture (for its scale): the next drag draws it
   startMeasure(id) {
@@ -1481,8 +1495,12 @@ export const canvas = {
     if (dir.includes("e")) x1 = local[0];
     if (dir.includes("n")) y0 = local[1];
     if (dir.includes("s")) y1 = local[1];
-    const keepAspect = (o.type === "picture" || o.type === "symbol") !== e.shiftKey && dir.length === 2;
-    if (keepAspect && w > 0 && h > 0) {
+    if (o.zoom?.circle && dir.length === 1 && w > 0 && h > 0) {   // a circle's box from a side: the other way too, about its middle
+      const d = dir === "e" || dir === "w" ? Math.abs(x1 - x0) : Math.abs(y1 - y0);
+      if (dir === "e" || dir === "w") { y0 = h / 2 - d / 2; y1 = h / 2 + d / 2; } else { x0 = w / 2 - d / 2; x1 = w / 2 + d / 2; }
+    }
+    const keepAspect = o.zoom?.circle || ((o.type === "picture" || o.type === "symbol") !== e.shiftKey && dir.length === 2);
+    if (keepAspect && dir.length === 2 && w > 0 && h > 0) {
       const sx = (x1 - x0) / w, sy = (y1 - y0) / h;
       const sc = Math.max(Math.abs(sx), Math.abs(sy));
       const nw = w * sc, nh = h * sc;

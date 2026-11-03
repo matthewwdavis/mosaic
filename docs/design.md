@@ -236,6 +236,19 @@ pre-export check says so.
   the guide with its position (his extra). A press that moves less than 4 px is a click. A guide's
   right-click menu (on the page where no object covers it, or its mark on a ruler) has Remove
   guide, Remove all guides and Hide guides (his choices; not under objects).
+- **Zoom inset shapes (2026-11-03, Matthew's choices):** a zoom inset can be a rectangle, a rounded
+  rectangle, an ellipse or a circle (Circle stays round when resized, as well as a free Ellipse: his
+  choice over Ellipse with Shift). Chosen when adding (▾ beside Zoom inset; a plain click is still a
+  rectangle) and later (Zoom shape in the box's and the inset's Zoom inset sections). The box is a
+  shape (geom rect + rounding, or ellipse; zoom.circle keeps its frame square); the inset is cropped
+  to the box's shape (mask), the same unless zoom.own_shapes (his choice: the same, with a way to
+  make one different later; an inset on its own keeps the box's proportions). Rounding starts at 20%,
+  the same share on both, so it scales up (his choice). The lines are the two edges of the convex
+  hull of both outlines that bridge them (outlines sampled finely enough to stay within 0.01 pt);
+  two rectangles keep the corner rule, so existing figures don't change. Found on the way: the
+  canvas clipped a picture cropped to a shape in its file's units (a clip-path on the nested svg),
+  so a scaled or cropped one showed the wrong area; it's now clipped by a group in the frame's
+  units. The zoom tool takes the picture under the pointer even when another box is on top.
 - **Renamed mosaic (2026-11-03, Matthew's choices):** FigAssemble became mosaic, always lower
   case, wherever people see it and inside too: the Python package and command `mosaic`, MOSAIC_*
   settings, the Mac app's id io.github.matthewwdavis.mosaic, Windows' mosaic.Document and

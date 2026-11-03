@@ -238,9 +238,22 @@ around the area to enlarge.
   height always follows the box's shape, so the picture is never stretched.
 - **The box** can be dragged or resized to show another area, and the inset follows. When the
   picture moves, is resized or is cropped, the box stays over the same part of it.
-- **The lines** join the corners on the outside of the box and the inset, wherever you put them.
+- **The lines** run along the outside of the box and the inset, wherever you put them: from corner
+  to corner for rectangles, and touching rounded corners and ellipses.
 - All three start in Okabe-Ito orange, which shows on dark images and white pages alike; change
   each one's colour and thickness as usual. A scale bar works on an inset too.
+- **Shapes:** **▾** beside **Zoom inset** offers a rounded rectangle, an ellipse and a circle as
+  well as the rectangle a plain click makes (command search has them too). A circle stays round
+  however you resize it. To change the shape later, use **Zoom shape** in the Zoom inset section of
+  the box's panel (Arrange tab) or the inset's (Picture tab). A rounded rectangle's **Corner
+  rounding** starts at 20%, the same share of each one's size, so the inset's corners are the box's
+  enlarged.
+- **Same shape:** the box and the inset share their shape. Untick **Same shape as the inset** (or
+  **…as the box**) to give one a shape of its own, such as a circle on the picture with a
+  rectangular inset. The inset keeps the box's proportions, so it's round only when the box is.
+  Tick it again and the other one takes its shape.
+
+![A dose-response plot's steep part circled and shown enlarged in a round inset](images/zoomshapes.png)
 
 ## Significance brackets
 

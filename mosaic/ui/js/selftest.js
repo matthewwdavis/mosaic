@@ -8,7 +8,7 @@ import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
-import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog } from "./util.js";
+import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog, toUnit } from "./util.js";
 import { sameCommand } from "./selectsame.js";
 import { ringsOf, toPageOf } from "./pen.js";
 
@@ -1280,6 +1280,119 @@ async function pictureMenuChecks(app) {
   await until(() => panelNow() === panel, 4000);
 }
 
+// Zoom inset shapes: the Zoom inset button's ▾ menu offers a rounded rectangle, an ellipse and a
+// circle beside the rectangle a plain click makes; the inset takes its box's shape, and the lines
+// run along the outside, touching both; the Zoom shape list changes both, or one alone with Same
+// shape unticked (ticked again, the other takes its shape); a circle's box stays round
+async function zoomShapeChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const plot = btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200pt" height="120pt" viewBox="0 0 200 120">'
+    + '<rect x="10" y="10" width="180" height="100" fill="#336699"/><circle cx="100" cy="60" r="30" fill="#e69f00"/></svg>');
+  const path = await rpc("selftest_scratch", "zoom_plot.svg", plot);
+  await app.placeFiles([path], [60, 80], false);
+  const pic = store.items().find((it) => it.type === "picture");
+  if (!pic) return log(false, "a picture is placed for the zoom insets", path);
+  const [px, py] = pic.frame;
+  let boxId = null;   // the zoom inset made last (it comes selected: its inset)
+  const made = () => { boxId = store.selected()[0]?.inset?.box; };
+  const parts = () => {
+    const all = store.items(), box = all.find((it) => it.id === boxId);
+    return { box, inset: all.find((it) => it.inset?.box === boxId), lines: all.filter((it) => it.zoomline?.box === boxId) };
+  };
+  // Points along a shape's edge (a rounded rectangle's corners as arcs), to measure the lines by
+  const edge = ([x, y, w, h], shape, rounding = 0) => {
+    if (shape === "ellipse") return Array.from({ length: 1440 }, (_, i) => [x + (w / 2) * (1 + Math.cos(i * Math.PI / 720)), y + (h / 2) * (1 + Math.sin(i * Math.PI / 720))]);
+    const r = (rounding * Math.min(w, h)) / 2;
+    return [[x + w - r, y + r, -90], [x + w - r, y + h - r, 0], [x + r, y + h - r, 90], [x + r, y + r, 180]].flatMap(([cx, cy, a0]) =>
+      Array.from({ length: 361 }, (_, k) => [cx + r * Math.cos((a0 + k / 4) * Math.PI / 180), cy + r * Math.sin((a0 + k / 4) * Math.PI / 180)]));
+  };
+  const shapeOf = (it) => (it.zoom ? (it.geom === "ellipse" ? "ellipse" : "rect") : it.mask?.geom === "ellipse" ? "ellipse" : "rect");
+  const roundingOf = (it) => (it.zoom ? it.rounding : it.mask?.rounding) || 0;
+  // Each line starts on the box's edge and ends on the inset's, with both shapes wholly on one side of it
+  const touching = () => {
+    const { box, inset, lines } = parts(), be = edge(box.frame, shapeOf(box), roundingOf(box)), ie = edge(inset.frame, shapeOf(inset), roundingOf(inset));
+    return lines.length === 2 && lines.every(({ points: [a, b] }) => {
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]), side = (p) => ((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / len;
+      const gap = (p, pts) => Math.min(...pts.map((q) => Math.hypot(q[0] - p[0], q[1] - p[1])));
+      const sides = [...be, ...ie].map(side);
+      return gap(a, be) < 0.05 && gap(b, ie) < 0.05 && (Math.max(...sides) < 0.02 || Math.min(...sides) > -0.02);
+    });
+  };
+  const fromMenu = async (label) => {
+    document.querySelector('#rpanel-figure .tool-split .tool-more').click();
+    const items = [...document.querySelectorAll(".context-menu .menu-item")];
+    const shown = items.map((b) => b.textContent.trim()).join(", "), pictured = items.every((b) => b.querySelector(".menu-pic svg"));
+    items.find((b) => b.textContent.trim().endsWith(label))?.click();
+    return { shown, pictured };
+  };
+
+  const menu = await fromMenu("Circle");
+  check(menu.shown === "Rectangle, Rounded rectangle, Ellipse, Circle" && menu.pictured && canvas.tool === "zoom",
+    "Zoom inset's ▾ menu has a rectangle, a rounded rectangle, an ellipse and a circle, each pictured", menu.shown);
+  await drag([px + 40, py + 20], [px + 90, py + 50]);
+  made();
+  let { box, inset } = parts();
+  check(box?.geom === "ellipse" && box.zoom.circle && near(box.frame[2], 50, 1e-6) && near(box.frame[3], 50, 1e-6)
+    && inset?.mask?.geom === "ellipse" && near(inset.frame[2], inset.frame[3], 1e-6),
+  "a circle dragged wider than tall stays a circle, and its inset is a circle too", JSON.stringify([box?.frame, box?.zoom, inset?.mask]));
+  check(touching(), "the two lines run along the outside of the circles, touching both", JSON.stringify(parts().lines.map((l) => l.points)));
+  const insetEl = canvas.els.get(inset.id)?.g;
+  await until(() => insetEl?.querySelector(":scope > g[clip-path] > svg"), 3000);   // (the clip comes from the engine)
+  check(insetEl?.querySelector(":scope > g[clip-path] > svg") && !insetEl.querySelector("svg[clip-path]"),
+    "an inset (scaled and cropped) is clipped to its shape in its frame's units, not the file's", insetEl?.innerHTML.slice(0, 200));
+  // Resized another way (one side only), it stays round; the Width field changes both
+  store.update("Wider", (doc) => { findItem(doc, box.id).frame[2] = 70; });
+  check(near(parts().box.frame[3], 70, 1e-6), "a circle's box made wider grows taller too", JSON.stringify(parts().box.frame));
+  store.select([box.id]);
+  document.getElementById("itab-arrange")?.click();
+  const width = fieldByLabel("Width");
+  if (width) {
+    width.value = String(toUnit(60, app.prefs.units || "cm"));
+    width.dispatchEvent(new Event("change", { bubbles: true }));
+    await settle();
+  }
+  check(near(parts().box.frame[2], 60, 0.01) && near(parts().box.frame[3], 60, 0.01), "and its Width field keeps it round",
+    JSON.stringify(parts().box.frame));
+
+  await fromMenu("Rounded rectangle");
+  await drag([px + 100, py + 30], [px + 160, py + 70]);
+  made();
+  ({ box, inset } = parts());
+  check(box?.geom === "rect" && near(box.rounding, 0.2, 1e-9) && inset?.mask?.geom === "rect" && near(inset.mask.rounding, 0.2, 1e-9),
+    "a rounded rectangle (dragged from the circle's edge) starts at 20% rounding, its inset rounded the same",
+    JSON.stringify([box?.rounding, inset?.mask]));
+  check(touching(), "the lines touch the rounded corners, not the corners of the frames", JSON.stringify(parts().lines.map((l) => l.points)));
+
+  // The Zoom shape list: both change while they share the shape; unticked, the inset alone
+  store.select([box.id]);
+  document.getElementById("itab-arrange")?.click();
+  await choose("Zoom shape", "ellipse");
+  ({ box, inset } = parts());
+  check(box.geom === "ellipse" && !box.zoom.circle && inset.mask?.geom === "ellipse" && touching(),
+    "Zoom shape on the box makes both ellipses, the lines still touching both", JSON.stringify([box.geom, inset.mask]));
+  store.select([inset.id]);
+  document.getElementById("itab-picture")?.click();
+  const sameBox = fieldByLabel("Same shape as the box");
+  sameBox?.click();
+  await settle();
+  await choose("Zoom shape", "rect");
+  ({ box, inset } = parts());
+  check(sameBox && box.zoom.own_shapes && box.geom === "ellipse" && !inset.mask && touching(),
+    "with Same shape unticked, the inset alone becomes a rectangle", JSON.stringify([box.geom, box.zoom, inset.mask]));
+  fieldByLabel("Same shape as the box")?.click();
+  await settle();
+  ({ box, inset } = parts());
+  check(!box.zoom.own_shapes && box.geom === "rect" && !box.rounding && !inset.mask,
+    "ticked again on the inset, the box takes the inset's shape", JSON.stringify([box.geom, box.zoom, inset.mask]));
+  await choose("Zoom shape", "round");
+  await choose("Corner rounding", "50");
+  ({ box, inset } = parts());
+  check(near(box.rounding, 0.5, 1e-9) && near(inset.mask?.rounding, 0.5, 1e-9),
+    "Corner rounding on the inset rounds both, by the same share of their sizes", JSON.stringify([box.rounding, inset.mask]));
+}
+
 // Guides from the rulers: pointing at a ruler shows where a click would put a guide, rounded to a
 // fine step of its ticks (1 mm at 100%); a click puts it there (the top ruler a vertical guide, the
 // left a horizontal one; ⌘ exactly where clicked; on a guide's mark, nothing), and a drag still
@@ -1454,6 +1567,7 @@ export async function run(app, params) {
     if (params.get("only") === "export") { await exportNoteChecks(app, out); throw ONLY; }
     if (params.get("only") === "guides") { await rulerGuideChecks(app); throw ONLY; }
     if (params.get("only") === "pictures") { await pictureMenuChecks(app); throw ONLY; }
+    if (params.get("only") === "zoomshapes") { await zoomShapeChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -2649,8 +2763,9 @@ export async function run(app, params) {
     // Crop to shape: a picture shown only inside a shape fitted to its frame
     store.select([pics[0].id]);
     await choose("Crop to shape", "ellipse");
-    await until(() => canvas.els.get(pics[0].id)?.g.querySelector("svg")?.getAttribute("clip-path"), 4000);
-    const picClip = canvas.els.get(pics[0].id)?.g.querySelector("svg")?.getAttribute("clip-path") || "";
+    const clipped = () => canvas.els.get(pics[0].id)?.g.querySelector(":scope > g")?.getAttribute("clip-path");   // (round the picture's svg)
+    await until(clipped, 4000);
+    const picClip = clipped() || "";
     const picClipPath = document.querySelector(`[id="${picClip.slice(5, -1)}"] path`)?.getAttribute("d") || "";
     check(store.item(pics[0].id).mask?.geom === "ellipse" && picClip && picClipPath.includes("C"),
       "Crop to shape crops the picture to an ellipse, on the page too",
@@ -2698,6 +2813,7 @@ export async function run(app, params) {
     await exportNoteChecks(app, out);
     await rulerGuideChecks(app);
     await pictureMenuChecks(app);
+    await zoomShapeChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;
