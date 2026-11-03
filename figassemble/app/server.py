@@ -115,17 +115,23 @@ class Handler(BaseHTTPRequestHandler):
         if rest != "rpc":
             return self._send(404, b"not found", "text/plain")
         length = int(self.headers.get("Content-Length", "0"))
+        caller = getattr(self.server.api, "_caller", None)   # the window asking (each request has its own thread)
         try:
             req = json.loads(self.rfile.read(length) or b"{}")
             method = req.get("method", "")
             fn = getattr(self.server.api, method, None)
             if method.startswith("_") or not callable(fn):
                 raise ValueError(f"unknown method {method}")
+            if caller is not None:
+                caller.win = req.get("win")
             result = fn(*req.get("args", []), **req.get("kwargs", {}))
             body = json.dumps({"result": result}).encode("utf-8")
         except Exception as exc:
             body = json.dumps({"error": f"{type(exc).__name__}: {exc}",
                                "trace": traceback.format_exc()[-2000:]}).encode("utf-8")
+        finally:
+            if caller is not None:
+                caller.win = None
         self._send(200, body, "application/json")
 
 

@@ -124,6 +124,13 @@ Matthew's choices are in brackets.
       held takes what it touches, and Select Same (fill colour, line colour, line width, fill and
       line, font, font size, text colour, kind of object) [chosen over Shift-click runs and
       Shift+arrows in the Objects list]
+- [x] Double-clicking a .figasm in Finder or Explorer opens it (the Mac app owns the type; the
+      Windows installer registers it for the account), and each document has a window of its own:
+      New, Open and Open Recent open a new window unless the front one is blank, a document open
+      already comes to the front, closing the last window quits [Matthew's choices, over replacing
+      the figure and over staying open with no windows]; decks have FigAssemble under Open With; a
+      .figasm dropped on the window adds its pages; rulers, grid, guides and snap are each
+      window's own
 
 ## Acceptance test (test slide)
 
@@ -138,5 +145,4 @@ Matthew's choices are in brackets.
 
 - Importer coverage for every figure deck (vertical text, bullets)
 - Optional raster DPI cap / file-size targets for journal limits
-- Opening .figasm files by double-clicking them in Finder/Explorer
 - Fun name

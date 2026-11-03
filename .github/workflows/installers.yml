@@ -41,6 +41,20 @@ jobs:
           "$py" -c "import figassemble, os; ui = os.path.join(os.path.dirname(figassemble.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(figassemble.__file__)"
           "$py" -c "import Foundation; name = Foundation.NSBundle.mainBundle().infoDictionary()['CFBundleName']; assert name == 'FigAssemble', name"
           "$py" -m figassemble export --help
+      - name: Double-clicking a .figasm opens it in the installed app
+        run: |
+          py="$RUNNER_TEMP/Applications/FigAssemble.app/Contents/MacOS/python"
+          cd "$RUNNER_TEMP"
+          "$py" -c "from figassemble import docfile, model; docfile.save(model.new_document('Test'), 'test.figasm')"
+          "$py" -c "
+          import os
+          from AppKit import NSWorkspace
+          from Foundation import NSURL
+          app = NSWorkspace.sharedWorkspace().URLForApplicationToOpenURL_(NSURL.fileURLWithPath_(os.path.abspath('test.figasm')))
+          want = os.path.realpath(os.path.join(os.environ['RUNNER_TEMP'], 'Applications', 'FigAssemble.app'))
+          assert app is not None and os.path.realpath(str(app.path())) == want, app
+          print('A .figasm opens in', app.path())
+          "
       - name: The installed copy updates itself, goes back and takes a test version
         run: |
           py="$RUNNER_TEMP/Applications/FigAssemble.app/Contents/MacOS/python"
@@ -66,6 +80,16 @@ jobs:
           & $py -c "import figassemble, os; ui = os.path.join(os.path.dirname(figassemble.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(figassemble.__file__)"
           & $py -m figassemble export --help
           if ($LASTEXITCODE -ne 0) { throw "figassemble didn't start" }
+      - name: Double-clicking a .figasm opens it in FigAssemble; decks have it under Open with
+        shell: pwsh
+        run: |
+          $assoc = cmd /c assoc .figasm
+          if ($assoc -ne '.figasm=FigAssemble.Document') { throw "assoc: $assoc" }
+          $ftype = cmd /c ftype FigAssemble.Document
+          if ($ftype -notmatch 'pythonw\.exe" -P -m figassemble "%1"$') { throw "ftype: $ftype" }
+          $deck = (Get-ItemProperty 'HKCU:\Software\Classes\.pptx\OpenWithProgids' -ErrorAction SilentlyContinue).'FigAssemble.Deck'
+          if ($null -eq $deck) { throw "decks don't have FigAssemble under Open with" }
+          Write-Output "$assoc; $ftype"
       - name: The installed copy updates itself, goes back and takes a test version
         shell: pwsh
         run: |

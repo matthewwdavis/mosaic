@@ -32,6 +32,11 @@ import {
   roundStep, shapeCatalog, toUnit, uid,
 } from "./util.js";
 
+// Settings each window keeps for itself, though saved for the next window to start with: the
+// view switches and the interface's state (tabs, folded sections, panel widths). The rest are
+// the app's, the same in every window
+const WINDOW_PREFS = ["show_rulers", "show_grid", "show_guides", "snap", "ribbon_tab", "inspector_tabs", "inspector_closed", "panel_widths"];
+
 const app = {
   prefs: {},
   info: {},
@@ -52,7 +57,20 @@ const app = {
   },
 
   async savePrefs(p) {
-    this.prefs = await rpc("prefs_set", p);
+    // This window keeps its own view switches and interface state, whatever another saved
+    const own = Object.fromEntries(WINDOW_PREFS.filter((k) => !(k in p) && k in this.prefs).map((k) => [k, this.prefs[k]]));
+    this.prefs = { ...(await rpc("prefs_set", p)), ...own };
+    applyPrefs(this.prefs);
+    store.emit("doc", {});
+    this.syncMenus();
+  },
+  // Settings changed in another window (the theme, units...), taken when this one comes to the front
+  async refreshPrefs() {
+    let saved;
+    try { saved = await rpc("prefs_get"); } catch { return; }
+    const changed = Object.keys(saved).filter((k) => !WINDOW_PREFS.includes(k) && JSON.stringify(saved[k]) !== JSON.stringify(this.prefs[k]));
+    if (!changed.length) return;
+    for (const k of changed) this.prefs[k] = saved[k];
     applyPrefs(this.prefs);
     store.emit("doc", {});
     this.syncMenus();
@@ -135,25 +153,51 @@ const app = {
   async confirmDiscard() {
     return !store.dirty || panels.confirm("Discard changes?", "This document has unsaved changes. Discard them?", "Discard");
   },
+  // Nothing on any page, nothing unsaved and no dialog open: New and Open replace this window's
+  // figure rather than opening another window
+  isBlank() {
+    return !!store.doc && !store.dirty && store.doc.pages.every((p) => !p.items.length) && !document.querySelector("dialog[open]");
+  },
+  // A new window (in the app) with a document, a deck's chosen slides or a blank figure. False
+  // where there are no windows to open (the browser): this window takes it instead
+  async openWindow(path = null, slides = null) {
+    if (!this.info.windows) return false;
+    const r = await rpc("open_window", path, slides);
+    return !!(r.opened || r.shown);
+  },
   async newDocument() {
+    if (!this.isBlank() && (await this.openWindow())) return;
     if (!(await this.confirmDiscard())) return;
     store.setDoc(await rpc("new_document"));
     canvas.fit();
     announce("New document");
   },
-  async open(path = null) {
-    if (!(await this.confirmDiscard())) return;
+  // A document or a deck's slides: in this window if it's blank, else in a new one (in the
+  // browser, in this window after asking about unsaved changes). A document open already comes
+  // to the front. opts.slides: a deck's slides, chosen already; opts.reuse false: never this
+  // window (a second document opened at once). True when it opened
+  async open(path = null, opts = {}) {
+    const windows = !!this.info.windows;
+    if (!windows && !(await this.confirmDiscard())) return false;
     if (!path) {
       if (this.info.native) path = (await rpc("open_dialog", "document"))?.[0];
       else path = await panels.pathDialog("Open a document or PowerPoint deck", "/path/to/figure.figasm", this.prefs.recent || []);
     }
-    if (!path) return;
-    // A PowerPoint deck: its slides to open first (all of them if there's just one)
-    let slides = null;
-    if (isDeck(path)) {
-      slides = await this.chooseSlides(path, { verb: "Open" });
-      if (!slides) return;
+    if (!path) return false;
+    if (windows && !isDeck(path) && (await rpc("show_document", path))) {
+      announce(`${path.split(/[\\/]/).pop()} is open already`);
+      return true;
     }
+    const here = !windows || (opts.reuse !== false && this.isBlank());
+    // A PowerPoint deck: its slides to open first (all of them if there's just one), chosen here,
+    // unless a dialog is open here: then in the new window
+    let slides = opts.slides || null;
+    if (isDeck(path) && !slides) {
+      if (!here && document.querySelector("dialog[open]")) return this.openWindow(path);
+      slides = await this.chooseSlides(path, { verb: "Open" });
+      if (!slides) return false;
+    }
+    if (!here) return this.openWindow(path, slides);
     announce("Opening…");
     const res = await rpc("open_document", path, slides);
     store.setDoc(finishEdits(res.doc), res.path);
@@ -162,6 +206,27 @@ const app = {
     if (res.report?.length) panels.reportDialog("Imported from PowerPoint", res.report);
     announce(`Opened ${res.doc.meta?.title || "document"}, ${res.doc.pages.length} pages`);
     if (res.newer) updates.newerDocument(res.newer);
+    return true;
+  },
+  // Documents double-clicked in the Finder (or chosen with Open With, or dropped on the Dock
+  // icon) while FigAssemble runs, sent to the window in front (macopen.py): the first can open
+  // here, the others in windows of their own
+  async openFromSystem(paths) {
+    for (const [k, p] of paths.entries()) await this.openReporting(p, { reuse: k === 0 });
+  },
+  // Open, saying in a dialog if it couldn't (a document the system or another window handed over)
+  async openReporting(path, opts) {
+    try {
+      return await this.open(path, opts);
+    } catch (err) {
+      panels.reportDialog("Couldn't open the document", [`${path.split(/[\\/]/).pop()}: ${err.message || err}`]);
+      return false;
+    }
+  },
+  // The unsaved work kept as a recovery copy now (another window is restarting FigAssemble to update)
+  async keepCopy() {
+    if (store.dirty && store.doc) await rpc("autosave", store.doc, store.autosaveKey);
+    return true;
   },
   async save(as = false) {
     let path = store.path;
@@ -419,12 +484,43 @@ const app = {
   },
   // A deck dropped in the browser (no path to it, only its bytes)
   async addDeckUpload(file, t) {
-    const b64 = await new Promise((res) => {
-      const r = new FileReader();
-      r.onload = () => res(String(r.result).split(",")[1]);
-      r.readAsDataURL(file);
+    await this.addDeck(await rpc("deck_upload", file.name, await base64Of(file)), t);
+  },
+  // A FigAssemble document dropped on the window: its pages added to this figure
+  async addFigure(path, t) {
+    let got;
+    try {
+      got = await rpc("figure_pages", path);
+    } catch (err) {
+      return panels.reportDialog("Couldn't add the figure's pages", [`${path.split(/[\\/]/).pop()}: ${err.message || err}`]);
+    }
+    this.addFigurePages(got, t);
+  },
+  // One dropped in the browser (only its bytes)
+  async addFigureUpload(file, t) {
+    this.addFigurePages(await rpc("figure_upload", file.name, await base64Of(file)), t);
+  },
+  // Another figure's pages (figure_pages), with what they use from it (figurePages): where they
+  // were dropped in the Pages list, else after this page; a blank page (no objects) takes the
+  // first one's place, as for slides. One undo step
+  addFigurePages(got, t) {
+    const n = got.pages.length, s = n === 1 ? "" : "s";
+    if (!n) return announce(`${got.name} has no pages`);
+    const blank = !t.list && !store.page().items.length;
+    const at = t.list ? t.pageAt : blank ? store.pageIndex : store.pageIndex + 1;
+    store.update(`Add ${n} page${s} from ${got.name}`, (doc) => {
+      const pages = figurePages(doc, got);
+      if (blank) {
+        const page = doc.pages[at], first = pages.shift();
+        const guides = (page.guides?.x?.length || page.guides?.y?.length) ? page.guides : first.guides;
+        doc.pages[at] = { ...first, id: page.id, name: page.name, guides };
+        doc.pages.splice(at + 1, 0, ...pages);
+      } else doc.pages.splice(at, 0, ...pages);
     });
-    await this.addDeck(await rpc("deck_upload", file.name, b64), t);
+    store.setPage(at);
+    canvas.fit();
+    announce(blank ? `This page took ${got.name}'s first page${n > 1 ? `, and its others are pages ${at + 2} to ${at + n}` : ""}`
+      : `Added ${n} page${s} from ${got.name} as page${s} ${at + 1}${n > 1 ? ` to ${at + n}` : ""}`);
   },
   // Where a dragged thing would go, shown while it's over the window (null: it's gone). kind:
   // "files" (pictures), "deck" (a deck file), "slides" or "shapes" (out of PowerPoint): over the
@@ -437,10 +533,12 @@ const app = {
     document.body.classList.toggle("dropping", !!t && !t.list);
     const hint = document.querySelector(".drop-hint");
     if (hint) {
-      const slides = info?.kind === "deck" || info?.kind === "slides";
-      hint.textContent = slides && !store.page().items.length ? "Drop to make this blank page the slide, at its size"
-        : slides ? "Drop to put the slides' objects on this page"
-          : info?.kind === "shapes" ? "Drop to put the shapes on this page" : "Drop to place at true size";
+      const slides = info?.kind === "deck" || info?.kind === "slides", blank = !store.page().items.length;
+      hint.textContent = info?.kind === "figure" ? (blank ? "Drop to make this blank page the figure's first page"
+        : "Drop to add the figure's pages after this page")
+        : slides && blank ? "Drop to make this blank page the slide, at its size"
+          : slides ? "Drop to put the slides' objects on this page"
+            : info?.kind === "shapes" ? "Drop to put the shapes on this page" : "Drop to place at true size";
     }
     if (!t?.list) return;
     if (info.kind === "files" || info.kind === "shapes") {
@@ -1798,6 +1896,81 @@ const UPDATE_FROM_FILE = "Update from file";
 // Which version of its files a picture shows: its copies' (PDF, SVG, PNG…) content hashes, in a fixed order
 function fileVersion(asset) { return Object.keys(asset.variants).sort().map((k) => asset.variants[k].sha256); }
 function reidPage(p) { p.id = uid("pg"); p.items = copyItems(p.items); return p; }
+// Another figure's pages, for this one (figure_pages: a .figasm dropped), with new ids. What they
+// use from that figure comes into doc too, only what they use (symbols' contents and styles'
+// swatches included): pictures, symbols, swatches, text and object styles. One that's here
+// already, the same, is shared; one whose id means something else here gets a new id
+function figurePages(doc, got) {
+  const pages = clone(got.pages), lists = {
+    symbols: clone(got.symbols || []), swatches: clone(got.swatches || []),
+    text_styles: clone(got.text_styles || []), object_styles: clone(got.object_styles || []),
+  };
+  const used = { assets: new Set(), symbols: new Set(), swatches: new Set(), text_styles: new Set(), object_styles: new Set() };
+  const symbolById = new Map(lists.symbols.map((x) => [x.id, x]));
+  const note = (o) => {
+    if (Array.isArray(o)) return o.forEach(note);
+    if (!o || typeof o !== "object") return;
+    if (typeof o.swatch === "string") used.swatches.add(o.swatch);
+    if (o.type === "picture" && o.asset) used.assets.add(o.asset);
+    if (typeof o.object_style === "string") used.object_styles.add(o.object_style);
+    if (o.runs && typeof o.style === "string") used.text_styles.add(o.style);   // a paragraph's text style
+    if (o.type === "symbol" && typeof o.symbol === "string" && !used.symbols.has(o.symbol)) {
+      used.symbols.add(o.symbol);
+      if (symbolById.has(o.symbol)) note(symbolById.get(o.symbol).items);
+    }
+    for (const v of Object.values(o)) note(v);
+  };
+  note(pages);
+  for (const key of ["text_styles", "object_styles"]) for (const st of lists[key]) if (used[key].has(st.id)) note(st);
+  const maps = {};
+  const take = (key, list, mine, prefix) => {
+    const map = new Map(), add = [];
+    for (const x of list) {
+      if (!used[key].has(x.id)) continue;
+      const here = mine(x.id);
+      if (here && JSON.stringify(here) === JSON.stringify(x)) continue;   // the same, here already
+      const id = here ? uid(prefix) : x.id;
+      if (id !== x.id) map.set(x.id, id);
+      add.push(Object.assign(x, { id }));
+    }
+    maps[key] = map;
+    return add;
+  };
+  const inDoc = (key) => (id) => (doc[key] || []).find((x) => x.id === id);
+  const added = {
+    swatches: take("swatches", lists.swatches, inDoc("swatches"), "sw"),
+    text_styles: take("text_styles", lists.text_styles, inDoc("text_styles"), "ts"),
+    object_styles: take("object_styles", lists.object_styles, inDoc("object_styles"), "os"),
+    symbols: take("symbols", lists.symbols, inDoc("symbols"), "sym"),
+  };
+  const assets = take("assets", Object.entries(got.assets || {}).map(([id, a]) => ({ ...clone(a), id })), (id) => {
+    const a = doc.assets[id];
+    return a && { ...a, id };
+  }, "as");
+  const remap = (o) => {
+    if (Array.isArray(o)) return o.forEach(remap);
+    if (!o || typeof o !== "object") return;
+    if (typeof o.swatch === "string" && maps.swatches.has(o.swatch)) o.swatch = maps.swatches.get(o.swatch);
+    if (o.type === "picture" && maps.assets.has(o.asset)) o.asset = maps.assets.get(o.asset);
+    if (o.type === "symbol" && maps.symbols.has(o.symbol)) o.symbol = maps.symbols.get(o.symbol);
+    if (maps.object_styles.has(o.object_style)) o.object_style = maps.object_styles.get(o.object_style);
+    if (o.runs && maps.text_styles.has(o.style)) o.style = maps.text_styles.get(o.style);
+    for (const v of Object.values(o)) remap(v);
+  };
+  remap(pages);
+  for (const list of Object.values(added)) remap(list);
+  for (const { id, ...a } of assets) doc.assets[id] = a;
+  for (const [key, list] of Object.entries(added)) if (list.length) doc[key] = [...(doc[key] || []), ...list];
+  return pages.map((p) => reidPage(p));
+}
+// A dropped file's bytes, base64 (the browser has no path to it)
+function base64Of(file) {
+  return new Promise((res) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(",")[1]);
+    r.readAsDataURL(file);
+  });
+}
 
 // Commands --------------------------------------------------------------------------------
 
@@ -2047,6 +2220,7 @@ function isField(el) {
 // Drag and drop ------------------------------------------------------------------------------
 
 const isDeck = (path) => /\.(pptx|pptm|potx)$/i.test(path || "");
+const isFigure = (path) => /\.figasm$/i.test(path || "");
 // Words for a gap in the Pages list, where slides would go in as pages
 function slideGap(at) {
   const n = store.doc.pages.length;
@@ -2096,12 +2270,13 @@ window.FA = {
       const r = await rpc("take_dropped", dropped, store.path || null);
       return app.fromPowerPoint(r, t.list ? (r.kind === "slides" ? { pageAt: t.pageAt } : { at: placeAt(t) }) : { at: t.point }, "Add");
     }
-    const decks = paths.filter(isDeck), files = paths.filter((p) => !isDeck(p));
+    const decks = paths.filter(isDeck), figures = paths.filter(isFigure), files = paths.filter((p) => !isDeck(p) && !isFigure(p));
     if (shift && t.over?.type === "picture" && files.length === 1) {
       store.select([t.over.id]);
       await app.replacePicture(files);
     } else if (files.length) await app.placeFiles(files, placeAt(t), embed);
     for (const deck of decks) await app.addDeck(deck, t);
+    for (const fig of figures) await app.addFigure(fig, t);
   },
   // A drag over the native window that the page can't see into (macdrag.py): where it'd go
   onNativeDrag(info) {
@@ -2138,9 +2313,13 @@ document.addEventListener("drop", (e) => {
   }
   if (!e.dataTransfer.files.length || app.info.native) return;
   e.preventDefault();
-  const files = [...e.dataTransfer.files], decks = files.filter((f) => isDeck(f.name));
-  if (files.length > decks.length) app.placeUploads(files.filter((f) => !isDeck(f.name)), placeAt(t));
-  (async () => { for (const f of decks) await app.addDeckUpload(f, t); })();
+  const files = [...e.dataTransfer.files], decks = files.filter((f) => isDeck(f.name)), figures = files.filter((f) => isFigure(f.name));
+  const pictures = files.filter((f) => !isDeck(f.name) && !isFigure(f.name));
+  if (pictures.length) app.placeUploads(pictures, placeAt(t));
+  (async () => {
+    for (const f of decks) await app.addDeckUpload(f, t);
+    for (const f of figures) await app.addFigureUpload(f, t);
+  })();
 });
 // Edit ▸ Copy, Cut and Paste in the menu bar (the keys are handled above) do what the editor's
 // own commands do, outside text fields
@@ -2225,6 +2404,7 @@ async function start() {
   splitters.init(app);
   inspector.init(document.getElementById("inspector"), app);
   rpc("fonts").then((f) => { app.fonts = f; }).catch(() => {});
+  let state = null;
   store.on((what) => {
     if (what === "doc" || what === "saved") {
       const name = store.path ? store.path.split(/[\\/]/).pop() : store.doc?.meta?.title || "Untitled";
@@ -2232,14 +2412,30 @@ async function start() {
       if (document.title !== title) {
         document.title = title;
         rpc("set_title", title).catch(() => {});
-        rpc("confirm_close", store.dirty).catch(() => {});
+      }
+      // What this window has open (another window opening it brings this one to the front),
+      // and whether closing it asks first
+      const now = JSON.stringify([store.path, store.dirty]);
+      if (now !== state) {
+        state = now;
+        rpc("doc_state", store.path, store.dirty).catch(() => {});
       }
     }
   });
   const params = new URLSearchParams(location.search);
-  if (params.get("open")) await app.open(params.get("open"));
-  else {
-    store.setDoc(await rpc("new_document"));
+  // A blank figure first, which stays if a deck's slide picker is cancelled. Then the documents
+  // to open: from the command line or another window (open, slides), and the ones double-clicked
+  // to open FigAssemble (the first window takes those); else the work not saved last time
+  store.setDoc(await rpc("new_document"));
+  const launch = [params.get("open"), ...(await rpc("launch_documents").catch(() => []))].filter(Boolean);
+  if (launch.length) {
+    const slides = params.get("slides") ? params.get("slides").split(",").map(Number) : null;
+    for (const [k, p] of launch.entries()) {
+      const opened = await app.openReporting(p, { reuse: k === 0, slides: k === 0 ? slides : null });
+      // A window opened for a deck whose slide picker was then cancelled closes again
+      if (!opened && k === 0 && params.get("open") && isDeck(p) && !app.info.first_window) rpc("close_window").catch(() => {});
+    }
+  } else if (app.info.first_window) {
     const saved = await rpc("autosaved", store.autosaveKey).catch(() => []);
     if (saved.length) offerRecovery(saved);
   }
@@ -2250,6 +2446,7 @@ async function start() {
     if (store.dirty && store.doc) rpc("autosave", store.doc, store.autosaveKey).catch(() => {});
   }, 60000);
   window.addEventListener("beforeunload", (e) => { if (store.dirty && !app.info.native) { e.preventDefault(); e.returnValue = ""; } });
+  window.addEventListener("focus", () => app.refreshPrefs());   // Settings changed in another window
   Object.assign(window.FA, { app, store, canvas, panels, inspector, updates });   // for the smoke test's checks
   app.offerRecovery = offerRecovery;
   if (app.info.native && app.info.platform === "darwin") {
@@ -2282,9 +2479,12 @@ function offerRecovery(saved) {
             dlg.close();
             const res = await rpc("open_document", s.path);
             store.setDoc(finishEdits(res.doc), null);
-            // Keep writing to this copy, so saving the document clears it
+            // Keep writing to this copy (this window's now: another FigAssemble won't offer it
+            // back), so saving the document clears it
             store.autosaveKey = s.path.split(/[\\/]/).pop().replace(/\.figasm$/i, "");
+            rpc("claim_autosave", store.autosaveKey).catch(() => {});
             store.dirty = true;
+            store.emit("doc", {});   // (the title says it's edited, and closing asks first)
             canvas.fit();
             announce(`Recovered ${s.title}`);
           }, "Recover", "primary"),

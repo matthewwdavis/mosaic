@@ -72,7 +72,8 @@ object, so you can see the object's own edges while you move and resize it.
 **The menu bar** (Mac): along the top of the screen, as for any Mac app.
 - **FigAssemble:** About FigAssemble, Settings… (⌘,), Hide, Quit.
 - **File:** New, Open…, Open Recent, Close, Save, Save As…, Export…, Check Before Export…, Figure
-  Report….
+  Report…. New and Open open a window of their own (see
+  [Saving](#saving-linked-files-and-recovery)), and the menus work in the window in front.
 - **Edit:** Undo, Redo, Cut, Copy, Paste, Paste as Picture, Duplicate, Transform Again, Delete,
   Select All, Select Same, Copy Style, Paste Style. While you type in a box, they work on its
   text.
@@ -120,7 +121,8 @@ a figure side by side.
 copy the files in Finder or Explorer and paste them (⌘V). They land at **true size**, exactly as
 the file says. Several files at once arrive in a cascade. Dropped on a page in the Pages list,
 they go on that page. A PowerPoint deck dropped on the window brings in its slides instead (see
-[PowerPoint slides](#powerpoint-slides)).
+[PowerPoint slides](#powerpoint-slides)), and a FigAssemble document its pages (see
+[Saving](#saving-linked-files-and-recovery)).
 
 **Pasting** (⌘V, the Paste button, or right-click → Paste to paste where you clicked) takes
 whatever was copied last:
@@ -806,8 +808,20 @@ under one name.
 
 - **Save** (⌘S) writes a `.figasm` document. It holds your pages, the links to placed files, and
   a copy of each file, so it opens complete on another computer. **Save as** (⌘⇧S) saves a copy.
-- **Open** (⌘O) opens a `.figasm` document, or slides from a PowerPoint deck (see
-  [PowerPoint slides](#powerpoint-slides)).
+- **Open** a `.figasm` document by double-clicking it in Finder or Explorer, or by dropping it on
+  FigAssemble in the Dock. Or use **Open** (⌘O), which also opens slides from a PowerPoint deck
+  (see [PowerPoint slides](#powerpoint-slides)).
+- **Each document has a window of its own.** New (⌘N), Open and Open Recent open a new window,
+  unless the window in front is blank (nothing on its pages and nothing unsaved): then they use
+  it. A document that's open already comes to the front instead of opening twice. **Close** (⌘W)
+  closes a window, asking first if it has unsaved changes, and closing the last one quits
+  FigAssemble. On Windows, each document double-clicked in Explorer opens in a FigAssemble window
+  of its own.
+- **Rulers, grid, guides and snapping** are switched for each window on its own. A new window
+  starts with the ones you switched last. Settings apply to every window.
+- **A `.figasm` dropped on the window** adds its pages to the figure that's open: after the page
+  you drop it on, or where you drop it in the Pages list. A blank page takes the first one's
+  place, as for slides. The swatches, symbols and styles those pages use come with them.
 - **Linked files** are checked every couple of seconds while the document is open and its window
   is showing (if it's minimised, as soon as you come back to it; if it was closed, when you open
   the document). A changed file updates its picture; a missing one falls back to the stored copy.
@@ -826,9 +840,11 @@ shape comes in as itself.
 
 <img src="images/slides.png" alt="The slide picker: four slides drawn small, two of them chosen, with Open 2 slides" width="750">
 
-- **Open** (⌘O) a `.pptx` file to make a new document of the slides you choose. When the deck has
-  more than one slide, the **slide picker** shows each one small, with its number, its title and
-  **Hidden** for a slide hidden in the slide show:
+- **Open** (⌘O) a `.pptx` file to make a new document of the slides you choose. Or right-click
+  the deck in Finder or Explorer and choose **Open With** → **FigAssemble** (PowerPoint stays the
+  app a double-click opens it in). When the deck has more than one slide, the **slide picker**
+  shows each one small, with its number, its title and **Hidden** for a slide hidden in the slide
+  show:
   - click a slide to choose it, Shift-click to choose a run, ⌘-click to add or take away one, or
     click **All slides**, then **Open**;
   - double-click a slide to open just that one;
@@ -956,6 +972,7 @@ Press **?** in FigAssemble for this list.
 | Action | Mac | Windows |
 |---|---|---|
 | New, Open, Save, Save as | ⌘N, ⌘O, ⌘S, ⌘⇧S | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S |
+| Close the window | ⌘W | Alt+F4 |
 | Export, Check before export | ⌘E, ⌘⇧E | Ctrl+E, Ctrl+Shift+E |
 | Undo, Redo | ⌘Z, ⌘⇧Z | Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z |
 | Cut, Copy, Paste, Duplicate | ⌘X, ⌘C, ⌘V, ⌘D | Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+D |
@@ -1074,8 +1091,15 @@ delete the `miniforge3` folder in your home folder. Settings, recovery copies an
 updates are in `~/.figassemble`; the GitHub sign-in is the "FigAssemble GitHub sign-in" item in
 Keychain Access.
 
-**Windows:** delete the FigAssemble shortcuts from the desktop and Start menu. Run
-`%USERPROFILE%\miniforge3\Scripts\conda.exe env remove -n figassemble` in a Command Prompt. If the
+**Windows:** delete the FigAssemble shortcuts from the desktop and Start menu. So that `.figasm`
+files and decks no longer open in FigAssemble, run these two lines in a Command Prompt:
+
+```bat
+for %k in (.figasm FigAssemble.Document FigAssemble.Deck) do reg delete HKCU\Software\Classes\%k /f
+for %e in (.pptx .pptm .potx) do reg delete HKCU\Software\Classes\%e\OpenWithProgids /v FigAssemble.Deck /f
+```
+
+Run `%USERPROFILE%\miniforge3\Scripts\conda.exe env remove -n figassemble` in a Command Prompt. If the
 installer installed Miniforge, you can uninstall it under **Settings → Apps**. Settings, recovery
 copies and downloaded updates are in `%USERPROFILE%\.figassemble`; the GitHub sign-in is the
 "FigAssemble GitHub sign-in" entry in Credential Manager (Windows Credentials).

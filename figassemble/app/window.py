@@ -1,5 +1,12 @@
-"""The app window (pywebview: WebKit on macOS, Edge WebView2 on Windows), with native file
-drag and drop so dropped figures can stay linked to their files."""
+"""The app's windows (pywebview: WebKit on macOS, Edge WebView2 on Windows), with native file
+drag and drop so dropped figures can stay linked to their files.
+
+Each document has a window of its own, all in one process sharing one engine (Api, server.py):
+New and Open open another window unless the one in front is blank (main.js), a document open
+already comes to the front, and closing the last window quits. On a Mac, documents
+double-clicked in the Finder come as Apple events (macopen.py); on Windows each starts
+FigAssemble with the document on the command line, in a process of its own.
+"""
 from __future__ import annotations
 
 import json
@@ -7,7 +14,7 @@ import os
 import sys
 import time
 import webbrowser
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from .api import Api
 from .server import start_server
@@ -16,15 +23,14 @@ from .server import start_server
 def run_app(document: str | None = None, browser: bool = False, port: int = 0) -> int:
     api = Api()
     srv = start_server(api, port)
-    url = srv.url + "ui/index.html"
-    if document:
-        url += "?open=" + quote(os.path.abspath(document))
+    base = srv.url + "ui/index.html"
     extra = os.environ.get("FIGASSEMBLE_SMOKE_QUERY")   # e.g. the editor self-test, for testing
-    if extra:
-        url += ("&" if "?" in url else "?") + extra
-        if "selftest" in extra:
-            os.environ["FIGASSEMBLE_FAKE_CLIPBOARD"] = "1"   # the self-test's own clipboard, not the system's
+    if extra and "selftest" in extra:
+        os.environ["FIGASSEMBLE_FAKE_CLIPBOARD"] = "1"   # the self-test's own clipboard, not the system's
     if browser:
+        url = base + ("?open=" + quote(os.path.abspath(document)) if document else "")
+        if extra:
+            url += ("&" if "?" in url else "?") + extra
         print(f"FigAssemble is running at {url}\nPress Ctrl+C to stop.")
         webbrowser.open(url)
         try:
@@ -42,19 +48,22 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
             macmenu.name_app()
         except Exception as exc:   # noqa: BLE001 (it just keeps Python's name)
             print(f"Couldn't name the app: {exc}", file=sys.stderr, flush=True)
-    smoke = bool(os.environ.get("FIGASSEMBLE_SMOKETEST"))
+        # Documents double-clicked in the Finder, from the start
+        try:
+            from . import macopen
+            macopen.install(api)
+        except Exception as exc:   # noqa: BLE001 (they then don't open; File > Open still does)
+            print(f"Documents from the Finder unavailable: {exc}", file=sys.stderr, flush=True)
+    smoke = os.environ.get("FIGASSEMBLE_SMOKETEST", "")
+    api.hidden_windows = bool(smoke)
     # Updates: looked for shortly after starting and every few hours (not while testing); one
-    # downloaded installs when this window closes (updates.py)
+    # downloaded installs when the last window closes (updates.py)
     updater = api.updater
     updater.register()
     if not smoke and not os.environ.get("FIGASSEMBLE_NO_UPDATES"):
         updater.start()
-    window = webview.create_window("FigAssemble", url, width=1440, height=920, min_size=(960, 640),
-                                   background_color="#F4F4F2", text_select=False, hidden=smoke)
-    api.window = window
-    api._dirty = False
 
-    def on_drop(event):
+    def on_drop(window, event):
         files = event.get("dataTransfer", {}).get("files", [])
         paths = [f["pywebviewFullPath"] for f in files if f.get("pywebviewFullPath")]
         if not paths:
@@ -63,9 +72,10 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                    "embed": bool(event.get("altKey")), "shift": bool(event.get("shiftKey"))}
         window.evaluate_js(f"window.FA && window.FA.onNativeDrop({json.dumps(payload)})")
 
-    def on_loaded():
+    def on_loaded(window):
         # The page itself allows drops (dragover); this handler receives the full file paths
-        window.dom.document.events.drop += DOMEventHandler(on_drop, prevent_default=True, stop_propagation=True)
+        window.dom.document.events.drop += DOMEventHandler(lambda e: on_drop(window, e), prevent_default=True,
+                                                           stop_propagation=True)
         if sys.platform == "darwin":
             # Slides and shapes dragged out of PowerPoint, which the web view wouldn't take
             from PyObjCTools import AppHelper
@@ -79,17 +89,64 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                     print(f"PowerPoint drags unavailable: {exc}", file=sys.stderr, flush=True)
             AppHelper.callAfter(install)
 
-    def smoke_check():
-        """Hidden-window check that the editor starts in this platform's web view."""
-        ready = False
-        for _ in range(150):
+    def make_window(doc: str | None = None, slides: list[int] | None = None, first: bool = False):
+        """A window with its editor: this document (a deck's chosen slides), else a blank figure.
+        Its number goes with the editor's every request."""
+        win = api._reserve_window()
+        query = {"win": win}
+        if doc:
+            query["open"] = os.path.abspath(doc)
+        if slides:
+            query["slides"] = ",".join(str(n) for n in slides)
+        url = base + "?" + urlencode(query, quote_via=quote)
+        if first and extra:
+            url += "&" + extra
+        window = webview.create_window("FigAssemble", url, width=1440, height=920, min_size=(960, 640),
+                                       background_color="#F4F4F2", text_select=False, hidden=bool(smoke))
+        api._add_window(win, window)
+        window.events.loaded += lambda: on_loaded(window)
+        window.events.closed += lambda: api._remove_window(win)
+        return window
+
+    api._new_window = lambda doc, slides: make_window(doc, slides)
+    window = make_window(document, first=True)
+
+    def close_all():
+        for w in list(api._windows.values()):
+            w.destroy()
+
+    def wait_ready(w, tries=150):
+        for _ in range(tries):
             time.sleep(0.2)
             try:
-                ready = window.evaluate_js("document.body.classList.contains('ready')")
-            except Exception:
-                ready = False
-            if ready:
+                if w.evaluate_js("document.body.classList.contains('ready')"):
+                    return True
+            except Exception:   # noqa: BLE001 (still loading)
+                pass
+        return False
+
+    def launch_check():
+        """Hidden-window check that FigAssemble opened with documents (started by `open`, as a
+        double-click starts it, for testing): which windows have which documents."""
+        ready = wait_ready(window)
+        for _ in range(50):   # the documents' windows open and load
+            time.sleep(0.2)
+            if api._launch_taken and len(api._ready) == len(api._windows):
                 break
+        time.sleep(1.0)
+        docs = []
+        for _, w in sorted(api._windows.items(), key=lambda kv: int(kv[0])):
+            try:
+                docs.append(w.evaluate_js("window.FA.store.path || window.FA.store.doc.meta.title"))
+            except Exception:   # noqa: BLE001
+                docs.append(None)
+        print(f"SMOKE launch: {json.dumps({'ready': ready, 'windows': len(docs), 'documents': docs})}", flush=True)
+        closing_started[0] = time.time()
+        close_all()
+
+    def smoke_check():
+        """Hidden-window check that the editor starts in this platform's web view."""
+        ready = wait_ready(window)
         if ready and "selftest" in (extra or ""):
             # A hidden window's timers run slowly, and the self-test has many short waits (it took
             # 400 s in November 2026): up to 15 minutes
@@ -128,10 +185,17 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                 menus = macmenu.smoke(window)
                 print(f"SMOKE menus: {menus['passed']} of {menus['total']} passed"
                       + (f"; failed: {json.dumps(menus['failed'])}" if menus["failed"] else ""), flush=True)
-        closing_started[0] = time.time()
-        window.destroy()
+                # Documents from the Finder and windows: New, Open, menus, closing, dropping a .figasm
+                import tempfile
 
-    window.events.loaded += on_loaded
+                from . import macopen
+                with tempfile.TemporaryDirectory() as scratch:
+                    wins = macopen.smoke(api, window, scratch)
+                print(f"SMOKE windows: {wins['passed']} of {wins['total']} passed"
+                      + (f"; failed: {json.dumps(wins['failed'])}" if wins["failed"] else ""), flush=True)
+        closing_started[0] = time.time()
+        close_all()
+
     # Unsaved changes: pywebview's own close confirmation (Api.confirm_close switches it on).
     # It runs on the main thread itself; asking for a dialog from a closing handler instead
     # deadlocks, because that handler already holds the main thread.
@@ -139,7 +203,7 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                "global.quit": "Close without saving"}
     if smoke:
         closing_started = [0.0]
-        webview.start(smoke_check, localization=wording)
+        webview.start(launch_check if smoke == "launch" else smoke_check, localization=wording)
         print(f"SMOKE window closed in {time.time() - closing_started[0]:.2f} s", flush=True)
     else:
         webview.start(debug=bool(os.environ.get("FIGASSEMBLE_DEBUG")), localization=wording)

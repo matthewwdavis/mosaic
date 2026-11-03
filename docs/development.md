@@ -20,7 +20,13 @@ python -m figassemble         # or: figassemble
 FigAssemble from the active environment. The environment's Python is linked into the app and
 runs from there, so macOS takes the app's name, icon and version from the bundle; started any
 other way, FigAssemble tells macOS its name itself (`macmenu.name_app`), or the menu bar would
-say "python". `figassemble --browser` serves the editor to a web browser instead of opening the
+say "python". The bundle declares the .figasm type, so double-clicking a document opens it in
+the app. Built anywhere but `dist/` (`--dest /Applications`, as the installer does), the script
+registers it with LaunchServices (`lsregister -f`) as it makes it. A copy in `dist/` isn't
+registered, since macOS would then choose between two apps of the same name for the documents
+(starting it registers it, though; `lsregister -u dist/FigAssemble.app` takes it back off). A
+FigAssemble started from a terminal isn't the bundle, so a double-clicked document starts the
+app beside it. `figassemble --browser` serves the editor to a web browser instead of opening the
 app window.
 
 On a Mac the menu bar (FigAssemble, File, Edit, View, Window, Help) is made by
@@ -39,11 +45,11 @@ figassemble/
   resolve.py                items -> drawing primitives, shared by every writer and the editor
   export/                   PDF, SVG, PNG/TIFF/JPEG writers, conversions, pre-export check
   importers/                PowerPoint slides -> pages
-  app/                      local server, JSON-RPC API, the app window
+  app/                      local server, JSON-RPC API, the app's windows
   updates.py                updates: finding, checking, downloading and installing new versions
   ui/                       the editor: HTML, CSS and JavaScript (no build step)
 examples/                   sample plots for the tutorial (made by make_examples.R)
-packaging/                  the Mac app and the Windows shortcuts
+packaging/                  the Mac app; the Windows shortcuts and file types
 tools/                      self-test runner, screenshots, render comparisons, releases
 ```
 
@@ -59,14 +65,15 @@ python tools/ui_selftest.py plot.svg plot.pdf  # the editor self-test on your ow
 
 The **editor self-test** (`figassemble/ui/js/selftest.js`) drives the real editor with pointer
 and keyboard events: drawing, snapping, guides, align, connectors, dashes, right-click menus,
-export, PowerPoint slides, updates and more, about 400 checks. `tests/test_ui.py` runs it in headless
+export, PowerPoint slides, updates, windows and more, about 420 checks. `tests/test_ui.py` runs it in headless
 Chrome. Besides a plot's SVG and PDF it takes PowerPoint's files from `tests/data/powerpoint`: a
 deck and a copy of it, and what PowerPoint put on the clipboard for a copied slide (`.slides`) and
 shapes (`.gvml`). `tools/ui_selftest.py ... --only slides` runs just the PowerPoint part, and
 `--only links` just linked files updating (a test figure re-saved while placed), `--only
-updates` the update screens (with the updater saying what each case needs), and `--only
-selection` selecting several objects and Select Same. To run it in the app's own window (WebKit
-on a Mac):
+updates` the update screens (with the updater saying what each case needs), `--only
+selection` selecting several objects and Select Same, and `--only windows` New and Open with
+several windows (opening a window stood in for) and a .figasm dropped on the page. To run it in
+the app's own window (WebKit on a Mac):
 
 ```sh
 D=tests/data/powerpoint
@@ -87,9 +94,26 @@ real clipboard (put back afterwards): `SMOKE keys: 83 of 83 passed`. A dialog op
 (such as the offer to recover unsaved work) is closed first, as Not now closes it. Then it hands the web view drags from PowerPoint (made up, since a
 hidden window can't be dragged onto) through the drag methods `figassemble/app/macdrag.py` wraps,
 and plays a slide drag to the `SlideWatch` that follows PowerPoint's real ones, with a scripted
-drag pasteboard, mouse button and pointer: `SMOKE PowerPoint drags: 9 of 9 passed`. Last, the
+drag pasteboard, mouse button and pointer: `SMOKE PowerPoint drags: 9 of 9 passed`. Then the
 menu bar: its menus, the app's name, the shortcuts, and items run as AppKit would run them:
-`SMOKE menus: 11 of 11 passed`.
+`SMOKE menus: 11 of 11 passed`. Last, documents and windows (`figassemble/app/macopen.py`):
+documents sent as the Finder sends them, as real "open documents" Apple events to the app
+itself, opening in the blank window, then in windows of their own, or bringing one open already
+to the front; File > New; a menu command going to the window in front; closing a window; a deck;
+and a .figasm dropped on the page: `SMOKE windows: 10 of 10 passed`.
+
+To check a double-click end to end (LaunchServices choosing the app, macOS launching it with the
+document), open a test figure with `open`, which can hand the app its own settings folder and a
+light check that reports which windows have which documents, then quits:
+
+```sh
+H=$(mktemp -d)
+python -c "from figassemble import docfile, model; docfile.save(model.new_document('Test'), '$H/test.figasm')"
+open -g --env FIGASSEMBLE_HOME=$H --env FIGASSEMBLE_SMOKETEST=launch --stdout $H/out.txt "$H/test.figasm"
+cat $H/out.txt   # SMOKE launch: {"ready": true, "windows": 1, "documents": [".../test.figasm"]}
+```
+
+Only do this while no FigAssemble.app is running: macOS hands the document to a running one.
 
 Slides and shapes copied in PowerPoint come from its own clipboard formats, and a slide dragged
 out of it is only a reference to the slide (see the PowerPoint decision in [design.md](design.md)).

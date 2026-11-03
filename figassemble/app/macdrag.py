@@ -65,10 +65,15 @@ def drop_payload(pb, api) -> dict:
     return {"dropped": token}
 
 
-def _decks_dragged(pb) -> bool:
+def _decks_dragged(pb) -> str | None:
+    """"deck" while a deck file is dragged, "figure" for a FigAssemble document (both add pages),
+    else None."""
     import AppKit
     urls = pb.readObjectsForClasses_options_([AppKit.NSURL], {AppKit.NSPasteboardURLReadingFileURLsOnlyKey: True}) or []
-    return any(str(u.path() or "").lower().endswith(powerpoint.DECK_EXTENSIONS) for u in urls)
+    paths = [str(u.path() or "").lower() for u in urls]
+    if any(p.endswith(powerpoint.DECK_EXTENSIONS) for p in paths):
+        return "deck"
+    return "figure" if any(p.endswith(".figasm") for p in paths) else None
 
 
 def tell(view, name: str, value) -> None:
@@ -141,11 +146,14 @@ class SlideWatch:
 
     TICK = 0.03   # seconds
 
-    def __init__(self, view, sense=None):
+    def __init__(self, view, sense=None, views=None):
         self.view = view
+        # Every window's web view (FigAssemble can have several): the drag goes to the frontmost
+        # one under the pointer
+        self.views = views or (lambda: [view])
         self.sense = sense or Sense()
         self.seen = self.sense.count()   # the drag pasteboard as last looked at
-        self.following = None   # {"count", "at"} while following a slide drag
+        self.following = None   # {"count", "at", "view"} while following a slide drag
         self.appkit = None
         self.timer = None
 
@@ -177,7 +185,7 @@ class SlideWatch:
             if n != self.seen:
                 self.seen = n
                 if powerpoint.SLIDE_REF in s.types():
-                    self.following = {"count": n, "at": None}
+                    self.following = {"count": n, "at": None, "view": None}
             if self.following is None:
                 if not down:
                     self.stop()
@@ -185,19 +193,31 @@ class SlideWatch:
         f = self.following
         mine = f["count"] != self.appkit
         if down:
-            at = s.where(self.view) if mine else f["at"]
-            if at != f["at"]:
-                f["at"] = at
-                tell(self.view, "onNativeDrag", {"kind": "slides", "x": at[0], "y": at[1]} if at else None)
+            view, at = self.under_pointer() if mine else (f["view"], f["at"])
+            if view is not f["view"] and f["view"] is not None and f["at"] is not None:
+                tell(f["view"], "onNativeDrag", None)   # moved off that window
+            if (view, at) != (f["view"], f["at"]):
+                f["view"], f["at"] = view, at
+                if view is not None:
+                    tell(view, "onNativeDrag", {"kind": "slides", "x": at[0], "y": at[1]} if at else None)
             return
         self.following = None
         self.stop()
         if not mine or f["at"] is None:
             return
-        tell(self.view, "onNativeDrag", None)
+        tell(f["view"], "onNativeDrag", None)
         refs = powerpoint.slide_refs(s.archives())
         if refs:
-            tell(self.view, "onNativeDrop", {"pptSlides": refs, "x": f["at"][0], "y": f["at"][1]})
+            tell(f["view"], "onNativeDrop", {"pptSlides": refs, "x": f["at"][0], "y": f["at"][1]})
+
+    def under_pointer(self):
+        """The web view the pointer is over with nothing covering it, and where: (view, (x, y)),
+        or (None, None)."""
+        for view in self.views():
+            at = self.sense.where(view)
+            if at:
+                return view, at
+        return None, None
 
 
 _watch: SlideWatch | None = None
@@ -216,16 +236,19 @@ def install(window, api) -> None:
     host = BrowserView.WebKitHost
     view = BrowserView.instances[window.uid].webview
     view.registerForDraggedTypes_([str(t) for t in (view.registeredDraggedTypes() or [])] + TYPES)
-    if _watch is None or _watch.view is not view:
-        # Slide thumbnails dragged out of PowerPoint, which never reach the methods below
-        _watch = SlideWatch(view)
+    if _watch is None:
+        # Slide thumbnails dragged out of PowerPoint, which never reach the methods below (one
+        # watch for every window's web view)
+        def views():
+            return [i.webview for i in list(BrowserView.instances.values()) if i.webview is not None]
+        _watch = SlideWatch(view, views=views)
         if _monitor is None:
             _monitor = AppKit.NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
                 AppKit.NSEventMaskLeftMouseDown, lambda event: _watch.start())
     if getattr(host, "_figassemble_drags", False):
         return
     perform = host.performDragOperation_.callable   # pywebview's: notes dropped files' paths
-    sessions: dict = {}   # drag number -> "deck" while a deck file is dragged (looked at once)
+    sessions: dict = {}   # drag number -> "deck" or "figure" while one is dragged (looked at once)
 
     def where(self, sender) -> dict:
         p = self.convertPoint_fromView_(sender.draggingLocation(), None)
@@ -244,9 +267,9 @@ def install(window, api) -> None:
         n = sender.draggingSequenceNumber()
         if n not in sessions:
             sessions.clear()
-            sessions[n] = "deck" if sender.draggingSource() is None and _decks_dragged(sender.draggingPasteboard()) else None
+            sessions[n] = _decks_dragged(sender.draggingPasteboard()) if sender.draggingSource() is None else None
         if sessions[n]:
-            tell(self, "onNativeDrag", {"kind": "deck", **where(self, sender)})
+            tell(self, "onNativeDrag", {"kind": sessions[n], **where(self, sender)})
         sup = objc.super(host, self)
         return sup.draggingEntered_(sender) if entered else sup.draggingUpdated_(sender)
 
@@ -341,14 +364,17 @@ def smoke(window, data_dir: str) -> dict:
     import Foundation
     from webview.platforms.cocoa import BrowserView
 
+    from .. import model
     from .keycheck import on_main
     view = BrowserView.instances[window.uid].webview
     deck = os.path.join(data_dir, "example_deck.pptx")
     with open(os.path.join(data_dir, "copied_rect.gvml"), "rb") as fh:
         shapes = fh.read()
     js = window.evaluate_js
+    # A blank figure in this window (New would open another window, this one being in use)
+    blank = f"window.FA.store.setDoc({json.dumps(model.new_document())}); window.FA.canvas.fit();"
     js("""(() => { const app = window.FA.app; app.autoConfirm = true; app.testDecks = %s;
-      for (const d of document.querySelectorAll("dialog[open]")) d.close(); app.newDocument(); return true; })()""" % json.dumps([deck]))
+      for (const d of document.querySelectorAll("dialog[open]")) d.close(); %s return true; })()""" % (json.dumps([deck]), blank))
     time.sleep(1)
     results: dict[str, bool] = {}
 
@@ -411,7 +437,7 @@ def smoke(window, data_dir: str) -> dict:
 
     fake = Scripted()
     watch = SlideWatch(view, fake)
-    js("""(() => { for (const d of document.querySelectorAll("dialog[open]")) d.close(); window.FA.app.newDocument(); return true; })()""")
+    js("""(() => { for (const d of document.querySelectorAll("dialog[open]")) d.close(); %s return true; })()""" % blank)
     time.sleep(1)
     spot = tuple(json.loads(js(f"JSON.stringify({page})")))
     fake.n, fake.kinds, fake.down, fake.spot = 1, [powerpoint.SLIDE_REF], True, spot

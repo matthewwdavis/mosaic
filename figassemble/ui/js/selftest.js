@@ -856,6 +856,111 @@ async function macMenuChecks(app) {
     `${pageAll} ${fieldOwn}`);
 }
 
+// Several windows: New and Open open another window unless this one is blank, the second of two
+// documents opened at once gets a window of its own, each window keeps its own view switches,
+// and a .figasm dropped on the page adds its pages with what they use. The windows themselves
+// are the app's (macopen.smoke checks those): openWindow is stood in for here
+async function windowChecks(app, out) {
+  const opened = [], realOpen = app.openWindow, realWindows = app.info.windows;
+  app.info.windows = true;
+  app.openWindow = async (path = null, slides = null) => { opened.push([path, slides]); return true; };
+  const copy = (o) => JSON.parse(JSON.stringify(o));
+  try {
+    store.setDoc(await rpc("new_document"));
+    await settle();
+    check(app.isBlank(), "a new figure is blank");
+    await app.newDocument();
+    check(!opened.length && app.isBlank(), "New in a blank window replaces its figure, opening no window", JSON.stringify(opened));
+    store.update("Something on the page", (doc) => doc.pages[0].items.push(gRectFor("wRect", 20, 20, 40, 30)));
+    const inUse = store.doc;
+    check(!app.isBlank(), "a figure with an object on it isn't blank");
+    await app.newDocument();
+    check(opened.length === 1 && opened[0][0] === null && store.doc === inUse, "New in a window in use opens a new window",
+      JSON.stringify(opened));
+    const empty = await rpc("new_document");
+    const emptyPath = (await rpc("save_document", empty, `${out}/selftest-empty.figasm`)).path;
+    const secondPath = (await rpc("save_document", { ...empty, meta: { ...empty.meta, title: "Second" } }, `${out}/selftest-second.figasm`)).path;
+    opened.length = 0;
+    await app.open(emptyPath);
+    check(opened.length === 1 && opened[0][0] === emptyPath && store.doc === inUse, "Open in a window in use opens the document in a new window",
+      JSON.stringify(opened));
+    opened.length = 0;
+    await app.open("/no/such/deck.pptx", { slides: [2, 3] });
+    check(opened.length === 1 && opened[0][1]?.join() === "2,3", "a deck's chosen slides open in a new window when this one is in use",
+      JSON.stringify(opened));
+    // Two documents double-clicked at once, this window blank: the first here, the second in a
+    // window of its own (though the first, saved with nothing on it, leaves this window blank)
+    store.setDoc(await rpc("new_document"));
+    opened.length = 0;
+    await app.openFromSystem([emptyPath, secondPath]);
+    check(store.path === emptyPath && app.isBlank() && opened.length === 1 && opened[0][0] === secondPath,
+      "two documents opened at once: the first in the blank window, the second in a window of its own", `${store.path} ${JSON.stringify(opened)}`);
+    const d = document.body.appendChild(document.createElement("dialog"));
+    d.show();
+    const busy = !app.isBlank();
+    d.close();
+    d.remove();
+    check(busy && app.isBlank(), "a window with a dialog open isn't blank (a document from the Finder goes to a new window)");
+    // View switches are each window's own; the app's settings are shared
+    const before = { grid: !!app.prefs.show_grid, guides: app.prefs.show_guides !== false, dpi: app.prefs.default_dpi };
+    await rpc("prefs_set", { show_grid: !before.grid, default_dpi: 301 });   // as another window saves them
+    await app.savePrefs({ check_journal: app.prefs.check_journal || "" });
+    check(!!app.prefs.show_grid === before.grid && app.prefs.default_dpi === 301,
+      "saving a setting keeps this window's view switches, and takes the app's settings another window saved", JSON.stringify(app.prefs));
+    await rpc("prefs_set", { show_guides: !before.guides, default_dpi: 302 });
+    await app.refreshPrefs();
+    check((app.prefs.show_guides !== false) === before.guides && app.prefs.default_dpi === 302,
+      "coming to the front, a window takes the settings changed in another, not its view switches", JSON.stringify(app.prefs));
+    await rpc("prefs_set", { show_grid: before.grid, show_guides: before.guides, default_dpi: before.dpi });
+    Object.assign(app.prefs, { show_grid: before.grid, show_guides: before.guides, default_dpi: before.dpi });
+    // A .figasm dropped: its pages, with the swatches and symbols they use
+    store.setDoc(await rpc("new_document"));
+    store.update("Swatches and a symbol here", (doc) => {
+      doc.swatches = [{ id: "sw_same", name: "Same", color: "#112233" }, { id: "sw_clash", name: "Here", color: "#445566" }];
+      doc.symbols = [{ id: "sym_clash", name: "Here", items: [], size: [10, 10] }];
+      doc.pages[0].items.push(gRectFor("wHere", 10, 10, 20, 20));
+    });
+    const got = { name: "Other", assets: {}, text_styles: [], object_styles: [], pages: [
+      { id: "pg_o1", name: "Page 1", width: 300, height: 200, background: null, guides: { x: [5], y: [] }, items: [
+        { ...gRectFor("o1", 10, 10, 30, 30), fill: { color: "#112233", opacity: 1, swatch: "sw_same" } },
+        { ...gRectFor("o2", 50, 10, 30, 30), fill: { color: "#778899", opacity: 1, swatch: "sw_clash" } },
+        { id: "o3", type: "symbol", symbol: "sym_clash", name: "", frame: [90, 10, 20, 20], rot: 0, flip_h: false, flip_v: false }] },
+      { id: "pg_o2", name: "Page 2", width: 300, height: 200, background: null, guides: { x: [], y: [] }, items: [] }],
+    symbols: [{ id: "sym_clash", name: "Theirs", items: [gRectFor("so", 0, 0, 20, 20)], size: [20, 20] },
+      { id: "sym_unused", name: "Unused", items: [], size: [1, 1] }],
+    swatches: [{ id: "sw_same", name: "Same", color: "#112233" }, { id: "sw_clash", name: "Theirs", color: "#778899" },
+      { id: "sw_unused", name: "Unused", color: "#000000" }] };
+    app.addFigurePages(copy(got), { list: false });
+    const added = store.doc.pages[1], sw = store.doc.swatches, theirs = sw.find((s) => s.name === "Theirs");
+    const sym = (store.doc.symbols || []).find((s) => s.name === "Theirs");
+    check(store.doc.pages.length === 3 && store.pageIndex === 1 && added.width === 300 && added.id !== "pg_o1"
+      && added.items.every((it) => !["o1", "o2", "o3"].includes(it.id)), "a .figasm dropped on a page in use adds its pages after it, with new ids",
+    `${store.doc.pages.length} pages, on ${store.pageIndex}`);
+    check(sw.length === 3 && added.items[0].fill.swatch === "sw_same" && theirs && theirs.id !== "sw_clash"
+      && added.items[1].fill.swatch === theirs.id && !sw.some((s) => s.id === "sw_unused"),
+    "its swatches come too: one the same here is shared, one whose id means something else here gets a new id, unused ones don't",
+    JSON.stringify(sw));
+    check(sym && sym.id !== "sym_clash" && added.items[2].symbol === sym.id && !store.doc.symbols.some((s) => s.name === "Unused"),
+      "and the symbols it uses, under a new id where this figure has one with theirs", JSON.stringify(store.doc.symbols));
+    await app.undo();
+    check(store.doc.pages.length === 1 && store.doc.swatches.length === 2 && store.doc.symbols.length === 1, "adding them is one undo step");
+    store.setDoc(await rpc("new_document"));
+    app.addFigurePages(copy(got), { list: false });
+    const first = store.doc.pages[0];
+    check(store.doc.pages.length === 2 && first.width === 300 && first.items.length === 3 && first.guides.x.join() === "5",
+      "dropped on a blank page, the page takes the first one's place (with its guides, having none of its own)",
+      `${store.doc.pages.length} pages; ${first.width} wide; ${first.items.length} objects`);
+    app.addFigurePages(copy(got), { list: true, pageAt: 0 });
+    check(store.doc.pages.length === 4 && store.pageIndex === 0 && store.doc.pages[0].width === 300 && store.doc.pages[2].items.length === 3,
+      "dropped in the Pages list, they go in where it was dropped", `${store.doc.pages.length} pages, on ${store.pageIndex}`);
+    await window.FA.onNativeDrop({ paths: [secondPath], x: 700, y: 450 });
+    check(store.doc.pages.length === 5, "a .figasm file dropped on the window adds its pages", `${store.doc.pages.length} pages`);
+  } finally {
+    app.info.windows = realWindows;
+    app.openWindow = realOpen;
+  }
+}
+
 export async function run(app, params) {
   let keepAids = false;
   const given = (params.get("files") || "").split(",").filter(Boolean);
@@ -863,6 +968,7 @@ export async function run(app, params) {
   const files = given.filter((f) => !isPpt(f)), ppt = given.filter(isPpt);   // pictures; PowerPoint's files
   const out = params.get("out");
   app.autoConfirm = true;
+  app.info.windows = false;   // (in the app's window too: New and Open replace the figure, except in windowChecks)
   for (const dlg of document.querySelectorAll("dialog[open]")) dlg.close();   // e.g. a recovery offer
   try {
     // Start from the default layout aids, whatever an earlier run left switched on
@@ -876,6 +982,7 @@ export async function run(app, params) {
     if (params.get("only") === "links") { await linkedFileChecks(app); throw ONLY; }
     if (params.get("only") === "updates") { await updateChecks(app); throw ONLY; }
     if (params.get("only") === "selection") { await selectionChecks(app); throw ONLY; }
+    if (params.get("only") === "windows") { await windowChecks(app, out); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -2088,6 +2195,7 @@ export async function run(app, params) {
     info.slidesMs = Math.round(performance.now() - slidesFrom);
     await linkedFileChecks(app);
     await updateChecks(app);
+    await windowChecks(app, out);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

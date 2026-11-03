@@ -3,11 +3,12 @@ keyboard shortcut, as Mac apps have them (pywebview's own has only Edit and View
 shortcuts).
 
 The editor describes its menus (app.menuSpec in main.js: titles, its commands' names and
-shortcuts), so they always match its commands. Choosing one runs it in the editor
-(window.FA.menu), which, as the keys do, does nothing while a dialog is open. Cut, Copy, Paste,
-Undo, Redo, Select All and Delete ask the editor first (window.FA.menuEdit): in a text field
-they're the web view's own text editing, otherwise the editor's commands. The FigAssemble and
-Window menus are made here with AppKit's standard items; Help gets macOS's search box.
+shortcuts), so they always match its commands. Choosing one runs it in the editor of the window
+in front (window.FA.menu), which, as the keys do, does nothing while a dialog is open. Cut, Copy,
+Paste, Undo, Redo, Select All and Delete ask the editor first (window.FA.menuEdit): in a text
+field they're the web view's own text editing, otherwise the editor's commands. The FigAssemble
+and Window menus are made here with AppKit's standard items; Help gets macOS's search box. The
+ticks are the front window's: each window sends its own when it comes to the front.
 
 macOS names an app from its bundle: FigAssemble.app runs Python from inside itself
 (packaging/macos/make_app.py). Started some other way, name_app() tells macOS the name.
@@ -24,7 +25,60 @@ APP_NAME = "FigAssemble"
 # window's undo manager's, where WebKit keeps a field's typing)
 FIELD_ACTIONS = {"cut": "cut:", "copy": "copy:", "paste": "paste:", "selectAll": "selectAll:", "delete": "delete:",
                  "undo": None, "redo": None}
-_state: dict = {}   # target, view, api, items by action, the Open Recent menu
+_state: dict = {}   # target, api, items by action, the Open Recent menu, the window last in front
+
+
+def note_front(uid: str | None) -> None:
+    """The window (pywebview's id) last in front: the menus' commands go to it while FigAssemble
+    is in the background too (a document double-clicked in Finder meanwhile, say)."""
+    _state["front"] = uid
+
+
+def front_uid(uids=None) -> str | None:
+    """The window in front (pywebview's id), of these (default: any): the key window, else the
+    one last in front, else the frontmost on screen, else the first."""
+    import AppKit
+    from webview.platforms.cocoa import BrowserView
+    insts = {uid: i for uid, i in list(BrowserView.instances.items()) if (uids is None or uid in uids) and i.webview is not None}
+    if not insts:
+        return None
+    for win in (AppKit.NSApp.keyWindow(), AppKit.NSApp.mainWindow()):
+        for uid, i in insts.items():
+            if win is not None and i.window == win:
+                return uid
+    if _state.get("front") in insts:
+        return _state["front"]
+    for win in AppKit.NSApp.orderedWindows() or []:
+        for uid, i in insts.items():
+            if i.window == win:
+                return uid
+    return next(iter(insts))
+
+
+def front_view(uids=None):
+    """The web view of the window in front (see front_uid), or None."""
+    from webview.platforms.cocoa import BrowserView
+    uid = front_uid(uids)
+    return BrowserView.instances[uid].webview if uid is not None else None
+
+
+def _watch_front() -> None:
+    """Note each window that comes to the front, and have its editor send its ticks (once)."""
+    if "observer" in _state:
+        return
+    import AppKit
+    import Foundation
+
+    class FigAssembleFrontWindow(Foundation.NSObject):
+        def windowBecameKey_(self, note):
+            from webview.platforms.cocoa import BrowserView
+            for uid, i in list(BrowserView.instances.items()):
+                if i.window == note.object() and i.webview is not None:
+                    note_front(uid)
+                    i.webview.evaluateJavaScript_completionHandler_("window.FA && window.FA.app.syncMenus()", None)
+    _state["observer"] = FigAssembleFrontWindow.alloc().init()
+    Foundation.NSNotificationCenter.defaultCenter().addObserver_selector_name_object_(
+        _state["observer"], b"windowBecameKey:", AppKit.NSWindowDidBecomeKeyNotification, None)
 
 
 def key_equivalent(keys: str | None) -> tuple[str, int] | None:
@@ -62,9 +116,9 @@ def _target():
 
 
 def act(action: str) -> None:
-    """Do what a menu item stands for (on the main thread)."""
+    """Do what a menu item stands for, in the window in front (on the main thread)."""
     AppKit = _state["AppKit"]
-    view = _state.get("view")
+    view = front_view() if action not in ("about", "clearRecent") and not action.startswith("url:") else None
     if action == "about":
         AppKit.NSApp.activateIgnoringOtherApps_(True)
         AppKit.NSApp.orderFrontStandardAboutPanelWithOptions_(
@@ -142,9 +196,9 @@ def _fill(menu, items: list) -> None:
 def build(window, api, spec: list, recent: list[str]) -> None:
     """The menu bar, from the editor's description of its menus (on the main thread)."""
     import AppKit
-    from webview.platforms.cocoa import BrowserView
     _target()
-    _state.update(view=BrowserView.instances[window.uid].webview, api=api, items={}, recent=None)
+    _watch_front()
+    _state.update(api=api, items={}, recent=None)
     cmd, opt = 1 << 20, 1 << 19
     main = AppKit.NSMenu.alloc().initWithTitle_("Main menu")
     app = _submenu(main, APP_NAME)
@@ -176,8 +230,11 @@ def build(window, api, spec: list, recent: list[str]) -> None:
     set_recent(recent)
 
 
-def set_checks(checks: dict) -> None:
-    """Ticks on the menu items for these actions (on the main thread)."""
+def set_checks(checks: dict, uid: str | None = None) -> None:
+    """Ticks on the menu items for these actions (on the main thread), from the window `uid`:
+    only if it's the one in front."""
+    if uid is not None and front_uid() not in (None, uid):
+        return
     for action, on in checks.items():
         for item in _state.get("items", {}).get(action, []):
             item.setState_(1 if on else 0)

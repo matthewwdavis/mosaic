@@ -93,7 +93,8 @@ run its installer once; it keeps your settings, and from then on FigAssemble upd
    arrows (A). Drop an arrow's end on an object's corner or edge to attach it.
 5. **Export.** Click **Check** to look for problems, then **Export** (⌘E) for PDF, SVG, PNG or TIFF,
    or an editable PowerPoint file for collaborators.
-   Save your work with ⌘S as a `.figasm` document.
+   Save your work with ⌘S as a `.figasm` document, and double-click it to open it again (each
+   figure in a window of its own).
 
 **New to it? Follow the [tutorial](docs/tutorial.md)**: it builds the figure above in about
 15 minutes, using the sample plots in [`examples/`](examples). Everything else is in the

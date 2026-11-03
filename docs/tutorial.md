@@ -192,7 +192,9 @@ click **Export…** and choose where to save them.
 
 Press **⌘S** to save the document as a `.figasm` file. It keeps the links to your plot files and
 a copy of each one too, so you can send it to a labmate and it opens complete. If a linked file
-has moved, FigAssemble uses the stored copy and the Picture tab says so.
+has moved, FigAssemble uses the stored copy and the Picture tab says so. To come back to it,
+double-click the file in Finder or Explorer. Each figure opens in a window of its own, so you
+can have the next one open beside it.
 
 If FigAssemble ever closes unexpectedly, it offers your unsaved work back the next time it starts.
 

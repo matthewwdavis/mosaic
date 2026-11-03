@@ -80,7 +80,8 @@ def main() -> int:
     ap.add_argument("--budget", type=int, default=60000, help="virtual time budget, ms (the whole run took 37 s in November 2026)")
     ap.add_argument("--only", help="run one part on its own, while working on it (objects: the Objects and Pages lists; slides: "
                     "PowerPoint slides; links: linked files updating; updates: updating FigAssemble; selection: selecting "
-                    "several objects and Select Same)")
+                    "several objects and Select Same; windows: New and Open in windows of their own, a .figasm "
+                    "dropped on the page)")
     args = ap.parse_args()
     if not args.chrome:
         print("Chrome not found; pass --chrome PATH")

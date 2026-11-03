@@ -30,7 +30,8 @@ export const store = {
     this.scope = [];
     this.history = [];
     this.future = [];
-    this.autosaveKey = `doc-${Date.now().toString(36)}`;
+    // (several windows can start documents in the same millisecond)
+    this.autosaveKey = `doc-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     this.emit("doc", { reset: true });
     this.emit("selection");
   },

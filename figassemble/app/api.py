@@ -84,9 +84,62 @@ def _choices_only(stored: dict) -> dict:
     return {k: v for k, v in stored.items() if k == "prefs_version" or PREFS_DEFAULTS.get(k, ...) != v}
 
 
+def _same_file(path: str) -> str:
+    """A path as compared with others: the same file however it's written."""
+    return os.path.normcase(os.path.realpath(os.path.abspath(os.path.expanduser(path))))
+
+
+def _try_lock(fh) -> bool:
+    """Lock an open file for this process alone, without waiting: False if something else has it."""
+    try:
+        if os.name == "nt":
+            import msvcrt
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError:
+        return False
+
+
+def _unlock(fh) -> None:
+    try:
+        if os.name == "nt":
+            import msvcrt
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+    except OSError:
+        pass
+
+
 class Api:
     def __init__(self):
-        self.window = None          # set by the app window; None in browser mode
+        # The app's windows, by number (pywebview's Window objects; none in browser mode), and
+        # what each has open: {path, dirty} (doc_state). Each editor sends its window's number
+        # with every request (server.py), so `window` is the one asking
+        self._windows: dict[str, object] = {}
+        self._win_state: dict[str, dict] = {}
+        self._caller = threading.local()
+        self._next_win = 1
+        self._new_window = None               # window.py's: opens a window (document, slides)
+        self.hidden_windows = False           # the smoke test's: windows are never shown
+        # Documents macOS opened FigAssemble with (macopen.py) wait here for the first editor, which
+        # takes them once the app has finished launching (launch_documents)
+        self._launched = threading.Event()
+        self._launched.set()                  # (macopen.install clears it until then)
+        self._launch_docs: list[str] = []
+        self._launch_taken = False
+        self._ready: set[str] = set()         # windows whose editor has started
+        self._win_lock = threading.Lock()
+        # Recovery copies this process is writing: a lock on each, so another FigAssemble running
+        # at the same time doesn't offer them back as lost work. {key: (lock file, window)}
+        self._autosave_locks: dict[str, tuple] = {}
+        self._autosaved_at: dict[str, float] = {}   # window -> when it last kept a copy
         self._lock = threading.Lock()
         self._decks: dict[str, dict] = {}     # imported decks, by path or by the key of copied slides
         self._deck_lock = threading.Lock()
@@ -97,6 +150,127 @@ class Api:
         self._updater = None                  # updates.Updater, made when first needed
         self.restart_asked = False            # Restart now chosen (the self-test's window stays open)
 
+    # Windows ----------------------------------------------------------------------------
+
+    @property
+    def window(self):
+        """The window the current request came from (outside a request, the first one); None in
+        browser mode."""
+        win = getattr(self._caller, "win", None)
+        windows = dict(self._windows)   # (a window can close meanwhile)
+        if win in windows:
+            return windows[win]
+        return next(iter(windows.values()), None)
+
+    @window.setter
+    def window(self, w) -> None:
+        """One window, as window 1 (or none)."""
+        self._windows.clear()
+        if w is not None:
+            self._windows["1"] = w
+
+    def _caller_win(self) -> str | None:
+        win, windows = getattr(self._caller, "win", None), list(self._windows)
+        return win if win in windows else next(iter(windows), None)
+
+    def _reserve_window(self) -> str:
+        """The number for a window about to open (its editor's URL carries it)."""
+        with self._win_lock:
+            win = str(self._next_win)
+            self._next_win += 1
+            return win
+
+    def _add_window(self, win: str, w) -> None:
+        self._windows[win] = w
+
+    def _remove_window(self, win: str) -> None:
+        """A window closed: forget it, and let go of its recovery copies (still offered back the
+        next time FigAssemble opens, as when it quits)."""
+        self._windows.pop(win, None)
+        self._win_state.pop(win, None)
+        self._ready.discard(win)
+        for key, (_, owner) in list(self._autosave_locks.items()):
+            if owner == win:
+                self._unlock_autosave(key)
+
+    def _show(self, w) -> None:
+        if not self.hidden_windows:
+            w.show()
+        if sys.platform == "darwin":
+            from . import macmenu
+            macmenu.note_front(w.uid)   # the Mac menu bar's commands go to it (even while hidden)
+
+    def doc_state(self, path: str | None, dirty: bool) -> bool:
+        """What the calling window has open (its file: opening it again brings this window to
+        the front) and whether there are unsaved changes (closing it asks first; restarting to
+        update keeps a copy)."""
+        win = self._caller_win()
+        if win is not None:
+            self._win_state[win] = {"path": _same_file(path) if path else None, "dirty": bool(dirty)}
+        return self.confirm_close(dirty)
+
+    def show_document(self, path: str) -> bool:
+        """Bring the window that has this document open to the front; False if none has."""
+        key = _same_file(path)
+        for win, state in list(self._win_state.items()):
+            w = self._windows.get(win)
+            if w is not None and state.get("path") == key:
+                self._show(w)
+                return True
+        return False
+
+    def open_window(self, path: str | None = None, slides: list[int] | None = None) -> dict:
+        """A new window with this document (a deck's slides chosen: `slides`), or a new blank
+        figure; a document open already comes to the front instead. {"opened": False} in
+        browser mode, where the editor replaces its figure instead."""
+        if self._new_window is None or not self._windows:
+            return {"opened": False}
+        if path and not path.lower().endswith(DECK_EXTENSIONS) and self.show_document(path):
+            return {"shown": True}
+        self._new_window(os.path.abspath(os.path.expanduser(path)) if path else None, slides)
+        return {"opened": True}
+
+    def close_window(self) -> bool:
+        """Close the calling window (one opened for a deck whose slide picker was cancelled), unless
+        it's the last."""
+        win = self._caller_win()
+        if win is None or len(self._windows) < 2:
+            return False
+        w = self._windows[win]
+        w.confirm_close = False
+        threading.Timer(0.1, w.destroy).start()   # once this answer is back with the editor
+        return True
+
+    def launch_documents(self) -> list[str]:
+        """The documents FigAssemble was opened with by double-clicking them (or Open With, or a
+        drop on its Dock icon), for the first editor to open; [] for the others. Waits for the
+        app to finish launching, when macOS has handed them over."""
+        self._launched.wait(5)
+        with self._win_lock:
+            win = self._caller_win()
+            if win is not None:
+                self._ready.add(win)
+            if self._launch_taken:
+                return []
+            self._launch_taken = True
+            docs, self._launch_docs = self._launch_docs, []
+        return docs
+
+    def _system_open(self, paths: list[str]) -> list[str]:
+        """Documents macOS asks FigAssemble to open while it runs: one open already comes to the
+        front, and before any editor has started they wait for the first. Returns the rest, for
+        the editor in front to open (macopen.py)."""
+        rest = [p for p in paths if p.lower().endswith(DECK_EXTENSIONS) or not self.show_document(p)]
+        with self._win_lock:
+            if rest and not self._launch_taken:
+                self._launch_docs.extend(rest)
+                return []
+        return rest
+
+    def _ready_uids(self) -> list[str]:
+        """The pywebview ids of the windows whose editor has started."""
+        return [w.uid for win, w in list(self._windows.items()) if win in self._ready]
+
     # Utilities ------------------------------------------------------------------------
 
     def _asset_view(self, assets: dict) -> dict:
@@ -106,7 +280,12 @@ class Api:
 
     def app_info(self) -> dict:
         from ..journals import JOURNALS, STANDARD_SIZES
+        win = self._caller_win()
         return {"version": __version__, "platform": sys.platform, "native": self.window is not None,
+                # Opening documents in windows of their own (else the editor replaces its figure),
+                # and whether this is the window FigAssemble opened with (it offers back unsaved work)
+                "windows": self._new_window is not None and self.window is not None,
+                "first_window": win in (None, "1"),
                 "prefs": self.prefs_get(), "standard_sizes": STANDARD_SIZES, "journals": JOURNALS,
                 "machine": platform.node(), "shapes": presets.catalog(), "clipboard": clipboard.backend() is not None,
                 "themes": themes.catalog()}
@@ -168,12 +347,15 @@ class Api:
         return True
 
     def set_menus(self, spec: list) -> bool:
-        """The editor's menus, for the menu bar on a Mac (macmenu.build); nothing elsewhere."""
+        """The editor's menus, for the menu bar on a Mac (macmenu.build; once, by the first window
+        to ask: they're the same in every window); nothing elsewhere."""
         return self._on_mac_menus("build", self.window, self, spec, self.prefs_get().get("recent", []))
 
     def menu_checks(self, checks: dict) -> bool:
-        """Ticks on the Mac menu bar's items: {action: on}."""
-        return self._on_mac_menus("set_checks", checks)
+        """Ticks on the Mac menu bar's items: {action: on}, from the window in front (another
+        window's ticks wait until it comes to the front, when it sends them again)."""
+        w = self.window
+        return self._on_mac_menus("set_checks", checks, w.uid if w is not None else None)
 
     # Documents -------------------------------------------------------------------------
 
@@ -197,6 +379,24 @@ class Api:
         saved_by = (doc.get("meta") or {}).get("saved_by")
         newer = saved_by if parse_version(saved_by) > parse_version(__version__) else None
         return {"doc": doc, "path": path, "report": [], "newer": newer}
+
+    def figure_pages(self, path: str) -> dict:
+        """Another document's pages, to add to the one open (a .figasm dropped on the window), with
+        what they use from that document: pictures, symbols, swatches, text and object styles."""
+        path = os.path.abspath(os.path.expanduser(path))
+        doc = docfile.load(path)
+        return {"name": os.path.splitext(os.path.basename(path))[0], "pages": doc.get("pages", []),
+                **{k: doc.get(k) or ({} if k == "assets" else []) for k in
+                   ("assets", "symbols", "swatches", "text_styles", "object_styles")}}
+
+    def figure_upload(self, name: str, data_b64: str) -> dict:
+        """A .figasm dropped in the browser (its bytes, with no path to it): its pages, as
+        figure_pages."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, os.path.basename(name) or "figure.figasm")
+            with open(path, "wb") as fh:
+                fh.write(base64.b64decode(data_b64))
+            return self.figure_pages(path)
 
     # PowerPoint slides: decks opened or dropped (through the slide picker), slides and shapes
     # copied or dragged out of PowerPoint ---------------------------------------------------------
@@ -353,19 +553,73 @@ class Api:
     def autosave(self, doc: dict, key: str) -> dict:
         d = os.path.join(config_dir(), "autosave")
         os.makedirs(d, exist_ok=True)
+        self.claim_autosave(key)
         path = os.path.join(d, f"{key}{docfile.EXTENSION}")
         docfile.save(doc, path, prune=False)
+        win = self._caller_win()
+        if win is not None:
+            self._autosaved_at[win] = time.time()
         return {"path": path}
 
+    def claim_autosave(self, key: str) -> bool:
+        """This window is keeping this recovery copy (one it writes, or one recovered): locked,
+        so another FigAssemble running at the same time leaves it alone. The lock goes when the
+        window closes or FigAssemble quits, however it quits."""
+        if key in self._autosave_locks:
+            return True
+        if not key.replace("-", "").isalnum():   # (only FigAssemble's own names)
+            return False
+        d = os.path.join(config_dir(), "autosave")
+        os.makedirs(d, exist_ok=True)
+        fh = open(os.path.join(d, f"{key}.lock"), "a+")
+        if not _try_lock(fh):
+            fh.close()
+            return False
+        self._autosave_locks[key] = (fh, self._caller_win())
+        return True
+
+    def _unlock_autosave(self, key: str) -> None:
+        fh, _ = self._autosave_locks.pop(key, (None, None))
+        if fh is None:
+            return
+        _unlock(fh)
+        fh.close()
+        try:
+            os.remove(fh.name)   # FigAssemble's own lock file
+        except OSError:
+            pass   # (Windows: another FigAssemble is looking at it just then)
+
+    def _kept_elsewhere(self, key: str) -> bool:
+        """A recovery copy another window or another FigAssemble is keeping (locked). The asking
+        window's own count as left behind (a document it replaced), as before there were locks."""
+        if key in self._autosave_locks:
+            owner = self._autosave_locks[key][1]
+            return owner is not None and owner != self._caller_win() and owner in self._windows
+        path = os.path.join(config_dir(), "autosave", f"{key}.lock")
+        if not os.path.exists(path):
+            return False
+        try:
+            fh = open(path, "a+")
+        except OSError:
+            return False
+        with fh:
+            if not _try_lock(fh):
+                return True
+            _unlock(fh)
+        return False
+
     def autosaved(self, exclude_key: str | None = None) -> list[dict]:
-        """Recovery copies of unsaved documents, newest first (the current session's left out),
-        with what's in each so they can be told apart."""
+        """Recovery copies of unsaved documents, newest first (the current session's left out,
+        and any another window or FigAssemble is still keeping), with what's in each so they can
+        be told apart."""
         d = os.path.join(config_dir(), "autosave")
         if not os.path.isdir(d):
             return []
         out = []
         for n in os.listdir(d):
             if not n.endswith(docfile.EXTENSION) or (exclude_key and n == f"{exclude_key}{docfile.EXTENSION}"):
+                continue
+            if self._kept_elsewhere(n[:-len(docfile.EXTENSION)]):
                 continue
             p = os.path.join(d, n)
             entry = {"path": p, "modified": os.path.getmtime(p), "bytes": os.path.getsize(p)}
@@ -386,7 +640,8 @@ class Api:
         d = os.path.realpath(os.path.join(config_dir(), "autosave"))
         for p in paths or []:
             real = os.path.realpath(p)
-            if os.path.dirname(real) == d and real.endswith(docfile.EXTENSION) and os.path.isfile(real):
+            if os.path.dirname(real) == d and real.endswith(docfile.EXTENSION) and os.path.isfile(real) \
+                    and not self._kept_elsewhere(os.path.basename(real)[:-len(docfile.EXTENSION)]):
                 os.remove(real)   # FigAssemble's own autosave file
         return self.autosaved(exclude_key)
 
@@ -394,6 +649,7 @@ class Api:
         p = os.path.join(config_dir(), "autosave", f"{key}{docfile.EXTENSION}")
         if os.path.exists(p):
             os.remove(p)   # FigAssemble's own autosave file
+        self._unlock_autosave(key)
         return True
 
     # Assets ----------------------------------------------------------------------------
@@ -675,9 +931,8 @@ class Api:
 
     def confirm_close(self, dirty: bool) -> bool:
         """Ask before closing only while there are unsaved changes."""
-        self._dirty = bool(dirty)
         if self.window is not None:
-            self.window.confirm_close = self._dirty
+            self.window.confirm_close = bool(dirty)
         return True
 
     def open_url(self, url: str) -> bool:
@@ -720,9 +975,28 @@ class Api:
             return False
         self.restart_asked = True
         if self.window is not None and not os.environ.get("FIGASSEMBLE_FAKE_CLIPBOARD"):
-            self.window.confirm_close = False
-            threading.Timer(0.3, self.window.destroy).start()   # once this answer is back with the editor
+            self._keep_copies(exclude=self._caller_win())
+            windows = list(self._windows.values())
+            for w in windows:
+                w.confirm_close = False
+            threading.Timer(0.3, lambda: [w.destroy() for w in windows]).start()   # once this answer is back with the editor
         return True
+
+    def _keep_copies(self, exclude: str | None = None, wait: float = 10.0) -> None:
+        """The other windows' unsaved work kept as recovery copies (offered back when FigAssemble
+        opens again), before they close without asking."""
+        asked = {}
+        for win, w in list(self._windows.items()):
+            if win != exclude and self._win_state.get(win, {}).get("dirty"):
+                asked[win] = time.time()
+                try:
+                    w.evaluate_js("window.FA && window.FA.app.keepCopy()")
+                except Exception:   # noqa: BLE001 (a window closing meanwhile)
+                    asked.pop(win)
+        end = time.time() + wait
+        while asked and time.time() < end:
+            asked = {win: t for win, t in asked.items() if self._autosaved_at.get(win, 0) < t and win in self._windows}
+            time.sleep(0.05)
 
     def update_skip(self, version: str | None) -> dict:
         """Skip this version (None: install the one skipped after all)."""

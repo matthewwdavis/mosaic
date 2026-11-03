@@ -26,7 +26,7 @@ def test_shortcuts_as_menu_keys():
 
 @mac
 def test_the_app_runs_python_from_inside_itself(tmp_path):
-    subprocess.run([sys.executable, os.path.join(ROOT, "packaging", "macos", "make_app.py"), "--dest", str(tmp_path)],
+    subprocess.run([sys.executable, os.path.join(ROOT, "packaging", "macos", "make_app.py"), "--dest", str(tmp_path), "--no-register"],
                    check=True, capture_output=True)
     folder = tmp_path / "FigAssemble.app" / "Contents" / "MacOS"
     py = folder / "python"

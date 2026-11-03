@@ -155,6 +155,31 @@ pre-export check says so.
   (with dash), the fonts, sizes or colours of its text runs, or its kind (a preset's name, text
   box, line or arrow, picture, equation, zoom inset, one symbol's copies); "none" matches "none".
   It keeps to the working level like every selection, so a group's parts count only inside it.
+- **Documents and windows (2026-11-02):** a .figasm double-clicked opens in FigAssemble, and each
+  document has a window of its own (Matthew's choice, over replacing the open figure). The Mac
+  app owns the type (`org.figassemble.figasm`, declared in its Info.plist, registered with
+  LaunchServices as the app is made) and takes decks as an alternative, for Open With. macOS
+  sends documents as an "open documents" Apple event, at launch and while running; FigAssemble
+  installs its own handler for it (macopen.py) in applicationWillFinishLaunching, as Apple
+  documents, rather than going through pywebview's delegate. The windows share one process and
+  one engine: each editor sends its window's number with every request, so dialogs, the title
+  and the close confirmation go to the right window. New, Open and Open Recent use the window in
+  front if it's blank (nothing on any page, nothing unsaved, no dialog open; his rule), else open
+  a new one. A document open already comes to the front, and closing the last window quits (his
+  choice, over staying open with no windows). Documents arriving before the first editor has
+  started wait until the launch has finished (applicationDidFinishLaunching), so a double-click
+  that starts FigAssemble opens the document in the first window. The Mac menu bar works in the
+  window in front, which sends its own ticks when it comes to the front. On Windows the installer
+  registers the type in HKEY_CURRENT_USER (no administrator needed), and each double-click starts a
+  FigAssemble of its own, as Notepad does (his choice, over sending it to the open window).
+  Rulers, grid, guides, snap and the interface's state are each window's own (his choice), while
+  Settings are shared: a window takes changes from another when it comes to the front. A .figasm
+  dropped on the window adds its pages (his choice, over opening it), with the swatches,
+  symbols, styles and pictures they use. One that's the same here is shared, and one whose id
+  means something else here gets a new id. Recovery copies a window is writing are locked
+  (flock, or msvcrt on Windows), so another FigAssemble running at the same time doesn't offer
+  them back as lost work. The lock goes when the window closes or the process ends, however it
+  ends.
 - **PowerPoint slides in (2026-11-01):** Open goes through a slide picker (a picture of each
   slide, drawn by the PDF export at 320 px; one or several chosen), and a deck imported once is
   kept for the picker and the slides then chosen. Where slides dropped on the window go depends
