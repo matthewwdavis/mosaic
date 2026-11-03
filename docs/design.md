@@ -200,6 +200,14 @@ pre-export check says so.
   size, background and guides, named Page 1) rather than refusing; one with objects asks first, as
   any page does. + Add page makes the same empty page, now keeping the page's standard or journal
   size too.
+- **Export and report windows close when done (2026-11-02, Matthew's choices):** once the files
+  are written the window closes, even with warnings (his choice), and a note at the top of the
+  page names them, with Show in Finder (Explorer) and the warnings. It goes after 10 seconds but
+  not while pointed at or focused, and one with warnings stays until closed so they're read (a
+  failed export keeps its window, with the error). The figure report's window does the same. The
+  notes along the top of the page now stack in one column (the colour vision note, then this
+  one), and presses on any note stay off the page: before, a click on a note's button also reached
+  the canvas underneath, which could select or deselect what lay under the note.
 - **PowerPoint slides in (2026-11-01):** Open goes through a slide picker (a picture of each
   slide, drawn by the PDF export at 320 px; one or several chosen), and a deck imported once is
   kept for the picker and the slides then chosen. Where slides dropped on the window go depends

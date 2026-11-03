@@ -4,6 +4,7 @@
 import { rpc } from "./api.js";
 import { canvas, findDeep, visionMatrix } from "./canvas.js";
 import { inspector } from "./inspector.js";
+import { panels } from "./panels.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
 import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints } from "./util.js";
@@ -1061,6 +1062,77 @@ async function pageSizeChecks(app) {
   store.setDoc(await rpc("new_document"));
 }
 
+// Exporting: once it works, the window closes and a note over the page names the files (with Show
+// in Finder in the app). It goes after a while, not while pointed at; with warnings it stays,
+// listing them, until closed. The figure report's window closes the same way. A press on the note
+// stays off the page. (The note's 10 seconds are shortened here, for headless Chrome's time budget)
+async function exportNoteChecks(app, out) {
+  if (!out) return;
+  const realExport = app.chooseExportBase, realReport = app.chooseReportBase, realSeconds = panels.noteSeconds;
+  app.chooseExportBase = async () => `${out}/selftest-note`;
+  app.chooseReportBase = async () => `${out}/selftest-note-report`;
+  panels.noteSeconds = 0.4;
+  const note = () => document.querySelector(".done-note");
+  const lastDialog = () => [...document.querySelectorAll("dialog[open]")].pop();
+  const press = (dlg, text) => [...dlg.querySelectorAll(".dialog-actions button")].find((b) => b.textContent === text).click();
+  try {
+    store.setDoc(await rpc("new_document"));
+    store.update("Box", (doc) => doc.pages[0].items.push(gRectFor("exBox", 40, 40, 80, 50)), { select: ["exBox"] });
+    await settle();
+    await app.run("export");
+    let dlg = lastDialog();
+    for (const i of dlg.querySelectorAll(".formats input, .advanced input[value]")) i.checked = ["pdf", "svg"].includes(i.value);
+    press(dlg, "Export…");
+    await panels.writing;
+    const text = note()?.querySelector("span")?.textContent || "", show = !!note()?.querySelector('button[aria-label^="Show in"]');
+    check(!dlg.open && text === "Exported selftest-note.pdf and selftest-note.svg" && show === !!app.info.native
+      && !note()?.querySelector(".warnings"), "a successful export closes its window, and a note over the page names the files",
+    `open ${dlg.open}; ‹${text}›; show ${show}`);
+    const span = note().querySelector("span"), r = span.getBoundingClientRect();
+    const at = { clientX: r.left + 4, clientY: r.top + 4, bubbles: true, button: 0, buttons: 1, pointerId: 1, pointerType: "mouse" };
+    span.dispatchEvent(new PointerEvent("pointerdown", at));
+    span.dispatchEvent(new PointerEvent("pointerup", { ...at, buttons: 0 }));
+    check(store.selection.join() === "exBox" && !canvas.op, "a press on the note doesn't reach the page", `${store.selection} ${canvas.op?.type}`);
+    note().dispatchEvent(new PointerEvent("pointerenter"));
+    await wait(panels.noteSeconds * 1000 + 300);
+    const stayed = !!note();
+    note()?.dispatchEvent(new PointerEvent("pointerleave"));
+    await until(() => !note(), 5000);
+    check(stayed && !note(), "it stays while pointed at, and goes a while after", `stayed ${stayed}; there ${!!note()}`);
+
+    // Warnings (a second page of another size: PowerPoint has one slide size) go in the note, which stays
+    await app.run("addPage");
+    store.update("Wider page", (doc) => { doc.pages[1].width = 900; });
+    await app.run("export");
+    dlg = lastDialog();
+    for (const i of dlg.querySelectorAll(".formats input, .advanced input[value]")) i.checked = i.value === "pptx";
+    const pagesLabel = [...dlg.querySelectorAll("label")].find((l) => l.textContent === "Pages");
+    document.getElementById(pagesLabel.htmlFor).value = "all";
+    press(dlg, "Export…");
+    await panels.writing;
+    const warned = [...(note()?.querySelectorAll(".warnings li") || [])].map((li) => li.textContent);
+    await wait(panels.noteSeconds * 1000 + 300);
+    check(!dlg.open && /selftest-note\.pptx/.test(note()?.textContent || "") && warned.some((w) => /one slide size/.test(w)),
+      "with warnings it closes too, and the note lists them and stays", `open ${dlg.open}; ${warned.join(" | ") || "no note"}`);
+    note()?.querySelector(".done-note-close").click();
+    check(!note(), "its × closes it");
+
+    await app.run("figureReport");
+    dlg = lastDialog();
+    dlg.querySelector('.formats input[value="csv"]').checked = true;
+    press(dlg, "Write report…");
+    await panels.writing;
+    check(!dlg.open && note()?.querySelector("span")?.textContent === "Wrote the figure report: selftest-note-report.csv",
+      "the figure report's window closes the same way", note()?.textContent || "no note");
+    note()?.querySelector(".done-note-close").click();
+  } finally {
+    app.chooseExportBase = realExport;
+    app.chooseReportBase = realReport;
+    panels.noteSeconds = realSeconds;
+    for (const d of document.querySelectorAll("dialog[open]")) d.close();
+  }
+}
+
 // Colour vision side by side: the page five ways at once, each view through its own filter over a
 // copy of the page's objects (not the page's own preview, no ids), and a click keeps one on the
 // page. Command search finds the views by "colour blind", "color blind" or a kind's name
@@ -1141,6 +1213,7 @@ export async function run(app, params) {
     if (params.get("only") === "windows") { await windowChecks(app, out); throw ONLY; }
     if (params.get("only") === "sizes") { await pageSizeChecks(app); throw ONLY; }
     if (params.get("only") === "vision") { await visionChecks(app); throw ONLY; }
+    if (params.get("only") === "export") { await exportNoteChecks(app, out); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -1196,6 +1269,21 @@ export async function run(app, params) {
     inspector.render();
     const units = [...document.querySelectorAll("#inspector .unit")].map((u) => u.textContent);
     check(units.includes("cm") && !units.includes("pt"), "a picture's position and size show in centimetres", units.join(","));
+    // A picture stretched unevenly (as PowerPoint can leave one) says so, and 100% puts both sides back
+    const trueFr = store.item(pics[0].id).frame.slice();
+    store.update("Stretch for test", (doc) => {
+      const it = doc.pages[0].items.find((i) => i.id === pics[0].id);
+      it.frame = [it.frame[0], it.frame[1], it.frame[2] * 0.988, it.frame[3] * 0.9];
+    });
+    inspector.render();
+    const scaleNote = document.querySelector("#inspector p.scale");
+    check(scaleNote?.classList.contains("warn") && /98\.8% across, 90% down — stretched/.test(scaleNote.textContent),
+      "a picture stretched unevenly shows its scale across and down, with a warning", scaleNote?.textContent);
+    document.querySelector('#inspector button[aria-label="Set to true size (100%)"]').click();
+    await settle();
+    const backFr = store.item(pics[0].id).frame;
+    check(backFr.every((v, i) => near(v, trueFr[i], 1e-6)), "100% puts a stretched picture back to true size both ways",
+      `${JSON.stringify(backFr)} vs ${JSON.stringify(trueFr)}`);
     // Keep the pictures apart so pointer tests hit the one intended
     if (pics[1]) store.update("Arrange for test", (doc) => {
       const it = doc.pages[0].items.find((i) => i.id === pics[1].id);
@@ -2356,6 +2444,7 @@ export async function run(app, params) {
     await windowChecks(app, out);
     await pageSizeChecks(app);
     await visionChecks(app);
+    await exportNoteChecks(app, out);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

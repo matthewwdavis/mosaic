@@ -174,11 +174,14 @@ picture instead.
 
 The **Picture** tab of a selected picture shows its file, whether the link works, the copies found,
 and its **scale**. A picture that isn't at 100% says so, with a warning that its text has shrunk
-or grown. Its buttons:
+or grown. One stretched unevenly, its frame a different shape from the file (PowerPoint can leave
+pictures like that), gives its scale across and down, such as "98.8% across, 90% down", with a
+warning that its text and curves are distorted. Its buttons:
 
 - **Crop**, or double-click the picture, or press Enter: drag the edges to crop, or drag the
   picture to move it inside its frame. Press Enter or Escape when done. **Reset crop** undoes it.
-- **100%** puts it back to true size.
+- **100%** puts it back to true size, both ways, so a stretched picture gets its proportions back
+  too. Its top-left corner stays where it is.
 - **Crop to shape**, as in PowerPoint: the picture shows only inside a shape fitted to its frame
   (a circle, a rounded rectangle, a star…), with the shape's adjustments (a rounded rectangle's
   corner radius, say). Crop moves the picture within the shape; **None** takes it away. The
@@ -762,6 +765,8 @@ Guides and the grid are never exported.
 - the page's size against a journal's figure widths and greatest depth: the page's own journal
   size, or the journal chosen at the top of the window (remembered for next time);
 - images whose resolution is too low at their printed size;
+- pictures stretched unevenly (their frame a different shape from the file), whose text and
+  curves come out distorted; **100%** on the Picture tab puts one back;
 - conversions an export would need (an SVG with no PDF copy, say);
 - placed files that can't be found.
 
@@ -794,6 +799,11 @@ Click **Export…** and choose a name and folder; one file is written per format
 chosen pages; the other formats write one file per page.
 Your choices are remembered for next time.
 
+When the files are written, the window closes and a note at the top of the page names them, with
+**Show in Finder** (Show in Explorer on Windows). It goes after 10 seconds, but stays while you
+point at it. If the export has warnings (a font that doesn't allow embedding, say), the note lists
+them and stays until you close it (×). If the export fails, the window stays open and says why.
+
 **PowerPoint** export writes an editable .pptx, each page a slide, for a collaborator who works in
 PowerPoint or a talk:
 
@@ -823,7 +833,7 @@ it gives:
 Choose the formats, none of them ticked to start with: **HTML** (a page to open in a browser),
 **Markdown** (notes, a README), **CSV** (a spreadsheet, one row per picture) and **PDF** (to print
 or attach). Then **Write report…** and choose where; each format is written next to the others
-under one name.
+under one name. As with exporting, the window then closes and a note names the files.
 
 <img src="images/report.png" alt="The Figure report window: HTML, Markdown, CSV and PDF, none ticked" width="508">
 

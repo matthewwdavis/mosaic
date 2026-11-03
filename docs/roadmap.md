@@ -139,6 +139,9 @@ Matthew's choices are in brackets.
       choices, over a shortcut stepping through them]
 - [x] Deleting the only page leaves an empty page like it (size, background, guides) instead of
       refusing; one with objects asks first, as any page does [Matthew's choices]
+- [x] Export and Figure report close by themselves once the files are written; a note over the
+      page names them, with Show in Finder and any warnings [Matthew's choices: the note, closing
+      even with warnings, the report too]
 
 ## Acceptance test (test slide)
 

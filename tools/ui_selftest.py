@@ -82,7 +82,7 @@ def main() -> int:
                     "PowerPoint slides; links: linked files updating; updates: updating FigAssemble; selection: selecting "
                     "several objects and Select Same; windows: New and Open in windows of their own, a .figasm "
                     "dropped on the page; sizes: page sizes, the Size menu and new documents' size; vision: colour "
-                    "vision side by side and in command search)")
+                    "vision side by side and in command search; export: the window closing after an export, and its note)")
     args = ap.parse_args()
     if not args.chrome:
         print("Chrome not found; pass --chrome PATH")

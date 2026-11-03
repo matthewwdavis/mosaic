@@ -26,6 +26,9 @@ const ROT_OFFSET = 24;        // rotation handle distance above the frame, CSS p
 const SEL_GAP = 6;            // the selection box and its handles stand this far outside the object, CSS px
 const SVG_PREVIEW_LIMIT = 8e6; // bigger SVGs preview as rendered PDFs for speed
 const DEFAULT_SIZE = (72 / 2.54) * 2;   // a click (or Enter) with a drawing tool places a 2 cm object
+// The notes over the page (a preview on, editing inside a group, a finished export): presses on
+// them and their buttons are theirs, not the page's
+const NOTES = ".cvd-note, .scope-note, .done-note";
 // Colour vision previews: linear-RGB matrices, Machado, Oliveira & Fernandes 2009 at full strength
 export const COLOUR_VISION = {
   deuteranopia: { name: "deuteranopia (red-green, no green cones)",
@@ -102,7 +105,9 @@ export const canvas = {
     stage.append(this.svg);
     this.cvdNote = h("div", { class: "cvd-note", role: "status", hidden: true });
     this.scopeNote = h("div", { class: "scope-note", role: "status", hidden: true });
-    stage.append(this.cvdNote, this.scopeNote);
+    // Notes along the top of the page, one under another (an export's goes here too: panels.doneNote)
+    this.notes = h("div", { class: "stage-notes" }, this.cvdNote);
+    stage.append(this.notes, this.scopeNote);
     this.setRulers(this.defaults?.show_rulers !== false);
     store.afterChange = (doc) => this.followLinks(doc);
     this.editor = h("div", { class: "text-editor", contenteditable: "true", spellcheck: "false", hidden: true,
@@ -118,7 +123,7 @@ export const canvas = {
     stage.addEventListener("contextmenu", (e) => {
       if (this.editing && this.editor.contains(e.target)) return;   // text being typed keeps its own menu
       e.preventDefault();
-      if (this.op) return;
+      if (this.op || e.target.closest?.(NOTES)) return;
       if (this.editing) this.commitEdit();
       if (this.cropping) this.endCrop();
       this.onContextMenu?.(e.clientX, e.clientY);
@@ -741,6 +746,7 @@ export const canvas = {
   // Pointer interaction ---------------------------------------------------------------
 
   pointerDown(e) {
+    if (e.target.closest?.(NOTES)) return;
     if (this.editing && !this.editor.contains(e.target)) { this.commitEdit(); return; }
     if (this.editing) return;
     this.stage.focus({ preventScroll: true });
@@ -955,6 +961,7 @@ export const canvas = {
     }
   },
   doubleClick(e) {
+    if (e.target.closest?.(NOTES)) return;
     const pt = this.eventPoint(e);
     const p = this.toPage(...pt);
     const sel = store.selected();

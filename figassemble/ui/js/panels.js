@@ -80,6 +80,13 @@ const ICONS = {
   pagesize: "M5 3h14v18H5zM9 15l6-6M11 9h4v4M9 11v4h4", compare: "M2 6h6v12H2zM9 6h6v12H9zM16 6h6v12h-6z",
 };
 
+// Files by name: "a.pdf", "a.pdf and a.png", "a.pdf, a.png and a.tif", "a-1.png, a-2.png and 3 more"
+function fileNames(files) {
+  const names = files.map((f) => f.split(/[\\/]/).pop());
+  if (names.length > 3) return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0] || "nothing";
+}
+
 // Which text objects (and pages) use each font; text in symbols counts, on no page of its own
 function fontUses(doc) {
   const uses = new Map();
@@ -896,7 +903,8 @@ export const panels = {
         check("pptx", "PowerPoint", "editable; what PowerPoint can't draw exactly goes in as pictures")),
       dpiSel, custom, pages, bg, advanced, results);
     const dlg = this.dialog("Export", body, [go]);
-    go.addEventListener("click", async () => {
+    // (this.writing: the export under way, for whatever waits on it, such as the self-test)
+    const write = async () => {
       const chosen = [...dlg.querySelectorAll(".formats input:checked, .advanced input[value]:checked")].map((i) => i.value);
       if (!chosen.length) { results.textContent = "Choose at least one format."; return; }
       let dpi = dpiSel.querySelector("select").value;
@@ -913,15 +921,47 @@ export const panels = {
       try {
         const res = await rpc("export", store.doc, { ...opts, base, doc_path: store.path });
         this.app.savePrefs({ export: { formats: chosen, dpi, transparent: opts.transparent, cmyk: opts.cmyk, embed_fonts: opts.embed_fonts } });
-        results.replaceChildren(h("p", {}, `Exported ${res.files.length} file${res.files.length === 1 ? "" : "s"}:`),
-          h("ul", { class: "file-list" }, ...res.files.map((f) => h("li", {}, f.split(/[\\/]/).pop(), " ",
-            this.app.info.native ? button(`Show ${f.split(/[\\/]/).pop()} in the Finder`, () => rpc("reveal", f), "Show") : null))),
-          res.warnings.length ? h("ul", { class: "warnings" }, ...res.warnings.map((w) => h("li", {}, w))) : null);
-        announce(`Exported ${res.files.length} files`);
+        dlg.close();
+        this.doneNote(`Exported ${fileNames(res.files)}`, res.files, res.warnings);
       } catch (err) {
         results.replaceChildren(h("p", { class: "error" }, `Export failed: ${err.message}`));
       } finally { go.disabled = false; }
-    });
+    };
+    go.addEventListener("click", () => { this.writing = write(); });
+  },
+
+  // Once an export or the figure report is written, its window closes and a note over the page names
+  // the files, with Show in Finder (Explorer) and any warnings. It goes after noteSeconds, but not
+  // while pointed at or focused; one with warnings stays until closed, so they're seen
+  noteSeconds: 10,
+  doneNote(message, files, warnings = []) {
+    this.doneNoteEl?.remove();
+    clearTimeout(this.doneNoteTimer);
+    const where = isMac ? "Finder" : /^Win/.test(navigator.platform) ? "Explorer" : "folder";
+    let note = null;
+    const close = () => {
+      clearTimeout(this.doneNoteTimer);
+      note.remove();
+      if (this.doneNoteEl === note) this.doneNoteEl = null;
+    };
+    const later = () => {
+      clearTimeout(this.doneNoteTimer);
+      if (!warnings.length) this.doneNoteTimer = setTimeout(close, this.noteSeconds * 1000);
+    };
+    note = h("div", { class: "done-note", role: "group", "aria-label": message },
+      h("div", { class: "done-note-line" }, h("span", {}, message),
+        this.app.info.native && files.length ? button(`Show in ${where}`, () => rpc("reveal", files[0])) : null,
+        button("Close this note", close, "×", "done-note-close")),
+      warnings.length ? h("ul", { class: "warnings" }, ...warnings.map((w) => h("li", {}, w))) : null);
+    note.addEventListener("pointerenter", () => clearTimeout(this.doneNoteTimer));
+    note.addEventListener("pointerleave", later);
+    note.addEventListener("focusin", () => clearTimeout(this.doneNoteTimer));
+    note.addEventListener("focusout", (e) => { if (!note.contains(e.relatedTarget)) later(); });
+    canvas.notes.append(note);
+    this.doneNoteEl = note;
+    later();
+    const n = warnings.length;
+    announce(n ? `${message}, with ${n === 1 ? "a warning" : `${n} warnings`}: ${warnings.join("; ")}` : message);
   },
 
   // The figure report (report.py): the formats to write, none chosen to start with
@@ -944,7 +984,7 @@ export const panels = {
         check("csv", "CSV", "for a spreadsheet: one row per picture"), check("pdf", "PDF", "to print or attach")),
       pages, results);
     const dlg = this.dialog("Figure report", body, [go]);
-    go.addEventListener("click", async () => {
+    const write = async () => {
       const formats = [...dlg.querySelectorAll(".formats input:checked")].map((i) => i.value);
       if (!formats.length) { results.textContent = "Choose at least one format."; return; }
       const base = await this.app.chooseReportBase();
@@ -954,15 +994,13 @@ export const panels = {
       try {
         const res = await rpc("figure_report", store.doc, { formats, base, units: this.app.prefs.units || "cm", doc_path: store.path,
           pages: pages.querySelector("select").value === "all" ? null : [store.pageIndex] });
-        const name = (f) => f.split(/[\\/]/).pop();
-        results.replaceChildren(h("p", {}, `Wrote ${res.files.length} file${res.files.length === 1 ? "" : "s"}:`),
-          h("ul", { class: "file-list" }, ...res.files.map((f) => h("li", {}, name(f), " ",
-            this.app.info.native ? button(`Show ${name(f)} in the Finder`, () => rpc("reveal", f), "Show") : null))));
-        announce(`Wrote the figure report: ${res.files.map(name).join(", ")}`);
+        dlg.close();
+        this.doneNote(`Wrote the figure report: ${fileNames(res.files)}`, res.files);
       } catch (err) {
         results.replaceChildren(h("p", { class: "error" }, `The report failed: ${err.message}`));
       } finally { go.disabled = false; }
-    });
+    };
+    go.addEventListener("click", () => { this.writing = write(); });
   },
 
   async preflightDialog() {

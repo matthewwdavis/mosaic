@@ -177,6 +177,13 @@ def preflight(doc: dict, options: dict) -> dict:
                     if printed and abs(scale - 1.0) > 0.005:
                         found.append({"level": "info", "item": item.get("id"), "page": page["id"],
                                       "message": f"{name} is scaled to {scale * 100:.1f}%: " + " and ".join(printed)})
+                    # Stretched unevenly (a frame from PowerPoint can be): its text and curves come out distorted
+                    across, down = math.hypot(prim.matrix.a, prim.matrix.b), math.hypot(prim.matrix.c, prim.matrix.d)
+                    if abs(across - down) > 0.005 * max(across, down):
+                        found.append({"level": "warning", "item": item.get("id"), "page": page["id"],
+                                      "message": f"{name} is stretched, {across * 100:.1f}% across and {down * 100:.1f}% "
+                                                 f"down, so its text and curves are distorted (100% on its Picture tab "
+                                                 f"puts it back)"})
                     prim_var = variants.get(asset.get("primary")) or next(iter(variants.values()))
                     if prim_var.get("src") and not resolve_link(prim_var, None):
                         found.append({"level": "info", "item": item.get("id"), "page": page["id"],

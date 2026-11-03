@@ -430,11 +430,19 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   .ruler-corner { border-color: CanvasText; }
 }
 
-/* Colour vision preview: a note over the page while it's on */
-.cvd-note { position: absolute; top: 0.6rem; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; gap: 0.6rem;
-  align-items: center; padding: 0.3rem 0.4rem 0.3rem 0.8rem; border: 2px solid var(--sel); border-radius: 0.5rem;
+/* Notes along the top of the page, one under another: the colour vision preview's while it's on,
+   and after an export or the figure report the files written, with Show in Finder and any warnings */
+.stage-notes { position: absolute; top: 0.6rem; left: 50%; transform: translateX(-50%); z-index: 3; width: max-content;
+  max-width: calc(100% - 2rem); display: flex; flex-direction: column; align-items: center; gap: 0.4rem; pointer-events: none; }
+.stage-notes > * { pointer-events: auto; }
+.cvd-note, .done-note { padding: 0.3rem 0.4rem 0.3rem 0.8rem; border: 2px solid var(--sel); border-radius: 0.5rem;
   background: var(--panel); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+.cvd-note { display: flex; gap: 0.6rem; align-items: center; }
 .cvd-note[hidden] { display: none; }
+.done-note { max-width: 40rem; }
+.done-note-line { display: flex; gap: 0.6rem; align-items: center; }
+.done-note-line > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.done-note .warnings { margin: 0.3rem 0 0.2rem; padding-left: 1.2rem; }
 /* Colour vision side by side: the page five ways, as many to a row as shows them biggest (the
    page's colours are the point, so the system's high-contrast colours stay off them) */
 .cvd-dialog { width: auto; max-width: calc(100vw - 32px); }

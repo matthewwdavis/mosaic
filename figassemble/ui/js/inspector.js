@@ -562,9 +562,15 @@ export const inspector = {
   },
   pictureSection(it) {
     const a = store.doc.assets[it.asset];
-    const [sw] = a.size_pt;
+    const [sw, sh] = (a.page_sizes && a.page_sizes[it.page_index || 0]) || a.size_pt;
     const [l, t, r, b] = it.crop || [0, 0, 0, 0];
+    // Across and down: a picture stretched unevenly (a frame from PowerPoint, say) is off in one
     const scalePct = (it.frame[2] / (sw * (1 - l - r))) * 100;
+    const scaleDownPct = (it.frame[3] / (sh * (1 - t - b))) * 100;
+    const uneven = Math.abs(scalePct - scaleDownPct) > 0.05;
+    const scaleText = uneven
+      ? `Scale ${fmt(scalePct, 1)}% across, ${fmt(scaleDownPct, 1)}% down — stretched: its text and curves are distorted`
+      : `Scale ${fmt(scalePct, 1)}%` + (Math.abs(scalePct - 100) > 0.05 ? ` — text in it prints at ${fmt(scalePct, 1)}% of its size` : " (true size)");
     const variants = Object.keys(a.variants).map((k) => k.toUpperCase()).join(" + ");
     const status = h("p", { class: "link-status", id: `link-${it.id}` }, "Checking file…");
     this.updateLinkStatus(a, it.asset, status);
@@ -575,20 +581,19 @@ export const inspector = {
       h("p", { class: "hint" }, `Copies found: ${variants}. `
         + (a.variants.pdf ? "PDF export uses the PDF copy unchanged" : a.variants.svg ? "PDF export converts the SVG (no PDF copy)" : "")
         + (a.variants.svg ? "; SVG export uses the SVG copy unchanged." : a.variants.pdf ? "; SVG export converts the PDF (no SVG copy)." : ".")),
-      h("p", { class: `scale ${Math.abs(scalePct - 100) > 0.05 ? "warn" : ""}` },
-        `Scale ${fmt(scalePct, 1)}%` + (Math.abs(scalePct - 100) > 0.05 ? ` — text in it prints at ${fmt(scalePct, 1)}% of its size` : " (true size)")),
+      h("p", { class: `scale ${uneven || Math.abs(scalePct - 100) > 0.05 ? "warn" : ""}` }, scaleText),
       h("div", { class: "button-row" },
         button("Crop picture", () => canvas.startCrop(it.id), "Crop"),
         button("Reset crop", () => this.edit("Reset crop", (o) => {
           const sc = o.frame[2] / (sw * (1 - o.crop[0] - o.crop[2]));
           o.crop = [0, 0, 0, 0];
-          o.frame[2] = a.size_pt[0] * sc;
-          o.frame[3] = a.size_pt[1] * sc;
+          o.frame[2] = sw * sc;
+          o.frame[3] = sh * sc;
         }), "Reset crop"),
+        // Both sides from the file's own size, so a stretched picture comes back to its proportions too
         button("Set to true size (100%)", () => this.edit("True size", (o) => {
-          const sc = o.frame[2] / (sw * (1 - o.crop[0] - o.crop[2]));
-          o.frame[2] /= sc;
-          o.frame[3] /= sc;
+          o.frame[2] = sw * (1 - o.crop[0] - o.crop[2]);
+          o.frame[3] = sh * (1 - o.crop[1] - o.crop[3]);
         }), "100%")),
       ...this.cropShapeFields(it),
       selectField("Export from", it.source || "auto", exportKinds, (v) => this.edit("Export source", (o) => { o.source = v; })),
