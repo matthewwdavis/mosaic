@@ -443,8 +443,25 @@ async function linkedFileChecks(app) {
       && live() === "Updated linked_plot.svg from its file",
     "a linked picture whose file is re-saved under the same name updates by itself once the window shows, keeping its place and scale",
     `${status}; hidden ${whileHidden}; ${asset().size_pt}; ${frame()}; ${live()}`);
-    // Undo: the version before stays, though the file on disk is newer
-    app.run("undo");
+    // Undo asks first, naming the picture, since it rolls it back to a version its file no longer
+    // has: Cancel, where focus starts, keeps the update; Roll back rolls it back
+    app.autoConfirm = false;
+    const asking = async () => { await soon(() => document.querySelector("dialog[open]"), 2000); return document.querySelector("dialog[open]"); };
+    let undone = app.run("undo");
+    let dlg = await asking();
+    const words = dlg?.textContent || "", cancelFirst = document.activeElement?.value === "close";
+    dlg?.close();
+    await undone;
+    check(!!dlg && words.includes("Roll back a picture to before its file changed?") && words.includes("linked_plot.svg") && cancelFirst
+      && asset().size_pt.join() === "140,50" && store.history.at(-1)?.label === "Update from file",
+    "undoing an update from its file asks first, naming the picture; Cancel, where focus starts, keeps the update",
+    `${words}; Cancel focused ${cancelFirst}; ${asset().size_pt}; ${store.history.at(-1)?.label}`);
+    undone = app.run("undo");
+    dlg = await asking();
+    dlg?.querySelector(".dialog-actions .btn.primary")?.click();
+    await undone;
+    app.autoConfirm = true;
+    // Rolled back: the version before stays, though the file on disk is newer
     await wait(5000);   // the editor looks at the file at least twice meanwhile
     check(asset().size_pt.join() === "100,50" && frame() === "80,120,150,75" && store.history.at(-1)?.label === "Scale the plot",
       "undo puts back the version before, and it stays until the file is saved again",
@@ -458,6 +475,7 @@ async function linkedFileChecks(app) {
       "redo takes the update back, and the file saved again comes in", `${redone}; ${asset().size_pt}; ${frame()}`);
   } finally {
     delete document.hidden;   // the browser's own again
+    app.autoConfirm = true;
   }
 }
 

@@ -161,6 +161,8 @@ picture instead.
   R code and it saves under the same name), the picture updates within a couple of seconds. It
   keeps its place and its scale, so a plot saved larger gets larger on the page, from its top-left
   corner. Undo (⌘Z) puts back the version before, which then stays until the file is saved again.
+  That undo asks first, naming the pictures it would roll back, so a run of ⌘Z can't undo an
+  update by mistake: **Roll back** rolls them back, **Cancel** keeps the update.
   A copy is also stored in the document, so it opens complete anywhere. Hold **Option (Alt)**
   while dropping to store a copy without the link.
 - **Copies:** if a plot was saved as PDF, SVG and PNG under one name, FigAssemble finds them all.

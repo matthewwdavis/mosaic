@@ -607,8 +607,25 @@ const app = {
     announce(`Updated ${ids.map((id) => changed[id].name).join(", ")} from ${ids.length === 1 ? "its file" : "their files"}`);
   },
   // Undo and redo. Undoing an update from a linked file keeps the version before it until the
-  // file is saved again (refreshLinks); redoing it takes the update back
-  undo() {
+  // file is saved again (refreshLinks); redoing it takes the update back. That undo asks first,
+  // naming the pictures, since it rolls them back to versions their files no longer have (easy
+  // to do by mistake in a run of ⌘Z); Cancel, where focus starts, keeps the update
+  async undo() {
+    const step = store.history.at(-1);
+    if (step?.label === UPDATE_FROM_FILE) {
+      const older = JSON.parse(step.snap).doc.assets;
+      const names = Object.entries(store.doc.assets)
+        .filter(([id, a]) => older[id] && fileVersion(older[id]).join() !== fileVersion(a).join()).map(([, a]) => a.name);
+      const one = names.length === 1;
+      if (names.length && !(await panels.confirm(`Roll back ${one ? "a picture" : `${names.length} pictures`} to before ${one ? "its file" : "their files"} changed?`,
+        `This undo puts ${names.join(", ")} back to the version before ${one ? "its file was" : "their files were"} saved again. `
+        + `${one ? "The file stays" : "The files stay"} as ${one ? "it is" : "they are"}: Redo, or saving ${one ? "it" : "them"} again, `
+        + "brings the newer version back.", "Roll back"))) {
+        announce(`Kept the update from ${one ? "its file" : "their files"}`);
+        return;
+      }
+      if (store.history.at(-1) !== step) return announce("The figure changed meanwhile, so nothing was undone");
+    }
     const before = store.doc.assets, label = store.undo();
     if (label === UPDATE_FROM_FILE) {
       for (const [id, a] of Object.entries(before)) {
