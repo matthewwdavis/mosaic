@@ -1,19 +1,25 @@
 // Rulers along the top and left of the page view, in the units positions are shown in, with 0 at
 // the page's top-left corner like the X and Y fields. They shade the page and the selection and
-// mark the pointer and the guides. Dragging out of a ruler makes a guide; dragging a guide's mark
-// along a ruler moves that guide (handy when objects cover it on the page).
+// mark the pointer and the guides. Clicking a ruler puts a guide at that spot (the top ruler a
+// vertical one), rounded to a fine step of its ticks, and pointing at a ruler shows where. Dragging
+// out of a ruler makes a guide that follows the pointer; dragging a guide's mark along a ruler
+// moves that guide (handy when objects cover it on the page), and right-clicking it gives its menu.
 
 import { canvas } from "./canvas.js";
 import { store } from "./store.js";
-import { PT_PER, UNIT_LABEL, fmt, h, itemsBBox } from "./util.js";
+import { PT_PER, UNIT_LABEL, fmt, h, isMac, itemsBBox } from "./util.js";
 
 const MARK_HIT = 5;      // how near (CSS px) to a guide's mark the pointer must be to grab it
+const CLICK_SLOP = 4;    // a press that moves less than this (CSS px) before letting go is a click
+const CLICK_PX = 2.5;    // clicks round to the finest step dividing the ruler's ticks that is this far apart (CSS px)
 
 export const rulers = {
   wrap: null,
   cursor: null,          // the pointer on the page, marked on both rulers
   dragging: false,
+  press: null,           // the press under way: where, on which ruler and mark, and whether it's become a drag
   onNeedGuides: null,    // set by main.js: shows hidden guides when a new one is dragged out
+  onMenu: null,          // set by main.js: a guide's right-click menu, (axis, index, x, y)
 
   init(wrap) {
     this.wrap = wrap;
@@ -26,7 +32,13 @@ export const rulers = {
       el.addEventListener("pointermove", (e) => this.move(e, el, axis));
       el.addEventListener("pointerup", (e) => this.up(e, el, false));
       el.addEventListener("pointercancel", (e) => this.up(e, el, true));
-      el.addEventListener("pointerleave", () => { if (!this.dragging) { this.cursor = null; this.schedule(); } });
+      el.addEventListener("pointerleave", () => {
+        if (this.dragging) return;
+        this.cursor = null;
+        canvas.setGuidePreview(null);
+        this.schedule();
+      });
+      el.addEventListener("contextmenu", (e) => this.menu(e, axis));
       el.addEventListener("wheel", (e) => canvas.wheel(e), { passive: false });
     }
     new ResizeObserver(() => this.schedule()).observe(wrap);
@@ -57,15 +69,34 @@ export const rulers = {
     });
     return best;
   },
+  // Where a click on the ruler along axis puts a guide, in points: at the pointer, rounded to the
+  // finest step that divides the ruler's smallest ticks and is still CLICK_PX apart on screen (1 mm
+  // at 100% in centimetres, the ticks there being 5 mm apart), so a click on a tick lands on it;
+  // exactly there with ⌘ (Ctrl) held or snapping off
+  clickStep() {
+    const unit = canvas.defaults?.units || "cm", ppu = canvas.k * PT_PER[unit];
+    const { minor } = rulerSteps(ppu, unit, parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.66);
+    const parts = unit === "in" ? [64, 32, 16, 8, 4, 2, 1] : [100, 50, 20, 10, 5, 2, 1];
+    return (minor / (parts.find((n) => (minor / n) * ppu >= CLICK_PX) || 1)) * PT_PER[unit];
+  },
+  clickValue(axis, pt, e) {
+    const v = canvas.toPage(...pt)[axis === "x" ? 0 : 1];
+    if (!canvas.snapEnabled(e)) return v;
+    const step = this.clickStep();
+    return Math.round(v / step) * step;
+  },
   down(e, el, axis) {
     if (e.button !== 0 || !store.doc || canvas.editing) return;
+    if (isMac && e.ctrlKey && !e.metaKey) return;   // Control-click is a right-click: the menu opens from contextmenu
     e.preventDefault();
     try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
     const mark = this.markAt(axis, this.stagePoint(e));
+    this.press = { at: [e.clientX, e.clientY], axis, mark, drag: false };
+    canvas.setGuidePreview(null);
     if (mark !== null) canvas.startGuide(axis, mark);
     else {
       if (canvas.defaults?.show_guides === false) this.onNeedGuides?.();
-      canvas.startGuide(axis === "x" ? "y" : "x", null);   // a new guide runs along the ruler it came out of
+      canvas.startGuide(axis === "x" ? "y" : "x", null);   // dragged out, a new guide runs along the ruler it came out of
     }
     this.dragging = true;
   },
@@ -73,10 +104,16 @@ export const rulers = {
     const pt = this.stagePoint(e);
     this.cursor = canvas.toPage(...pt);
     if (this.dragging) {
-      if (canvas.op?.type === "guide") canvas.guideTo(pt, e);
+      // A press becomes a drag once it has moved a few pixels; until then letting go is a click
+      const p = this.press;
+      if (p && !p.drag && Math.hypot(e.clientX - p.at[0], e.clientY - p.at[1]) >= CLICK_SLOP) p.drag = true;
+      if (canvas.op?.type === "guide" && p?.drag) canvas.guideTo(pt, e);
     } else {
-      // Over a mark the guide moves along the ruler; elsewhere a new guide comes out across it
-      el.style.cursor = (axis === "x") === (this.markAt(axis, pt) !== null) ? "col-resize" : "row-resize";
+      // Over a mark the guide moves along the ruler; elsewhere a click puts one at the spot shown,
+      // and a drag brings a new one out across the ruler
+      const onMark = this.markAt(axis, pt) !== null;
+      el.style.cursor = (axis === "x") === onMark ? "col-resize" : "row-resize";
+      canvas.setGuidePreview(onMark ? null : { axis, value: this.clickValue(axis, pt, e) });
     }
     this.schedule();
   },
@@ -84,11 +121,24 @@ export const rulers = {
     if (!this.dragging) return;
     this.dragging = false;
     try { el.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
-    const op = canvas.op;
+    const op = canvas.op, press = this.press;
+    this.press = null;
     if (op?.type !== "guide") return;     // Escape cancelled it already
     canvas.op = null;
-    canvas.finishGuide(op, cancelled);
+    if (press && !press.drag) {
+      // A click: a guide where it was pressed, across the ruler (on a guide's mark, nothing)
+      canvas.finishGuide(op, true);
+      if (!cancelled && press.mark === null) {
+        canvas.addGuide(press.axis, this.clickValue(press.axis, this.stagePoint({ clientX: press.at[0], clientY: press.at[1] }), e));
+      }
+    } else canvas.finishGuide(op, cancelled);
     this.schedule();
+  },
+  // Right-click (Control-click on a Mac) on a guide's mark: that guide's menu
+  menu(e, axis) {
+    e.preventDefault();
+    const mark = store.doc && !canvas.editing ? this.markAt(axis, this.stagePoint(e)) : null;
+    if (mark !== null) this.onMenu?.(axis, mark, e.clientX, e.clientY);
   },
 
   // Drawing ---------------------------------------------------------------------------

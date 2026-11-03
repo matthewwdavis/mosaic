@@ -675,6 +675,8 @@ shortcut beside it:
     the lot.
 - **Empty page:** Paste, Select all, Insert picture, Fit page to content, and the Rulers, Grid,
   Guides and Snap switches; Leave the group while editing inside one.
+- **A guide** (on the page where no object covers it, or its mark on a ruler): Remove guide,
+  Remove all guides, Hide guides.
 - **Paste** from a right-click puts things where you clicked. When the clipboard holds both text
   and a picture, **Paste as picture** appears beside it (see [Pictures](#pictures)).
 - **A page in the Pages list:** Add, Duplicate, Delete, Move up or down, Rename.
@@ -730,10 +732,18 @@ Select objects and use the **Arrange** tab, or the panel on the right:
 
 - **Rulers** (⌘R) run along the top and left, in your position unit, with 0 at the page's
   top-left corner. They mark the selection and the pointer.
-- **Guides:** drag one out of a ruler onto the page. Drag a guide to move it, or drag its mark on
-  the ruler if objects cover it. Drag it back onto a ruler to remove it. With nothing selected,
-  the **Guides** section of the right panel lists them, to add one, type exact positions, or
-  remove them. Each page has its own guides. Show or hide them with ⌘;.
+- **Guides:** click a ruler to put a guide at that spot: the top ruler gives a vertical guide, the
+  left one a horizontal guide. Pointing at a ruler shows where it would go first, with its
+  position. A click rounds to a fine step of the ruler's ticks (1 mm at 100%, finer zoomed in), so
+  clicking a tick puts the guide on it; hold **⌘** while clicking, or turn Snap off, for exactly
+  where you click. Or drag one out of a ruler onto the page, where it follows the pointer.
+  - Drag a guide to move it, or drag its mark on the ruler if objects cover it.
+  - **Right-click** a guide (or its mark on the ruler) for **Remove guide**, **Remove all guides**
+    and **Hide guides**. Dragging it back onto a ruler removes it too.
+  - With nothing selected, the **Guides** section of the right panel lists them, to add one, type
+    exact positions, or remove them.
+
+  Each page has its own guides. Show or hide them with ⌘;.
 - **Grid** (⌘'): graph paper over the page, 1 cm squares whose 1 mm lines appear as you zoom in.
   The spacing is in Settings (View tab → Settings).
 - **Snapping:** a dragged object snaps to the page's edges and centre, to other objects' edges
@@ -804,7 +814,9 @@ Your choices are remembered for next time.
 When the files are written, the window closes and a note at the top of the page names them, with
 **Show in Finder** (Show in Explorer on Windows). It goes after 10 seconds, but stays while you
 point at it. If the export has warnings (a font that doesn't allow embedding, say), the note lists
-them and stays until you close it (×). If the export fails, the window stays open and says why.
+them and stays until you close it (×). Fonts FigAssemble embedded for placed PDFs (R's `pdf()`
+leaves Helvetica out) are listed as a plain line, since that's it doing its job; they don't keep
+the note open. If the export fails, the window stays open and says why.
 
 **PowerPoint** export writes an editable .pptx, each page a slide, for a collaborator who works in
 PowerPoint or a talk:

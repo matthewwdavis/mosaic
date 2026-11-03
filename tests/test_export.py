@@ -140,7 +140,8 @@ def test_unembedded_fonts_in_placed_pdfs_get_embedded(cache, tmp_path):
     doc["assets"][aid] = asset
     doc["pages"][0]["items"].append(model.picture_item(aid, asset, 0, 0))
     out = export_document(doc, str(tmp_path / "out"), ["pdf"], cache=cache)
-    assert any("embedded fonts" in w for w in out["warnings"])
+    # (a note, not a warning: FigAssemble doing its job)
+    assert any("embedded fonts" in n for n in out["notes"]) and not any("embedded fonts" in w for w in out["warnings"])
     pdf = pikepdf.open(out["files"][0])
     form = next(iter(pdf.pages[0].Resources.XObject.values()))
     assert form.read_bytes() == content                       # drawing instructions untouched

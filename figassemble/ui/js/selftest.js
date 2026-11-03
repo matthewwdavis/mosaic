@@ -5,6 +5,7 @@ import { rpc } from "./api.js";
 import { canvas, findDeep, visionMatrix } from "./canvas.js";
 import { inspector } from "./inspector.js";
 import { panels } from "./panels.js";
+import { rulers } from "./rulers.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
 import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints } from "./util.js";
@@ -1134,6 +1135,12 @@ async function exportNoteChecks(app, out) {
       "with warnings it closes too, and the note lists them and stays", `open ${dlg.open}; ${warned.join(" | ") || "no note"}`);
     note()?.querySelector(".done-note-close").click();
     check(!note(), "its × closes it");
+    // A plain note (fonts embedded for placed PDFs) is a plain line, and doesn't keep the note open
+    panels.doneNote("Exported selftest.pdf", [`${out}/selftest.pdf`], [], ["embedded fonts the placed PDFs lacked: Helvetica"]);
+    const plain = note()?.querySelector(".notes li")?.textContent, warned2 = !!note()?.querySelector(".warnings");
+    await until(() => !note(), 5000);
+    check(plain === "Embedded fonts the placed PDFs lacked: Helvetica" && !warned2 && !note(),
+      "fonts embedded for placed PDFs show as a plain line, and the note still goes by itself", `‹${plain}› warned ${warned2}`);
 
     await app.run("figureReport");
     dlg = lastDialog();
@@ -1149,6 +1156,97 @@ async function exportNoteChecks(app, out) {
     panels.noteSeconds = realSeconds;
     for (const d of document.querySelectorAll("dialog[open]")) d.close();
   }
+}
+
+// Guides from the rulers: pointing at a ruler shows where a click would put a guide, rounded to a
+// fine step of its ticks (1 mm at 100%); a click puts it there (the top ruler a vertical guide, the
+// left a horizontal one; ⌘ exactly where clicked; on a guide's mark, nothing), and a drag still
+// brings one out across the page. A guide's right-click menu, on the page where no object covers
+// it or on its mark on a ruler, removes it, removes them all, or hides the guides
+async function rulerGuideChecks(app) {
+  const keepUnits = app.prefs.units;
+  await app.savePrefs({ show_rulers: true, show_guides: true, snap: true, units: "cm" });
+  store.setDoc(await rpc("new_document"));
+  canvas.zoom = 1;
+  canvas.panX = 60;
+  canvas.panY = 60;
+  canvas.applyView();
+  await settle();
+  const MM = 72 / 25.4, pg = () => store.page();
+  const top = document.querySelector(".ruler.top"), left = document.querySelector(".ruler.left");
+  const tr = top.getBoundingClientRect(), lr = left.getBoundingClientRect(), onTop = tr.top + tr.height / 2, onLeft = lr.left + lr.width / 2;
+  const ptr = (el, type, x, y, opts = {}) => el.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: y, bubbles: true,
+    button: 0, buttons: type === "pointerdown" || type === "pointermove" && opts.held ? 1 : 0, pointerId: 3, pointerType: "mouse", ...opts }));
+  const click = (el, x, y, opts = {}) => { ptr(el, "pointerdown", x, y, opts); ptr(el, "pointerup", x, y, opts); };
+  const rightClick = async (el, x, y) => {
+    el.dispatchEvent(new MouseEvent("contextmenu", { clientX: x, clientY: y, bubbles: true, cancelable: true, button: 2 }));
+    await until(() => document.querySelector(".context-menu"));
+    return [...document.querySelectorAll(".context-menu .menu-label")].map((l) => l.textContent);
+  };
+  const menuItem = (text) => [...document.querySelectorAll(".context-menu .menu-item")]
+    .find((b) => b.querySelector(".menu-label").textContent === text);
+  const sx = (v) => screenOf(v, 0)[0], sy = (v) => screenOf(0, v)[1];
+
+  ptr(top, "pointermove", sx(52.3 * MM), onTop);
+  const label = document.querySelector(".guide-preview text")?.textContent;
+  check(near(rulers.clickStep(), MM, 1e-9) && canvas.guidePreview?.axis === "x" && near(canvas.guidePreview.value, 52 * MM, 1e-6)
+    && label === lengthText(52 * MM), "pointing at the top ruler shows where a click would put a vertical guide, to the nearest 1 mm at 100%",
+  `step ${rulers.clickStep() / MM} mm; ${JSON.stringify(canvas.guidePreview)} ‹${label}›`);
+  top.dispatchEvent(new PointerEvent("pointerleave"));
+  check(!document.querySelector(".guide-preview"), "leaving the ruler takes the line away");
+  click(top, sx(52.3 * MM), onTop);
+  await settle();
+  check(pg().guides.x.length === 1 && near(pg().guides.x[0], 52 * MM, 1e-6) && !pg().guides.y.length,
+    "clicking the top ruler puts a vertical guide at that spot", JSON.stringify(pg().guides));
+  click(left, onLeft, sy(31.7 * MM));
+  await settle();
+  check(pg().guides.y.length === 1 && near(pg().guides.y[0], 32 * MM, 1e-6), "clicking the left ruler puts a horizontal guide there",
+    JSON.stringify(pg().guides));
+  click(top, sx(80.3 * MM), onTop, { metaKey: true, ctrlKey: true });
+  await settle();
+  const exact = pg().guides.x[1];
+  check(pg().guides.x.length === 2 && Math.abs(exact - 80.3 * MM) < 0.6 && Math.abs(exact - 80 * MM) > 0.5,
+    "⌘-click puts it exactly where clicked", `${exact / MM} mm`);
+  click(top, sx(52 * MM), onTop);
+  await settle();
+  check(pg().guides.x.length === 2, "clicking a guide's mark adds nothing", JSON.stringify(pg().guides));
+  // A drag out of the top ruler still brings out a horizontal guide (⌘: not snapped)
+  const to = screenOf(120 * MM, 150);
+  ptr(top, "pointerdown", to[0], onTop, { metaKey: true, ctrlKey: true });
+  ptr(top, "pointermove", to[0], onTop + 2, { held: true, metaKey: true, ctrlKey: true });
+  ptr(top, "pointermove", to[0], (onTop + to[1]) / 2, { held: true, metaKey: true, ctrlKey: true });
+  ptr(top, "pointermove", to[0], to[1], { held: true, metaKey: true, ctrlKey: true });
+  ptr(top, "pointerup", to[0], to[1], { metaKey: true, ctrlKey: true });
+  await settle();
+  check(pg().guides.y.length === 2 && near(pg().guides.y[1], 150, 0.6) && pg().guides.x.length === 2,
+    "a drag out of the top ruler still brings a horizontal guide down the page", JSON.stringify(pg().guides));
+
+  // The guide's own menu, on the page and on its mark on a ruler
+  const labels = await rightClick(canvas.stage, ...screenOf(52 * MM, 120));
+  check(labels.join() === "Remove guide,Remove all guides,Hide guides", "right-clicking a guide on the page gives its menu", labels.join());
+  menuItem("Remove guide").click();
+  check(pg().guides.x.length === 1 && !pg().guides.x.some((v) => near(v, 52 * MM, 1e-6)), "Remove guide removes that guide",
+    JSON.stringify(pg().guides));
+  await app.undo();
+  check(pg().guides.x.some((v) => near(v, 52 * MM, 1e-6)), "and undo puts it back", JSON.stringify(pg().guides));
+  const onMark = await rightClick(left, onLeft, sy(32 * MM));
+  menuItem("Remove all guides")?.click();
+  check(onMark.join() === "Remove guide,Remove all guides,Hide guides" && !pg().guides.x.length && !pg().guides.y.length,
+    "right-clicking a guide's mark on a ruler gives the same menu; Remove all guides empties the page", JSON.stringify(pg().guides));
+  await app.undo();
+  check(pg().guides.x.length === 2 && pg().guides.y.length === 2, "one undo brings them all back", JSON.stringify(pg().guides));
+  store.update("Box over the guide", (doc) => doc.pages[store.pageIndex].items.push(gRectFor("gBox", 40 * MM, 90, 30 * MM, 60)));
+  await settle();
+  const covered = await rightClick(canvas.stage, ...screenOf(52 * MM, 120));
+  check(!covered.includes("Remove guide"), "where an object covers the guide, the object's menu comes instead", covered.join());
+  document.querySelector(".context-menu") && document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  store.select([]);
+  await rightClick(canvas.stage, ...screenOf(52 * MM, 300));
+  menuItem("Hide guides").click();
+  await until(() => app.prefs.show_guides === false);
+  check(app.prefs.show_guides === false && !document.querySelector(".guides line"), "Hide guides hides them", app.prefs.show_guides);
+  await app.savePrefs({ show_guides: true, units: keepUnits || "cm" });
+  canvas.setGuidePreview(null);
 }
 
 // Colour vision side by side: the page five ways at once, each view through its own filter over a
@@ -1232,6 +1330,7 @@ export async function run(app, params) {
     if (params.get("only") === "sizes") { await pageSizeChecks(app); throw ONLY; }
     if (params.get("only") === "vision") { await visionChecks(app); throw ONLY; }
     if (params.get("only") === "export") { await exportNoteChecks(app, out); throw ONLY; }
+    if (params.get("only") === "guides") { await rulerGuideChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -2463,6 +2562,7 @@ export async function run(app, params) {
     await pageSizeChecks(app);
     await visionChecks(app);
     await exportNoteChecks(app, out);
+    await rulerGuideChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

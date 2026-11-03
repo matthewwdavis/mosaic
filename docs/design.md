@@ -207,7 +207,19 @@ pre-export check says so.
   failed export keeps its window, with the error). The figure report's window does the same. The
   notes along the top of the page now stack in one column (the colour vision note, then this
   one), and presses on any note stay off the page: before, a click on a note's button also reached
-  the canvas underneath, which could select or deselect what lay under the note.
+  the canvas underneath, which could select or deselect what lay under the note. Fonts embedded for
+  placed PDFs are reported as a note, not a warning (export results have `notes` beside
+  `warnings`), so they show as a plain line and don't keep the note open (his choice).
+- **Guides from a click on a ruler; a guide's menu (2026-11-02, Matthew's choices):** clicking a
+  ruler puts a guide at that spot, across it (the top ruler a vertical guide), while a drag out of
+  a ruler still brings one out along it (his choice, as in Illustrator). He chose rounding to the
+  ruler's ticks over snapping to objects. The visible ticks are 5 mm apart at 100% (finer ones would
+  crowd), so a click rounds to the finest step that divides them and is at least 2.5 px on screen:
+  1 mm at 100%, and a click on a tick lands on it. ⌘ (Ctrl) or Snap off gives exactly where
+  clicked, per his rule that automatic behaviour has an override. Pointing at a ruler previews
+  the guide with its position (his extra). A press that moves less than 4 px is a click. A guide's
+  right-click menu (on the page where no object covers it, or its mark on a ruler) has Remove
+  guide, Remove all guides and Hide guides (his choices; not under objects).
 - **PowerPoint slides in (2026-11-01):** Open goes through a slide picker (a picture of each
   slide, drawn by the PDF export at 320 px; one or several chosen), and a deck imported once is
   kept for the picker and the slides then chosen. Where slides dropped on the window go depends

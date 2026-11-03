@@ -57,6 +57,7 @@ class PdfWriter:
         self._open: dict[str, pikepdf.Pdf] = {}
         self._gstates: dict = {}
         self.warnings: list[str] = []
+        self.notes: list[str] = []      # what went as it should, worth saying (fonts embedded for placed PDFs)
         self.title = title
 
     # Pages --------------------------------------------------------------------------
@@ -83,7 +84,9 @@ class PdfWriter:
         self.warnings += self.fonts.finalize()
         if embed_fonts and self._forms:
             from .pdffix import embed_missing_fonts
-            self.warnings += embed_missing_fonts(self.pdf, [form for form, _ in self._forms.values()])
+            warnings, notes = embed_missing_fonts(self.pdf, [form for form, _ in self._forms.values()])
+            self.warnings += warnings
+            self.notes += notes
         self.pdf.docinfo[Name.Producer] = pikepdf.String("FigAssemble")
         if self.title:
             self.pdf.docinfo[Name.Title] = pikepdf.String(self.title)
@@ -105,7 +108,7 @@ class PdfWriter:
         for src in self._open.values():
             src.close()
         self._open.clear()
-        return self.warnings + self.sources.notes
+        return self.warnings + self.sources.notes + self.notes
 
     # Resources -----------------------------------------------------------------------
 

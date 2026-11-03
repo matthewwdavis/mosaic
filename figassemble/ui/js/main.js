@@ -1513,9 +1513,22 @@ const app = {
     const r = canvas.stage.getBoundingClientRect();
     const p = canvas.toPage(x - r.left, y - r.top);
     const hit = canvas.itemAt(p);
+    // A guide where no object covers it has a menu of its own
+    const guide = hit ? null : canvas.guideAt([x - r.left, y - r.top]);
+    if (guide) return this.guideMenu(guide.axis, guide.index, x, y);
     if (!hit) store.select([]);
     else if (!store.selection.includes(hit.id)) store.select([hit.id]);
     return this.showMenu((clip) => (hit ? this.objectMenu(clip, p) : this.pageMenu(clip, p)), x, y, canvas.stage);
+  },
+  // A guide's menu, from a right-click on it or on its mark on a ruler: remove it, remove all the
+  // page's guides, or hide them
+  guideMenu(axis, index, x, y) {
+    contextMenu.show([
+      { label: "Remove guide", run: () => canvas.removeGuide(axis, index) },
+      { label: "Remove all guides", run: () => canvas.removeAllGuides() },
+      "-",
+      { label: "Hide guides", keys: this.commands.toggleGuides.keys, run: () => this.run("toggleGuides") },
+    ], x, y, canvas.stage);
   },
   // An object's menu from the Objects list
   objectListMenu(x, y) {
@@ -2439,6 +2452,7 @@ async function start() {
     app.prefs.show_guides = true;
     app.savePrefs({ show_guides: true }).then(() => announce("Guides shown")).catch(() => {});
   };
+  rulers.onMenu = (axis, index, x, y) => app.guideMenu(axis, index, x, y);
   panels.init(app);
   updates.init(app, panels);   // the status bar's note when a new version is ready
   splitters.init(app);

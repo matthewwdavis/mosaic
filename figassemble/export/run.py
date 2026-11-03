@@ -65,6 +65,7 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
     os.makedirs(os.path.dirname(os.path.abspath(base)) or ".", exist_ok=True)
     files: list[str] = []
     warnings: list[str] = []
+    notes: list[str] = []      # what went as it should but is worth saying (fonts embedded for placed PDFs)
     for r_page in resolved:
         for r in r_page:
             warnings += r.warnings
@@ -84,6 +85,7 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
                        object_stream_mode=pikepdf.ObjectStreamMode.generate)
             w.close_sources()
             warnings.extend(w.warnings + src.notes)
+            notes.extend(w.notes)
             pdf_bytes = buf.getvalue()
         return pdf_bytes
 
@@ -136,4 +138,5 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
     # De-duplicate while keeping order
     seen = set()
     warnings = [w for w in warnings if not (w in seen or seen.add(w))]
-    return {"files": files, "warnings": warnings}
+    notes = [n for n in notes if not (n in seen or seen.add(n))]
+    return {"files": files, "warnings": warnings, "notes": notes}

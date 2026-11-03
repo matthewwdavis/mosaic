@@ -33,6 +33,8 @@ def cmd_export(args) -> int:
         print(f)
     for w in res["warnings"]:
         print("warning:", w, file=sys.stderr)
+    for n in res["notes"]:
+        print("note:", n, file=sys.stderr)
     return 0
 
 

@@ -922,7 +922,7 @@ export const panels = {
         const res = await rpc("export", store.doc, { ...opts, base, doc_path: store.path });
         this.app.savePrefs({ export: { formats: chosen, dpi, transparent: opts.transparent, cmyk: opts.cmyk, embed_fonts: opts.embed_fonts } });
         dlg.close();
-        this.doneNote(`Exported ${fileNames(res.files)}`, res.files, res.warnings);
+        this.doneNote(`Exported ${fileNames(res.files)}`, res.files, res.warnings, res.notes);
       } catch (err) {
         results.replaceChildren(h("p", { class: "error" }, `Export failed: ${err.message}`));
       } finally { go.disabled = false; }
@@ -931,10 +931,11 @@ export const panels = {
   },
 
   // Once an export or the figure report is written, its window closes and a note over the page names
-  // the files, with Show in Finder (Explorer) and any warnings. It goes after noteSeconds, but not
-  // while pointed at or focused; one with warnings stays until closed, so they're seen
+  // the files, with Show in Finder (Explorer), any warnings and plain notes (fonts embedded for
+  // placed PDFs, say). It goes after noteSeconds, but not while pointed at or focused; one with
+  // warnings stays until closed, so they're seen
   noteSeconds: 10,
-  doneNote(message, files, warnings = []) {
+  doneNote(message, files, warnings = [], notes = []) {
     this.doneNoteEl?.remove();
     clearTimeout(this.doneNoteTimer);
     const where = isMac ? "Finder" : /^Win/.test(navigator.platform) ? "Explorer" : "folder";
@@ -952,7 +953,8 @@ export const panels = {
       h("div", { class: "done-note-line" }, h("span", {}, message),
         this.app.info.native && files.length ? button(`Show in ${where}`, () => rpc("reveal", files[0])) : null,
         button("Close this note", close, "×", "done-note-close")),
-      warnings.length ? h("ul", { class: "warnings" }, ...warnings.map((w) => h("li", {}, w))) : null);
+      warnings.length ? h("ul", { class: "warnings" }, ...warnings.map((w) => h("li", {}, w))) : null,
+      notes.length ? h("ul", { class: "notes" }, ...notes.map((n) => h("li", {}, n.charAt(0).toUpperCase() + n.slice(1)))) : null);
     note.addEventListener("pointerenter", () => clearTimeout(this.doneNoteTimer));
     note.addEventListener("pointerleave", later);
     note.addEventListener("focusin", () => clearTimeout(this.doneNoteTimer));
@@ -961,7 +963,8 @@ export const panels = {
     this.doneNoteEl = note;
     later();
     const n = warnings.length;
-    announce(n ? `${message}, with ${n === 1 ? "a warning" : `${n} warnings`}: ${warnings.join("; ")}` : message);
+    announce((n ? `${message}, with ${n === 1 ? "a warning" : `${n} warnings`}: ${warnings.join("; ")}` : message)
+      + (notes.length ? `. ${notes.join("; ")}` : ""));
   },
 
   // The figure report (report.py): the formats to write, none chosen to start with

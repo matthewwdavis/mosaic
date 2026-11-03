@@ -150,6 +150,7 @@ export const canvas = {
     this.view.setAttribute("transform", `translate(${this.panX} ${this.panY}) scale(${this.k})`);
     this.drawGrid();
     this.drawOverlay();
+    this.drawGuidePreview();
     this.updatePreviews();
     this.positionEditor();
     document.dispatchEvent(new CustomEvent("fa-zoom", { detail: this.zoom }));
@@ -1277,14 +1278,58 @@ export const canvas = {
     this.guidesLayer.replaceChildren();
     if (this.defaults?.show_guides === false) return;
     const g = this.guideLines();
+    const line = (axis, v, cls) => this.guidesLayer.append(s("line", { class: cls, ...(axis === "x" ? { x1: v, x2: v, y1: -1e5, y2: 1e5 }
+      : { x1: -1e5, x2: 1e5, y1: v, y2: v }) }));
     for (const axis of ["x", "y"]) {
       g[axis].forEach((v, i) => {
         const active = g.active?.[0] === axis && g.active[1] === i;
-        const cls = `guide${active ? " active" : ""}${active && g.removing ? " removing" : ""}`;
-        this.guidesLayer.append(s("line", { class: cls, ...(axis === "x" ? { x1: v, x2: v, y1: -1e5, y2: 1e5 }
-          : { x1: -1e5, x2: 1e5, y1: v, y2: v }) }));
+        line(axis, v, `guide${active ? " active" : ""}${active && g.removing ? " removing" : ""}`);
       });
     }
+  },
+  // Where a click on a ruler would put a guide, while the pointer is over it: a faint line, with its
+  // position by the ruler (rulers.js); null takes it away. Drawn whether guides show or not
+  setGuidePreview(preview) {
+    if (JSON.stringify(preview) === JSON.stringify(this.guidePreview || null)) return;
+    this.guidePreview = preview;
+    this.drawGuidePreview();
+  },
+  drawGuidePreview() {
+    this.previewLayer?.remove();
+    this.previewLayer = null;
+    const p = this.guidePreview;
+    if (!p || !store.doc) return;
+    const r = this.stage.getBoundingClientRect(), [sx, sy] = this.toScreen(p.value, p.value);
+    this.previewLayer = s("g", { class: "guide-preview" });
+    this.previewLayer.append(s("line", p.axis === "x" ? { x1: sx, x2: sx, y1: 0, y2: r.height } : { x1: 0, x2: r.width, y1: sy, y2: sy }));
+    const label = s("text", { class: "guide-label", ...(p.axis === "x" ? { x: clamp(sx + 6, 4, r.width - 80), y: 16 }
+      : { x: 6, y: clamp(sy - 6, 16, r.height - 6) }) });
+    label.textContent = lengthText(p.value);
+    this.previewLayer.append(label);
+    this.svg.append(this.previewLayer);
+  },
+  // A guide added (a click on a ruler; none where the page has one already), one removed, or all
+  // of the page's (a guide's right-click menu)
+  addGuide(axis, value) {
+    const kind = axis === "x" ? "vertical" : "horizontal", pi = store.pageIndex;
+    if ((store.page().guides?.[axis] || []).some((v) => Math.abs(v - value) < 0.01)) {
+      announce(`There's a ${kind} guide there already`);
+      return false;
+    }
+    store.update("Add guide", (doc) => { pageGuides(doc.pages[pi])[axis].push(value); });
+    announce(`Added a ${kind} guide, ${lengthText(value, true)} from the ${axis === "x" ? "left" : "top"} edge`);
+    return true;
+  },
+  removeGuide(axis, index) {
+    const pi = store.pageIndex, value = store.page().guides[axis][index];
+    store.update("Remove guide", (doc) => { doc.pages[pi].guides[axis].splice(index, 1); });
+    announce(`Removed the ${axis === "x" ? "vertical" : "horizontal"} guide ${lengthText(value, true)} from the `
+      + `${axis === "x" ? "left" : "top"} edge`);
+  },
+  removeAllGuides() {
+    const pi = store.pageIndex;
+    store.update("Remove guides", (doc) => { doc.pages[pi].guides = { x: [], y: [] }; });
+    announce("Removed every guide from this page");
   },
   guideAt(pt) {
     if (this.defaults?.show_guides === false || !store.doc) return null;

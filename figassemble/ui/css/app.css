@@ -341,6 +341,9 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .guides line { stroke: var(--guide-line); stroke-width: 1; vector-effect: non-scaling-stroke; shape-rendering: crispEdges; }
 .guides line.active { stroke-width: 1.5; }
 .guides line.removing { stroke-dasharray: 4 3; opacity: 0.5; }
+/* Where a click on a ruler would put a guide */
+.guide-preview { pointer-events: none; }
+.guide-preview line { stroke: var(--guide-line); stroke-width: 1; stroke-dasharray: 4 3; opacity: 0.6; shape-rendering: crispEdges; }
 .marquee { fill: rgba(10, 99, 214, 0.08); stroke: var(--sel); stroke-width: 1; stroke-dasharray: 4 3; }
 /* With Option held the box takes what it touches: a solid edge */
 .marquee.touch { fill: rgba(10, 99, 214, 0.14); stroke-dasharray: none; }
@@ -442,7 +445,7 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 .done-note { max-width: 40rem; }
 .done-note-line { display: flex; gap: 0.6rem; align-items: center; }
 .done-note-line > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.done-note .warnings { margin: 0.3rem 0 0.2rem; padding-left: 1.2rem; }
+.done-note .warnings, .done-note .notes { margin: 0.3rem 0 0.2rem; padding-left: 1.2rem; }
 /* Colour vision side by side: the page five ways, as many to a row as shows them biggest (the
    page's colours are the point, so the system's high-contrast colours stay off them) */
 .cvd-dialog { width: auto; max-width: calc(100vw - 32px); }

@@ -145,13 +145,15 @@ def _cff_font(face, ps_name: str, glyphs: dict[str, int]) -> tuple[bytes, dict[s
     return data, widths
 
 
-def embed_missing_fonts(pdf: pikepdf.Pdf, roots: list) -> list[str]:
-    """Embed every unembedded simple font used by the given form XObjects (in place)."""
+def embed_missing_fonts(pdf: pikepdf.Pdf, roots: list) -> tuple[list[str], list[str]]:
+    """Embed every unembedded simple font used by the given form XObjects (in place). Returns
+    warnings (a font that couldn't be embedded, or only a stand-in) and notes (what was embedded,
+    which is FigAssemble doing its job, not a problem)."""
     used: dict = {}
     seen: set = set()
     for form in roots:
         collect_codes(form, form.get("/Resources"), used, seen)
-    notes = []
+    warnings, notes = [], []
     done: dict[str, int] = {}
     for entry in used.values():
         font = entry["font"]
@@ -161,12 +163,12 @@ def embed_missing_fonts(pdf: pikepdf.Pdf, roots: list) -> list[str]:
         family = _STANDARD.get(base)
         if family is None:
             if base in ("Symbol", "ZapfDingbats"):
-                notes.append(f"{base} is used but can't be embedded automatically yet")
+                warnings.append(f"{base} is used but can't be embedded automatically yet")
                 continue
             family = (base.split("-")[0], "Bold" in base, any(k in base for k in ("Italic", "Oblique")))
         face, _ = resolve_face(*family)
         if not face.ref.family.lower().startswith(family[0].lower()):
-            notes.append(f"{base}: {family[0]} isn't installed, embedded {face.ref.family} instead")
+            warnings.append(f"{base}: {family[0]} isn't installed, embedded {face.ref.family} instead")
         names = code_names(font)
         glyphs = {}
         for code in sorted(entry["codes"]):
@@ -201,4 +203,4 @@ def embed_missing_fonts(pdf: pikepdf.Pdf, roots: list) -> list[str]:
     if done:
         notes.append("embedded fonts the placed PDFs lacked: " +
                      ", ".join(f"{k}" + (f" (x{v})" if v > 1 else "") for k, v in sorted(done.items())))
-    return notes
+    return warnings, notes

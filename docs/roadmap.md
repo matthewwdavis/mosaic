@@ -141,7 +141,12 @@ Matthew's choices are in brackets.
       refusing; one with objects asks first, as any page does [Matthew's choices]
 - [x] Export and Figure report close by themselves once the files are written; a note over the
       page names them, with Show in Finder and any warnings [Matthew's choices: the note, closing
-      even with warnings, the report too]
+      even with warnings, the report too]; fonts embedded for placed PDFs are a plain line that
+      doesn't keep the note open
+- [x] Click a ruler for a guide at that spot (top: vertical, left: horizontal), rounded to a fine
+      step of its ticks, with a preview while pointing; drags out of a ruler stay as they were;
+      right-click a guide or its ruler mark: Remove guide, Remove all guides, Hide guides
+      [Matthew's choices]
 
 ## Acceptance test (test slide)
 

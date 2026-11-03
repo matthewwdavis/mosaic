@@ -30,14 +30,14 @@ def find_chrome() -> str | None:
     return next((c for c in cands if c and os.path.exists(c)), None)
 
 
-def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int = 60000, only: str | None = None) -> dict:
+def run_selftest(files: list[str], chrome: str, shot: str, out: str, budget: int = 120000, only: str | None = None) -> dict:
     """Returns {"lines": SELFTEST lines, "errors": other console errors, "done": bool, "failed": bool}.
 
     Runs with its own settings folder, so it never touches ~/.figassemble (autosaves, recent
     files, preferences), and its own clipboard, so it never touches the system's. `budget`: the
     virtual time Chrome gives the page, which skips ahead whenever nothing is happening. The whole
-    run took 37 s of it in November 2026, more on Linux CI, so keep it well above as checks are
-    added (a run that runs out stops without its DONE line).
+    run took 54 s of it on 2026-11-02 on a Mac (37 s at the start of the month), more on CI, so keep
+    it well above as checks are added (a run that runs out stops without its DONE line).
     """
     if not os.environ.get("FIGASSEMBLE_HOME"):
         os.environ["FIGASSEMBLE_HOME"] = tempfile.mkdtemp(prefix="figassemble-selftest-")
@@ -77,12 +77,12 @@ def main() -> int:
     ap.add_argument("--chrome", default=find_chrome())
     ap.add_argument("--shot", default="tools/output/ui_selftest.png")
     ap.add_argument("--out", default="tools/output/selftest")
-    ap.add_argument("--budget", type=int, default=60000, help="virtual time budget, ms (the whole run took 37 s in November 2026)")
+    ap.add_argument("--budget", type=int, default=120000, help="virtual time budget, ms (the whole run took 54 s on 2026-11-02)")
     ap.add_argument("--only", help="run one part on its own, while working on it (objects: the Objects and Pages lists; slides: "
                     "PowerPoint slides; links: linked files updating; updates: updating FigAssemble; selection: selecting "
                     "several objects and Select Same; windows: New and Open in windows of their own, a .figasm "
                     "dropped on the page; sizes: page sizes, the Size menu and new documents' size; vision: colour "
-                    "vision side by side and in command search; export: the window closing after an export, and its note)")
+                    "vision side by side and in command search; export: the window closing after an export, and its note; guides: clicking the rulers for guides, and a guide's right-click menu)")
     args = ap.parse_args()
     if not args.chrome:
         print("Chrome not found; pass --chrome PATH")

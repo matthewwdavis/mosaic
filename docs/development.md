@@ -74,8 +74,8 @@ updates` the update screens (with the updater saying what each case needs), `--o
 selection` selecting several objects and Select Same, `--only windows` New and Open with
 several windows (opening a window stood in for) and a .figasm dropped on the page, `--only
 sizes` page sizes (the Size menu, new documents' size), `--only vision` colour vision side by
-side and in command search, and `--only export` the Export and Figure report windows closing
-with a note. To run it in
+side and in command search, `--only export` the Export and Figure report windows closing with a
+note, and `--only guides` guides from clicking the rulers and a guide's right-click menu. To run it in
 the app's own window (WebKit on a Mac):
 
 ```sh
