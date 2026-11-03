@@ -208,10 +208,13 @@ export function distToSegment([px, py], [ax, ay], [bx, by]) {
   const t = clamp(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
+// How far past its frame (or a line past its middle) an object is drawn: half its line or picture
+// border, and its outline beyond that, so a click anywhere on what shows picks it
+const edgeReach = (it) => ((it.type === "picture" ? it.border?.width : it.stroke?.width) || 0) / 2 + (it.outline ? it.outline.width ?? 1 : 0);
 export function hitItem(it, p, tol) {
   if (it.hidden) return false;
   if (it.type === "line") {
-    const w = (it.stroke?.width || 1) / 2 + tol;
+    const w = Math.max(edgeReach(it), 0.5) + tol;
     const pts = lineSamples(it);
     for (let i = 1; i < pts.length; i++) if (distToSegment(p, pts[i - 1], pts[i]) <= w) return true;
     return false;
@@ -222,7 +225,7 @@ export function hitItem(it, p, tol) {
     // Open shapes without fill or text (arcs, brackets) are only hit near their frame edge
     return true;
   }
-  return poly.some((q, i) => distToSegment(p, q, poly[(i + 1) % poly.length]) <= tol);
+  return poly.some((q, i) => distToSegment(p, q, poly[(i + 1) % poly.length]) <= tol + edgeReach(it));
 }
 
 // Screen-reader announcements through the polite live region

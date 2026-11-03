@@ -56,3 +56,20 @@ def test_native_objects_and_exact_pictures(fixtures, cache, tmp_path):
     text = next(it for it in items if it.get("textbox"))
     assert text["text"]["paragraphs"][0]["runs"][0]["t"] == "OD" and text["text"]["paragraphs"][0]["runs"][0]["bold"]
     assert next(it for it in items if it.get("geom") == "custom")["frame"] == [210.0, 10.0, 60.0, 30.0]
+
+
+def test_objects_parked_off_the_page_are_left_out_of_every_export(cache, tmp_path):
+    """Wholly off the page (kept there, like PowerPoint's pasteboard), an object isn't exported;
+    one partly on the page is, cut at the page's edge."""
+    doc = model.new_document("parked")
+    page = doc["pages"][0]
+    page["width"], page["height"] = 300.0, 200.0
+    rect = lambda id, frame, colour: {"id": id, "type": "shape", "geom": "rect", "frame": frame, "rot": 0,  # noqa: E731
+                                      "stroke": None, "fill": {"color": colour}}
+    page["items"] = [rect("on", [20, 20, 60, 40], "#0072b2"), rect("half", [-30, 100, 60, 40], "#e69f00"),
+                     rect("parked", [-200, 50, 60, 40], "#cc79a7")]
+    export_document(doc, str(tmp_path / "fig"), ["svg", "pptx"], cache=cache)
+    svg = (tmp_path / "fig.svg").read_text(encoding="utf-8").lower()
+    assert "#0072b2" in svg and "#e69f00" in svg and "#cc79a7" not in svg
+    slide = zipfile.ZipFile(tmp_path / "fig.pptx").read("ppt/slides/slide1.xml").decode("utf-8").upper()
+    assert "0072B2" in slide and "E69F00" in slide and "CC79A7" not in slide

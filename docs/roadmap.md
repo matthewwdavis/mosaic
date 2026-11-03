@@ -155,6 +155,9 @@ Matthew's choices are in brackets.
 - [x] Corner pictures on a thick line's outline (square, rounded, cut across); in the pictures,
       colours too faint against the menu drawn grey (black in dark themes, white or pale yellow
       in light ones) [Matthew's choices]
+- [x] The area around the page works like the page: scroll past its edges, select, move, resize,
+      draw, drop and paste there, park objects wholly off it (left out of every export); a click
+      picks an object anywhere it shows [Matthew's choices]
 - [x] Zoom insets as rounded rectangles, ellipses and circles: ▾ beside Zoom inset and a Zoom shape
       list later; box and inset share the shape unless told not to; the lines touch both outlines
       [Matthew's choices]

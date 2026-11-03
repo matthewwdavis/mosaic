@@ -1280,6 +1280,74 @@ async function pictureMenuChecks(app) {
   await until(() => panelNow() === panel, 4000);
 }
 
+// Around the page: scrolling goes past it, as far as keeps something in view; an object outside it
+// is picked by a click there (by all that shows of it: a thick line's outer half too), is drawn
+// there by a drag or Enter, and stays there wholly off the page (left out of exports)
+async function pasteboardChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const r = canvas.stage.getBoundingClientRect(), page = store.page();
+  const shape = (id, frame, extra = {}) => ({ id, type: "shape", geom: "rect", frame, rot: 0, flip_h: false, flip_v: false,
+    fill: { color: "#cc79a7", opacity: 1 }, stroke: null, ...extra });
+  store.update("Off the page", (doc) => doc.pages[store.pageIndex].items.push(shape("half", [-60, 40, 120, 60]),
+    shape("thick", [100, 200, 80, 50], { fill: null, stroke: { color: "#000000", width: 24, dash: "solid", cap: "flat", join: "miter",
+      opacity: 1 } })), { select: [] });
+  await settle();
+  const clickAt = async (x, y) => {
+    const pt = screenOf(x, y);
+    pointer("pointerdown", pt);
+    pointer("pointerup", pt, { buttons: 0 });
+    await settle();
+  };
+  await clickAt(-30, 70);
+  check(store.selection.join() === "half", "a click on the part of an object outside the page picks it", store.selection.join());
+  store.select([]);
+  await clickAt(90, 225);   // 10 pt outside the frame, on the 24 pt line's outer half (past a click's own 4 px)
+  check(store.selection.join() === "thick", "so does a click on the outer half of a thick line, outside its frame", store.selection.join());
+  store.select([]);
+  // Scrolling moves the page even while it all fits, and stops with the last 64 px in view
+  const wheel = (dx, dy) => canvas.stage.dispatchEvent(new WheelEvent("wheel", { deltaX: dx, deltaY: dy, bubbles: true, cancelable: true,
+    clientX: r.left + 100, clientY: r.top + 100 }));
+  const corner = screenOf(0, 0);
+  wheel(30, 20);
+  const moved = screenOf(0, 0);
+  check(near(moved[0], corner[0] - 30, 0.5) && near(moved[1], corner[1] - 20, 0.5), "scrolling moves around the page while it all fits",
+    `${corner} -> ${moved}`);
+  for (let i = 0; i < 40; i++) wheel(500, 0);
+  const rightEdge = canvas.toScreen(page.width, 0)[0];   // (the page reaches furthest right)
+  for (let i = 0; i < 40; i++) wheel(-500, 0);
+  const leftEdge = canvas.toScreen(-60, 0)[0];   // ("half" reaches furthest left)
+  check(near(rightEdge, 64, 0.5) && near(leftEdge, r.width - 64, 0.5),
+    "scrolling stops with the last 64 px of the page and what's beside it still in view", `${rightEdge} ${leftEdge} of ${r.width}`);
+  canvas.fit();
+  await settle();
+  // Drawn beside the page, by a drag, or Enter with the middle of the view off the page
+  canvas.setTool("rect");
+  await drag([-150, 300], [-80, 360], { metaKey: true, ctrlKey: true });
+  const drawn = store.selected()[0];
+  check(drawn?.geom === "rect" && near(drawn.frame[0], -150, 0.5) && near(drawn.frame[2], 70, 0.5),
+    "a rectangle dragged out beside the page is made there", JSON.stringify(drawn?.frame));
+  canvas.panX = r.width / 2 - -250 * canvas.k;
+  canvas.applyView();
+  canvas.setTool("rect");
+  key("Enter");
+  await settle();
+  const placed = store.selected()[0];
+  check(placed && placed.id !== drawn?.id && placed.frame[0] + placed.frame[2] / 2 < 0,
+    "Enter with a drawing tool places it in the middle of the view, off the page too", JSON.stringify(placed?.frame));
+  // Moved wholly off the page, it stays (saved with the document); exports leave it out
+  store.select(["half"]);
+  app.nudge(-300, 0);
+  check(store.item("half") && store.item("half").frame[0] + store.item("half").frame[2] < 0 && store.doc.pages[0].items.some((i) => i.id === "half"),
+    "an object moved wholly off the page stays there in the document", JSON.stringify(store.item("half")?.frame));
+  app.fitPage();   // (only the thick-lined box is on the page now: 80 x 50 pt, its 24 pt line half outside)
+  check(near(store.page().width, 104, 0.5) && near(store.page().height, 74, 0.5), "Fit page to content leaves out objects parked off the page",
+    `${store.page().width} x ${store.page().height}`);
+  app.run("undo");
+  canvas.fit();
+}
+
 // Zoom inset shapes: the Zoom inset button's ▾ menu offers a rounded rectangle, an ellipse and a
 // circle beside the rectangle a plain click makes; the inset takes its box's shape, and the lines
 // run along the outside, touching both; the Zoom shape list changes both, or one alone with Same
@@ -1568,6 +1636,7 @@ export async function run(app, params) {
     if (params.get("only") === "guides") { await rulerGuideChecks(app); throw ONLY; }
     if (params.get("only") === "pictures") { await pictureMenuChecks(app); throw ONLY; }
     if (params.get("only") === "zoomshapes") { await zoomShapeChecks(app); throw ONLY; }
+    if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -2331,8 +2400,8 @@ export async function run(app, params) {
       "dragging a handle moves the edge as far as the pointer, without a jump", `${boxFrame} -> ${boxFrame2}`);
     app.run("undo");
 
-    // While the whole page fits, it stays centred and scrolling can't move it; zoomed in,
-    // scrolling moves around, and Centre page (⌘⇧0) brings it back to the middle
+    // Scrolling moves around the page even while it all fits (Fit page centres it); zoomed in
+    // too, and Centre page (⌘⇧0) brings it back to the middle
     canvas.fit();
     const viewBox = canvas.stage.getBoundingClientRect();
     const pageCentred = () => {
@@ -2341,8 +2410,9 @@ export async function run(app, params) {
     };
     const scroll = () => canvas.stage.dispatchEvent(new WheelEvent("wheel", { deltaX: 40, deltaY: 60, bubbles: true,
       cancelable: true, clientX: viewBox.left + 100, clientY: viewBox.top + 100 }));
+    const fitted = pageCentred();
     scroll();
-    check(pageCentred(), "while the whole page fits, scrolling leaves it centred");
+    check(fitted && !pageCentred(), "Fit page centres the page, and scrolling moves around it even while it all fits");
     canvas.setZoom(canvas.zoom * 4);
     const zoomedIn = canvas.zoom;
     scroll();
@@ -2814,6 +2884,7 @@ export async function run(app, params) {
     await rulerGuideChecks(app);
     await pictureMenuChecks(app);
     await zoomShapeChecks(app);
+    await pasteboardChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;
@@ -3119,17 +3190,14 @@ export async function run(app, params) {
     const rulerTop = document.querySelector(".ruler.top"), rulerLeft = document.querySelector(".ruler.left");
     check(rulerTop?.offsetHeight > 10 && rulerLeft?.offsetWidth > 10 && rulerTop.width > 0,
       "rulers run along the top and left of the page", `${rulerTop?.offsetHeight} ${rulerLeft?.offsetWidth}`);
-    // While the page fits it stays centred in the view the rulers leave; zoomed in, it stays put
-    const midOnScreen = () => {
-      const r = canvas.stage.getBoundingClientRect(), [mx, my] = canvas.toScreen(pg().width / 2, pg().height / 2);
-      return [mx - r.width / 2, my - r.height / 2];
-    };
+    // The page stays where it is on the screen as the rulers go and come back
+    const fitCorner = screenOf(0, 0);
     key("r", { metaKey: true, ctrlKey: true });
     await until(() => !rulerTop.offsetParent);
     await settle();
-    const off = midOnScreen();
-    check(!rulerTop.offsetParent && near(off[0], 0, 0.5) && near(off[1], 0, 0.5),
-      "⌘R hides the rulers, and a page that fits stays centred", `${off}`);
+    const fitCorner1 = screenOf(0, 0);
+    check(!rulerTop.offsetParent && near(fitCorner[0], fitCorner1[0], 0.5) && near(fitCorner[1], fitCorner1[1], 0.5),
+      "⌘R hides the rulers, the page staying where it was", `${fitCorner} -> ${fitCorner1}`);
     key("r", { metaKey: true, ctrlKey: true });
     await until(() => rulerTop.offsetParent);
     check(rulerTop.offsetParent && app.prefs.show_rulers, "⌘R shows them again");

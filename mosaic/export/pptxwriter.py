@@ -22,6 +22,7 @@ from .. import presets
 from ..assets import PDFIUM_LOCK, SourceResolver
 from ..geometry import Matrix, Path, smooth_path
 from ..resolve import DrawGroup, DrawPath, Resolved, Resolver, flat_prims, shape_to_custom
+from .run import _on_page
 
 EMU = 12700   # per point
 NS = ('xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
@@ -185,7 +186,8 @@ class PptxWriter:
         self.resolver.use_page(page.get("items", []))
         tree = self.slide.shapes._spTree
         for it in page.get("items", []):
-            if not it.get("hidden"):
+            # (parked wholly off the page: left out, as from every export)
+            if not it.get("hidden") and _on_page(self.resolver.resolve(it).bbox, page):
                 for xml in self.item(it):
                     tree.append(parse_xml(xml))
 

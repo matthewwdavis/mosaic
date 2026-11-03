@@ -24,6 +24,7 @@ const SITE_PX = 8;            // how near (CSS px) a line end must come to attac
 const GRID_MIN_PX = 6;        // grid lines closer than this on screen aren't drawn, or snapped to
 const ROT_OFFSET = 24;        // rotation handle distance above the frame, CSS px
 const SEL_GAP = 6;            // the selection box and its handles stand this far outside the object, CSS px
+const REACH = 64;             // scrolling stops with this much of the page and its objects still in view, CSS px
 const SVG_PREVIEW_LIMIT = 8e6; // bigger SVGs preview as rendered PDFs for speed
 const DEFAULT_SIZE = (72 / 2.54) * 2;   // a click (or Enter) with a drawing tool places a 2 cm object
 // The notes over the page (a preview on, editing inside a group, a finished export): presses on
@@ -146,7 +147,7 @@ export const canvas = {
     this.applyView();
   },
   applyView() {
-    this.holdCentred();
+    this.keepInReach();
     this.view.setAttribute("transform", `translate(${this.panX} ${this.panY}) scale(${this.k})`);
     this.drawGrid();
     this.drawOverlay();
@@ -165,13 +166,18 @@ export const canvas = {
     this.panY = (r.height - p.height * this.k) / 2;
     this.applyView();
   },
-  // Wherever the whole page fits across (or down) the view, it's held in the middle that way:
-  // zooming out, resizing the window or a panel centres it, and scrolling can't push it aside
-  holdCentred() {
+  // Scrolling goes anywhere round the page, objects off it included, but stops while the last
+  // REACH px of the page and its objects are still in view, so they can't be lost off the edge
+  keepInReach() {
     if (!store.doc) return;
-    const p = store.page(), r = this.stage.getBoundingClientRect();
-    if (p.width * this.k <= r.width) this.panX = (r.width - p.width * this.k) / 2;
-    if (p.height * this.k <= r.height) this.panY = (r.height - p.height * this.k) / 2;
+    const p = store.page(), r = this.stage.getBoundingClientRect(), k = this.k;
+    let [x0, y0, x1, y1] = [0, 0, p.width, p.height];
+    for (const it of p.items) {
+      const b = itemBBox(it);
+      [x0, y0, x1, y1] = [Math.min(x0, b[0]), Math.min(y0, b[1]), Math.max(x1, b[2]), Math.max(y1, b[3])];
+    }
+    this.panX = clamp(this.panX, REACH - x1 * k, r.width - REACH - x0 * k);
+    this.panY = clamp(this.panY, REACH - y1 * k, r.height - REACH - y0 * k);
   },
   // The page in the middle of the view, at the zoom it has
   centre() {
@@ -377,6 +383,14 @@ export const canvas = {
     if (c.points) { origin = c.points[0].slice(); c.points = c.points.map((p) => [p[0] - origin[0], p[1] - origin[1]]); }
     delete c.name; delete c.alt; delete c.locked;
     return [JSON.stringify(c), origin];
+  },
+  // What an object covers as drawn (its line, arrowheads, text) where it is now: the engine's
+  // box, moved along with it (only moved, it isn't drawn again), or else its frame's
+  drawnBox(it) {
+    const e = this.els.get(it.id), [gk, origin] = this.geomKey(it);
+    if (!e?.bbox || !e.origin || e.geomKey !== gk) return itemBBox(it);
+    const dx = origin[0] - e.origin[0], dy = origin[1] - e.origin[1];
+    return [e.bbox[0] + dx, e.bbox[1] + dy, e.bbox[2] + dx, e.bbox[3] + dy];
   },
   renderVector(it, e) {
     const [gk, origin] = this.geomKey(it);
@@ -1772,13 +1786,11 @@ export const canvas = {
     }
   },
   toolGeom(tool) { return tool === "shape" ? this.shapeGeom : TOOL_GEOMS[tool]; },
-  // Enter with a drawing tool: one object in the middle of the view, on the page
+  // Enter with a drawing tool: one object in the middle of the view (off the page too)
   placeDefault() {
     if (this.tool === "fill") return announce("Click inside an area that lines and shapes enclose to fill it");
     if (this.tool === "painter") return this.onPaint?.(null, true);   // Enter paints what's selected
-    const r = this.stage.getBoundingClientRect(), page = store.page();
-    const [x, y] = this.toPage(r.width / 2, r.height / 2);
-    const c = [clamp(x, 0, page.width), clamp(y, 0, page.height)];
+    const r = this.stage.getBoundingClientRect(), c = this.toPage(r.width / 2, r.height / 2);
     this.finishDraw({ type: "draw", tool: this.tool, start: c, cur: c, moved: false, centred: true });
   },
   finishDraw(op) {

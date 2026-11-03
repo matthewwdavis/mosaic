@@ -236,6 +236,20 @@ pre-export check says so.
   the guide with its position (his extra). A press that moves less than 4 px is a click. A guide's
   right-click menu (on the page where no object covers it, or its mark on a ruler) has Remove
   guide, Remove all guides and Hide guides (his choices; not under objects).
+- **Around the page (2026-11-03, Matthew's choices):** the grey area works like the page. Scrolling
+  goes past the page's edges (it's no longer held centred while it fits: this replaces the 10-31
+  rule), stopping while the last 64 px of the page and its objects are in view (canvas.keepInReach),
+  so nothing gets lost; Fit (⌘0) and Centre page (⌘⇧0) still centre it. Selecting, moving,
+  resizing, drawing, dropping and pasting work there; Enter with a drawing tool places the shape in
+  the middle of the view even off the page. Objects can be parked wholly off the page and save with
+  the document; exports leave them out (PowerPoint export now too) and cut what sticks out at the
+  page's edge (his choice, as before), and they're drawn as normal (his choice over faded). Fit page
+  to content ignores parked objects. A click picks an object by all that shows of it, its line's
+  or border's outer half and its outline included, not only its frame and 4 px. He reported that
+  clicks on an object's part outside the page did nothing; it didn't reproduce (clicks select there
+  in Chrome and in the app's WebKit window, with real clicks too, now a smoke check), and his
+  figure's panel labels stick out only 2-3 pt. Fixed on the way: Fit page to content used where
+  objects were last drawn, so it went wrong after moving them (a move only shifts the drawing).
 - **Zoom inset shapes (2026-11-03, Matthew's choices):** a zoom inset can be a rectangle, a rounded
   rectangle, an ellipse or a circle (Circle stays round when resized, as well as a free Ellipse: his
   choice over Ellipse with Shift). Chosen when adding (▾ beside Zoom inset; a plain click is still a

@@ -152,6 +152,16 @@ CLICK_JS = """JSON.stringify((() => {
   });
 })())"""
 
+# A shape hanging half off the page's left edge, not selected: where its part outside the page is
+# in the web view
+OFF_PAGE_JS = """JSON.stringify((() => {
+  const s = window.FA.store, c = window.FA.canvas;
+  s.update("Off the page", (d) => d.pages[s.pageIndex].items.push({ id: "offPage", type: "shape", geom: "rect",
+    frame: [-40, 60, 60, 30], rot: 0, stroke: null, fill: { color: "#cc79a7", opacity: 1 } }), { select: [] });
+  const r = c.stage.getBoundingClientRect(), [x, y] = c.toScreen(-20, 75);
+  return [x + r.left, y + r.top];
+})())"""
+
 
 def save_clipboard() -> list:
     import AppKit
@@ -369,6 +379,17 @@ def run(window, ns_window) -> dict:
             passed += got == want
             if got != want:
                 failed.append({"keys": "cmd+click", "wanted": what, "ran": [], "keydown": [], "selection": got})
+        # A plain click on the part of an object outside the page picks it
+        view = click(ns_window, json.loads(window.evaluate_js(OFF_PAGE_JS)))
+        for _ in range(40):
+            time.sleep(0.05)
+            if selection() == "offPage":
+                break
+        got = selection()
+        passed += got == "offPage"
+        if got != "offPage":
+            failed.append({"keys": "click", "wanted": "a click on the part of an object outside the page selects it", "ran": [],
+                           "keydown": [], "selection": got, "view": view})
         # ⌘V with what other apps copy
         import tempfile
         with tempfile.TemporaryDirectory() as folder:
@@ -389,4 +410,4 @@ def run(window, ns_window) -> dict:
                     failed.append({"keys": f"cmd+v with {what}", "wanted": what, "ran": [], "keydown": [], "pasted": new})
     finally:
         restore_clipboard(clipboard)
-    return {"passed": passed, "total": len(STEPS) + len(FIELD_STEPS) + 2 + len(samples), "failed": failed}
+    return {"passed": passed, "total": len(STEPS) + len(FIELD_STEPS) + 3 + len(samples), "failed": failed}

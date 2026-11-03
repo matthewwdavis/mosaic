@@ -114,7 +114,8 @@ With nothing selected (click the grey area or press Escape), the right panel sho
   recent published article, and the note says so.
 - **Width** and **Height**: any size. The button beside them swaps width and height.
 - **Fit to content** (also **Fit page** in the Home tab): crops the page to what's on it, with
-  no margin. On a journal page it keeps the column width and fits only the height.
+  no margin (objects parked wholly off the page don't count). On a journal page it keeps the column
+  width and fits only the height.
 - **Background**: transparent (the default, which journals prefer) or white.
 
 **Size** (Home tab) offers the same sizes whatever is selected, with every journal's figure sizes
@@ -122,6 +123,13 @@ under **Journal**, then **Swap width and height** and **Custom size…** to type
 height. The page's size now has a tick.
 
 <img src="images/sizemenu.png" alt="The Size menu, with Slide 16:9 ticked" width="405">
+
+**Around the page:** the grey area around the page works like the page. Scroll out to it, then
+click, drag and resize objects there, draw there, and drop or paste pictures there. An object can
+stick out past the page's edge, or sit wholly off the page as a place to keep things for later; it
+saves with the document. Exports show only the page: anything past its edges is cut off there,
+and objects wholly off the page are left out (PowerPoint export too). A click picks an object
+anywhere it shows, its line's or border's outer half included.
 
 **Pages:** the + button above the Pages list adds a page with the same size, background and
 guides. The other buttons duplicate or delete the current page. Deleting the only page leaves an
@@ -1094,8 +1102,9 @@ Export still work, saving what you've typed.
 - With a drawing tool chosen, Enter places a 2 cm shape in the middle of the view.
 - While dragging: Shift keeps lines straight and shapes square; Option (Alt) duplicates;
   ⌘ ignores snapping (and leaves line ends unattached).
-- Space + drag, or scroll: move around. ⌘ + scroll, or pinch: zoom. While the whole page fits in
-  the view, it stays centred; zoomed in further, ⌘⇧0 brings it back to the middle.
+- Space + drag, or scroll: move around, past the page's edges too, as far as keeps a little of the
+  page and what's beside it in view. ⌘ + scroll, or pinch: zoom. ⌘0 fits the page in the window;
+  ⌘⇧0 centres it at the zoom it has.
 
 ## Accessibility
 

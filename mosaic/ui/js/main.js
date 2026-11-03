@@ -1962,10 +1962,12 @@ const app = {
     store.setPage(to);
   },
   fitPage() {
-    const items = store.items().filter((it) => !it.hidden);
-    if (!items.length) return;
-    // Use what the engine drew (strokes, arrowheads, text) where known, else the frames
-    const boxes = items.map((it) => canvas.els.get(it.id)?.bbox || itemBBox(it));
+    // Use what the engine drew (strokes, arrowheads, text) where known, else the frames; objects
+    // parked wholly off the page are left out, as from exports
+    const page = store.page();
+    const boxes = store.items().filter((it) => !it.hidden).map((it) => canvas.drawnBox(it))
+      .filter((b) => b[2] > 0 && b[3] > 0 && b[0] < page.width && b[1] < page.height);
+    if (!boxes.length) return;
     const b = [Math.min(...boxes.map((x) => x[0])), Math.min(...boxes.map((x) => x[1])),
       Math.max(...boxes.map((x) => x[2])), Math.max(...boxes.map((x) => x[3]))];
     // A journal figure keeps its column width; only the height is cropped
