@@ -189,3 +189,9 @@ Matthew's choices are in brackets.
 
 - Importer coverage for every figure deck (vertical text, bullets)
 - Optional raster DPI cap / file-size targets for journal limits
+- Editable text from placed figures (asked 2026-11-04, kept as an idea): every label in a placed plot
+  as a text box in its own font, size, colour and angle. Timed on three real figures (130-160 labels
+  each): an edit takes about 30 ms instead of 15, opening and export no slower. To decide first: all
+  text at once or a per-picture command; the plot shown and exported without its own text (a modified
+  copy, against the never-convert rule); R re-saving a figure whose labels were edited; R kerns letter
+  pairs and mosaic doesn't yet; R's PDF draws "-" as a minus sign, its SVG a hyphen
