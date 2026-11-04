@@ -397,6 +397,13 @@ LaTeX's maths, not whole LaTeX documents).
   A gradient has two or more **colour stops**, each with a position along it and its own
   transparency. **Add stop** puts one in the widest gap; **Reverse** swaps the ends. Gradients
   from PowerPoint slides come in as they were.
+
+  **Fill reaches** sets where the fill stops against the shape's line: its **middle** (the
+  default), its **inner edge** or its **outer edge**. The difference shows only where the line
+  lets you see the fill's edge: in the gaps of a dashed or dotted line, or through a see-through
+  one. With **Inner edge** the gaps are empty across the line's whole width; with **Outer edge**
+  they're filled across it. For a solid line it's greyed out. PowerPoint export takes such a shape
+  as an exact picture.
 - **Outline around it**: a band in a second colour around everything the object draws, e.g. a white
   edge that keeps a black arrow visible on a photo. You set its thickness and transparency, and
   where it goes with two lists, offered on every object:
@@ -467,6 +474,10 @@ can choose its colour, or a gradient, in the Style tab.
 - Lines that look joined close an area, even with a hairline gap, as long as the gap is narrower
   than about the line's width.
 - A shape inside the area leaves a hole.
+- **Fill reaches** (Style tab, Fill) sets where the fill stops against its lines: their middle
+  (the default), their inner edge or their outer edge, as for a shape's fill. It shows in the gaps
+  of dashed and dotted lines, or through see-through ones. A dashed line encloses an area just as
+  a solid one does: the fill never leaks out through its gaps.
 - If the lines no longer enclose the space (one is moved away or deleted), the fill disappears
   until they do again. Deleting all of its lines and shapes deletes it too.
 - **Make an ordinary shape** (Arrange tab or right-click) turns it into a plain shape of the area

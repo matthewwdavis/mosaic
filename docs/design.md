@@ -236,6 +236,16 @@ pre-export check says so.
   the guide with its position (his extra). A press that moves less than 4 px is a click. A guide's
   right-click menu (on the page where no object covers it, or its mark on a ruler) has Remove
   guide, Remove all guides and Hide guides (his choices; not under objects).
+- **Where a fill stops (2026-11-03, Matthew's choices):** a fill stops at its lines' middle (as
+  drawn, the default: his choice, so nothing changes), their inner edge or their outer edge
+  (fill_reach), for a shape's own fill and for an area fill (his choice). It shows only in the gaps
+  of dashed or dotted lines or through see-through ones, so the list is greyed out otherwise.
+  skia-pathops traces each line's whole outline, dashes left out (fillreach.reach): inner is the
+  fill less what the lines cover, outer the fill with what they cover, kept to the area grown by
+  the widest half line so lines running on past an area's corner add no stubs. Curves stay curves.
+  Area fills keep finding their area from the lines' centres; only the drawn fill changes.
+  PowerPoint export takes such a shape as an exact picture; an area fill's freeform takes the
+  drawn area. Pathfinder's skia conversions moved into fillreach.py.
 - **Clicking through empty shapes (2026-11-03, Matthew's choices):** a shape with no fill, or a
   fully clear one, is picked only by its line (and its text: his choice), so a click inside it
   reaches what's underneath; a fill you can see catches clicks (his choice over faint fills too).

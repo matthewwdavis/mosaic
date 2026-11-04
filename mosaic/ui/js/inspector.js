@@ -13,8 +13,8 @@ import { DEFAULT_GAP } from "./gridlayout.js";
 import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
 import { differs as looksDiffer } from "./objectstyles.js";
 import { CORNER_NAMES } from "./labels.js";
-import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePicture, outlinePicture, pathPicture, routePicture,
-  shapePicture, stylePicture, zoomShapePicture } from "./pictures.js";
+import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePicture, outlinePicture, pathPicture, reachPicture,
+  routePicture, shapePicture, stylePicture, zoomShapePicture } from "./pictures.js";
 import { ZOOM_SHAPES, zoomShape } from "./zoom.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
@@ -867,7 +867,20 @@ export const inspector = {
       colorField("Fill colour", f.color, (v, sw) => this.edit("Fill colour", (o) => { o.fill = linked({ ...o.fill, color: v }, sw); }), f.swatch),
       transparencyField("Fill transparency", f.opacity, (op) => this.edit("Fill transparency", (o) => { o.fill = { ...o.fill, opacity: op }; }))));
     if (g) kids.push(...this.gradientFields(g));
+    if (f) kids.push(this.fillReachField(it));
     return section("Fill", kids);
+  },
+  // Where the fill stops against its lines (fillreach.py): their middle, inner edge or outer
+  // edge, which shows only through dashed, dotted or see-through lines (greyed out otherwise)
+  fillReachField(it) {
+    const shows = (st) => !!st && ((st.dash && st.dash !== "solid") || (st.opacity ?? 1) < 1);
+    const lines = it.geom === "region" ? (it.region?.items || []).map((id) => store.item(id)?.stroke) : [it.stroke];
+    return pictureField("Fill reaches", it.fill_reach || "middle", [["middle", "Middle of the line"], ["inner", "Inner edge of the line"],
+      ["outer", "Outer edge of the line"]].map(([value, label]) => ({ value, label, picture: () => reachPicture(it, value) })),
+    (v) => this.edit("Fill reaches", (o) => {
+      if (v === "middle") delete o.fill_reach;
+      else o.fill_reach = v;
+    }), { disabled: lines.some(shows) ? null : "For dashed, dotted or see-through lines" });
   },
   // A gradient's direction (linear) or starting point (radial), and its colour stops, each with
   // a position and a transparency

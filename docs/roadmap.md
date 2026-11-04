@@ -155,6 +155,8 @@ Matthew's choices are in brackets.
 - [x] Corner pictures on a thick line's outline (square, rounded, cut across); in the pictures,
       colours too faint against the menu drawn grey (black in dark themes, white or pale yellow
       in light ones) [Matthew's choices]
+- [x] Fill reaches the middle, inner edge or outer edge of its lines, for shapes and area fills
+      (shows through dashed, dotted or see-through lines) [Matthew's choices]
 - [x] Clicks go through shapes with no fill (or a clear one), which are picked by their line or
       text; shapes are picked by their real outline; a selected empty shape drags from inside
       [Matthew's choices]

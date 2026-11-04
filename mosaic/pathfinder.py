@@ -6,48 +6,12 @@ import copy
 
 import pathops
 
-from .geometry import Path
+from .fillreach import from_skia as _from_skia, to_skia as _to_skia
 from .regions import custom_path
 from .resolve import item_area
 
 OPS = {"unite": pathops.PathOp.UNION, "intersect": pathops.PathOp.INTERSECTION, "exclude": pathops.PathOp.XOR}
 STYLE_KEYS = ("fill", "stroke", "outline")
-
-
-def _to_skia(area: list) -> pathops.Path:
-    """A shape's area as one skia path: each part simplified under its own fill rule, then joined."""
-    out = None
-    for path, even_odd in area:
-        part = pathops.Path(fillType=pathops.FillType.EVEN_ODD if even_odd else pathops.FillType.WINDING)
-        for seg in path.segs:
-            if seg[0] == "M":
-                part.moveTo(*seg[1:])
-            elif seg[0] == "L":
-                part.lineTo(*seg[1:])
-            elif seg[0] == "C":
-                part.cubicTo(*seg[1:])
-            elif seg[0] == "Z":
-                part.close()
-        part.simplify(fix_winding=True)
-        out = part if out is None else pathops.op(out, part, pathops.PathOp.UNION)
-    return out if out is not None else pathops.Path()
-
-
-def _from_skia(p: pathops.Path) -> Path:
-    out = Path()
-    for verb, pts in p.segments:
-        if verb == "moveTo":
-            out.move_to(*pts[0])
-        elif verb == "lineTo":
-            out.line_to(*pts[0])
-        elif verb == "curveTo":
-            out.curve_to(*pts[0], *pts[1], *pts[2])
-        elif verb == "qCurveTo":
-            for (cx, cy), (x, y) in pathops.decompose_quadratic_segment(pts):
-                out.quad_to(cx, cy, x, y)
-        elif verb == "closePath":
-            out.close()
-    return out
 
 
 def combine(items: list[dict], how: str) -> dict:

@@ -214,6 +214,8 @@ class PptxWriter:
             return {"scalebar": "a scale bar", "bracket": "a significance bracket", "symbol": "a symbol"}.get(kind, f"type {kind}")
         if float((it.get("outline") or {}).get("width", 0) or 0) > 0:
             return "an outline"
+        if it.get("fill_reach") and it.get("fill") and it.get("stroke") and it.get("geom") != "region":
+            return "a fill to its line's inner or outer edge"
         s = it.get("stroke") or {}
         if s and s.get("dash", "solid") not in ("solid", None) and s.get("even_dashes", True) is not False:
             return "even dashes"

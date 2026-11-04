@@ -28,6 +28,9 @@ Every item has an `id` and a `type`:
 
 adj     {name: value}: a preset's adjust values as fractions, or degrees for angles (presets.py)
 rounding 0..1: corner rounding of a shape's straight-edged corners (1 = as round as fits)
+fill_reach inner|outer: a shape's or area fill's fill stops at its lines' inner edge, or reaches
+        their outer edge, rather than their middle (absent); shows through dashed, dotted or
+        see-through lines (fillreach.py)
 arrow_start, arrow_end {type: triangle|stealth|arrow|oval|diamond, w, len: sm|med|lg, rounding 0..1}
 outline {color, width, opacity, type}: a contour of `width` points in another colour around
         everything the item draws; its opacity applies to the contour as a whole. type:

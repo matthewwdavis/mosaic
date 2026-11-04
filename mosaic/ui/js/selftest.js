@@ -1278,6 +1278,22 @@ async function pictureMenuChecks(app) {
     fieldByLabel("Dash")?.querySelector(".pic-svg")?.innerHTML.slice(0, 160));
   await app.savePrefs(keep);
   await until(() => panelNow() === panel, 4000);
+  // Fill reaches: the middle of the line, its inner edge or its outer edge, for a dashed line;
+  // greyed out, saying why, for a solid one
+  store.update("A dashed box", (doc) => doc.pages[store.pageIndex].items.push({ id: "pmBox", type: "shape", geom: "rect",
+    frame: [400, 300, 100, 60], rot: 0, flip_h: false, flip_v: false, fill: { color: "#cccccc", opacity: 1 },
+    stroke: { color: "#000000", width: 6, dash: "dash", cap: "flat", join: "miter", opacity: 1 } }), { select: ["pmBox"] });
+  inspector.render();
+  document.getElementById("itab-style")?.click();
+  await choose("Fill reaches", "inner");
+  await settle();
+  const boxPath = canvas.els.get("pmBox")?.g.querySelector("path")?.getAttribute("d") || "";
+  check(store.item("pmBox").fill_reach === "inner" && boxPath.startsWith("M403"),
+    "Fill reaches: Inner edge stops a dashed box's fill at its line's inner edge", `${store.item("pmBox").fill_reach} ${boxPath.slice(0, 40)}`);
+  store.update("Solid line", (doc) => { findItem(doc, "pmBox").stroke.dash = "solid"; });
+  const reachList = fieldByLabel("Fill reaches");
+  check(reachList?.getAttribute("aria-disabled") === "true" && /dashed, dotted or see-through/.test(reachList.closest(".field").textContent),
+    "with a solid line it's greyed out, saying it's for dashed, dotted or see-through lines", reachList?.closest(".field").textContent);
 }
 
 // Clicks pick shapes by what's drawn of them: an empty one (no fill, or a clear one) only by its

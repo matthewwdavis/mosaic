@@ -144,6 +144,14 @@ export function fillPicture(it, mode, center = null) {
   }
   return drawing([16, 16], box);
 }
+// A fill below a thick dashed line, reaching the line's middle, inner edge or outer edge (in its
+// gaps the difference shows)
+export function reachPicture(it, where) {
+  const fillColour = it.fill?.gradient?.stops?.[0]?.color || it.fill?.color || "#56b4e9", top = { inner: 10, outer: 4 }[where] || 7;
+  return inkDrawing([24, 18], s("rect", { x: 0, y: top, width: 24, height: 18 - top, fill: fillColour }),
+    s("line", { x1: 0, y1: 7, x2: 24, y2: 7, stroke: colourOf(it.stroke || {}), "stroke-width": 6, "stroke-dasharray": "5 4",
+      "stroke-dashoffset": -1 }));
+}
 // A shape's line or none
 export function linePicture(st, on) {
   return inkDrawing([16, 16], s("rect", { x: 2, y: 2, width: 12, height: 12, rx: 1.5, fill: "none",

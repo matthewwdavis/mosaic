@@ -12,6 +12,7 @@ from . import dashes, presets
 from .fonts import FontIndex
 from .geometry import (DrawPath, Fill, Matrix, Path, Stroke, arrowhead, dash_array, flatten, frame_matrix, head_outline,
                        line_end_inside, make_gradient, round_shape_paths, sample_path, smooth_path)
+from .fillreach import reach as reach_fill
 from .textlayout import GlyphRun, TextLayout, layout_text
 
 
@@ -736,7 +737,11 @@ class Resolver:
             if (item.get("fill") or {}).get("gradient"):
                 fill.gradient = make_gradient(item["fill"]["gradient"], w, h, Matrix.translate(x, y))
             fill.even_odd = True   # areas with holes (a shape inside the area) leave them empty
-            r.prims.append(DrawPath(found["path"], fill=fill, meta={"role": "body", "item": item.get("id")}))
+            # To its lines' middle, or their inner or outer edge (fillreach.py)
+            lines = [(p, s) for i in (item.get("region") or {}).get("items", []) if i in self.context
+                     for s in [make_stroke(self.context[i].get("stroke"))] if s is not None for p, _ in centre_paths(self.context[i])]
+            body = reach_fill([(found["path"], True)], lines, item.get("fill_reach")) or found["path"]
+            r.prims.append(DrawPath(body, fill=fill, meta={"role": "body", "item": item.get("id")}))
         r.prims = with_outline(r.prims, item.get("outline"), [(found["path"], True)] if fill is not None else None)
         r.region = {"seed": found["seed"], "frame": found["frame"],
                     "path": regions.custom_path(found["path"], found["frame"])}
@@ -786,10 +791,13 @@ class Resolver:
         if item.get("rounding"):
             shape_paths = round_shape_paths(shape_paths, item["rounding"])
         has_ends = bool(item.get("arrow_start") or item.get("arrow_end"))
+        lines = [(sp.path.transformed(m), stroke) for sp in shape_paths if sp.stroke and stroke is not None]
         for sp in shape_paths:
             path = sp.path.transformed(m)
             if sp.fill and fill is not None and not path.is_empty:
-                r.prims.append(DrawPath(path, fill=shaded(fill, sp.shade), meta={"role": "body"}))
+                # To its line's middle, or its inner or outer edge (fillreach.py)
+                body = reach_fill([(path, fill.even_odd)], lines, item.get("fill_reach")) or path
+                r.prims.append(DrawPath(body, fill=shaded(fill, sp.shade), meta={"role": "body"}))
             if sp.stroke and stroke is not None and not path.is_empty:
                 open_path = not sp.path.is_closed() and (presets.is_open(geom) or geom == "custom")
                 if open_path and has_ends:
