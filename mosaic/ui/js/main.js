@@ -524,6 +524,37 @@ const app = {
     announce(blank ? `This page took ${got.name}'s first page${n > 1 ? `, and its others are pages ${at + 2} to ${at + n}` : ""}`
       : `Added ${n} page${s} from ${got.name} as page${s} ${at + 1}${n > 1 ? ` to ${at + n}` : ""}`);
   },
+  // A page dragged out of this window's Pages list (panels.js) over another mosaic window: that
+  // window shows where a copy would go (api.page_drag_over finds it under the pointer), one
+  // request at a time with the latest; letting go there copies it in (api.page_drop). `at`: the
+  // smoke test's [window, x, y] instead of the pointer, its windows being hidden
+  pageAway(on, at = null) {
+    const a = (this.away ||= { n: 0, sent: 0, busy: false, shown: false });
+    a.on = on;
+    a.at = at;
+    a.n += 1;
+    this.sendAway();
+  },
+  sendAway() {
+    const a = this.away;
+    if (a.busy || a.sent === a.n) return;
+    if (!a.on && !a.shown) { a.sent = a.n; return; }
+    const n = a.n, on = a.on;
+    a.busy = true;
+    rpc("page_drag_over", on, a.at).then((to) => { a.shown = on && !!to; }, () => {}).finally(() => {
+      a.busy = false;
+      a.sent = n;
+      this.sendAway();
+    });
+  },
+  async copyPageAway(index, at = null) {
+    const doc = store.doc, page = doc.pages[index];
+    if (this.away) Object.assign(this.away, { on: false, shown: false, sent: this.away.n });   // (the drop takes the line away)
+    const got = { name: docName(), pages: [clone(page)], assets: doc.assets, symbols: doc.symbols || [], swatches: doc.swatches || [],
+      text_styles: doc.text_styles || [], object_styles: doc.object_styles || [] };
+    const res = await rpc("page_drop", got, at).catch(() => ({}));
+    if (res?.to) announce(`Copied ${page.name} to ${res.to}`);
+  },
   // Where a dragged thing would go, shown while it's over the window (null: it's gone). kind:
   // "files" (pictures), "deck" (a deck file), "slides" or "shapes" (out of PowerPoint): over the
   // Pages list, the page they'd go on, or for slides the gap they'd go in as pages
@@ -538,6 +569,7 @@ const app = {
       const slides = info?.kind === "deck" || info?.kind === "slides", blank = !store.page().items.length;
       hint.textContent = info?.kind === "figure" ? (blank ? "Drop to make this blank page the figure's first page"
         : "Drop to add the figure's pages after this page")
+        : info?.kind === "page" ? (blank ? "Drop to make this blank page a copy of the page" : "Drop to add a copy of the page after this page")
         : slides && blank ? "Drop to make this blank page the slide, at its size"
           : slides ? "Drop to put the slides' objects on this page"
             : info?.kind === "shapes" ? "Drop to put the shapes on this page" : "Drop to place at true size";
@@ -2360,6 +2392,8 @@ function pictureNote(report = []) {
 }
 // Where a drop lands: the Pages panel ({list, pageIndex: the page under the pointer, pageAt: the
 // gap nearest it}) or the page ({point, over: what's there})
+// This window's document: its file's name, else its title
+const docName = () => (store.path ? store.path.split(/[\\/]/).pop() : store.doc?.meta?.title || "Untitled");
 function dropTarget(clientX, clientY) {
   const el = document.elementFromPoint(clientX, clientY);
   if (el?.closest?.("#pages")) {
@@ -2378,6 +2412,18 @@ function placeAt(t) {
   return [store.page().width * 0.1, store.page().height * 0.1];
 }
 window.FA = {
+  // A page dragged over this window from another's Pages list (api.page_drag_over): where a copy
+  // would go, or nothing (null); and letting go: the copy added (one undo step). This document's
+  // name goes back, for the other window to say where the page went
+  pageDragOver(x, y) {
+    app.showDropSpot(x === null ? null : { kind: "page", x, y });
+    return docName();
+  },
+  pageDrop(got, x, y) {
+    app.showDropSpot(null);
+    app.addFigurePages(got, dropTarget(x, y));
+    return docName();
+  },
   // Native window: full file paths arrive from Python so the figures can stay linked; on a Mac,
   // slides dragged out of PowerPoint (pptSlides: references) or shapes with their contents
   // (dropped: a token for take_dropped) arrive too (macdrag.py)
@@ -2531,8 +2577,7 @@ async function start() {
   let state = null;
   store.on((what) => {
     if (what === "doc" || what === "saved") {
-      const name = store.path ? store.path.split(/[\\/]/).pop() : store.doc?.meta?.title || "Untitled";
-      const title = `${name}${store.dirty ? " — edited" : ""} — mosaic`;
+      const title = `${docName()}${store.dirty ? " — edited" : ""} — mosaic`;
       if (document.title !== title) {
         document.title = title;
         rpc("set_title", title).catch(() => {});

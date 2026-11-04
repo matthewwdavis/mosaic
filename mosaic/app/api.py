@@ -126,6 +126,7 @@ class Api:
         # what each has open: {path, dirty} (doc_state). Each editor sends its window's number
         # with every request (server.py), so `window` is the one asking
         self._windows: dict[str, object] = {}
+        self._page_over: str | None = None      # the window showing where a dragged page would go
         self._win_state: dict[str, dict] = {}
         self._caller = threading.local()
         self._next_win = 1
@@ -336,6 +337,55 @@ class Api:
         recent = ([path] + [p for p in prefs.get("recent", []) if p != path])[:12]
         self.prefs_set({"recent": recent})
         self._on_mac_menus("set_recent", recent)   # File > Open Recent
+
+    # A page dragged from one window's Pages list into another (Mac) ------------------------------
+
+    def _page_target(self, at=None):
+        """The other window under the pointer, and where the pointer is in it (macdrag.page_target)."""
+        if sys.platform != "darwin" or len(self._windows) < 2:
+            return None
+        from webview.platforms.cocoa import BrowserView
+
+        from . import macdrag
+        from .keycheck import on_main
+        me, views = self._caller_win(), {}
+        for win, w in list(self._windows.items()):
+            inst = BrowserView.instances.get(getattr(w, "uid", None))
+            if win != me and inst is not None and inst.webview is not None:
+                views[win] = inst.webview
+        return on_main(lambda: macdrag.page_target(views, at)) if views else None
+
+    def _tell(self, win: str, script: str):
+        w = self._windows.get(win)
+        return w.evaluate_js(script) if w is not None else None
+
+    def page_drag_over(self, on: bool, at: list | None = None) -> str | None:
+        """A page from the calling window's Pages list dragged outside it: the mosaic window under
+        the pointer shows where a copy would go, and its document's name comes back; on=False (or
+        no window under the pointer any more) takes that away."""
+        target = self._page_target(at) if on else None
+        last, self._page_over = self._page_over, target[0] if target else None
+        if last and last != self._page_over:
+            self._tell(last, "window.FA && window.FA.pageDragOver(null, null)")
+        if not target:
+            return None
+        win, x, y = target
+        return self._tell(win, f"window.FA && window.FA.pageDragOver({x}, {y})")
+
+    def page_drop(self, got: dict, at: list | None = None) -> dict:
+        """Letting go of a page dragged out of the calling window's Pages list (got: it as a
+        one-page figure, as figure_pages gives): the mosaic window under the pointer adds a copy
+        where it's dropped and comes to the front. {"to": its document's name}, else {}."""
+        target = self._page_target(at)
+        self.page_drag_over(False)
+        if not target:
+            return {}
+        win, x, y = target
+        name = self._tell(win, f"window.FA && window.FA.pageDrop({json.dumps(got)}, {x}, {y})")
+        if not name:
+            return {}
+        self._show(self._windows[win])
+        return {"to": name}
 
     # The Mac menu bar (macmenu.py) --------------------------------------------------------------
 

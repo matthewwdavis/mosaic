@@ -1280,6 +1280,44 @@ async function pictureMenuChecks(app) {
   await until(() => panelNow() === panel, 4000);
 }
 
+// A page dragged out of the window from the Pages list is offered to the window under the pointer
+// (app.pageAway while it's away, app.copyPageAway on letting go: a copy, the page staying here);
+// a page dragged in from another window shows where it would go, and goes there
+async function pageDragChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  app.addPage();
+  panels.renderPages();
+  await settle();
+  const calls = [], keep = { pageAway: app.pageAway, copyPageAway: app.copyPageAway };
+  app.pageAway = (on) => calls.push(["away", on]);
+  app.copyPageAway = (i) => calls.push(["copy", i]);
+  try {
+    const row = panels.pageList.querySelector('li[data-index="1"]'), r = row.getBoundingClientRect(), y = r.top + r.height / 2;
+    const ev = (type, x) => row.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: y, screenX: x + 100, screenY: y + 100, bubbles: true,
+      button: 0, buttons: type === "pointerup" ? 0 : 1, pointerId: 9, pointerType: "mouse" }));
+    ev("pointerdown", r.left + 30);
+    ev("pointermove", r.left + 40);
+    ev("pointermove", -40);   // out of the window
+    ev("pointerup", -40);
+    await settle();
+  } finally {
+    Object.assign(app, keep);
+  }
+  check(calls.some(([k, on]) => k === "away" && on) && JSON.stringify(calls.at(-1)) === '["copy",1]' && store.doc.pages.length === 2,
+    "a page dragged out of the window is offered to the window under the pointer, as a copy", JSON.stringify(calls));
+  const first = panels.pageList.querySelector("li[data-index]").getBoundingClientRect();
+  const at = [first.left + 20, first.top + first.height * 0.75];   // (its lower half: after it)
+  window.FA.pageDragOver(...at);
+  const line = !!panels.pageList.querySelector(".slide-drop-line");
+  window.FA.pageDragOver(null, null);
+  const gone = !panels.pageList.querySelector(".slide-drop-line");
+  const page = { ...JSON.parse(JSON.stringify(store.doc.pages[0])), id: "pgElsewhere", name: "From elsewhere" };
+  const name = window.FA.pageDrop({ name: "Another figure", pages: [page], assets: {}, symbols: [], swatches: [], text_styles: [], object_styles: [] }, ...at);
+  check(line && gone && store.doc.pages.length === 3 && store.doc.pages[1].name === "From elsewhere" && store.pageIndex === 1
+    && typeof name === "string" && name.length > 0,
+  "a page dragged in from another window shows a line where it would go, and a copy goes there", `${line} ${gone} ${store.doc.pages.map((p) => p.name)}`);
+}
+
 // Around the page: scrolling goes past it, as far as keeps something in view; an object outside it
 // is picked by a click there (by all that shows of it: a thick line's outer half too), is drawn
 // there by a drag or Enter, and stays there wholly off the page (left out of exports)
@@ -1637,6 +1675,7 @@ export async function run(app, params) {
     if (params.get("only") === "pictures") { await pictureMenuChecks(app); throw ONLY; }
     if (params.get("only") === "zoomshapes") { await zoomShapeChecks(app); throw ONLY; }
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
+    if (params.get("only") === "pagedrag") { await pageDragChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -2885,6 +2924,7 @@ export async function run(app, params) {
     await pictureMenuChecks(app);
     await zoomShapeChecks(app);
     await pasteboardChecks(app);
+    await pageDragChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

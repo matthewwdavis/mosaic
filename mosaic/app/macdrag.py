@@ -95,6 +95,21 @@ def front_window(windows, x: float, y: float):
     return None
 
 
+def page_target(views: dict, at=None):
+    """For a page dragged out of one window's Pages list: the other window (of `views`, its number
+    -> its web view) under the pointer with nothing covering it, and where the pointer is in it
+    (CSS px): (number, x, y), or None. `at`: the smoke test's [number, x, y] instead, its windows
+    being hidden. On the main thread."""
+    if at:
+        return tuple(at) if at[0] in views else None
+    sense = Sense()
+    for win, view in views.items():
+        p = sense.where(view)
+        if p is not None:
+            return win, p[0], p[1]
+    return None
+
+
 class Sense:
     """What SlideWatch looks at: the drag pasteboard, the mouse and the windows on screen (none
     of which needs a permission). The smoke test hands it a fake."""

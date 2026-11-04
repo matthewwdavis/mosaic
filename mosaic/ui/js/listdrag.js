@@ -4,20 +4,23 @@
 // left would put it (in a tree, one place for each depth the gap can be at, chosen by how far
 // across the pointer goes), hears whenever that changes (so the page can show the new order
 // meanwhile), and is told on letting go, or on cancelling: Escape, or letting go away from the
-// list and from anything else that takes the rows (a page in the Pages list).
+// list and from anything else that takes the rows (a page in the Pages list). With `away`, rows
+// taken outside the window are offered there too (a page, to another mosaic window).
 // - A row the dragged rows can go into (a closed group) takes them while held over its middle,
 //   and opens after a moment, so they can go anywhere among its parts.
 // - Near the top or bottom of the list, it scrolls.
 // The owner: {rows: selector, scroller, start(row) -> {row, depth, count} | null, places(rows) ->
 // [[{depth, place}] for each gap], into(row) -> place | null, open(row) -> bool, indent(depth) -> px,
-// outside(element) -> {el, target} | null, preview(target), drop(target), cancel()}
+// outside(element) -> {el, target} | null, away, preview(target), drop(target), cancel()}; a target is
+// {place}, {outside} or {away: the pointer on the screen}
 import { isMac } from "./util.js";
 
 const START = 4;      // px the pointer moves before a press becomes a drag
 const EDGE = 28;      // px from the list's top or bottom edge where it scrolls
 const SPRING = 700;   // ms over a closed group before it opens
 
-const keyOf = (t) => (t ? JSON.stringify([t.place ?? null, t.outside ?? null]) : "");
+const keyOf = (t) => (t ? JSON.stringify([t.place ?? null, t.outside ?? null, t.away ?? null]) : "");
+const inWindow = (e) => e.clientX >= 0 && e.clientY >= 0 && e.clientX < window.innerWidth && e.clientY < window.innerHeight;
 
 export function listDrag(list, owner) {
   let press = null, d = null;
@@ -117,6 +120,8 @@ export function listDrag(list, owner) {
           target = { place: pick.place };
         }
       }
+    } else if (owner.away && !inWindow(e)) {
+      target = { away: [Math.round(e.screenX), Math.round(e.screenY)] };
     } else if (owner.outside) {
       const el = document.elementFromPoint(e.clientX, e.clientY), out = el && owner.outside(el);
       if (out) target = { outside: out.target, el: out.el };

@@ -98,7 +98,8 @@ def send_open(paths: list[str]) -> bool:
 def smoke(api, window, scratch: str) -> dict:
     """The smoke test's check of documents and windows, in the hidden app window (left as it
     was found, alone): documents sent as the Finder sends them, File > New, the menus going to
-    the window in front, closing a window, and a .mosaic dropped on the page.
+    the window in front, closing a window, a page dragged into another window, and a .mosaic
+    dropped on the page.
     {"passed", "total", "failed": [names]}."""
     import time
 
@@ -182,6 +183,21 @@ def smoke(api, window, scratch: str) -> dict:
     third.destroy()
     results["closing a window leaves the others open"] = wait(lambda: len(windows()) == 2) and bool(
         js(first, "document.body.classList.contains('ready')"))
+    # A page dragged out of the first window's Pages list over the second: the second shows where
+    # a copy would go, and letting go puts one there (the point given, as the windows are hidden)
+    to = next(k for k, w in api._windows.items() if w is second)
+    row = json.loads(js(second, "JSON.stringify(document.querySelector('#pages li[data-index]').getBoundingClientRect())"))
+    at = [to, row["left"] + 20, row["top"] + row["height"] * 0.75]   # (its first page's lower half: after it)
+    pages_there = js(second, "window.FA.store.doc.pages.length")
+    js(first, f"window.FA.app.pageAway(true, {json.dumps(at)}), true")
+    results["a page dragged over another window's Pages list shows a line there where it would go"] = wait(
+        lambda: js(second, "!!document.querySelector('#pages .slide-drop-line')"))
+    js(first, f"window.FA.app.copyPageAway(0, {json.dumps(at)}), true")
+    results["and letting go adds a copy there, after its first page; the first window keeps it"] = wait(
+        lambda: js(second, "window.FA.store.doc.pages.length") == pages_there + 1
+        and js(second, "window.FA.store.doc.pages[1].items[0].text.paragraphs[0].runs[0].t") == "Smoke A"
+        and not js(second, "!!document.querySelector('#pages .slide-drop-line')")) and js(
+        first, "window.FA.store.doc.pages.length") == 1
     # A deck double-clicked: its one slide in a window of its own (the front one is in use)
     macmenu.note_front(first.uid)
     on_main(lambda: send_open([deck]))

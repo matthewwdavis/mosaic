@@ -138,6 +138,12 @@ empty page of the same size, background and guides in its place (a page with obj
 room), and double-click a page's name to rename it. Drop a PowerPoint deck in the list to add its
 slides as pages there. One document can hold versions of a figure side by side.
 
+**Pages between documents:** drag a page out of the Pages list into another mosaic window to
+copy it there (on a Mac). Over that window's Pages list a line shows where it will go; over its
+page, it goes after the page showing (taking a blank page's place). The page stays in the first
+document too, and its pictures, swatches, symbols and styles come with it, as when you drop a
+whole `.mosaic` file.
+
 ## Pictures
 
 **Placing:** drag PDF, SVG, PNG, JPEG or TIFF files onto the page, or click **Picture** (I), or

@@ -236,6 +236,15 @@ pre-export check says so.
   the guide with its position (his extra). A press that moves less than 4 px is a click. A guide's
   right-click menu (on the page where no object covers it, or its mark on a ruler) has Remove
   guide, Remove all guides and Hide guides (his choices; not under objects).
+- **Pages dragged between windows (2026-11-03, Matthew's choices):** a page dragged out of one
+  window's Pages list into another mosaic window is copied there (his choice over moving it): into
+  its Pages list where a line shows, or onto its page, after the page showing (a blank page takes
+  its place), as for a dropped .mosaic file (his choice), arriving as a one-page figure through
+  addFigurePages with its pictures, swatches, symbols and styles. The windows share one process, so
+  the source's drag (listDrag's `away`: the pointer outside the window, still captured) asks
+  api.page_drag_over / page_drop, which find the other window under the real pointer with nothing
+  covering it (macdrag.page_target, Sense.where) and call its editor (FA.pageDragOver / pageDrop)
+  with the point in it. Mac only for now: Windows would need its own pointer and window lookup.
 - **Around the page (2026-11-03, Matthew's choices):** the grey area works like the page. Scrolling
   goes past the page's edges (it's no longer held centred while it fits: this replaces the 10-31
   rule), stopping while the last 64 px of the page and its objects are in view (canvas.keepInReach),

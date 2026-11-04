@@ -513,7 +513,8 @@ export const panels = {
         this.renamePage(store.pageIndex);
       }
     });
-    // Drag a page up or down the list to move it (listdrag.js)
+    // Drag a page up or down the list to move it (listdrag.js), or into another mosaic window
+    // for a copy there
     let from = null;
     listDrag(this.pageList, {
       rows: "li[data-index]",
@@ -524,12 +525,22 @@ export const panels = {
         return { row: li, depth: 0, count: 1 };
       },
       places: (rows) => Array.from({ length: rows.length + 1 }, (_, k) => [{ depth: 0, place: k }]),
+      away: true,
+      preview: (t) => this.app.pageAway(!!t?.away),
       drop: (t) => {
+        if (t.away) {
+          this.renderPages();
+          this.app.copyPageAway(from);
+          return;
+        }
         this.app.movePage(from, t.place);
         this.renderPages();
         announce(`Page ${store.pageIndex + 1} of ${store.doc.pages.length}: ${store.page().name}`);
       },
-      cancel: () => this.renderPages(),
+      cancel: () => {
+        this.app.pageAway(false);
+        this.renderPages();
+      },
     });
   },
   renderPages() {
