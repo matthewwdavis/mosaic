@@ -105,7 +105,15 @@ menu bar: its menus, the app's name, the shortcuts, and items run as AppKit woul
 documents sent as the Finder sends them, as real "open documents" Apple events to the app
 itself, opening in the blank window, then in windows of their own, or bringing one open already
 to the front; File > New; a menu command going to the window in front; closing a window; a deck;
-and a .mosaic dropped on the page: `SMOKE windows: 10 of 10 passed`.
+and a .mosaic dropped on the page: `SMOKE windows: 12 of 12 passed`. Then closing and quitting
+with unsaved changes (`mosaic/app/macclose.py`), with its buttons pressed as AppKit presses them:
+- the sheet, its wording and keys;
+- Cancel, Save, and Don't Save keeping a copy;
+- a real quit (`terminate:`) asking about each figure in turn, which a Cancel stops, and a
+  second quit meanwhile changing nothing.
+
+`SMOKE closing: 10 of 10 passed`. A sheet shows its window, so these windows appear on screen
+briefly.
 
 To check a double-click end to end (LaunchServices choosing the app, macOS launching it with the
 document), open a test figure with `open`, which can hand the app its own settings folder and a

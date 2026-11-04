@@ -919,9 +919,17 @@ under one name. As with exporting, the window then closes and a note names the f
 - **Each document has a window of its own.** New (⌘N), Open and Open Recent open a new window,
   unless the window in front is blank (nothing on its pages and nothing unsaved): then they use
   it. A document that's open already comes to the front instead of opening twice. **Close** (⌘W)
-  closes a window, asking first if it has unsaved changes, and closing the last one quits
-  mosaic. On Windows, each document double-clicked in Explorer opens in a mosaic window
-  of its own.
+  closes a window, and closing the last one quits mosaic. On Windows, each document
+  double-clicked in Explorer opens in a mosaic window of its own.
+- **Closing with unsaved changes** asks first, naming the figure, in a sheet on its window:
+  - **Save** (Return) saves it, asking where if it was never saved, then closes it. If you
+    cancel that or the save fails, the window stays open.
+  - **Don't Save** (⌘D) closes it. mosaic keeps a copy of the changes and offers it back the
+    next time it starts.
+  - **Cancel** (Escape) leaves it open.
+
+  Quitting (⌘Q) asks the same about each unsaved figure in turn, bringing its window to the
+  front, and a Cancel stops the quit. On Windows the question's Yes saves and No doesn't.
 - **Rulers, grid, guides and snapping** are switched for each window on its own. A new window
   starts with the ones you switched last. Settings apply to every window.
 - **A `.mosaic` dropped on the window** adds its pages to the figure that's open: after the page
@@ -932,10 +940,11 @@ under one name. As with exporting, the window then closes and a note names the f
   the document). A changed file updates its picture; a missing one falls back to the stored copy.
   A figure saved under a new name (`plot_v2.svg`) isn't followed: point the picture at it once
   with **Replace…**.
-- **Recovery:** unsaved work is copied every minute. If mosaic closes unexpectedly, it offers
-  the work back next time. That window can also **Delete** copies you don't need, one at a time or
-  all together. **Settings → Unsaved work** shows how many copies are kept and can delete them.
-  Deleting always asks first, since these are the only copies of work that was never saved.
+- **Recovery:** unsaved work is copied every minute, and as a window closes without saving. If
+  mosaic closes unexpectedly, it offers the work back next time. That window can also **Delete**
+  copies you don't need, one at a time or all together. **Settings → Unsaved work** shows how
+  many copies are kept and can delete them. Deleting always asks first, since these are the only
+  copies of work that was never saved.
 
 ## PowerPoint slides
 

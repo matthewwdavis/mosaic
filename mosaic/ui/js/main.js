@@ -225,7 +225,19 @@ const app = {
       return false;
     }
   },
-  // The unsaved work kept as a recovery copy now (another window is restarting mosaic to update)
+  // The close question's Save (closing.py): saved, asking where for a figure never saved; true
+  // once it is, so the window closes, false if that was cancelled or failed (it stays open)
+  async saveToClose() {
+    try {
+      await this.save();
+    } catch (err) {
+      panels.reportDialog("Couldn't save", [`${docName()}: ${err.message || err}`]);
+      return false;
+    }
+    return !store.dirty;
+  },
+  // The unsaved work kept as a recovery copy now (another window is restarting mosaic to update,
+  // or this one is closing without saving)
   async keepCopy() {
     if (store.dirty && store.doc) await rpc("autosave", store.doc, store.autosaveKey);
     return true;
@@ -2583,11 +2595,11 @@ async function start() {
         rpc("set_title", title).catch(() => {});
       }
       // What this window has open (another window opening it brings this one to the front),
-      // and whether closing it asks first
-      const now = JSON.stringify([store.path, store.dirty]);
+      // and whether closing it asks first (naming the figure)
+      const now = JSON.stringify([store.path, store.dirty, docName()]);
       if (now !== state) {
         state = now;
-        rpc("doc_state", store.path, store.dirty).catch(() => {});
+        rpc("doc_state", store.path, store.dirty, docName().replace(/\.(mosaic|figasm)$/i, "")).catch(() => {});
       }
     }
   });

@@ -17,6 +17,7 @@ import time
 import webbrowser
 from urllib.parse import parse_qs, quote, urlencode
 
+from . import closing
 from .api import Api
 from .server import start_server
 
@@ -57,6 +58,12 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
             macopen.install(api)
         except Exception as exc:   # noqa: BLE001 (they then don't open; File > Open still does)
             print(f"Documents from the Finder unavailable: {exc}", file=sys.stderr, flush=True)
+        # Quitting with unsaved changes asks about each figure, with Save (macclose.py)
+        try:
+            from . import macclose
+            macclose.install(api)
+        except Exception as exc:   # noqa: BLE001 (pywebview's own question asks instead)
+            print(f"Asking before quitting unavailable: {exc}", file=sys.stderr, flush=True)
     smoke = os.environ.get("MOSAIC_SMOKETEST", "")
     api.hidden_windows = bool(smoke)
     # Updates: looked for shortly after starting and every few hours (not while testing); one
@@ -108,6 +115,7 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                                        background_color="#F4F4F2", text_select=False, hidden=bool(smoke))
         api._add_window(win, window)
         window.events.loaded += lambda: on_loaded(window)
+        window.events.closing += lambda: closing.on_closing(api, window)   # unsaved changes: Save, Don't Save or Cancel
         window.events.closed += lambda: api._remove_window(win)
         return window
 
@@ -196,12 +204,17 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                     wins = macopen.smoke(api, window, scratch)
                 print(f"SMOKE windows: {wins['passed']} of {wins['total']} passed"
                       + (f"; failed: {json.dumps(wins['failed'])}" if wins["failed"] else ""), flush=True)
+                # Closing and quitting with unsaved changes: the question and what its answers do
+                from . import macclose
+                with tempfile.TemporaryDirectory() as scratch:
+                    closes = macclose.smoke(api, window, scratch)
+                print(f"SMOKE closing: {closes['passed']} of {closes['total']} passed"
+                      + (f"; failed: {json.dumps(closes['failed'])}" if closes["failed"] else ""), flush=True)
         closing_started[0] = time.time()
         close_all()
 
-    # Unsaved changes: pywebview's own close confirmation (Api.confirm_close switches it on).
-    # It runs on the main thread itself; asking for a dialog from a closing handler instead
-    # deadlocks, because that handler already holds the main thread.
+    # Unsaved changes: closing asks Save, Don't Save or Cancel (closing.py; Api.confirm_close
+    # says when). pywebview's own two-button question, worded here, asks only should that fail.
     wording = {"global.quitConfirmation": "This figure has unsaved changes. Close without saving?",
                "global.quit": "Close without saving"}
     if smoke:

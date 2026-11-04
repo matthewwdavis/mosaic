@@ -129,6 +129,25 @@ pre-export check says so.
 - **Recovery copies (2026-10-31):** kept per unsaved document in the settings folder's
   `autosave/`; the recovery offer and Settings can delete them (each delete warns first). A
   recovered document keeps its copy's name, so saving it clears the copy.
+- **Closing with unsaved changes (2026-11-03):** asks Save, Don't Save or Cancel, naming the
+  figure (`app/closing.py`). Matthew chose the Mac's standard wording, each figure in turn
+  when quitting, Don't Save keeping an up-to-date recovery copy, and Windows too.
+  - *The question:* on a Mac, a sheet on the window (`app/macclose.py`); on Windows, a message
+    box where Yes saves.
+  - *Closing a window:* the window stays open while it asks (pywebview's closing event is
+    answered "not now"). mosaic then closes it once the editor has saved it
+    (`app.saveToClose`) or kept its copy (`app.keepCopy`, waited for up to 5 s).
+  - *Quitting:* goes through pywebview's application delegate, with mosaic's own
+    `applicationShouldTerminate_` in its place. With unsaved figures that answers "not now" and
+    asks about each in turn (front window first). Once each is saved or answered Don't Save,
+    mosaic quits itself. A Cancel, or a save that doesn't happen, leaves every window as it was.
+    A second quit while it asks is ignored.
+  - *Not NSTerminateLater:* while a reply is pending, a second quit (⌘Q again, the Dock) ends
+    the app at once without asking the delegate (seen in a test on 2026-11-03: the changes were
+    lost). The cost
+    of answering "not now" instead: a logout or shutdown is called off, and has to be started
+    again once the figures are answered.
+  - *Fallback:* pywebview's own two-button question still asks if any of this fails.
 - **Collaborators (2026-10-31):** installers that set up conda too (Matthew's choice):
   `install-mac.command` / `install-windows.bat` install Miniforge if there's no conda, then the
   environment, a non-editable mosaic and the app or shortcuts; re-running updates. Docs:

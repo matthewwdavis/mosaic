@@ -204,14 +204,19 @@ class Api:
             from . import macmenu
             macmenu.note_front(w.uid)   # the Mac menu bar's commands go to it (even while hidden)
 
-    def doc_state(self, path: str | None, dirty: bool) -> bool:
+    def doc_state(self, path: str | None, dirty: bool, name: str | None = None) -> bool:
         """What the calling window has open (its file: opening it again brings this window to
-        the front) and whether there are unsaved changes (closing it asks first; restarting to
-        update keeps a copy)."""
+        the front; its name, for the question closing it asks) and whether there are unsaved
+        changes (closing it asks first, closing.py; restarting to update keeps a copy)."""
         win = self._caller_win()
         if win is not None:
-            self._win_state[win] = {"path": _same_file(path) if path else None, "dirty": bool(dirty)}
+            self._win_state[win] = {"path": _same_file(path) if path else None, "dirty": bool(dirty), "name": name}
         return self.confirm_close(dirty)
+
+    def _doc_of(self, window) -> dict:
+        """What a window has open, as its editor last said ({} before it has)."""
+        win = next((k for k, w in list(self._windows.items()) if w is window), None)
+        return self._win_state.get(win, {}) if win is not None else {}
 
     def show_document(self, path: str) -> bool:
         """Bring the window that has this document open to the front; False if none has."""

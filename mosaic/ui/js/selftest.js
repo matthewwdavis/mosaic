@@ -982,6 +982,28 @@ async function windowChecks(app, out) {
       "dropped in the Pages list, they go in where it was dropped", `${store.doc.pages.length} pages, on ${store.pageIndex}`);
     await window.FA.onNativeDrop({ paths: [secondPath], x: 700, y: 450 });
     check(store.doc.pages.length === 5, "a .mosaic file dropped on the window adds its pages", `${store.doc.pages.length} pages`);
+    // The close question's Save (closing.py): saved, the window may close; the Save dialog
+    // cancelled or the save failing, it stays open, saying why
+    const closePath = (await rpc("save_document", empty, `${out}/selftest-close.mosaic`)).path;
+    store.setDoc(await rpc("new_document"), closePath);
+    store.update("Something to save", (doc) => doc.pages[0].items.push(gRectFor("wClose", 10, 10, 20, 20)));
+    const saved = await app.saveToClose();
+    check(saved && !store.dirty && (await rpc("open_document", closePath)).doc.pages[0].items.length === 1,
+      "the close question's Save saves the figure, and then the window may close");
+    store.update("Something unsaved", (doc) => doc.pages[0].items.push(gRectFor("wClose2", 40, 10, 20, 20)));
+    const realSave = app.save;
+    try {
+      app.save = async () => {};   // (the Save dialog cancelled)
+      const cancelled = await app.saveToClose();
+      app.save = async () => { throw new Error("the disk is full"); };
+      const failed = await app.saveToClose();
+      const said = [...document.querySelectorAll("dialog[open]")].pop();
+      check(!cancelled && !failed && store.dirty && /Couldn't save/.test(said?.textContent) && /the disk is full/.test(said?.textContent),
+        "if that's cancelled or fails, the window stays open, saying why", said?.textContent);
+      said?.close();
+    } finally {
+      app.save = realSave;
+    }
   } finally {
     app.info.windows = realWindows;
     app.openWindow = realOpen;
