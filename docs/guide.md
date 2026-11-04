@@ -36,8 +36,9 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 ![The mosaic window, numbered](images/window-tour.png)
 
 1. **Tabs** across the top, like PowerPoint's ribbon:
-   - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; Duplicate, Again, Delete; Add page,
-     Size, Fit page; Swatches, Text styles, Object styles, Fonts.
+   - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; **Text** (font, size,
+     colour, alignment and more: see [Text and panel labels](#text-and-panel-labels)); Duplicate,
+     Again, Delete; Add page, Size, Fit page; Swatches, Text styles, Object styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group and Grid, Order (see
      [Align and distribute](#align-and-distribute)).
    - **Figure**: scale bars (Scale bar, Measure), zoom insets, significance brackets (Bracket,
@@ -293,13 +294,32 @@ height you drag at, with the label above. Drag upright instead for one with its 
 - **Text (T):** click to type, or drag to make a box the text wraps in. Press **Escape** when
   done. Double-click any text, or select it and press Enter, to edit it again. In the editor, ⌘B,
   ⌘I and ⌘U make the selected words bold, italic or underlined, and ⌘⇧= and ⌘= superscript or
-  subscript (as in PowerPoint); Shift+Return starts a new line.
+  subscript (as in PowerPoint); Shift+Return starts a new line. With text boxes selected rather
+  than typed in, ⌘B, ⌘I and ⌘U change all their text.
+- **Text** in the Home tab, two rows like PowerPoint's: text style, font, size, **Bigger** and
+  **Smaller** (⌘⇧> and ⌘⇧<, through 5, 5.5, 6, 6.5… pt), line spacing; bold, italic,
+  underline, superscript, subscript, colour (swatches, or any colour), left, centre or right, and
+  top, middle or bottom of the box.
+  - With text boxes selected, one or several, it changes all their text. It shows what they
+    share: a blank font or size means they differ.
+  - While you type, it changes only the selected words, or with none selected what you type next.
+    Alignment, line spacing and text styles go to the lines the selected words are in. Each change
+    is an undo step of its own: ⌘Z straight after one takes it back, and you carry on typing.
+  - Selecting a text box shows the Home tab. Once no text is selected, the tab you were on comes
+    back, unless you picked another tab meanwhile. Settings turns this off (**Show the Home tab
+    while text is selected**).
+  - Shapes with text in them, and scale bar and bracket labels, are set in their properties
+    instead.
+
+  ![The Home tab's Text section, with a bold 8 pt panel label selected](images/textribbon.png)
+
 - **Superscript and subscript** (x² and x₂ on the Text tab) work on the selected words while you
   type, or on the whole box otherwise.
 - **Symbols** (Text tab): µ, °, ±, ×, arrows, ⇌, ‰, primes, Å and the Greek letters, put in where
   the cursor is while you type, or at the end of the selected text box otherwise.
-- The **Text** tab sets the font, size (in points), colour, bold, italic and underline for the
-  whole box, and alignment, vertical position, wrapping and **Resize the box to fit the text**.
+- The properties panel's **Text** tab sets the font, size (in points), colour, bold, italic and
+  underline for the whole box (while you type in it too), and alignment, vertical position,
+  wrapping and **Resize the box to fit the text**.
 - **Panel label (P):** click to add the next free letter (a, b, c…) in bold 8 pt Helvetica.
   Settings changes the size and case.
   - A label put on or near a picture or group (within about 5 mm) stays with it, by the panel's
@@ -1025,7 +1045,8 @@ The gear button (⌘,):
   contrast).
 - **Measurements:** the unit for positions and sizes (cm by default; mm, points or inches) and for
   page sizes (mm). Font sizes and line widths are always in points.
-- **Interface:** text size, labels under toolbar buttons, reduced motion.
+- **Interface:** text size, labels under toolbar buttons, showing the Home tab while text is
+  selected (on unless you turn it off), reduced motion.
 - **Rulers, grid and guides:** what's shown, snapping, the grid's spacing and how many finer lines
   each square has.
 - **Unsaved work:** recovery copies kept from earlier sessions, with Delete all.
@@ -1095,6 +1116,8 @@ Press **?** in mosaic for this list.
 | Transform again (repeat the last move, resize or turn) | ⌘⇧D | Ctrl+Shift+D |
 | Copy style, Paste style | ⌘⇧C, ⌘⇧V | Ctrl+Shift+C, Ctrl+Shift+V |
 | Make clipping mask | ⌘7 | Ctrl+7 |
+| Bold, Italic, Underline | ⌘B, ⌘I, ⌘U | Ctrl+B, Ctrl+I, Ctrl+U |
+| Bigger text, Smaller text | ⌘⇧>, ⌘⇧< | Ctrl+Shift+>, Ctrl+Shift+< |
 | Superscript, Subscript (while typing) | ⌘⇧=, ⌘= | Ctrl+Shift+=, Ctrl+= |
 | Search commands | ⌘/ | Ctrl+/ |
 | Delete | Delete | Delete or Backspace |

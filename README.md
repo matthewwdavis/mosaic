@@ -115,6 +115,7 @@ of what you can do with it, with the shortcuts alongside.
 | Copy style, Paste style | ⌘⇧C, ⌘⇧V | Ctrl+Shift+C, Ctrl+Shift+V |
 | Search commands (type to find any command) | ⌘/ | Ctrl+/ |
 | Select all | ⌘A | Ctrl+A |
+| Bold, Italic, Underline; Bigger, Smaller text | ⌘B, ⌘I, ⌘U; ⌘⇧>, ⌘⇧< | Ctrl+B, Ctrl+I, Ctrl+U; Ctrl+Shift+>, Ctrl+Shift+< |
 | Add an object to the selection, or take it away | ⌘-click or ⇧-click | Ctrl-click or Shift-click |
 | Group, Ungroup | ⌘G, ⌘⇧G | Ctrl+G, Ctrl+Shift+G |
 | Bring forward, Send backward (or drag the object's row in the Objects list) | ⌘], ⌘[ | Ctrl+], Ctrl+[ |

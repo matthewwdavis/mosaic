@@ -83,6 +83,26 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .zoom-label { align-self: center; min-width: 3.1rem; text-align: center; font-variant-numeric: tabular-nums;
   color: var(--muted); }
 .tool.active { background: var(--pressed); border-color: var(--sel); }
+/* The Home tab's Text section: two rows of small controls, as in PowerPoint's Font group, no
+   taller than the ribbon's other buttons */
+.rgroup-items.text-rows { flex-direction: column; justify-content: center; gap: 0.1rem; }
+.text-row { display: flex; align-items: center; gap: 0.1rem; }
+.text-row input, .text-row select { height: 1.4rem; min-width: 0; padding: 0 0.3rem; font-size: 0.78rem;
+  border: 1px solid var(--line); border-radius: 0.3rem; background: var(--panel); color: var(--text); }
+.text-row .text-style { width: 6.6rem; }
+.text-row .text-font { width: 7.2rem; }
+.text-row .text-size { width: 2.6rem; text-align: right; }
+.tool.mini { flex-direction: row; min-width: 1.6rem; min-height: 1.4rem; padding: 0.05rem 0.15rem; gap: 0.05rem; }
+.tool.mini .icon { width: 1.05rem; height: 1.05rem; }
+.tool.mini:disabled, .text-row input:disabled, .text-row select:disabled { opacity: 0.4; cursor: default; }
+.tool.mini:disabled:hover { background: transparent; }
+.glyph { font-size: 0.92rem; line-height: 1; min-width: 0.75rem; text-align: center; }
+.glyph.bold { font-weight: 700; } .glyph.italic { font-style: italic; } .glyph.underline { text-decoration: underline; }
+.glyph.more { min-width: 0; font-size: 0.62rem; color: var(--muted); }
+.colour-a { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; }
+.colour-bar { width: 0.95rem; height: 0.2rem; margin-top: 0.05rem; border-radius: 1px; outline: 1px solid var(--line); }
+.colour-bar.mixed { background: repeating-linear-gradient(90deg, var(--muted) 0 2px, transparent 2px 4px); }
+.text-sep { width: 1px; align-self: stretch; margin: 0.15rem 0.2rem; background: var(--line); }
 /* Drawing tools down the side of the page */
 .toolbox { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.35rem 0.25rem; background: var(--panel);
   border-right: 1px solid var(--line); overflow-y: auto; min-height: 0; scrollbar-width: thin; }

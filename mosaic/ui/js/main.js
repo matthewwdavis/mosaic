@@ -15,6 +15,7 @@ import { canHold, copiesOf, editGroup, finishEdits, makeSymbol, placedItems, sym
 import { middle, panelAt } from "./labels.js";
 import { button, inspector } from "./inspector.js";
 import { panels } from "./panels.js";
+import { textRibbon } from "./textribbon.js";
 import { updates } from "./updates.js";
 import { rulers } from "./rulers.js";
 import { splitters } from "./splitters.js";
@@ -2152,6 +2153,25 @@ app.commands = {
   swatches: cmd("Swatches: the figure's named colours, and palettes", () => panels.swatchesDialog(), null, null, "Swatches"),
   textStyles: cmd("Text styles: the figure's named text formats", () => panels.textStylesDialog(), null, null, "Text styles"),
   objectStyles: cmd("Object styles: the figure's named looks for lines and shapes", () => panels.objectStylesDialog(), null, null, "Object styles"),
+  // The Home tab's Text section (textribbon.js): on the text boxes selected, or the words typed
+  // in; the two marked typing also work while typing (their keys aren't the text's own)
+  textBigger: { ...cmd("Bigger text: the next size up", () => textRibbon.step(1), `${M}${S}>`,
+    (e) => mod(e) && e.shiftKey && !e.altKey && (e.key === ">" || e.key === "." || e.code === "Period"), "Bigger"), typing: true },
+  textSmaller: { ...cmd("Smaller text: the next size down", () => textRibbon.step(-1), `${M}${S}<`,
+    (e) => mod(e) && e.shiftKey && !e.altKey && (e.key === "<" || e.key === "," || e.code === "Comma"), "Smaller"), typing: true },
+  textBold: cmd("Bold", () => textRibbon.toggle("bold"), `${M}B`, key("b"), "Bold"),
+  textItalic: cmd("Italic", () => textRibbon.toggle("italic"), `${M}I`, key("i"), "Italic"),
+  textUnderline: cmd("Underline", () => textRibbon.toggle("underline"), `${M}U`, key("u"), "Underline"),
+  textSuperscript: cmd(`Superscript: raised text (${M}${S}= while typing)`, () => textRibbon.script(1), null, null, "Superscript"),
+  textSubscript: cmd(`Subscript: lowered text (${M}= while typing)`, () => textRibbon.script(-1), null, null, "Subscript"),
+  textColour: cmd("Text colour", () => textRibbon.colourMenu(), null, null, "Colour"),
+  lineSpacing: cmd("Line spacing", () => textRibbon.spacingMenu(), null, null, "Spacing"),
+  textLeft: cmd("Align text left", () => textRibbon.align("l"), null, null, "Left"),
+  textCentre: cmd("Centre text", () => textRibbon.align("ctr"), null, null, "Centre"),
+  textRight: cmd("Align text right", () => textRibbon.align("r"), null, null, "Right"),
+  textTop: cmd("Text at the top of its box", () => textRibbon.anchor("t"), null, null, "Top"),
+  textMiddle: cmd("Text in the middle of its box", () => textRibbon.anchor("ctr"), null, null, "Middle"),
+  textBottom: cmd("Text at the bottom of its box", () => textRibbon.anchor("b"), null, null, "Bottom"),
   sameWidth: cmd("Same width: make the selected objects as wide as the key object (or the first selected), keeping "
     + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
   sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the first selected), keeping "
@@ -2574,6 +2594,12 @@ async function start() {
   canvas.onEditEquation = (id) => app.editEquation(id);
   canvas.onFillArea = (p) => app.fillArea(p);
   canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);
+  // While typing: the commands that work there too (bigger and smaller text)
+  canvas.typingKey = (e) => {
+    const name = Object.keys(app.commands).find((n) => app.commands[n].typing && app.commands[n].match?.(e));
+    if (name) app.run(name);
+    return !!name;
+  };
   rulers.init(document.querySelector(".stage-wrap"));
   // Dragging a new guide out of a ruler shows the guides if they were hidden
   rulers.onNeedGuides = () => {

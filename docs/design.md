@@ -129,6 +129,28 @@ pre-export check says so.
 - **Recovery copies (2026-10-31):** kept per unsaved document in the settings folder's
   `autosave/`; the recovery offer and Settings can delete them (each delete warns first). A
   recovered document keeps its copy's name, so saving it clears the copy.
+- **Text section in the Home tab (2026-11-04):** font, size and the rest in the ribbon, beside the
+  properties panel's Text tab (`ui/js/textribbon.js`). Matthew chose all the extra controls
+  (superscript and subscript, bigger and smaller, top/middle/bottom, the text style list, line
+  spacing), changes to just the highlighted words while typing, a switch to Home and back, and
+  text boxes only (one or several; not shapes with text, nor scale bar and bracket labels).
+  - *Layout:* two rows of small controls, as in PowerPoint's Font group, no taller than the
+    ribbon's other buttons, after Clipboard. The Home tab still fits one row at 1440 px.
+  - *While typing:* a change to highlighted words puts what's been typed into the document as
+    one undo step and the change as another, then fills the editor again with the same words
+    highlighted (`canvas.retype`). Text and its positions ([paragraph, character]) are read
+    from the editor the way typing is read back, so they always agree (`readEditor`). ⌘Z
+    before any more typing undoes the change and typing carries on (`canvas.undoTyping`); after
+    more typing, ⌘Z is the text's own again. Bold, italic, underline, superscript and subscript
+    use the editor's own commands, as their keys do.
+  - *Only the caret:* a change applies to what's typed next, through a marker at the caret (a
+    zero-width space in a span of the new look, `canvas.pendingStyle`), taken out when the text
+    is read back.
+  - *The tab:* selecting text shows Home, remembering the tab before. When no text is selected
+    any more, that tab comes back, unless one was picked by hand meanwhile. It isn't saved as
+    the tab to open with. Settings: `text_home_tab`.
+  - *The properties panel's Text tab* now goes through the same changes, so what it changes
+    while typing stays when typing ends (before, the editor's copy of the text overwrote it).
 - **Closing with unsaved changes (2026-11-03):** asks Save, Don't Save or Cancel, naming the
   figure (`app/closing.py`). Matthew chose the Mac's standard wording, each figure in turn
   when quitting, Don't Save keeping an up-to-date recovery copy, and Windows too.

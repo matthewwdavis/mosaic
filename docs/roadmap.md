@@ -155,6 +155,11 @@ Matthew's choices are in brackets.
 - [x] Corner pictures on a thick line's outline (square, rounded, cut across); in the pictures,
       colours too faint against the menu drawn grey (black in dark themes, white or pale yellow
       in light ones) [Matthew's choices]
+- [x] Text section in the Home tab: style, font, size, bigger and smaller (⌘⇧> and ⌘⇧<), line
+      spacing, bold, italic, underline, superscript, subscript, colour, alignment, top/middle/bottom;
+      on the text boxes selected (several at once) or the highlighted words while typing (each an
+      undo step); selecting text shows Home and the tab before comes back (switch in Settings);
+      ⌘B, ⌘I and ⌘U on selected boxes [Matthew's choices]
 - [x] Closing with unsaved changes asks Save, Don't Save or Cancel, naming the figure, in a sheet on
       its window (on Windows, a message box); quitting asks about each unsaved figure in turn;
       Don't Save keeps an up-to-date recovery copy [Matthew's choices]

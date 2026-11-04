@@ -46,6 +46,8 @@ PREFS_DEFAULTS = {
     # Interface state: the ribbon's tab, the properties panel's tab for each kind of object, the
     # panel's folded sections, and the side panels' widths (rem; only those changed)
     "ribbon_tab": "home", "inspector_tabs": {}, "inspector_closed": [], "panel_widths": {},
+    # Selecting text shows the ribbon's Home tab (its Text section), and the tab before comes back after
+    "text_home_tab": True,
     # The journal Check last compared a page's size with (a page with a journal size uses its own)
     "check_journal": "",
     # The page size new documents start at: {"standard": name} or {"journal": name, "type": figure type}

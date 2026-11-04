@@ -31,10 +31,10 @@ SCENES = {
     "export": (380, 60, 1060, 860), "shapes": (200, 98, 760, 900), "guides": None, "result": None, "themes": (468, 63, 972, 838), "areafill": None,
     "swatches": (420, 40, 1020, 880), "isolation": (200, 98, 1180, 640), "cropshape": (420, 98, 1440, 640), "zoominset": (200, 300, 1180, 820), "brackets": (200, 98, 1440, 700), "search": (380, 60, 1060, 640), "distances": (290, 200, 1170, 560), "attached": (560, 98, 1440, 672), "plotsnap": (296, 262, 1166, 556), "gridlayout": (410, 98, 1440, 860), "symbols": (290, 300, 1440, 730), "objectstyles": (1176, 98, 1440, 520), "equation": (560, 160, 1440, 540), "report": (466, 216, 974, 684), "pen": (490, 290, 970, 590), "elbow": (396, 226, 1150, 672), "objects": (0, 98, 211, 462),
     "slides": (345, 297, 1095, 603), "selectsame": (380, 135, 1000, 725), "sizemenu": (530, 38, 935, 392), "colourvision": (8, 120, 1432, 780), "picturemenu": (1176, 400, 1440, 745),
-    "zoomshapes": (340, 355, 1125, 545),
+    "zoomshapes": (340, 355, 1125, 545), "textribbon": (0, 0, 706, 100),
 }
 # Numbered callouts on the window tour: (x, y) in window pixels, in the order the tutorial lists them
-TOUR = [(412, 22), (950, 62), (1042, 18), (78, 120), (238, 780), (304, 450), (1262, 124), (1038, 884)]
+TOUR = [(412, 22), (1270, 62), (1042, 18), (78, 120), (238, 780), (304, 450), (1262, 124), (1038, 884)]
 
 
 def example_deck(tmp: str) -> str:

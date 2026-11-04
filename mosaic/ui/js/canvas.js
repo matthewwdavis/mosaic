@@ -11,6 +11,7 @@ import { followScaleBars } from "./scalebar.js";
 import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
 import { labelRoom } from "./brackets.js";
 import { applyTextStyle } from "./textstyles.js";
+import { collapsed, formatText, ordered, paraLength } from "./textformat.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, edgeReach, emptyShape, frameMatrix, h, hitItem, invert, isMac,
   itemBBox, itemLabel, itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch,
@@ -132,6 +133,8 @@ export const canvas = {
       this.onContextMenu?.(e.clientX, e.clientY);
     });
     this.editor.addEventListener("keydown", (e) => this.editorKey(e));
+    // Typing after a change from the ribbon: ⌘Z is the text's own again (undoTyping)
+    this.editor.addEventListener("input", () => { if (this.editing) this.editing.typed = true; });
     store.on((what, detail) => {
       if (what === "doc") { this.render(detail); this.loadPlotLines(); }
       else if (what === "selection") this.drawOverlay();
@@ -226,6 +229,7 @@ export const canvas = {
     this.drawGuides();
     this.drawOverlay();
     if (this.cropping) this.drawGhost();
+    if (this.editing) this.positionEditor();   // (a box fitted to its text again, after a change from the ribbon)
   },
   // Inside a group being edited (isolation mode), everything outside it is faded, and a note
   // over the page names the group, with a button to leave it
@@ -2223,12 +2227,37 @@ export const canvas = {
     if (!it || it.type !== "shape" || it.geom === "region") return;   // an area fill holds no text
     if (!it.text) it.text = { paragraphs: [{ align: "ctr", runs: [{ t: "", font: "Helvetica", size: 6 }] }],
       insets: [7.2, 3.6, 7.2, 3.6], wrap: true, anchor: "ctr", autofit: "none" };
-    this.editing = { id, isNew, before: JSON.stringify(it.text) };
+    // (range: the words last highlighted, as positions; mine, top and redo: the undo steps changes
+    // from the ribbon made while typing, and where the history stood after them; typed: since then)
+    this.editing = { id, isNew, before: JSON.stringify(it.text), range: null, domRange: null, mine: 0,
+      top: store.history.length, redo: 0, typed: false };
     const e = this.els.get(id);
     if (e) e.g.style.visibility = "hidden";
     const ed = this.editor;
-    ed.replaceChildren(...it.text.paragraphs.map((p) => {
-      const div = h("div", { style: { textAlign: { l: "left", ctr: "center", r: "right" }[p.align || "l"] } });
+    this.fillEditor(it.text);
+    this.editing.parsed = JSON.stringify(parseEditor(ed, it.text));
+    ed.hidden = false;
+    this.positionEditor();
+    ed.focus();
+    const range = document.createRange();
+    range.selectNodeContents(ed);
+    if (!isNew) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    this.drawOverlay();
+    announce("Editing text. Press Escape when done.");
+    document.dispatchEvent(new CustomEvent("fa-editing", { detail: true }));
+  },
+  // The text in the editor: a line (div) per paragraph, holding its own settings in data-para,
+  // and a span per run of one look (data-run)
+  fillEditor(text) {
+    this.editor.replaceChildren(...text.paragraphs.map((p) => {
+      const own = { ...p };
+      delete own.runs;
+      delete own.align;
+      const div = h("div", { "data-para": JSON.stringify(own), style: { textAlign: { l: "left", ctr: "center", r: "right" }[p.align || "l"] } });
       const runs = (p.runs || []).filter((r) => r.t !== undefined);
       if (!runs.length || runs.every((r) => !r.t)) div.append(h("br"));
       for (const r of runs) {
@@ -2242,18 +2271,6 @@ export const canvas = {
       }
       return div;
     }));
-    ed.hidden = false;
-    this.positionEditor();
-    ed.focus();
-    const range = document.createRange();
-    range.selectNodeContents(ed);
-    if (!isNew) {
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-    this.drawOverlay();
-    announce("Editing text. Press Escape when done.");
   },
   positionEditor() {
     if (!this.editing) return;
@@ -2280,6 +2297,10 @@ export const canvas = {
   editorKey(e) {
     const mod = e.metaKey || e.ctrlKey;
     if (e.key === "Escape") { e.preventDefault(); this.commitEdit(); return; }
+    // ⌘Z right after a change from the ribbon undoes it, and typing carries on (undoTyping); the
+    // ribbon's keys that work while typing (bigger and smaller text) run its commands
+    if (mod && !e.altKey && e.key.toLowerCase() === "z" && this.undoTyping(e.shiftKey)) { e.preventDefault(); return; }
+    if (this.typingKey?.(e)) { e.preventDefault(); return; }
     if (mod && ["b", "i", "u"].includes(e.key.toLowerCase())) {
       e.preventDefault();
       document.execCommand({ b: "bold", i: "italic", u: "underline" }[e.key.toLowerCase()]);
@@ -2296,26 +2317,196 @@ export const canvas = {
     const ed = this.editing;
     if (!ed) return;
     this.editing = null;
-    const it = store.item(ed.id);
-    this.editor.hidden = true;
-    const e = this.els.get(ed.id);
-    if (e) e.g.style.visibility = "";
-    if (!it) return;
-    const paragraphs = parseEditor(this.editor, it.text);
-    const empty = paragraphs.every((p) => p.runs.every((r) => !r.t.trim()));
-    if (empty && it.textbox) {
-      store.update(ed.isNew ? "Add text" : "Delete text", (doc) => {
-        const items = store.container(doc);
-        items.splice(items.findIndex((i) => i.id === ed.id), 1);
-      }, { select: [] });
-      return;
+    try {
+      const it = store.item(ed.id);
+      this.editor.hidden = true;
+      const e = this.els.get(ed.id);
+      if (e) e.g.style.visibility = "";
+      if (!it) return;
+      const paragraphs = parseEditor(this.editor, it.text);
+      const empty = paragraphs.every((p) => p.runs.every((r) => !r.t.trim()));
+      if (empty && it.textbox) {
+        store.update(ed.isNew ? "Add text" : "Delete text", (doc) => {
+          const items = store.container(doc);
+          items.splice(items.findIndex((i) => i.id === ed.id), 1);
+        }, { select: [] });
+        return;
+      }
+      const after = { ...it.text, paragraphs };
+      // (nothing typed since the text was put in the editor: the document already has it)
+      if (JSON.stringify(paragraphs) !== ed.parsed && JSON.stringify(after) !== ed.before) {
+        store.update("Edit text", (doc) => { findDeep(doc.pages[store.pageIndex].items, ed.id).text = after; });
+      } else this.render({});
+      this.stage.focus({ preventScroll: true });
+      this.drawOverlay();
+    } finally {
+      document.dispatchEvent(new CustomEvent("fa-editing", { detail: false }));
     }
-    const after = { ...it.text, paragraphs };
-    if (JSON.stringify(after) !== ed.before) {
-      store.update("Edit text", (doc) => { findDeep(doc.pages[store.pageIndex].items, ed.id).text = after; });
-    } else this.render({});
-    this.stage.focus({ preventScroll: true });
-    this.drawOverlay();
+  },
+
+  // Changes from the ribbon while typing (textribbon.js) ---------------------------------
+
+  // The text as typed so far, as paragraphs of runs
+  editorModel() {
+    const it = this.editing && store.item(this.editing.id);
+    return it ? parseEditor(this.editor, it.text) : [];
+  },
+  // The words highlighted in the text being typed, as positions [paragraph, character]: as they
+  // are, or as they were when the text last had the focus (a field in the ribbon has it, say)
+  editorRange() {
+    const ed = this.editing, it = ed && store.item(ed.id);
+    if (!it) return null;
+    const sel = window.getSelection();
+    if (sel.rangeCount && this.editor.contains(sel.anchorNode) && this.editor.contains(sel.focusNode)) {
+      const read = readEditor(this.editor, it.text);
+      ed.range = ordered({ start: toPosition(read, this.editor, sel.anchorNode, sel.anchorOffset),
+        end: toPosition(read, this.editor, sel.focusNode, sel.focusOffset) });
+      ed.domRange = sel.getRangeAt(0).cloneRange();
+    }
+    return ed.range;
+  },
+  setEditorRange(range) {
+    const ed = this.editing, it = ed && store.item(ed.id);
+    if (!it || !range) return;
+    const read = readEditor(this.editor, it.text), last = read.paragraphs.length - 1;
+    const fit = ([p, c]) => {
+      const q = Math.min(Math.max(p, 0), last);
+      return [q, Math.min(Math.max(c, 0), paraLength(read.paragraphs[q]))];
+    };
+    const r = { start: fit(range.start), end: fit(range.end) };
+    const a = toPoint(read, r.start), b = toPoint(read, r.end);
+    const sel = window.getSelection();
+    sel.setBaseAndExtent(a[0], a[1], b[0], b[1]);
+    ed.range = r;
+    ed.domRange = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+  },
+  // The text's selection back, after a field or menu in the ribbon had the focus
+  restoreSelection() {
+    const ed = this.editing;
+    if (!ed) return;
+    this.editor.focus({ preventScroll: true });
+    const sel = window.getSelection(), d = ed.domRange;
+    if (d && this.editor.contains(d.startContainer) && this.editor.contains(d.endContainer)) {
+      sel.removeAllRanges();
+      sel.addRange(d);
+    } else if (ed.range) this.setEditorRange(ed.range);
+  },
+  // The look of the text at the caret, which typing there takes (from the run before it)
+  caretStyle() {
+    const ed = this.editing, it = ed && store.item(ed.id);
+    const base = { ...(it?.text?.paragraphs?.[0]?.runs?.[0] || { font: "Helvetica", size: 6 }) };
+    delete base.t;
+    delete base.baseline;
+    const sel = window.getSelection();
+    const live = sel.rangeCount && this.editor.contains(sel.getRangeAt(0).startContainer) ? sel.getRangeAt(0) : null;
+    const r = live || ed?.domRange;
+    if (!r || !this.editor.contains(r.startContainer)) return base;
+    const inmost = (n, last) => {
+      while (n && n.nodeType === 1 && n.tagName !== "BR" && n.childNodes.length) n = last ? n.lastChild : n.firstChild;
+      return n;
+    };
+    let node = r.startContainer;
+    if (node.nodeType === 1) node = inmost(node.childNodes[r.startOffset - 1], true) || inmost(node.childNodes[r.startOffset], false) || node;
+    const chain = [];
+    for (let n = node.nodeType === 1 && node.tagName !== "BR" ? node : node.parentNode; n && n !== this.editor; n = n.parentNode) chain.unshift(n);
+    return chain.reduce((st, n) => nodeStyle(n, st), base);
+  },
+  // A change to the look with only the caret: it applies to what's typed next, from a marker at
+  // the caret, a zero-width space in a span of the new look that typing goes into (the space is
+  // taken out when the text is read back)
+  pendingStyle(fn) {
+    const ed = this.editing;
+    if (!ed) return;
+    this.restoreSelection();
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const run = this.caretStyle();
+    fn(run);
+    const at = range.startContainer.nodeType === 3 ? range.startContainer.parentNode : range.startContainer;
+    let span = at.closest?.("span[data-pending]");
+    if (span && span.textContent.replace(/​/g, "")) span = null;   // typed into already: a new marker for what follows
+    if (!span) {
+      span = h("span", { "data-pending": "" }, "​");
+      // An empty line's placeholder break goes: the marker holds the line open now
+      let line = at;
+      while (line && line.parentNode !== this.editor) line = line.parentNode;
+      if (line?.childNodes.length === 1 && line.firstChild.nodeName === "BR") line.firstChild.remove();
+      range.insertNode(span);
+    }
+    span.dataset.run = JSON.stringify({ ...run, t: undefined, baseline: undefined });
+    Object.assign(span.style, runCss(run));
+    span.style.fontSize = `${(run.size || 6) * this.k}px`;
+    sel.collapse(span.firstChild, span.firstChild.textContent.length);
+    ed.domRange = sel.getRangeAt(0).cloneRange();
+    this.editorRange();
+  },
+  // A change to the text being typed: what's been typed goes into the document as one undo step
+  // and the change as another (formatText: over the range, or all of it with none). Typing then
+  // carries on with the same words highlighted, and ⌘Z before any more typing undoes the change
+  retype(label, change, range) {
+    const ed = this.editing, it = ed && store.item(ed.id);
+    if (!it) return;
+    const keep = range || ed.range;
+    const typed = parseEditor(this.editor, it.text);
+    const save = (lbl, fn) => {
+      store.update(lbl, (doc) => { const o = findDeep(doc.pages[store.pageIndex].items, ed.id); if (o) fn(o); });
+      ed.mine++;
+    };
+    if (JSON.stringify(typed) !== ed.parsed) {
+      save("Edit text", (o) => { o.text = { ...o.text, paragraphs: typed }; });
+      ed.isNew = false;
+    }
+    save(label, (o) => formatText(o.text, range, change));
+    ed.top = store.history.length;
+    ed.redo = 0;
+    this.refill(keep);
+  },
+  // The editor filled again from the box's text, with these words highlighted
+  refill(range) {
+    const ed = this.editing, it = ed && store.item(ed.id);
+    if (!it) return;
+    this.fillEditor(it.text);
+    ed.before = JSON.stringify(it.text);
+    ed.parsed = JSON.stringify(parseEditor(this.editor, it.text));
+    ed.typed = false;
+    ed.domRange = null;
+    this.positionEditor();
+    this.editor.focus({ preventScroll: true });
+    if (range) this.setEditorRange(range);
+  },
+  // ⌘Z (⌘⇧Z) right after a change from the ribbon, before more typing: the change comes out of
+  // (goes back into) the document, and typing carries on. Only this typing's own steps, and only
+  // while nothing else has changed the document since
+  undoTyping(redo) {
+    const ed = this.editing;
+    if (!ed || ed.typed || store.history.length !== ed.top) return false;
+    if (redo ? !(ed.redo > 0 && store.future.length) : !(ed.mine > 0)) return false;
+    const range = ed.range, label = redo ? store.redo() : store.undo();
+    if (redo) { ed.mine++; ed.redo--; } else { ed.mine--; ed.redo++; }
+    ed.top = store.history.length;
+    this.refill(range);
+    announce(`${redo ? "Redid" : "Undid"} ${label}`);
+    return true;
+  },
+  // A change to text, from the ribbon or the properties panel. target: {typing, id, range, whole}
+  // for the box being typed in (the words in range, or with only the caret what's typed next;
+  // whole: all its text), or {ids} for the objects selected (all their text). Typing that ended
+  // before the change came (a field's change on leaving it) gets it in the document, in its range
+  changeText(label, change, target) {
+    const ed = this.editing;
+    if (target.typing && ed?.id === target.id) {
+      const range = target.whole ? null : target.range || ed.range;
+      if (change.run && !change.para && !change.body && range && collapsed(range)) return this.pendingStyle(change.run);
+      return this.retype(label, change, range);
+    }
+    const ids = target.typing ? [target.id] : target.ids, range = target.typing && !target.whole ? target.range : null;
+    store.update(label, (doc) => {
+      for (const id of ids) {
+        const it = findDeep(doc.pages[store.pageIndex].items, id);
+        if (it?.text) formatText(it.text, range, change);
+      }
+    });
   },
 };
 
@@ -2627,45 +2818,47 @@ function runCss(r) {
 export const SUPERSCRIPT = 0.3, SUBSCRIPT = -0.25;
 // Read the edited text back into paragraphs of runs, keeping each run's other settings
 function parseEditor(root, oldText) {
+  return readEditor(root, oldText).paragraphs;
+}
+// The editor's paragraphs, and where their text came from for finding a selection in them
+// (toPosition, toPoint): pieces[p] lists each text node and counted break with the character it
+// starts at, and blocks gives the paragraph each of the editor's own children is in. Zero-width
+// spaces (pendingStyle's markers) aren't text
+function readEditor(root, oldText) {
   const firstRun = oldText.paragraphs?.[0]?.runs?.[0] || { font: "Helvetica", size: 6 };
-  const paragraphs = [];
-  const blocks = [...root.childNodes].filter((n) => n.nodeType === 1 || (n.nodeType === 3 && n.textContent));
+  const paragraphs = [], pieces = [], blocks = new Map();
+  const tops = [...root.childNodes].filter((n) => n.nodeType === 1 || (n.nodeType === 3 && n.textContent));
   const groups = [];
   let loose = [];
-  for (const n of blocks) {
+  for (const n of tops) {
     if (n.nodeType === 1 && ["DIV", "P"].includes(n.tagName)) {
-      if (loose.length) { groups.push(loose); loose = []; }
-      groups.push([...n.childNodes]);
+      if (loose.length) { groups.push({ block: null, nodes: loose }); loose = []; }
+      groups.push({ block: n, nodes: [...n.childNodes] });
     } else loose.push(n);
   }
-  if (loose.length) groups.push(loose);
-  groups.forEach((nodes, pi) => {
+  if (loose.length) groups.push({ block: null, nodes: loose });
+  groups.forEach(({ block, nodes }, pi) => {
+    for (const n of block ? [block] : nodes) blocks.set(n, pi);
     const oldP = oldText.paragraphs?.[pi] || oldText.paragraphs?.[oldText.paragraphs.length - 1] || {};
-    const runs = [];
+    const runs = [], here = [];
+    let at = 0;
     const walk = (node, style) => {
       if (node.nodeType === 3) {
-        if (node.textContent) runs.push({ ...style, t: node.textContent.replace(/ /g, " ") });
+        const t = node.textContent.replace(/​/g, "").replace(/ /g, " ");
+        here.push({ node, at, len: t.length });
+        if (t) { runs.push({ ...style, t }); at += t.length; }
         return;
       }
       if (node.nodeType !== 1) return;
       if (node.tagName === "BR") {
-        if (node.nextSibling || node.previousSibling) runs.push({ ...style, t: "\n" });
+        if (node.nextSibling || node.previousSibling) {
+          here.push({ node, at, len: 1, br: true });
+          runs.push({ ...style, t: "\n" });
+          at += 1;
+        }
         return;
       }
-      const st = { ...style };
-      if (node.dataset?.run) Object.assign(st, JSON.parse(node.dataset.run));
-      const tag = node.tagName;
-      if (tag === "B" || tag === "STRONG") st.bold = true;
-      if (tag === "I" || tag === "EM") st.italic = true;
-      if (tag === "U") st.underline = true;
-      if (tag === "SUP") st.baseline = SUPERSCRIPT;
-      if (tag === "SUB") st.baseline = SUBSCRIPT;
-      const css = node.style || {};
-      if (css.verticalAlign === "super") st.baseline = SUPERSCRIPT;
-      if (css.verticalAlign === "sub") st.baseline = SUBSCRIPT;
-      if (css.fontWeight) st.bold = css.fontWeight === "bold" || Number(css.fontWeight) >= 600;
-      if (css.fontStyle) st.italic = css.fontStyle === "italic";
-      if (css.textDecorationLine || css.textDecoration) st.underline = (css.textDecorationLine || css.textDecoration).includes("underline");
+      const st = nodeStyle(node, style);
       for (const c of node.childNodes) walk(c, st);
     };
     const base = { ...firstRun };
@@ -2679,9 +2872,70 @@ function parseEditor(root, oldText) {
       const same = last && JSON.stringify({ ...last, t: 0 }) === JSON.stringify({ ...r, t: 0 });
       if (same) last.t += r.t; else merged.push({ ...r });
     }
-    const div = nodes[0]?.parentElement;
-    const align = div && div !== root ? { left: "l", center: "ctr", right: "r" }[div.style.textAlign] : null;
-    paragraphs.push({ ...oldP, align: align || oldP.align || "l", runs: merged.length ? merged : [{ ...base, t: "" }] });
+    // A line's own settings (fillEditor), which a new line made with Enter copies; else the old
+    // paragraph's in its place
+    const own = block?.dataset.para ? JSON.parse(block.dataset.para) : oldP;
+    const align = block ? { left: "l", center: "ctr", right: "r" }[block.style.textAlign] : null;
+    paragraphs.push({ ...own, align: align || own.align || "l", runs: merged.length ? merged : [{ ...base, t: "" }] });
+    pieces.push(here);
   });
-  return paragraphs.length ? paragraphs : [{ align: "l", runs: [{ ...firstRun, t: "" }] }];
+  if (!paragraphs.length) {
+    paragraphs.push({ align: "l", runs: [{ ...firstRun, t: "" }] });
+    pieces.push([]);
+  }
+  return { paragraphs, pieces, blocks };
+}
+// The look an element gives the text inside it, on top of what it's inside
+function nodeStyle(node, style) {
+  const st = { ...style };
+  if (node.dataset?.run) Object.assign(st, JSON.parse(node.dataset.run));
+  const tag = node.tagName;
+  if (tag === "B" || tag === "STRONG") st.bold = true;
+  if (tag === "I" || tag === "EM") st.italic = true;
+  if (tag === "U") st.underline = true;
+  if (tag === "SUP") st.baseline = SUPERSCRIPT;
+  if (tag === "SUB") st.baseline = SUBSCRIPT;
+  const css = node.style || {};
+  if (css.verticalAlign === "super") st.baseline = SUPERSCRIPT;
+  if (css.verticalAlign === "sub") st.baseline = SUBSCRIPT;
+  if (css.fontWeight) st.bold = css.fontWeight === "bold" || Number(css.fontWeight) >= 600;
+  if (css.fontStyle) st.italic = css.fontStyle === "italic";
+  if (css.textDecorationLine || css.textDecoration) st.underline = (css.textDecorationLine || css.textDecoration).includes("underline");
+  return st;
+}
+// A point in the editor (a node and an offset in it) as a position [paragraph, character]
+function toPosition({ pieces, blocks }, root, node, offset) {
+  let top = node === root ? root.childNodes[Math.min(offset, root.childNodes.length - 1)] : node;
+  while (top && top.parentNode !== root) top = top.parentNode;
+  const p = blocks.get(top) ?? pieces.length - 1, here = pieces[p] || [];
+  if (node.nodeType === 3) {
+    const piece = here.find((x) => x.node === node);
+    if (piece) return [p, piece.at + node.textContent.slice(0, offset).replace(/​/g, "").length];
+  }
+  // Between nodes: where the first piece of text at or after it starts, else the paragraph's end
+  const point = document.createRange();
+  point.setStart(node, offset);
+  for (const x of here) if (point.comparePoint(x.node, 0) >= 0) return [p, x.at];
+  const last = here[here.length - 1];
+  return [p, last ? last.at + last.len : 0];
+}
+// A position [paragraph, character] as a point in the editor: in the text it falls in (at the end
+// of the text before it, where two meet), before a break, or at the end of an empty line
+function toPoint({ pieces, blocks }, [p, c]) {
+  const here = pieces[p] || [];
+  for (const x of here) {
+    if (x.br) {
+      if (c <= x.at) return [x.node.parentNode, [...x.node.parentNode.childNodes].indexOf(x.node)];
+    } else if (c <= x.at + x.len && x.len) {
+      const raw = x.node.textContent;
+      let i = 0;
+      for (let seen = 0; i < raw.length && seen < c - x.at; i++) if (raw[i] !== "​") seen++;
+      return [x.node, i];
+    }
+  }
+  const last = here[here.length - 1];
+  if (last && !last.br) return [last.node, last.node.textContent.length];
+  if (last) return [last.node.parentNode, [...last.node.parentNode.childNodes].indexOf(last.node) + 1];
+  const block = [...blocks].find(([, i]) => i === p)?.[0];
+  return block ? [block, 0] : [blocks.keys().next().value || document.body, 0];
 }

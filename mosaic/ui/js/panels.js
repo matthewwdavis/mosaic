@@ -14,6 +14,7 @@ import { updates } from "./updates.js";
 import { intoPlace, locate, moveItems, moveToPage, slotPlaces, treeRows } from "./layers.js";
 import { zoomShapePicture } from "./pictures.js";
 import { ZOOM_SHAPES } from "./zoom.js";
+import { textRibbon } from "./textribbon.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon, s, shapeName, toUnit } from "./util.js";
 
 // 24 x 24 stroke icons, drawn for mosaic; a few follow Feather's and Lucide's designs (their
@@ -272,6 +273,7 @@ export const panels = {
         group("File", t("new", "new"), t("open", "open"), t("save", "save")),
         group("Edit", t("undo", "undo"), t("redo", "redo")),
         group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste"), this.painterButton()),
+        textRibbon.build(this.app, this),
         group("Objects", t("duplicate", "duplicate"), t("transformAgain", "again"), t("delete", "trash")),
         group("Page", t("addPage", "plus"), this.pageSizeButton(), t("fitPage", "fit")),
         group("Styles", t("swatches", "swatches"), t("textStyles", "textStyles"), t("objectStyles", "objectStyles"), t("fonts", "fonts")),
@@ -347,8 +349,11 @@ export const panels = {
         t("sendToBack", "back")),
     ];
   },
+  // (remember: picked by hand, which also keeps it when the text selected is deselected; the Text
+  // section's own switch to Home doesn't)
   showTab(key, remember = true) {
     this.ribbonTab = key;
+    if (remember) textRibbon.picked();
     for (const [k, { tab, panel }] of Object.entries(this.ribbonTabs)) {
       tab.setAttribute("aria-selected", k === key ? "true" : "false");
       tab.tabIndex = k === key ? 0 : -1;
@@ -1082,6 +1087,7 @@ export const panels = {
       h("fieldset", {}, h("legend", {}, "Interface"),
         h("div", { class: "field" }, h("label", { for: "pref-scale" }, "Interface text size"), scale),
         chk("show_tool_labels", "Show labels under toolbar buttons"),
+        chk("text_home_tab", "Show the Home tab while text is selected, then the tab you were on"),
         chk("reduced_motion", "Reduce motion")),
       h("fieldset", {}, h("legend", {}, "Rulers, grid and guides"),
         chk("show_rulers", `Show rulers (${keys("toggleRulers")})`),

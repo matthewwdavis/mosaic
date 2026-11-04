@@ -7,7 +7,7 @@ import { icon } from "./panels.js";
 import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
 import { linked, swatchById } from "./swatches.js";
-import { differs } from "./textstyles.js";
+import { applyToParagraph, differs } from "./textstyles.js";
 import { UNITS, anchorFor, convert, niceLength, pxPerPt, scaleText } from "./scalebar.js";
 import { DEFAULT_GAP } from "./gridlayout.js";
 import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
@@ -1011,16 +1011,20 @@ export const inspector = {
   textSection(it) {
     const body = it.text || { paragraphs: [{ runs: [] }] };
     const first = body.paragraphs[0]?.runs?.[0] || {};
-    const allRuns = (o) => o.text.paragraphs.flatMap((p) => p.runs || []);
-    const setRuns = (label, fn) => this.edit(label, (o) => { if (o.text) allRuns(o).forEach(fn); });
+    // (while typing in it, through the text being typed, so the change isn't lost when typing ends)
+    const target = () => (canvas.editing?.id === it.id ? { typing: true, id: it.id, whole: true } : { ids: [...store.selection] });
+    const setRuns = (label, fn) => canvas.changeText(label, { run: fn }, target());
     const fontList = h("datalist", { id: "font-list" }, ...(this.app.fonts || []).map((f) => h("option", { value: f })));
     const align = body.paragraphs[0]?.align || "l";
     // Its text style: the one its paragraphs use, whether this text has been changed from it
     const styles = store.doc.text_styles || [];
     const st = styles.find((x) => body.paragraphs.some((p) => p.style === x.id));
     const changed = st && body.paragraphs.some((p) => p.style === st.id && differs(p, st));
-    const styleKids = [selectField("Text style", st ? st.id : "", [["", "None"], ...styles.map((x) => [x.id, x.name])],
-      (v) => this.app.applyTextStyle(v))];
+    const styleKids = [selectField("Text style", st ? st.id : "", [["", "None"], ...styles.map((x) => [x.id, x.name])], (v) => {
+      const pick = styles.find((x) => x.id === v);
+      if (canvas.editing?.id !== it.id) return this.app.applyTextStyle(v);
+      canvas.changeText(pick ? "Text style" : "No text style", { para: (p) => { if (pick) applyToParagraph(p, pick); else delete p.style; } }, target());
+    })];
     if (changed) {
       styleKids.push(h("p", { class: "hint" }, `This text differs from ${st.name}.`), h("div", { class: "button-row" },
         button(`Put this text back to ${st.name}`, () => this.app.clearTextChanges(), "Clear changes"),
@@ -1044,9 +1048,9 @@ export const inspector = {
         this.scriptButton("Subscript", "subscript", SUBSCRIPT, first, setRuns, "x₂")),
       this.symbolsField(),
       radioField("Align", align, [["l", "Left"], ["ctr", "Centre"], ["r", "Right"]],
-        (v) => this.edit("Align text", (o) => { o.text.paragraphs.forEach((p) => { p.align = v; }); })),
+        (v) => canvas.changeText("Align text", { para: (p) => { p.align = v; } }, target())),
       radioField("Vertical position", body.anchor || "t", [["t", "Top"], ["ctr", "Middle"], ["b", "Bottom"]],
-        (v) => this.edit("Text position", (o) => { o.text.anchor = v; })),
+        (v) => canvas.changeText("Text position", { body: (x) => { x.anchor = v; } }, target())),
       checkField("Wrap text in the box", body.wrap !== false, (on) => this.edit("Wrap", (o) => { o.text.wrap = on; })),
       checkField("Resize the box to fit the text", body.autofit === "shape", (on) => this.edit("Autofit", (o) => { o.text.autofit = on ? "shape" : "none"; })),
     ]);

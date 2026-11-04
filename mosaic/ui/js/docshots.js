@@ -309,6 +309,12 @@ export async function run(app, params) {
     { ...label("lb", "b", 217, 4), attach: { to: b } }, { ...label("lc", "c", 4, 153), attach: { to: c } }), { select: [] });
   await settle();
   if (scene === "labels") return finish();
+  if (scene === "textribbon") {
+    // Label a selected: the Home tab's Text section shows its style, font, size and bold
+    store.select(["la"]);
+    await settle();
+    return finish();
+  }
   if (scene === "selectsame") {
     // Label a right-clicked, Select same open beside its menu, on Font size: it would pick all three labels
     store.select(["la"]);

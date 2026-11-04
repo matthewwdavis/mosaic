@@ -1321,6 +1321,187 @@ async function pictureMenuChecks(app) {
 // Clicks pick shapes by what's drawn of them: an empty one (no fill, or a clear one) only by its
 // line or its text, a click inside it reaching what's under it; an ellipse inside its curve, not at
 // its frame's corners. A selected empty shape drags from inside, and a click there picks what's under
+// The Home tab's Text section: what the text boxes selected share, changes to all of them, and
+// while typing to the highlighted words only (with only the caret, to what's typed next), each an
+// undo step that ⌘Z takes back without ending the typing. Selecting text shows the Home tab and
+// the tab before comes back; shapes with text and mixed selections don't count
+async function textRibbonChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const box = (id, y, paragraphs) => ({ id, type: "shape", geom: "rect", textbox: true, frame: [40, y, 160, 24], rot: 0,
+    flip_h: false, flip_v: false, stroke: null, fill: null,
+    text: { paragraphs: paragraphs.map((runs) => ({ align: "l", runs: runs.map(([t, more]) => ({ t, font: "Helvetica", size: 6,
+      bold: false, italic: false, color: "#000000", ...more })) })), insets: [0, 0, 0, 0], wrap: false, anchor: "t", autofit: "shape" } });
+  store.update("Text", (doc) => {
+    doc.pages[store.pageIndex].items.push(box("tA", 40, [[["Hello world"]]]), box("tB", 90, [[["Second", { size: 8 }]]]),
+      { ...gRectFor("rC", 40, 150, 80, 40), text: { paragraphs: [{ align: "ctr", runs: [{ t: "Shape", font: "Helvetica", size: 6 }] }],
+        insets: [4, 4, 4, 4], wrap: true, anchor: "ctr" } },
+      box("tD", 220, [[["Hello world"]], [["Line two"]]]));
+    doc.swatches = [{ id: "swRed", name: "Vermilion", color: "#d55e00" }];
+    doc.text_styles = [{ id: "tsAxis", name: "Axis", font: "Arial", size: 5 }];
+  }, { select: [] });
+  await settle();
+  const mod = isMac ? { metaKey: true } : { ctrlKey: true };
+  const group = document.querySelector("#rpanel-home .text-group"), btn = (cmd) => group?.querySelector(`[data-cmd="${cmd}"]`);
+  const font = group?.querySelector(".text-font"), size = group?.querySelector(".text-size"), style = group?.querySelector(".text-style");
+  const runs = (id) => store.item(id).text.paragraphs.flatMap((p) => p.runs);
+  const pressed = (cmd) => btn(cmd).getAttribute("aria-pressed") === "true";
+  const pick = async (cmd, label) => {
+    btn(cmd).click();
+    [...document.querySelectorAll(".context-menu .menu-item")].find((b) => b.textContent.includes(label))?.click();
+    await settle();
+  };
+  // A field typed into and Enter pressed, as a person would
+  const typeIn = async (field, value) => {
+    field.focus();
+    field.value = value;
+    field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    await settle();
+  };
+  const showing = () => panels.ribbonTab;
+  const pickTab = (key) => document.getElementById(`rtab-${key}`).click();
+
+  store.select([]);
+  check(group && btn("textBold").disabled && font.disabled && size.disabled && style.disabled,
+    "the Home tab has a Text section, greyed out with no text selected");
+  pickTab("arrange");
+  store.select(["tA"]);
+  const switched = showing();
+  store.select([]);
+  check(switched === "home" && showing() === "arrange", "selecting a text box shows the Home tab; deselecting it brings back the tab before",
+    `${switched}, then ${showing()}`);
+  store.select(["tA"]);
+  pickTab("view");
+  store.select([]);
+  const kept = showing();
+  store.select(["tA"]);
+  check(kept === "view" && showing() === "home", "a tab picked while text is selected stays; text selected later shows Home again",
+    `${kept}, then ${showing()}`);
+  store.select([]);
+  pickTab("arrange");
+  store.select(["rC"]);
+  const shapeTab = showing(), shapeOff = btn("textBold").disabled;
+  store.select(["tA", "rC"]);
+  check(shapeTab === "arrange" && shapeOff && showing() === "arrange" && btn("textBold").disabled,
+    "a shape with text, or a text box selected with something else, isn't text for it: the tab stays and the section is greyed out");
+  store.select([]);
+  await app.savePrefs({ text_home_tab: false });
+  store.select(["tA"]);
+  const off = showing();
+  store.select([]);
+  await app.savePrefs({ text_home_tab: true });
+  check(off === "arrange", "with Settings' switch off, selecting text leaves the tab alone", off);
+
+  // Several boxes at once
+  store.select(["tA", "tB"]);
+  await settle();
+  check(font.value === "Helvetica" && size.value === "" && !btn("textBold").disabled,
+    "with two boxes selected it shows what they share: their font, and no size (they differ)", `${font.value} | ${size.value}`);
+  const steps = store.history.length;
+  await typeIn(size, "7");
+  check(runs("tA").every((r) => r.size === 7) && runs("tB").every((r) => r.size === 7) && size.value === "7"
+    && store.history.length === steps + 1, "a size typed in changes every box selected, as one undo step", JSON.stringify(runs("tB")));
+  await app.run("textBigger");
+  const bigger = runs("tA")[0].size;
+  key("<", { ...mod, shiftKey: true });
+  await settle();
+  check(bigger === 7.5 && runs("tB")[0].size === 7, `Bigger text steps to the next size (7 → 7.5); ${isMac ? "⌘⇧<" : "Ctrl+Shift+<"} steps back`,
+    `${bigger}, ${runs("tB")[0].size}`);
+  btn("textBold").click();
+  await settle();
+  const allBold = [...runs("tA"), ...runs("tB")].every((r) => r.bold) && pressed("textBold");
+  key("b", mod);
+  await settle();
+  check(allBold && [...runs("tA"), ...runs("tB")].every((r) => !r.bold) && !pressed("textBold"),
+    `Bold puts it on for all of them, and ${isMac ? "⌘B" : "Ctrl+B"} takes it off again`);
+  btn("textCentre").click();
+  btn("textBottom").click();
+  await settle();
+  const texts = [store.item("tA").text, store.item("tB").text];
+  check(texts.every((x) => x.paragraphs.every((p) => p.align === "ctr") && x.anchor === "b") && pressed("textCentre") && pressed("textBottom"),
+    "centring and bottom place every box's text, the buttons showing it");
+  await pick("lineSpacing", "1.5");
+  check(texts.length && [store.item("tA"), store.item("tB")].every((it) => it.text.paragraphs.every((p) => p.line_spacing?.pct === 1.5)),
+    "Line spacing 1.5 from its menu", JSON.stringify(store.item("tA").text.paragraphs[0].line_spacing));
+  await pick("textColour", "Vermilion");
+  check([...runs("tA"), ...runs("tB")].every((r) => r.color === "#d55e00" && r.swatch === "swRed")
+    && group.querySelector(".colour-bar").style.background !== "", "a swatch from the colour menu colours the text, linked to it");
+  style.value = "tsAxis";
+  style.dispatchEvent(new Event("change", { bubbles: true }));
+  await settle();
+  const styled = [store.item("tA"), store.item("tB")].every((it) => it.text.paragraphs.every((p) => p.style === "tsAxis"))
+    && runs("tA").every((r) => r.font === "Arial" && r.size === 5);
+  await app.undo();
+  await settle();
+  check(styled && runs("tA").every((r) => r.font === "Helvetica" && r.size === 7) && style.value !== "tsAxis",
+    "a text style from the list, and one undo takes it back");
+
+  // Typing: only the words highlighted
+  store.select(["tD"]);
+  canvas.startEdit("tD");
+  await settle();
+  const textNode = (s) => [...canvas.editor.querySelectorAll("span")].map((sp) => sp.firstChild).find((n) => n?.textContent.includes(s));
+  const highlight = async (s, from, to) => {
+    const n = textNode(s), sel = window.getSelection();
+    sel.setBaseAndExtent(n, from, n, to);
+    await settle();
+  };
+  await highlight("Hello world", 6, 11);
+  const before = store.history.length;
+  await typeIn(size, "9");
+  const live = !!canvas.editing && window.getSelection().toString() === "world";
+  const undoKey = (shift = false) => canvas.editor.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ...mod, shiftKey: shift,
+    bubbles: true, cancelable: true }));
+  check(live && canvas.editorModel()[0].runs.map((r) => `${r.t}:${r.size}`).join() === "Hello :6,world:9"
+    && store.history.length === before + 1, "while typing, a size changes only the highlighted word, which stays highlighted",
+  JSON.stringify(canvas.editorModel()[0].runs.map((r) => [r.t, r.size])));
+  undoKey();
+  await settle();
+  const undone = canvas.editorModel()[0].runs.map((r) => `${r.t}:${r.size}`).join();
+  undoKey(true);
+  await settle();
+  check(!!canvas.editing && undone === "Hello world:6" && canvas.editorModel()[0].runs.map((r) => r.size).join() === "6,9",
+    `${isMac ? "⌘Z" : "Ctrl+Z"} right after it takes just that back and typing carries on; ${isMac ? "⌘⇧Z" : "Ctrl+Shift+Z"} puts it back`, undone);
+  await highlight("Hello", 0, 5);
+  canvas.editor.dispatchEvent(new KeyboardEvent("keydown", { key: ">", ...mod, shiftKey: true, bubbles: true, cancelable: true }));
+  await settle();
+  btn("textBold").click();
+  await settle();
+  const hello = canvas.editorModel()[0].runs[0];
+  check(hello.t === "Hello" && hello.size === 6.5 && hello.bold && pressed("textBold"),
+    `${isMac ? "⌘⇧>" : "Ctrl+Shift+>"} and Bold work on the highlighted word while typing`, JSON.stringify(hello));
+  // Only the caret, at the end: the colour goes to what's typed next
+  const tail = textNode("world");
+  window.getSelection().collapse(tail, tail.textContent.length);
+  await settle();
+  await pick("textColour", "Vermilion");
+  const barShows = group.querySelector(".colour-bar").style.background !== "";
+  document.execCommand("insertText", false, "!");
+  await settle();
+  const typed = canvas.editorModel()[0].runs;
+  check(barShows && typed.at(-1).t === "!" && typed.at(-1).color === "#d55e00" && typed.find((r) => r.t.includes("world"))?.color === "#000000",
+    "with only the caret, the colour goes to what's typed next, and the section shows it", JSON.stringify(typed.map((r) => [r.t, r.color])));
+  // Alignment while typing: the lines the words are in
+  await highlight("Line two", 0, 4);
+  btn("textRight").click();
+  await settle();
+  const aligned = canvas.editorModel().map((p) => p.align).join();
+  // The properties panel while typing: through the text being typed, so it stays when typing ends
+  inspector.render();
+  [...document.querySelectorAll("#inspector button")].find((b) => b.getAttribute("aria-label") === "Italic")?.click();
+  await settle();
+  canvas.commitEdit();
+  await settle();
+  const ps = store.item("tD").text.paragraphs;
+  check(aligned === "l,r" && ps.map((p) => p.align).join() === "l,r" && ps.flatMap((p) => p.runs).every((r) => r.italic)
+    && ps[0].runs.map((r) => r.t).join("") === "Hello world!" && ps[0].runs[0].bold,
+  "alignment while typing goes to the line the words are in; the properties panel's Italic, all of it; all kept when typing ends",
+  JSON.stringify(ps.map((p) => [p.align, p.runs.map((r) => [r.t, r.size, r.bold, r.italic, r.color])])));
+  store.select([]);
+  pickTab("home");
+}
+
 async function clickThroughChecks(app) {
   store.setDoc(await rpc("new_document"));
   canvas.fit();
@@ -1766,6 +1947,7 @@ export async function run(app, params) {
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
     if (params.get("only") === "pagedrag") { await pageDragChecks(app); throw ONLY; }
     if (params.get("only") === "clickthrough") { await clickThroughChecks(app); throw ONLY; }
+    if (params.get("only") === "textribbon") { await textRibbonChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3016,6 +3198,7 @@ export async function run(app, params) {
     await pasteboardChecks(app);
     await pageDragChecks(app);
     await clickThroughChecks(app);
+    await textRibbonChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;
