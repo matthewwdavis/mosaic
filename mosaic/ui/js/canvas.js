@@ -4,7 +4,7 @@
 import { assetUrl, rpc } from "./api.js";
 import { store } from "./store.js";
 import { followGrids } from "./gridlayout.js";
-import { followLabels, panelAt } from "./labels.js";
+import { asLabel, followLabels, labelLetter, pageLabels, panelAt } from "./labels.js";
 import { finishEdits } from "./symbols.js";
 import { moveHandle, moveNode, nearestOn, ringsOf, segments, splitAt, toLocal, toPageOf, toggleSmooth, writeRings } from "./pen.js";
 import { followScaleBars } from "./scalebar.js";
@@ -1865,16 +1865,18 @@ export const canvas = {
     const tool = op.tool;
     if (tool === "text" || tool === "label") {
       const lab = tool === "label";
-      const pl = d.panel_label || {};
-      const run = { t: lab ? this.nextPanelLetter() : "", font: lab ? pl.font : d.text?.font || "Helvetica",
+      // A label takes the look of the page's journal (labels.js), else the one in Settings
+      const journal = lab && pageLabels(store.page(), this.journals), pl = journal || d.panel_label || {};
+      const run = { t: lab ? this.nextPanelLetter(journal) : "", font: lab ? pl.font || "Helvetica" : d.text?.font || "Helvetica",
         size: lab ? pl.size || 8 : d.text?.size || 6, bold: lab ? !!pl.bold : false, italic: false, color: "#000000" };
       const boxed = op.moved && !lab;
       item = { id: uid("it"), type: "shape", geom: "rect", textbox: true, stroke: null, fill: null, rot: 0,
         frame: boxed ? frame : [ax, ay, 10, 10],
         text: { paragraphs: [{ align: "l", runs: [run] }], insets: boxed ? [7.2, 3.6, 7.2, 3.6] : [0, 0, 0, 0],
           wrap: boxed, anchor: "t", autofit: "shape" } };
-      // A figure with a text style called Panel label gives it to new labels
-      const labelStyle = lab && (store.doc.text_styles || []).find((x) => x.name.trim().toLowerCase() === "panel label");
+      if (lab) item.panel_label = true;
+      // A figure with a text style called Panel label gives it to new labels (but the page's journal comes first)
+      const labelStyle = lab && !journal && (store.doc.text_styles || []).find((x) => x.name.trim().toLowerCase() === "panel label");
       if (labelStyle) applyTextStyle(item, labelStyle);
       // A label put on or near a picture or group stays with it (labels.js)
       const panel = lab && panelAt(store.scopeItems(), [ax, ay]);
@@ -1912,18 +1914,20 @@ export const canvas = {
     announce(`Added ${describeItem(item, store.doc)}`);
     this.setTool("select");
   },
-  nextPanelLetter() {
+  // The first letter no label on the page has, written as the journal's labels are (or in the
+  // case Settings gives)
+  nextPanelLetter(journal = null) {
     const used = new Set();
-    const caseLower = (this.defaults?.panel_label?.case || "lower") === "lower";
     for (const it of store.items()) {
-      const t = (it.text?.paragraphs?.[0]?.runs || []).map((r) => r.t).join("").trim();
-      if (/^[a-zA-Z]$/.test(t)) used.add(t.toLowerCase());
+      const letter = labelLetter((it.text?.paragraphs?.[0]?.runs || []).map((r) => r.t).join("").trim());
+      if (letter) used.add(letter.toLowerCase());
     }
+    const look = journal || { case: this.defaults?.panel_label?.case || "lower" };
     for (let c = 97; c < 123; c++) {
       const ch = String.fromCharCode(c);
-      if (!used.has(ch)) return caseLower ? ch : ch.toUpperCase();
+      if (!used.has(ch)) return asLabel(ch, look);
     }
-    return "a";
+    return asLabel("a", look);
   },
 
   // The pen and point editing (pen.js) ------------------------------------------------

@@ -63,3 +63,48 @@ export function followLabels(items) {
     label.attach.seen = box;
   }
 }
+
+// Panel labels in a journal's look -------------------------------------------------------
+// A journal's labels (journals.py): {font, size, bold, case, form}, form being how a letter is
+// written ("a", "(a)", "a."). A panel label is a text box made with the Label tool
+// (panel_label), or one that's just a letter, bracketed or with a full stop.
+const LETTER = /^\(?([A-Za-z])[).]?$/;
+const RUN_DEFAULT = { font: "Helvetica", size: 6, bold: false };
+export const textOf = (it) => (it.text?.paragraphs || []).map((p) => (p.runs || []).map((r) => r.t || "").join("")).join("\n").trim();
+export const isPanelLabel = (it) => it?.type === "shape" && !!it.textbox && (!!it.panel_label || LETTER.test(textOf(it)));
+export const labelLetter = (t) => t.match(LETTER)?.[1] || null;
+const cased = (s, c) => (c === "upper" ? s.toUpperCase() : s.toLowerCase());
+// A letter as labels are written: in the look's case and form
+export const asLabel = (letter, look) => (look?.form || "a").replace("a", cased(letter, look?.case || "lower"));
+// The labels' look on a page with a journal's size, or null
+export const pageLabels = (page, journals) => (journals || []).find((j) => j.name === page?.preset?.journal)?.labels || null;
+
+// Every panel label among items takes a journal's look: all of it where there was no journal
+// before (from: null), else what still matches the journal before, so what was changed by hand
+// in a label stays. Returns how many labels changed
+export function restyleLabels(items, from, to) {
+  let n = 0;
+  const walk = (list) => {
+    for (const it of list) {
+      if (it.type === "group") walk(it.items);
+      else if (isPanelLabel(it) && restyleLabel(it, from, to)) n++;
+    }
+  };
+  walk(items);
+  return n;
+}
+function restyleLabel(it, from, to) {
+  const before = JSON.stringify(it.text), follows = (k, v) => !from || (v ?? RUN_DEFAULT[k]) === from[k];
+  for (const r of it.text.paragraphs.flatMap((p) => p.runs || [])) {
+    for (const k of ["font", "size", "bold"]) if (to[k] !== undefined && follows(k, r[k])) r[k] = to[k];
+  }
+  // The letter: its case and form; other text the Label tool made, just its case
+  const t = textOf(it), letter = labelLetter(t);
+  if (letter && it.text.paragraphs.length === 1 && (!from || t === asLabel(letter, from))) {
+    const p = it.text.paragraphs[0], run = (p.runs || []).find((r) => (r.t || "").trim()) || p.runs[0];
+    p.runs = [{ ...run, t: asLabel(letter, to) }];
+  } else if (!letter && to.case && (!from || t === cased(t, from.case))) {
+    for (const r of it.text.paragraphs.flatMap((p) => p.runs || [])) r.t = cased(r.t || "", to.case);
+  }
+  return JSON.stringify(it.text) !== before;
+}

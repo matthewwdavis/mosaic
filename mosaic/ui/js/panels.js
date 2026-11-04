@@ -1114,7 +1114,8 @@ export const panels = {
         numField("Default line width", p.stroke_width || 1, "pt", set("stroke_width"), { step: 0.25 }),
         numField("Panel label size", label.size || 8, "pt", (v) => this.app.savePrefs({ panel_label: { ...label, size: v } }), { step: 0.5 }),
         selectField("Panel labels", label.case || "lower", [["lower", "a, b, c"], ["upper", "A, B, C"]],
-          (v) => this.app.savePrefs({ panel_label: { ...label, case: v } }))),
+          (v) => this.app.savePrefs({ panel_label: { ...label, case: v } })),
+        h("p", { class: "hint" }, "On a page with a journal's size, panel labels take that journal's look instead.")),
       h("p", { class: "hint version" }, `mosaic ${this.app.info.version}`),
     ));
   },

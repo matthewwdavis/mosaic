@@ -2584,6 +2584,7 @@ async function start() {
   Object.assign(shapeCatalog, app.info.shapes || {});
   applyPrefs(app.prefs);
   canvas.init(document.getElementById("stage"));
+  canvas.journals = app.info.journals || [];   // (new panel labels take the page's journal's look)
   canvas.onKeyClick = (id) => app.toggleKeyObject(id);
   canvas.onTransform = (t) => app.noteTransform(t);
   canvas.onPaint = (hit, keyboard) => app.paintStyle(hit, keyboard);

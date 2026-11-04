@@ -113,6 +113,10 @@ With nothing selected (click the grey area or press Escape), the right panel sho
   New Phytologist, Plant Cell, PLOS Genetics, PNAS and Science. The note below says where each
   size comes from. Some journals don't publish sizes; for those the sizes were measured from a
   recent published article, and the note says so.
+  - A journal also gives the page's panel labels its look (see
+    [Text and panel labels](#text-and-panel-labels)), and Check judges the page's text by its
+    rules (sizes and fonts). Notes below the size say what each journal asks for, and where it
+    comes from.
 - **Width** and **Height**: any size. The button beside them swaps width and height.
 - **Fit to content** (also **Fit page** in the Home tab): crops the page to what's on it, with
   no margin (objects parked wholly off the page don't count). On a journal page it keeps the column
@@ -320,8 +324,16 @@ height you drag at, with the label above. Drag upright instead for one with its 
 - The properties panel's **Text** tab sets the font, size (in points), colour, bold, italic and
   underline for the whole box (while you type in it too), and alignment, vertical position,
   wrapping and **Resize the box to fit the text**.
-- **Panel label (P):** click to add the next free letter (a, b, c…) in bold 8 pt Helvetica.
-  Settings changes the size and case.
+- **Panel label (P):** click to add the next free letter (a, b, c…) in bold 8 pt Helvetica, or
+  in the look of the page's journal. Settings changes the size and case.
+  - **A journal's look:** a page with a journal's size (Page panel or **Size**) gives its panel
+    labels that journal's style: capitals or lowercase, brackets (New Phytologist's (a)), font,
+    size and bold. It comes from the journal's guidelines, or, where they don't say, was measured
+    in figures the journal has published. The Page panel says which.
+  - Choosing the journal restyles the labels already on the page, as one undo step: the Label
+    tool's, and any text box that's just a letter (a, (b), C.), as labels from PowerPoint are.
+  - Switching to another journal restyles them again, but keeps what you've changed by hand in a
+    label (one made bigger, say). New labels follow the journal.
   - A label put on or near a picture or group (within about 5 mm) stays with it, by the panel's
     nearest corner: it goes with the panel when the panel moves or changes size, and moves just
     once when you move both together. Selected, it shows its panel dashed and a line to the
@@ -846,7 +858,12 @@ Guides and the grid are never exported.
 
 **Check** (⌘⇧E) looks at the current page and lists:
 
-- the smallest text after scaling (journals often ask for at least 5 pt);
+- the smallest text after scaling: against the page's journal's sizes where it gives them
+  (Nature 5–7 pt, PLOS Genetics 8–12 pt), else 5 pt. With a journal, text larger than it allows
+  is flagged too (panel labels have a size of their own);
+- text in fonts the page's journal doesn't accept (Cell takes only Arial), or a note where it
+  prefers others;
+- panel labels not in the page's journal's style;
 - the thinnest line after scaling, including the lines inside placed PDFs and SVGs (only the
   part their crop shows), and every object with a line thinner than 0.25 pt (Nature asks for
   0.25 to 1 pt). A line set to 0 pt, a hairline, is flagged too: it prints as thin as the

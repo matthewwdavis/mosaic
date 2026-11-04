@@ -1502,6 +1502,58 @@ async function textRibbonChecks(app) {
   pickTab("home");
 }
 
+// Panel labels follow the page's journal: choosing one restyles the labels already there (the
+// Label tool's and lone letters, not other text) in one undo step; switching journals again keeps
+// what was changed by hand; new labels take the journal's look and its way of writing letters
+async function journalLabelChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  // Two journals whose labels look different (journals.py), in case first
+  const js = (app.info.journals || []).filter((j) => j.labels);
+  const look = (j) => JSON.stringify(j.labels);
+  const j1 = js.find((j) => j.labels.case === "lower") || js[0];
+  const j2 = js.find((j) => j.labels.case !== j1.labels.case) || js.find((j) => look(j) !== look(j1));
+  check(j1 && j2, "two journals with different panel labels to test with", js.map((j) => `${j.name} ${look(j)}`).join("; "));
+  if (!j1 || !j2) return;
+  const box = (id, t, y, extra = {}) => ({ id, type: "shape", geom: "rect", textbox: true, frame: [40, y, 20, 12], rot: 0,
+    flip_h: false, flip_v: false, stroke: null, fill: null, text: { paragraphs: [{ align: "l", runs: [{ t, font: "Times New Roman",
+      size: 11, bold: false, italic: false, color: "#000000" }] }], insets: [0, 0, 0, 0], wrap: false, anchor: "t", autofit: "shape" }, ...extra });
+  store.update("Labels", (doc) => doc.pages[0].items.push(box("lA", "a", 40), box("lB", "(B)", 80), box("lC", "c", 120, { panel_label: true }),
+    box("tX", "Axis", 160)), { select: [] });
+  await settle();
+  const runOf = (id) => store.item(id).text.paragraphs[0].runs[0];
+  const textOf = (id) => store.item(id).text.paragraphs.map((p) => p.runs.map((r) => r.t).join("")).join("\n");
+  const written = (letter, l) => (l.form || "a").replace("a", l.case === "upper" ? letter.toUpperCase() : letter.toLowerCase());
+  const styled = (id, l) => { const r = runOf(id); return r.font === l.font && r.size === l.size && !!r.bold === !!l.bold; };
+  const steps = store.history.length;
+  inspector.setJournalSize(j1.name);
+  await settle();
+  check(["lA", "lB", "lC"].every((id) => styled(id, j1.labels)) && textOf("lA") === written("a", j1.labels)
+    && textOf("lB") === written("b", j1.labels) && runOf("tX").font === "Times New Roman" && runOf("tX").size === 11
+    && store.history.length === steps + 1, `choosing ${j1.name} gives the page's panel labels its look, as one undo step; other text stays`,
+  ["lA", "lB", "lC", "tX"].map((id) => `${textOf(id)} ${JSON.stringify(runOf(id))}`).join(" | "));
+  store.update("Bigger", (doc) => { doc.pages[0].items.find((i) => i.id === "lA").text.paragraphs[0].runs[0].size = 13; });
+  inspector.setJournalSize(j2.name);
+  await settle();
+  const kept = runOf("lA").size === 13 && runOf("lA").font === j2.labels.font && textOf("lA") === written("a", j2.labels);
+  check(kept && styled("lB", j2.labels) && textOf("lC") === written("c", j2.labels),
+    `switching to ${j2.name} restyles them again, a size changed by hand staying`, `${textOf("lA")} ${JSON.stringify(runOf("lA"))}`);
+  // A new label takes the journal's look and the next letter, written its way
+  canvas.setTool("label");
+  const at = screenOf(200, 60);
+  pointer("pointerdown", at);
+  pointer("pointerup", at, { buttons: 0 });
+  await settle();
+  const made = store.selected()[0];
+  check(made?.panel_label && styled(made.id, j2.labels) && textOf(made.id) === written("d", j2.labels),
+    `the Label tool's next label is ${written("d", j2.labels)}, in ${j2.name}'s look`, made && `${textOf(made.id)} ${JSON.stringify(runOf(made.id))}`);
+  const flagged = (await rpc("preflight", store.doc, { pages: [0] })).items.map((f) => f.message);
+  check(flagged.some((m) => m.includes(`“${written("a", j2.labels)}” isn't in ${j2.name}'s style`))
+    && !flagged.some((m) => m.includes(`“${written("d", j2.labels)}” isn't`)), "Check says which panel labels aren't in the journal's style",
+  flagged.join(" | "));
+}
+
 async function clickThroughChecks(app) {
   store.setDoc(await rpc("new_document"));
   canvas.fit();
@@ -1948,6 +2000,7 @@ export async function run(app, params) {
     if (params.get("only") === "pagedrag") { await pageDragChecks(app); throw ONLY; }
     if (params.get("only") === "clickthrough") { await clickThroughChecks(app); throw ONLY; }
     if (params.get("only") === "textribbon") { await textRibbonChecks(app); throw ONLY; }
+    if (params.get("only") === "journallabels") { await journalLabelChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3199,6 +3252,7 @@ export async function run(app, params) {
     await pageDragChecks(app);
     await clickThroughChecks(app);
     await textRibbonChecks(app);
+    await journalLabelChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

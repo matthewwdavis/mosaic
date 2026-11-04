@@ -192,3 +192,94 @@ def test_the_page_size_against_a_journal():
     # A page with no journal size isn't compared unless one is chosen
     del doc["pages"][0]["preset"]
     assert messages(doc) == []
+
+
+# A page's text against its journal's rules (journals.py: "text" and "labels")
+JOURNAL = {"name": "Test Journal", "depth_mm": 200.0, "types": [{"name": "Full", "width_mm": 180.0}], "note": "", "source": "",
+           "labels": {"font": "Arial", "size": 8.0, "bold": True, "case": "upper", "form": "a"},
+           "text": {"min_pt": 6.0, "max_pt": 9.0, "fonts": ["Arial", "Helvetica"], "fonts_only": True}}
+
+
+def text_box(id_, t, size=6.0, font="Helvetica", bold=False, y=20, **kw):
+    return {"id": id_, "type": "shape", "geom": "rect", "textbox": True, "frame": [20, y, 60, 14], "rot": 0, "stroke": None,
+            "fill": None, "text": {"paragraphs": [{"align": "l", "runs": [{"t": t, "font": font, "size": size, "bold": bold}]}],
+                                   "insets": [0, 0, 0, 0], "wrap": False, "anchor": "t", "autofit": "none"}, **kw}
+
+
+def journal_page(*items):
+    doc = page_with(*items, width=180 * MM, height=100 * MM)
+    doc["pages"][0]["preset"] = {"journal": "Test Journal", "type": "Full"}
+    return doc
+
+
+def test_text_sizes_against_the_pages_journal(monkeypatch):
+    from mosaic.export import preflight as pf
+    monkeypatch.setattr(pf, "JOURNALS", [JOURNAL])
+    doc = journal_page(text_box("t1", "Axis", size=5), text_box("t2", "Title", size=10, y=40),
+                       text_box("la", "A", size=12, font="Arial", bold=True, y=60))
+    got = messages(doc)
+    assert "“Axis”: text at 5.00 pt; Test Journal asks for at least 6 pt" in got
+    # The largest text leaves panel labels out: they have a size of their own
+    assert "“Title”: text at 10.00 pt; Test Journal asks for at most 9 pt" in got
+    assert "Panel label “A” isn't in Test Journal's style (A, B, C in bold 8 pt Arial)" in got
+    # A page with a journal size is judged by its journal, not by the 5 pt smallest size for all pages
+    assert not any(m.startswith("smallest text is") for m in got)
+    doc["pages"][0]["items"] = [text_box("t1", "Axis", size=7), text_box("la", "(b)", size=8, font="Arial", bold=True, y=60)]
+    assert [m for m in messages(doc) if "text at" in m] == []
+    assert "Panel label “(b)” isn't in Test Journal's style (A, B, C in bold 8 pt Arial)" in messages(doc)
+    doc["pages"][0]["items"][1]["text"]["paragraphs"][0]["runs"][0]["t"] = "B"
+    assert not any("Panel label" in m for m in messages(doc))
+    # Without a journal: only the smallest size for all pages
+    del doc["pages"][0]["preset"]
+    doc["pages"][0]["items"][0]["text"]["paragraphs"][0]["runs"][0]["size"] = 4
+    assert messages(doc)[0] == "smallest text is 4.00 pt (below 5.0 pt)"
+
+
+def test_fonts_against_the_pages_journal(monkeypatch, tmp_path):
+    from mosaic.export import preflight as pf
+    monkeypatch.setattr(pf, "JOURNALS", [JOURNAL])
+    pdf = pikepdf.new()
+    page = pdf.add_blank_page(page_size=(100, 50))
+    fonts = pikepdf.Dictionary()
+    for key, base in (("F1", "Helvetica-Bold"), ("F2", "Times-Roman")):
+        fonts[f"/{key}"] = pdf.make_indirect(pikepdf.Dictionary(Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1,
+                                                                BaseFont=pikepdf.Name(f"/{base}")))
+    page.obj.Resources = pikepdf.Dictionary(Font=fonts)
+    page.obj.Contents = pdf.make_stream(b"BT /F1 7 Tf 10 30 Td (Wild type) Tj ET BT /F2 7 Tf 10 10 Td (Dose) Tj ET")
+    pdf.save(tmp_path / "plot.pdf")
+    doc = journal_page()
+    place(doc, tmp_path / "plot.pdf")
+    got = messages(doc)
+    assert "Plot: text in Times; Test Journal accepts only Arial or Helvetica" in got
+    assert not any("Helvetica;" in m for m in got)
+
+
+def test_font_families_from_pdf_names():
+    from mosaic.export.preflight import accepts, family
+    assert family("ABCDEF+Arial-BoldMT") == "Arial"
+    assert family("Helvetica-Bold") == "Helvetica"
+    assert family("ArialMT") == "Arial"
+    assert family("TimesNewRomanPSMT") == "TimesNewRoman"
+    assert family("HelveticaNeue-Bold") == "HelveticaNeue"
+    assert accepts(["Times New Roman"], "TimesNewRoman") and not accepts(["Helvetica"], "HelveticaNeue")
+
+
+def test_rough_sizes_and_preferred_fonts(monkeypatch, tmp_path):
+    from mosaic.export import preflight as pf
+    rough = {**JOURNAL, "text": {"min_pt": 6.0, "max_pt": 8.0, "about": True, "fonts": ["Helvetica"]},
+             "labels": {**JOURNAL["labels"], "measured": True}}
+    monkeypatch.setattr(pf, "JOURNALS", [rough])
+    doc = journal_page(text_box("t1", "Axis", size=5), text_box("la", "a", size=8, font="Arial", bold=True, y=60))
+    found = {f["message"]: f["level"] for f in pf.preflight(doc, {"pages": [0]})["items"]}
+    assert found["“Axis”: text at 5.00 pt; Test Journal asks for about 6–8 pt"] == "info"
+    assert found["Panel label “a” isn't in Test Journal's style (A, B, C in bold 8 pt Arial as measured in its published "
+                 "figures)"] == "info"
+
+
+def test_every_journal_has_label_and_text_rules_with_sources():
+    from mosaic.journals import JOURNALS
+    for j in JOURNALS:
+        labels, text = j["labels"], j["text"]
+        assert labels["case"] in ("lower", "upper") and "a" in labels["form"] and labels["size"] > 0 and labels["source"], j["name"]
+        assert text["source"], j["name"]
+        assert text["min_pt"] is None or text["max_pt"] is None or text["min_pt"] < text["max_pt"], j["name"]

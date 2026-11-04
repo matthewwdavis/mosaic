@@ -155,6 +155,9 @@ Matthew's choices are in brackets.
 - [x] Corner pictures on a thick line's outline (square, rounded, cut across); in the pictures,
       colours too faint against the menu drawn grey (black in dark themes, white or pale yellow
       in light ones) [Matthew's choices]
+- [x] Journal styles: a page's journal gives its panel labels the journal's look (case, brackets,
+      font, size, bold; measured from published figures where the guidelines don't say) and Check
+      its text sizes and fonts; switching journals keeps hand changes [Matthew's choices]
 - [x] Text section in the Home tab: style, font, size, bigger and smaller (⌘⇧> and ⌘⇧<), line
       spacing, bold, italic, underline, superscript, subscript, colour, alignment, top/middle/bottom;
       on the text boxes selected (several at once) or the highlighted words while typing (each an

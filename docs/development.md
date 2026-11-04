@@ -77,8 +77,9 @@ several windows (opening a window stood in for) and a .mosaic dropped on the pag
 sizes` page sizes (the Size menu, new documents' size), `--only vision` colour vision side by
 side and in command search, `--only export` the Export and Figure report windows closing with a
 note, `--only guides` guides from clicking the rulers and a guide's right-click menu, `--only
-pictures` the Style tab's picture menus, and `--only textribbon` the Home tab's Text section
-(several boxes at once, the highlighted words while typing, switching to Home and back). To run it in
+pictures` the Style tab's picture menus, `--only textribbon` the Home tab's Text section
+(several boxes at once, the highlighted words while typing, switching to Home and back), and
+`--only journallabels` panel labels following a page's journal. To run it in
 the app's own window (WebKit on a Mac):
 
 ```sh

@@ -12,7 +12,7 @@ import { UNITS, anchorFor, convert, niceLength, pxPerPt, scaleText } from "./sca
 import { DEFAULT_GAP } from "./gridlayout.js";
 import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
 import { differs as looksDiffer } from "./objectstyles.js";
-import { CORNER_NAMES } from "./labels.js";
+import { CORNER_NAMES, asLabel, pageLabels, restyleLabels } from "./labels.js";
 import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePicture, outlinePicture, pathPicture, reachPicture,
   routePicture, shapePicture, stylePicture, zoomShapePicture } from "./pictures.js";
 import { ZOOM_SHAPES, zoomShape } from "./zoom.js";
@@ -215,13 +215,18 @@ export const inspector = {
     const j = (this.app.info.journals || []).find((x) => x.name === jname);
     if (!j) { this.editPage("No journal size", (p) => { delete p.preset; }); return; }
     const t = j.types.find((x) => x.name === tname) || j.types.reduce((a, b) => (b.width_mm > a.width_mm ? b : a));
+    let restyled = 0;
     this.editPage(`${j.name} ${t.name.toLowerCase()} page`, (p) => {
+      // The page's panel labels take the journal's look (labels.js), in the same undo step
+      const was = pageLabels(p, this.app.info.journals);
       p.width = t.width_mm * MM_PT;
       p.height = j.depth_mm * MM_PT;
       p.preset = { journal: j.name, type: t.name };
+      if (j.labels) restyled = restyleLabels(p.items, was, j.labels);
     });
     canvas.fit();
-    announce(`Page is now a ${j.name} ${t.name.toLowerCase()} figure, ${this.pageLength(t.width_mm)} wide and ${this.pageLength(j.depth_mm)} deep`);
+    announce(`Page is now a ${j.name} ${t.name.toLowerCase()} figure, ${this.pageLength(t.width_mm)} wide and ${this.pageLength(j.depth_mm)} deep`
+      + (restyled ? `; ${restyled} panel label${restyled === 1 ? "" : "s"} in ${j.name}'s style` : ""));
   },
   setPageWidth(v) { this.editPage("Page width", (p) => { p.width = Math.max(v, 1); delete p.preset; }); },
   setPageHeight(v) {
@@ -250,6 +255,9 @@ export const inspector = {
           journal ? journal.types.map((t) => [t.name, `${t.name} — ${len(t.width_mm)} wide`]) : [["", "Choose a journal first"]],
           (v) => this.setJournalSize(journal.name, v), { disabled: !journal }),
         journal ? h("p", { class: "hint" }, `${journal.name}: ${journal.note} Source: ${journal.source}.`) : null,
+        journal?.labels ? h("p", { class: "hint" }, `Panel labels: ${labelLook(journal.labels)}. Source: ${journal.labels.source}.`) : null,
+        journal?.text ? h("p", { class: "hint" }, textRules(journal.text) ? `${textRules(journal.text)} Source: ${journal.text.source}.`
+          : `${journal.text.source}.`) : null,
         row(numField("Width", page.width, pu, (v) => this.setPageWidth(v), { min: 1 }),
           numField("Height", page.height, pu, (v) => this.setPageHeight(v), { min: 1 })),
         h("div", { class: "button-row" },
@@ -1127,6 +1135,20 @@ function kindKey(it) { return it.geom === "region" ? "region" : it.type === "sha
 const MM_PT = 72 / 25.4;
 
 // Which standard or journal size a page is, if it still has that size
+// A journal's panel labels and text rules in words (journals.py): "a, b, c in bold 8 pt Helvetica";
+// "Text 5–7 pt; fonts: Helvetica or Arial preferred. Check flags other text."
+export function labelLook(l) {
+  const letters = ["a", "b", "c"].map((c) => asLabel(c, l)).join(", ");
+  return `${letters} in ${l.bold ? "bold " : ""}${fmt(l.size, 1)} pt ${l.font}`;
+}
+function textRules(t) {
+  const sizes = t.min_pt != null && t.max_pt != null ? `${t.about ? "about " : ""}${fmt(t.min_pt, 1)}–${fmt(t.max_pt, 1)} pt`
+    : t.min_pt != null ? `at least ${fmt(t.min_pt, 1)} pt` : t.max_pt != null ? `at most ${fmt(t.max_pt, 1)} pt` : "";
+  const names = t.fonts?.length > 1 ? `${t.fonts.slice(0, -1).join(", ")} or ${t.fonts.at(-1)}` : t.fonts?.[0];
+  const fonts = names ? `${t.fonts_only ? "only " : ""}${names}${t.fonts_only ? "" : " preferred"}` : "";
+  if (!sizes && !fonts) return "";
+  return `Text${sizes ? ` ${sizes}` : ""}${sizes && fonts ? "; fonts: " : fonts ? " fonts: " : ""}${fonts}. Check flags other text.`;
+}
 export function pagePreset(page, info) {
   const near = (a, b) => Math.abs(a - b) < 0.05;
   const p = page.preset || {};

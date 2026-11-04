@@ -129,6 +129,28 @@ pre-export check says so.
 - **Recovery copies (2026-10-31):** kept per unsaved document in the settings folder's
   `autosave/`; the recovery offer and Settings can delete them (each delete warns first). A
   recovered document keeps its copy's name, so saving it clears the copy.
+- **Journal styles for panel labels and text (2026-11-04):** each journal in `journals.py` has its
+  labels' look (font, size, bold, case, and form: "a" or "(a)") and its rules for figure text
+  (smallest and largest size, accepted fonts). Matthew chose: all of a page's labels follow its
+  journal; the Label tool's labels and lone-letter text boxes count; journals that don't say how
+  labels look get them measured from published figures; and Check follows each journal's text
+  sizes and fonts.
+  - *Sources:* the journals' own guidelines, read by three research agents on 2026-11-04 (quotes
+    and URLs). Some publisher pages refuse scripted reads, so archived copies of the same official
+    URLs were read instead.
+    Measured labels come from the publisher PDFs of 2025–26 open-access articles in PubMed
+    Central's open data (vector labels read exactly; pictured ones from letter height and weight).
+    Where stated and printed differ, the stated rule wins: Genome Research asks for 12 pt and
+    prints about 9 pt. The Plant Cell's current page gives 12 pt bold but no case; its figures now
+    use lowercase, though its 2020 guide says capitals. Molecular Plant had no figure PDF to
+    measure, so its labels follow Cell's measured ones (same publisher and figure rules).
+  - *Restyling:* choosing a journal restyles the page's labels in the same undo step. With no
+    journal before, labels take its whole look; switching journals changes only what still matches
+    the old journal's look, so hand changes stay (like text styles' overrides; `labels.js`).
+  - *Check:* per page, the journal's smallest and largest sizes (labels left out of the largest),
+    its fonts (from mosaic's text and placed PDFs' fonts; "only" lists warn, preferred ones note),
+    and labels not in its style. Sizes a journal gives roughly ("about 6–8 pt") are notes. Pages
+    without a journal keep the 5 pt smallest size.
 - **Text section in the Home tab (2026-11-04):** font, size and the rest in the ribbon, beside the
   properties panel's Text tab (`ui/js/textribbon.js`). Matthew chose all the extra controls
   (superscript and subscript, bigger and smaller, top/middle/bottom, the text style list, line
