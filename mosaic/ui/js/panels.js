@@ -272,8 +272,8 @@ export const panels = {
       ["home", "Home", [
         group("File", t("new", "new"), t("open", "open"), t("save", "save")),
         group("Edit", t("undo", "undo"), t("redo", "redo")),
-        group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste"), this.painterButton()),
         textRibbon.build(this.app, this),
+        group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste"), this.painterButton()),
         group("Objects", t("duplicate", "duplicate"), t("transformAgain", "again"), t("delete", "trash")),
         group("Page", t("addPage", "plus"), this.pageSizeButton(), t("fitPage", "fit")),
         group("Styles", t("swatches", "swatches"), t("textStyles", "textStyles"), t("objectStyles", "objectStyles"), t("fonts", "fonts")),

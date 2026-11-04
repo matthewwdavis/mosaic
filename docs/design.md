@@ -135,7 +135,8 @@ pre-export check says so.
   spacing), changes to just the highlighted words while typing, a switch to Home and back, and
   text boxes only (one or several; not shapes with text, nor scale bar and bracket labels).
   - *Layout:* two rows of small controls, as in PowerPoint's Font group, no taller than the
-    ribbon's other buttons, after Clipboard. The Home tab still fits one row at 1440 px.
+    ribbon's other buttons, between Edit and Clipboard (moved there from after Clipboard at
+    Matthew's request). The Home tab still fits one row at 1440 px.
   - *While typing:* a change to highlighted words puts what's been typed into the document as
     one undo step and the change as another, then fills the editor again with the same words
     highlighted (`canvas.retype`). Text and its positions ([paragraph, character]) are read

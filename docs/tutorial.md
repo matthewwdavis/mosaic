@@ -22,7 +22,7 @@ Open mosaic. Here's the window with a finished figure in it:
 
 ![The mosaic window, numbered](images/window-tour.png)
 
-1. **Tabs**, like PowerPoint's ribbon: **Home** (files, undo, clipboard, text, pages, swatches
+1. **Tabs**, like PowerPoint's ribbon: **Home** (files, undo, text, clipboard, pages, swatches
    and styles), **Arrange** (align, distribute, match sizes, group, order), **Figure** (scale bars,
    zoom insets, significance brackets), **Combine** (Pathfinder, clipping masks) and **View**
    (zoom, rulers, grid, guides, colour vision preview).

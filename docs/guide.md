@@ -36,8 +36,8 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 ![The mosaic window, numbered](images/window-tour.png)
 
 1. **Tabs** across the top, like PowerPoint's ribbon:
-   - **Home**: New, Open, Save; Undo, Redo; Cut, Copy, Paste, Painter; **Text** (font, size,
-     colour, alignment and more: see [Text and panel labels](#text-and-panel-labels)); Duplicate,
+   - **Home**: New, Open, Save; Undo, Redo; **Text** (font, size, colour, alignment and more: see
+     [Text and panel labels](#text-and-panel-labels)); Cut, Copy, Paste, Painter; Duplicate,
      Again, Delete; Add page, Size, Fit page; Swatches, Text styles, Object styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group and Grid, Order (see
      [Align and distribute](#align-and-distribute)).
