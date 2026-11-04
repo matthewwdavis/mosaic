@@ -1280,6 +1280,56 @@ async function pictureMenuChecks(app) {
   await until(() => panelNow() === panel, 4000);
 }
 
+// Clicks pick shapes by what's drawn of them: an empty one (no fill, or a clear one) only by its
+// line or its text, a click inside it reaching what's under it; an ellipse inside its curve, not at
+// its frame's corners. A selected empty shape drags from inside, and a click there picks what's under
+async function clickThroughChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const line = { color: "#000000", width: 1, dash: "solid", cap: "flat", join: "miter", opacity: 1 };
+  const shape = (id, geom, frame, fill, extra = {}) => ({ id, type: "shape", geom, frame, rot: 0, flip_h: false, flip_v: false,
+    fill, stroke: line, ...extra });
+  const text = { paragraphs: [{ align: "ctr", runs: [{ t: "Label", font: "Helvetica", size: 12, bold: false, italic: false,
+    color: "#000000" }] }], insets: [4, 4, 4, 4], wrap: true, anchor: "ctr" };
+  store.update("Shapes", (doc) => doc.pages[store.pageIndex].items.push(
+    shape("under", "rect", [100, 100, 80, 60], { color: "#56b4e9", opacity: 1 }), shape("box", "rect", [80, 80, 160, 120], null),
+    shape("clear", "rect", [300, 100, 100, 80], { color: "#e69f00", opacity: 0 }),
+    shape("faint", "rect", [450, 100, 100, 80], { color: "#e69f00", opacity: 0.5 }),
+    shape("ring", "ellipse", [100, 300, 120, 80], null), shape("disc", "ellipse", [300, 300, 120, 80], { color: "#009e73", opacity: 1 }),
+    shape("labelled", "rect", [450, 300, 120, 80], null, { text })), { select: [] });
+  await settle();
+  const clickAt = async (x, y) => {
+    store.select([]);
+    const pt = screenOf(x, y);
+    pointer("pointerdown", pt);
+    pointer("pointerup", pt, { buttons: 0 });
+    await settle();
+    return store.selection.join();
+  };
+  const picks = async (list) => { const got = []; for (const [x, y] of list) got.push(await clickAt(x, y)); return got.join("|"); };
+  let got = await picks([[140, 130], [80, 140]]);
+  check(got === "under|box", "a click inside an empty box picks the shape under it, and one on its line picks the box", got);
+  got = await picks([[350, 140], [500, 140]]);
+  check(got === "|faint", "a fully clear fill lets clicks through too; one you can see catches them", got);
+  const deg45 = [160 + 60 * Math.SQRT1_2, 340 + 40 * Math.SQRT1_2];   // (on the empty ellipse's curve)
+  got = await picks([[103, 303], [160, 340], deg45, [303, 303], [360, 340]]);
+  check(got === "||ring||disc", "an ellipse is picked by its curve (and a filled one inside it), not at its frame's corners", got);
+  got = await picks([[510, 341], [458, 308]]);
+  check(got === "labelled|", "an empty box with text is picked on its text, and clicks elsewhere inside go through", got);
+  // Selected, an empty box drags from inside; a click inside picks what's under it
+  store.select(["box"]);
+  await drag([220, 180], [250, 210]);
+  check(store.selection.join() === "box" && store.item("box").frame[0] > 100, "a selected empty box drags from inside it",
+    JSON.stringify(store.item("box").frame));
+  store.select(["box"]);
+  const pt = screenOf(150, 140);   // (in the shape under it, away from the moved box's line)
+  pointer("pointerdown", pt);
+  pointer("pointerup", pt, { buttons: 0 });
+  await settle();
+  check(store.selection.join() === "under", "and a click inside it, without a drag, picks the shape under it", store.selection.join());
+}
+
 // A page dragged out of the window from the Pages list is offered to the window under the pointer
 // (app.pageAway while it's away, app.copyPageAway on letting go: a copy, the page staying here);
 // a page dragged in from another window shows where it would go, and goes there
@@ -1576,7 +1626,8 @@ async function rulerGuideChecks(app) {
     "right-clicking a guide's mark on a ruler gives the same menu; Remove all guides empties the page", JSON.stringify(pg().guides));
   await app.undo();
   check(pg().guides.x.length === 2 && pg().guides.y.length === 2, "one undo brings them all back", JSON.stringify(pg().guides));
-  store.update("Box over the guide", (doc) => doc.pages[store.pageIndex].items.push(gRectFor("gBox", 40 * MM, 90, 30 * MM, 60)));
+  store.update("Box over the guide", (doc) => doc.pages[store.pageIndex].items.push({ ...gRectFor("gBox", 40 * MM, 90, 30 * MM, 60),
+    fill: { color: "#dddddd", opacity: 1 } }));   // (filled: an empty one lets clicks through to the guide)
   await settle();
   const covered = await rightClick(canvas.stage, ...screenOf(52 * MM, 120));
   check(!covered.includes("Remove guide"), "where an object covers the guide, the object's menu comes instead", covered.join());
@@ -1676,6 +1727,7 @@ export async function run(app, params) {
     if (params.get("only") === "zoomshapes") { await zoomShapeChecks(app); throw ONLY; }
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
     if (params.get("only") === "pagedrag") { await pageDragChecks(app); throw ONLY; }
+    if (params.get("only") === "clickthrough") { await clickThroughChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -2925,6 +2977,7 @@ export async function run(app, params) {
     await zoomShapeChecks(app);
     await pasteboardChecks(app);
     await pageDragChecks(app);
+    await clickThroughChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;
@@ -3361,6 +3414,7 @@ export async function run(app, params) {
     check(document.querySelector(".grid path.major"), "⌘' shows the grid over the page");
     const step = canvas.gridSteps().snap, gridX = Math.round(70 / step) * step;
     const along = [grab[0] + gridX + 1 - boxAt()[0], grab[1]];
+    store.select([box.id]);   // (it has no fill: dragged from inside only while it's selected)
     await drag(grab, along);
     check(near(boxAt()[0], gridX, 1e-6), "a dragged object snaps to the grid", `${boxAt()[0]} vs ${gridX}`);
     app.run("undo");
@@ -3373,7 +3427,7 @@ export async function run(app, params) {
 
     // Equal gaps: a box between two others snaps halfway and shows both gaps; one beyond repeats the gap
     const mk = (id, x, y) => ({ id, type: "shape", geom: "rect", frame: [x, y, 40, 40], rot: 0, flip_h: false, flip_v: false,
-      stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 }, fill: null });
+      stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 }, fill: { color: "#dddddd", opacity: 1 } });
     store.update("Boxes for test", (doc) => doc.pages[store.pageIndex].items.push(mk("eqA", 330, 500), mk("eqC", 450, 500),
       mk("eqB", 392, 600), mk("eqD", 560, 600)));
     await settle();
@@ -3505,7 +3559,7 @@ export async function run(app, params) {
     const cnPage = store.pageIndex;
     const asset0 = store.doc.assets[pics[0].asset];
     store.update("Objects for test", (doc) => doc.pages[cnPage].items.push(
-      { id: "cnR", type: "shape", geom: "rect", frame: [100, 100, 80, 50], rot: 0, flip_h: false, flip_v: false, fill: null,
+      { id: "cnR", type: "shape", geom: "rect", frame: [100, 100, 80, 50], rot: 0, flip_h: false, flip_v: false, fill: { color: "#dddddd", opacity: 1 },
         stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 } },
       { id: "cnD", type: "shape", geom: "rect", frame: [100, 300, 100, 60], rot: 0, flip_h: false, flip_v: false, fill: null,
         stroke: { color: "#000000", width: 2, dash: "sysDot", cap: "round", join: "round", opacity: 1 } },

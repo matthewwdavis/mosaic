@@ -236,6 +236,15 @@ pre-export check says so.
   the guide with its position (his extra). A press that moves less than 4 px is a click. A guide's
   right-click menu (on the page where no object covers it, or its mark on a ruler) has Remove
   guide, Remove all guides and Hide guides (his choices; not under objects).
+- **Clicking through empty shapes (2026-11-03, Matthew's choices):** a shape with no fill, or a
+  fully clear one, is picked only by its line (and its text: his choice), so a click inside it
+  reaches what's underneath; a fill you can see catches clicks (his choice over faint fills too).
+  Shapes are picked by what's drawn: the engine sends each shape's own fill and line paths with its
+  drawing (resolve.shape_outline), and the canvas tests them with a 2D canvas's isPointInPath and
+  isPointInStroke (canvas.hits), shifted for a move since (a move doesn't redraw); a shape not yet
+  drawn as it is goes by its frame. An empty box's text counts by its drawn text's box. A selected
+  empty shape drags from inside, and a click there without a drag picks what's under it (⌘: adds
+  it) (his choice). Text boxes, pictures, lines and the rest keep their hit tests.
 - **Pages dragged between windows (2026-11-03, Matthew's choices):** a page dragged out of one
   window's Pages list into another mosaic window is copied there (his choice over moving it): into
   its Pages list where a line shows, or onto its page, after the page showing (a blank page takes

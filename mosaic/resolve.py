@@ -387,6 +387,22 @@ def shape_area(geom: str, frame, rot=0.0, flip_h=False, flip_v=False, adj=None, 
     return [(a.transformed(m), even_odd) for a in areas] or None
 
 
+def shape_outline(item: dict) -> dict | None:
+    """A shape's own paths on the page, for the editor to tell what a click is on: the areas its
+    fill paths cover and the paths its line follows (open ones too), as SVG path data, whether or
+    not it's filled or has a line. {fill, line, even_odd}; None for a text box or an area fill."""
+    if item.get("type") != "shape" or item.get("textbox") or item.get("geom") == "region" or not item.get("frame"):
+        return None
+    geom, (x, y, w, h) = item.get("geom", "rect"), item["frame"]
+    sps = custom_paths(item.get("path") or {}, w, h) if geom == "custom" else presets.shape_paths(geom, w, h, item.get("adj"))
+    if item.get("rounding"):
+        sps = round_shape_paths(sps, item["rounding"])
+    m = frame_matrix(item["frame"], float(item.get("rot", 0.0)), bool(item.get("flip_h")), bool(item.get("flip_v")))
+    return {"fill": [sp.path.transformed(m).to_svg(3) for sp in sps if sp.fill and not sp.path.is_empty],
+            "line": [sp.path.transformed(m).to_svg(3) for sp in sps if sp.stroke and not sp.path.is_empty],
+            "even_odd": bool((item.get("fill") or {}).get("even_odd"))}
+
+
 def item_area(item: dict, local: bool = False) -> list | None:
     """What clips by an item: a picture's crop shape (mask), or a shape's area."""
     flips = (float(item.get("rot", 0.0)), bool(item.get("flip_h")), bool(item.get("flip_v")))

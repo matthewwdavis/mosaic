@@ -210,7 +210,9 @@ export function distToSegment([px, py], [ax, ay], [bx, by]) {
 }
 // How far past its frame (or a line past its middle) an object is drawn: half its line or picture
 // border, and its outline beyond that, so a click anywhere on what shows picks it
-const edgeReach = (it) => ((it.type === "picture" ? it.border?.width : it.stroke?.width) || 0) / 2 + (it.outline ? it.outline.width ?? 1 : 0);
+export const edgeReach = (it) => ((it.type === "picture" ? it.border?.width : it.stroke?.width) || 0) / 2 + (it.outline ? it.outline.width ?? 1 : 0);
+// A shape with nothing filling it (no fill, or a fully clear one): clicks inside go through it
+export const emptyShape = (it) => it.type === "shape" && !it.textbox && it.geom !== "region" && (!it.fill || it.fill.opacity === 0);
 export function hitItem(it, p, tol) {
   if (it.hidden) return false;
   if (it.type === "line") {

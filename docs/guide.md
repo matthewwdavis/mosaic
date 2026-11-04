@@ -534,6 +534,12 @@ PowerPoint and Visio:
 ## Moving, sizing and arranging
 
 - **Select:** click. Tab and Shift+Tab step through objects.
+- **What a click picks:** a shape by what's drawn of it: inside its fill, or on its line, so a
+  circle isn't picked at the corners of the box around it. A shape with no fill, or a fully clear
+  one, is picked only by its line or its text; a click inside it reaches what's underneath, and a
+  drag there starts a selection box. Once it's selected, you can drag it from inside, while a
+  click there without dragging picks what's underneath. Text boxes, pictures and lines are picked
+  anywhere they show.
 - **Select several:** ⌘-click (Ctrl-click) or Shift-click another object to add it, or one
   that's selected to take it away. ⌘-drag (Ctrl-drag) an object to add it and move the whole
   selection, without snapping. Or drag on empty page: the box selects everything wholly inside

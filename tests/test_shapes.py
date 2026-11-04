@@ -147,3 +147,16 @@ def test_corner_rounding_and_shades_reach_the_drawing():
     fills = [p.fill.color for p in prims if p.fill]
     assert fills == ["#808080", "#666666", "#999999"]   # front, darker side, lighter top
     assert any(s[0] == "C" for p in prims for s in p.path.segs)               # rounded
+
+
+def test_a_shapes_outline_for_telling_what_a_click_is_on():
+    """The engine's outline of a shape, sent to the editor with its drawing: the area its fill
+    covers and the path its line follows, on the page; an open shape's line stays open."""
+    from mosaic.resolve import shape_outline
+    ring = shape_outline({"type": "shape", "geom": "ellipse", "frame": [10, 20, 100, 50], "rot": 0})
+    assert len(ring["fill"]) == 1 and len(ring["line"]) == 1 and ring["fill"][0].startswith("M10 45") and not ring["even_odd"]
+    arc = shape_outline({"type": "shape", "geom": "arc", "frame": [10, 20, 100, 50], "rot": 0})
+    assert not arc["line"][0].rstrip().endswith("Z")   # the arc itself, open
+    turned = shape_outline({"type": "shape", "geom": "rect", "frame": [0, 0, 100, 50], "rot": 90})
+    assert turned["line"][0].startswith("M75 -25")    # turned about its middle
+    assert shape_outline({"type": "shape", "geom": "rect", "textbox": True, "frame": [0, 0, 10, 10]}) is None

@@ -19,7 +19,7 @@ from .. import __version__, connect, docfile, model, presets, themes
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
 from ..fonts import config_dir, get_font_index
 from ..journals import DEFAULT_SIZE
-from ..resolve import Resolver
+from ..resolve import Resolver, shape_outline
 from ..updates import parse_version
 from . import clipboard, powerpoint
 
@@ -836,6 +836,7 @@ class Api:
                 # Where line ends can attach: shapes as fractions of their frame, lines' dashes on the page
                 if it.get("type") == "shape":
                     res["sites"] = connect.shape_sites(it)
+                    res["outline"] = shape_outline(it)   # (what a click picks it by)
                 elif it.get("type") == "line":
                     res["sites"] = connect.line_sites(r.prims)
                 out.append(res)

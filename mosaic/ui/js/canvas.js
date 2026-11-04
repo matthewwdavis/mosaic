@@ -12,9 +12,9 @@ import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
 import { labelRoom } from "./brackets.js";
 import { applyTextStyle } from "./textstyles.js";
 import {
-  PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, frameMatrix, h, hitItem, invert, isMac, itemBBox, itemLabel,
-  itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch, pointInPoly, rotate, s,
-  shapeCatalog, svgMatrix, translate, uid,
+  PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, edgeReach, emptyShape, frameMatrix, h, hitItem, invert, isMac,
+  itemBBox, itemLabel, itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch,
+  pointInPoly, rotate, s, shapeCatalog, svgMatrix, translate, uid,
 } from "./util.js";
 
 const HANDLE = 8;             // handle size, CSS px
@@ -25,6 +25,8 @@ const GRID_MIN_PX = 6;        // grid lines closer than this on screen aren't dr
 const ROT_OFFSET = 24;        // rotation handle distance above the frame, CSS px
 const SEL_GAP = 6;            // the selection box and its handles stand this far outside the object, CSS px
 const REACH = 64;             // scrolling stops with this much of the page and its objects still in view, CSS px
+const HIT = document.createElement("canvas").getContext("2d");   // tells whether a point is on a shape's outline
+HIT.lineJoin = HIT.lineCap = "round";
 const SVG_PREVIEW_LIMIT = 8e6; // bigger SVGs preview as rendered PDFs for speed
 const DEFAULT_SIZE = (72 / 2.54) * 2;   // a click (or Enter) with a drawing tool places a 2 cm object
 // The notes over the page (a preview on, editing inside a group, a finished export): presses on
@@ -477,6 +479,8 @@ export const canvas = {
     e.origin = origin;
     e.bbox = r.bbox;
     e.handles = r.handles || null;
+    e.outline = r.outline ? { fill: r.outline.fill.map((d) => new Path2D(d)), line: r.outline.line.map((d) => new Path2D(d)),
+      evenOdd: r.outline.even_odd } : null;
     const before = JSON.stringify(e.sites || null);
     e.sites = r.sites || null;
     this.pending.delete(it.id);
@@ -721,9 +725,44 @@ export const canvas = {
         if (poly.some((q, j) => distToSegment(p, q, poly[(j + 1) % poly.length]) <= tol)) return it;
         continue;
       }
-      if (it.geom === "region" ? this.inArea(it, p) : hitItem(it, p, tol)) return it;
+      if (it.geom === "region" ? this.inArea(it, p) : this.hits(it, p, tol)) return it;
     }
     return null;
+  },
+  // Whether a click at p picks an object: a shape by what's drawn of it, from the engine's outline
+  // (inside its fill, or on its line as wide as it's drawn), and an empty one (no fill, or a clear
+  // one) only on its line or its text, so a click inside it reaches what's under it. Text boxes,
+  // pictures and the rest by their frames (hitItem)
+  hits(it, p, tol) {
+    if (it.hidden) return false;
+    if (it.type === "group") return it.items.some((c) => this.hits(c, p, tol));
+    if (it.type !== "shape" || it.textbox || it.geom === "region") return hitItem(it, p, tol);
+    const empty = emptyShape(it), reach = tol + edgeReach(it), at = this.drawnAt(it, p);
+    if (!at) {   // (not drawn as it is yet: by its frame)
+      return empty ? itemCorners(it).some((q, i, poly) => distToSegment(p, q, poly[(i + 1) % poly.length]) <= reach) : hitItem(it, p, tol);
+    }
+    const { o, x, y } = at;
+    if (!empty && o.fill.some((path) => HIT.isPointInPath(path, x, y, o.evenOdd ? "evenodd" : "nonzero"))) return true;
+    HIT.lineWidth = 2 * reach;
+    if (o.line.some((path) => HIT.isPointInStroke(path, x, y))) return true;
+    return empty && !!it.text && [...this.els.get(it.id).g.querySelectorAll("text")].some((t) => {
+      const b = t.getBBox(), m = t.transform.baseVal.consolidate()?.matrix;   // (the box is in the text's own units)
+      const q = m ? new DOMPoint(x, y).matrixTransform(m.inverse()) : { x, y };
+      return q.x >= b.x - tol && q.x <= b.x + b.width + tol && q.y >= b.y - tol && q.y <= b.y + b.height + tol;
+    });
+  },
+  // Whether p is inside a shape's area (its fill paths as drawn, else its frame), filled or not
+  inside(it, p) {
+    const at = this.drawnAt(it, p);
+    if (!at?.o.fill.length) return pointInPoly(p, itemCorners(it));
+    return at.o.fill.some((path) => HIT.isPointInPath(path, at.x, at.y, at.o.evenOdd ? "evenodd" : "nonzero"));
+  },
+  // A shape's outline as the engine last drew it, and p where it was then (only moved since,
+  // it isn't drawn again); null if it has changed otherwise
+  drawnAt(it, p) {
+    const e = this.els.get(it.id), [gk, origin] = this.geomKey(it);
+    if (!e?.outline || e.geomKey !== gk || !e.origin) return null;
+    return { o: e.outline, x: p[0] - (origin[0] - e.origin[0]), y: p[1] - (origin[1] - e.origin[1]) };
   },
   // Whether a box on the page [x0, y0, x1, y1] touches an object where a click would pick it: a
   // line within half its width, an area fill in its area, a group by its parts, anything else by
@@ -800,6 +839,14 @@ export const canvas = {
       if (it && hit && hit.id === it.id) return this.startCropMove(it, p);
       this.cropping = null;
       this.ghostLayer.replaceChildren();
+    }
+    // Inside a selected empty shape, a press without Shift: a drag moves the selection (with ⌘,
+    // unsnapped, as for any ⌘-drag), and a click without one picks what's under it (⌘: adds it)
+    const holder = !e.shiftKey && store.selected().find((it) => emptyShape(it) && !it.locked && this.inside(it, p));
+    if (holder && hit?.id !== holder.id) {
+      this.startMove(p, e);
+      if (this.op?.type === "move") this.op.through = { id: hit?.id ?? null, add: addKey(e) };
+      return;
     }
     // Objects come first; a guide can be dragged where nothing covers it, or by its mark on a ruler
     const guide = hit ? null : this.guideAt(pt);
@@ -932,6 +979,11 @@ export const canvas = {
       store.select(store.selection.filter((i) => i !== op.takeAway));
       const it = store.item(op.takeAway);
       if (it) announce(`Deselected ${itemLabel(it, store.doc)}; ${store.selection.length} selected`);
+    }
+    if (!op.moved && op.through) {   // a click inside a selected empty shape: what's under it
+      const { id, add } = op.through;
+      if (!add) store.select(id ? [id] : []);
+      else if (id && !store.selection.includes(id)) store.select([...store.selection, id]);
     }
     if (op.moved && store.selection.length === 1) announce(describeItem(store.selected()[0], store.doc));
     this.drawOverlay();
