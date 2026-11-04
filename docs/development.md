@@ -65,8 +65,8 @@ python tools/ui_selftest.py plot.svg plot.pdf  # the editor self-test on your ow
 
 The **editor self-test** (`mosaic/ui/js/selftest.js`) drives the real editor with pointer
 and keyboard events: drawing, snapping, guides, align, connectors, dashes, right-click menus,
-export, PowerPoint slides, updates, windows, page sizes, colour vision, the Home tab's Text section and more, about 530
-checks. `tests/test_ui.py` runs it in headless
+export, PowerPoint slides, updates, windows, page sizes, colour vision, the Home tab's Text section, journal
+checks and more, about 550 checks. `tests/test_ui.py` runs it in headless
 Chrome. Besides a plot's SVG and PDF it takes PowerPoint's files from `tests/data/powerpoint`: a
 deck and a copy of it, and what PowerPoint put on the clipboard for a copied slide (`.slides`) and
 shapes (`.gvml`). `tools/ui_selftest.py ... --only slides` runs just the PowerPoint part, and
@@ -79,7 +79,8 @@ side and in command search, `--only export` the Export and Figure report windows
 note, `--only guides` guides from clicking the rulers and a guide's right-click menu, `--only
 pictures` the Style tab's picture menus, `--only textribbon` the Home tab's Text section
 (several boxes at once, the highlighted words while typing, switching to Home and back), and
-`--only journallabels` panel labels following a page's journal. To run it in
+`--only journallabels` panel labels following a page's journal, and `--only journalchecks` the
+journal's line widths, resolution by picture kind and Export window flags. To run it in
 the app's own window (WebKit on a Mac):
 
 ```sh

@@ -8,7 +8,9 @@ Every item has an `id` and a `type`:
 - picture  {asset, page_index, frame [x, y, w, h], crop [l, t, r, b] (fractions), rot,
             flip_h, flip_v, opacity, source: auto|pdf|svg|png, mask {geom, adj, rounding}: cropped to
             that shape, fitted to the frame; border {color, width, swatch}; scale (see scalebar);
-            inset {box}: a zoom inset showing what's in that box (zoom.js)}
+            inset {box}: a zoom inset showing what's in that box (zoom.js); picture_kind:
+            photo|combination|line_art, for journals' resolution rules (guessed when absent,
+            picturekind.py)}
             A zoom inset's box is a shape with zoom {picture, seen}, and its two lines have zoomline
             {box, inset, which}; the editor keeps the three in step
 - shape    {geom (DrawingML preset name or "custom"), adj, frame, rot, flip_h, flip_v,

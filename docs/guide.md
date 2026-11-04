@@ -114,9 +114,10 @@ With nothing selected (click the grey area or press Escape), the right panel sho
   size comes from. Some journals don't publish sizes; for those the sizes were measured from a
   recent published article, and the note says so.
   - A journal also gives the page's panel labels its look (see
-    [Text and panel labels](#text-and-panel-labels)), and Check judges the page's text by its
-    rules (sizes and fonts). Notes below the size say what each journal asks for, and where it
-    comes from.
+    [Text and panel labels](#text-and-panel-labels)), Check judges the page by its rules (text
+    sizes and fonts, line widths, pictures' resolution), and Export says which files it takes.
+    **What … asks for**, below the size, opens to say what the journal asks for and where
+    each rule comes from.
 - **Width** and **Height**: any size. The button beside them swaps width and height.
 - **Fit to content** (also **Fit page** in the Home tab): crops the page to what's on it, with
   no margin (objects parked wholly off the page don't count). On a journal page it keeps the column
@@ -212,6 +213,12 @@ warning that its text and curves are distorted. Its buttons:
 - **Border** draws a line round the picture (round its crop shape, if it has one), in any colour
   and thickness.
 - **Export from** forces one copy (always the PDF, say) instead of the best copy for each format.
+- **Kind** (a PNG, TIFF or JPEG with no PDF or SVG copy): **Photo**, **Photo with text or lines**
+  or **Line art (graphs, drawings)**. Journals ask for more resolution for line art than for
+  photos (Cell: 300 dpi for photos, 1,000 for line art), and some want line art as vector files
+  rather than pictures; Check goes by the kind. **Automatic**, the default, is mosaic's guess from
+  the picture's pixels, and says what it guessed (a labelled photo saved as JPEG can pass for a
+  plain one).
 - **Replace…** swaps in another file, keeping the position and scale. Shift-drop a file onto a
   picture does the same.
 - **Show file** reveals the linked file in Finder or Explorer.
@@ -329,7 +336,7 @@ height you drag at, with the label above. Drag upright instead for one with its 
   - **A journal's look:** a page with a journal's size (Page panel or **Size**) gives its panel
     labels that journal's style: capitals or lowercase, brackets (New Phytologist's (a)), font,
     size and bold. It comes from the journal's guidelines, or, where they don't say, was measured
-    in figures the journal has published. The Page panel says which.
+    in figures the journal has published. The Page panel says which (**What … asks for**).
   - Choosing the journal restyles the labels already on the page, as one undo step: the Label
     tool's, and any text box that's just a letter (a, (b), C.), as labels from PowerPoint are.
   - Switching to another journal restyles them again, but keeps what you've changed by hand in a
@@ -865,13 +872,19 @@ Guides and the grid are never exported.
   prefers others;
 - panel labels not in the page's journal's style;
 - the thinnest line after scaling, including the lines inside placed PDFs and SVGs (only the
-  part their crop shows), and every object with a line thinner than 0.25 pt (Nature asks for
-  0.25 to 1 pt). A line set to 0 pt, a hairline, is flagged too: it prints as thin as the
-  printer can make it, or not at all. A border in a fill's own colour doesn't count, so
-  ggplot's points drawn with `stroke = 0` aren't flagged;
+  part their crop shows), and every object with a line thinner than the page's journal allows
+  (Cell 0.5 pt, Science 0.5 pt, Nature 0.25 pt), or than 0.25 pt on a page without one. Where a
+  journal sets a thickest line too (Cell 1.5 pt, Nature 1 pt), thicker lines get a note. A line
+  set to 0 pt, a hairline, is flagged too: it prints as thin as the printer can make it, or not
+  at all. A border in a fill's own colour doesn't count, so ggplot's points drawn with
+  `stroke = 0` aren't flagged;
 - the page's size against a journal's figure widths and greatest depth: the page's own journal
   size, or the journal chosen at the top of the window (remembered for next time);
-- images whose resolution is too low at their printed size;
+- pictures (PNG, TIFF, JPEG) whose resolution is too low at their printed size: on a journal
+  page, the journal's resolution for the picture's kind (see **Kind** on the Picture tab:
+  PNAS asks 300 dpi for photos, 600 for photos with text or lines, 1,000 for line art), or
+  that it wants it as vector artwork instead (Nature and Heredity take graphs only as vector
+  files, and text over photos only as editable text). Elsewhere, 300 dpi;
 - pictures stretched unevenly (their frame a different shape from the file), whose text and
   curves come out distorted; **100%** on the Picture tab puts one back;
 - conversions an export would need (an SVG with no PDF copy, say);
@@ -901,6 +914,12 @@ blind" (or "color blind"), or a name such as "deuter".
   embedding missing fonts (on).
 - **Resolution** for PNG, TIFF and JPEG: 300, 600 or 1200 dpi, or any other.
 - **Pages:** this page or all pages. **Background:** transparent or white.
+- **The page's journal:** for a page with a journal's size, the window says which files the
+  journal takes, in what colour and how big, and flags the settings it doesn't take as you
+  choose them: a format (PLOS Genetics takes only TIFF and EPS), too low or high a resolution
+  for the page (line art needs more than photos), CMYK or RGB, fonts left unembedded, or a
+  transparent background where the journal takes no transparency. Your settings stay as you
+  set them. Once written, files bigger than the journal takes are flagged in the note.
 
 Click **Export…** and choose a name and folder; one file is written per format. A PDF holds all the
 chosen pages; the other formats write one file per page.

@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import ctypes
 import math
+import os
 import re
 
-from .. import vectors
+from .. import picturekind, vectors
 from ..assets import PDFIUM_LOCK, get_cache, resolve_link
 from ..geometry import DrawPath
 from ..journals import JOURNALS, MM
@@ -156,6 +157,7 @@ def preflight(doc: dict, options: dict) -> dict:
     min_line = float(options.get("min_line_pt", MIN_LINE_PT))
     text_cache: dict = {}
     free_smallest = None   # the smallest text on pages whose journal doesn't set one
+    free_thinnest = None   # and the thinnest line on pages whose journal sets no line width
     for page in sel:
         pw, ph = float(page["width"]), float(page["height"])
         # The page's size against a journal's: the one asked for, else the page's own journal size
@@ -164,6 +166,9 @@ def preflight(doc: dict, options: dict) -> dict:
         if journal:
             found += _journal_fit(page, journal, options.get("units", "mm"))
         rules = (journal or {}).get("text") or {}
+        # Line widths and resolution: the journal's (or its publisher's), else mosaic's own
+        lrules, prules = (journal or {}).get("lines") or {}, (journal or {}).get("pictures") or {}
+        line_min, line_max = lrules.get("min_pt"), lrules.get("max_pt")
         sizes, fonts = [], {}   # the page's text: (printed size, item, a panel label?); family -> first item
         resolver.use_page(page.get("items", []))
         for item in iter_items(page.get("items", [])):
@@ -200,7 +205,7 @@ def preflight(doc: dict, options: dict) -> dict:
                     hairlines = hairlines or (bool(widths) and widths[0] == 0)
                     placed = [w * vectors.thinnest_scale(prim.matrix) for w in widths if w > 0]
                     if placed:
-                        lines.append((placed[0], "placed"))
+                        lines += [(placed[0], "placed"), (placed[-1], "placed")]
                     if "pdf" in variants:
                         key = (variants["pdf"]["sha256"], prim.page_index)
                         if key not in text_cache:
@@ -227,10 +232,26 @@ def preflight(doc: dict, options: dict) -> dict:
                         px_w = raster["px"][0] * (prim.crop[2] - prim.crop[0]) / max(prim.src_size[0], 1e-9)
                         placed_in = (prim.crop[2] - prim.crop[0]) * scale / 72.0
                         dpi = px_w / placed_in if placed_in > 0 else 0
-                        level = "warning" if dpi < min_dpi - 0.5 else "ok"
-                        found.append({"level": level, "item": item.get("id"), "page": page["id"],
-                                      "message": f"{name}: {dpi:.0f} dpi at its placed size"
-                                                 + (f" (below {min_dpi:.0f})" if level == "warning" else "")})
+                        kind, guessed = picturekind.item_kind(item, asset, cache)
+                        need = prules.get(kind) if kind else None
+                        guess = " (kind guessed from the picture; its Picture tab can set it)" if guessed else ""
+                        if kind and kind in prules.get("vector", ()):
+                            # (a journal that wants graphs, and text and lines over photos, as vector artwork)
+                            level = "warning"
+                            message = f"{name}: {dpi:.0f} dpi at its placed size; " + (
+                                f"{journal['name']} asks for line art as vector files (PDF, EPS or SVG), not pictures"
+                                if kind == "line_art" else
+                                f"{journal['name']} asks for text and lines over photos to stay editable, not drawn into "
+                                f"the picture (add them in mosaic)") + guess
+                        elif need:
+                            level = "warning" if dpi < need - 0.5 else "ok"
+                            message = (f"{name}: {dpi:.0f} dpi at its placed size; {journal['name']} asks for at least "
+                                       f"{need:g} dpi for {picturekind.NAMES[kind]}" + guess)
+                        else:
+                            level = "warning" if dpi < min_dpi - 0.5 else "ok"
+                            message = (f"{name}: {dpi:.0f} dpi at its placed size"
+                                       + (f" (below {min_dpi:.0f})" if level == "warning" else ""))
+                        found.append({"level": level, "item": item.get("id"), "page": page["id"], "message": message})
                     if placed:
                         printed.append(f"its thinnest line {'at' if printed else 'prints at'} {placed[0]:.2f} pt")
                     if printed and abs(scale - 1.0) > 0.005:
@@ -251,11 +272,24 @@ def preflight(doc: dict, options: dict) -> dict:
             if lines:
                 width, what = min(lines)
                 thinnest = min(thinnest if thinnest is not None else 1e9, width)
-                if width < min_line - 0.005:
-                    found.append({"level": "warning", "item": item.get("id"), "page": page["id"],
-                                  "message": f"{name}: " + {"line": "its line is", "outline": "its outline is",
-                                                            "placed": "its thinnest line prints at"}[what]
-                                             + f" {width:.2f} pt (below {min_line:g} pt)"})
+                said = {"line": "its line is", "outline": "its outline is", "placed": "its thinnest line prints at"}[what]
+                if line_min is None:
+                    free_thinnest = min(free_thinnest if free_thinnest is not None else 1e9, width)
+                    if width < min_line - 0.005:
+                        found.append({"level": "warning", "item": item.get("id"), "page": page["id"],
+                                      "message": f"{name}: {said} {width:.2f} pt (below {min_line:g} pt)"})
+                elif width < line_min - 0.005:
+                    found.append({"level": "info" if lrules.get("about") else "warning", "item": item.get("id"),
+                                  "page": page["id"], "message": f"{name}: {said} {width:.2f} pt; {journal['name']} "
+                                                                 f"asks for at least {line_min:g} pt"})
+                # (a line thicker than the journal asks for is only a note: it still prints)
+                width, what = max(lines)
+                if line_max is not None and width > line_max + 0.005:
+                    said = {"line": "its line is", "outline": "its outline is",
+                            "placed": "its thickest line prints at"}[what]
+                    found.append({"level": "info", "item": item.get("id"), "page": page["id"],
+                                  "message": f"{name}: {said} {width:.2f} pt; {journal['name']} asks for at most "
+                                             f"{line_max:g} pt"})
             if hairlines:
                 found.append({"level": "warning", "item": item.get("id"), "page": page["id"],
                               "message": f"{name} has hairlines (lines set to 0 pt wide), which print as thin as "
@@ -272,8 +306,8 @@ def preflight(doc: dict, options: dict) -> dict:
     if free_smallest is not None and free_smallest < float(options.get("min_text_pt", 5.0)) - 0.005:
         top.append({"level": "warning", "message": f"smallest text is {free_smallest:.2f} pt "
                                                    f"(below {options.get('min_text_pt', 5.0)} pt)"})
-    if thinnest is not None and thinnest < min_line - 0.005:
-        top.append({"level": "warning", "message": f"thinnest line is {thinnest:.2f} pt (below {min_line:g} pt)"})
+    if free_thinnest is not None and free_thinnest < min_line - 0.005:
+        top.append({"level": "warning", "message": f"thinnest line is {free_thinnest:.2f} pt (below {min_line:g} pt)"})
     found = top + found
     # De-duplicate messages
     seen = set()
@@ -321,6 +355,109 @@ def _journal_text(page: dict, journal: dict | None, rules: dict, sizes: list, fo
             if not item.get("hidden") and is_label(item) and _label_differs(item, labels):
                 note("info", item, f"Panel label “{_text(item)}” isn't in {jname}'s style ({label_look(labels)}{how})")
     return out
+
+
+FORMAT_NAMES = {"pdf": "PDF", "svg": "SVG", "png": "PNG", "tiff": "TIFF", "jpeg": "JPEG", "eps": "EPS", "pptx": "PowerPoint"}
+COLOUR_NAMES = {"rgb": "RGB", "rgb_preferred": "RGB (preferred) or CMYK", "either": "RGB or CMYK",
+                "cmyk_preferred": "CMYK (preferred for print) or RGB", "cmyk": "CMYK"}
+
+
+def _either(names: list[str]) -> str:
+    return ", ".join(names[:-1]) + " or " + names[-1] if len(names) > 1 else names[0]
+
+
+def page_kind(doc: dict, page: dict, cache=None) -> str:
+    """What a whole page is as a picture (a PNG or TIFF of it): line art (graphs, text, drawings),
+    a photo, or a photo with text or lines."""
+    cache = cache or get_cache()
+    kinds, other = set(), False
+    for item in iter_items(page.get("items", [])):
+        if item.get("type") == "group" or item.get("hidden"):
+            continue
+        asset = doc["assets"].get(item.get("asset")) if item.get("type") == "picture" else None
+        kind = picturekind.item_kind(item, asset, cache)[0] if asset else None
+        if kind:
+            kinds.add(kind)
+        else:
+            other = True
+    if not kinds & {"photo", "combination"}:
+        return "line_art"
+    return "photo" if kinds == {"photo"} and not other else "combination"
+
+
+def export_check(doc: dict, options: dict) -> list[dict]:
+    """The Export window's settings against the journals of the pages being exported: the formats,
+    resolution, colour, fonts and transparency each takes (file sizes are checked once written).
+    The first note for each journal says what it takes."""
+    cache = get_cache()
+    pages = options.get("pages")
+    sel = [doc["pages"][i] for i in (pages if pages is not None else range(len(doc["pages"])))]
+    formats = [f.lower() for f in options.get("formats", [])]
+    dpi = float(options.get("dpi", 600))
+    out = []
+    def note(level, journal, message):
+        if not any(f["message"] == message for f in out):
+            out.append({"level": level, "journal": journal["name"], "message": message})
+    for page in sel:
+        jname = (page.get("preset") or {}).get("journal")
+        journal = next((j for j in JOURNALS if j["name"] == jname), None)
+        rules = (journal or {}).get("export")
+        if not rules:
+            continue
+        takes = rules["formats"]
+        note("info", journal, f"{jname} takes {_either([FORMAT_NAMES[f] for f in takes])} files in "
+                              f"{COLOUR_NAMES[rules.get('colour', 'either')]} colour"
+                              + ((f", at most {rules['max_mb']:g} MB each" if rules.get("firm", True) else
+                                  f", under {rules['max_mb']:g} MB each where possible") if rules.get("max_mb") else ""))
+        for f in formats:
+            if f not in takes:
+                note("warning", journal, f"{jname} doesn't take {FORMAT_NAMES[f]} files for final figures")
+        raster = [FORMAT_NAMES[f] for f in formats if f in ("png", "tiff", "jpeg") and f in takes]
+        if raster:
+            kind = page_kind(doc, page, cache)
+            need = (journal.get("pictures") or {}).get(kind)
+            if need and dpi < need - 0.5:
+                note("warning", journal, f"{_either(raster)} at {dpi:g} dpi: {jname} asks for at least {need:g} dpi "
+                                         f"for {picturekind.NAMES[kind]}" + (f" ({page['name']})" if len(sel) > 1 else ""))
+            if rules.get("max_dpi") and dpi > rules["max_dpi"] + 0.5:
+                note("warning", journal, f"{_either(raster)} at {dpi:g} dpi: {jname} takes at most {rules['max_dpi']:g} dpi")
+        colour = rules.get("colour", "either")
+        if options.get("cmyk") and colour == "rgb":
+            note("warning", journal, f"CMYK colour is ticked; {jname} asks for RGB")
+        elif options.get("cmyk") and colour == "rgb_preferred":
+            note("info", journal, f"CMYK colour is ticked; {jname} takes it but recommends RGB")
+        elif not options.get("cmyk") and colour == "cmyk":
+            note("warning", journal, f"{jname} asks for CMYK colour (More options)")
+        elif not options.get("cmyk") and colour == "cmyk_preferred":
+            note("info", journal, f"{jname} asks for CMYK colour for print (More options)")
+        if not options.get("embed_fonts", True) and rules.get("embed_fonts"):
+            note("warning", journal, f"Fonts left out of placed PDFs won't be embedded; {jname} asks for embedded fonts")
+        if options.get("transparent", True) and rules.get("no_alpha") and any(f in ("png", "tiff") for f in formats):
+            note("warning", journal, f"{jname} takes no transparency (alpha channels): set Background to White")
+    return out
+
+
+def size_limits(doc: dict, pages: list[int] | None, files: list[str]) -> tuple[list[str], list[str]]:
+    """Written files bigger than the exported pages' journals take: warnings for a firm limit,
+    notes for one asked "where possible"."""
+    sel = [doc["pages"][i] for i in (pages if pages is not None else range(len(doc["pages"])))]
+    limits = {}
+    for page in sel:
+        journal = next((j for j in JOURNALS if j["name"] == (page.get("preset") or {}).get("journal")), None)
+        if journal and (journal.get("export") or {}).get("max_mb"):
+            limits[journal["name"]] = journal["export"]
+    warnings, notes = [], []
+    for path in files:
+        mb = os.path.getsize(path) / 1e6
+        for jname, rules in sorted(limits.items()):
+            if mb > rules["max_mb"]:
+                if rules.get("firm", True):
+                    warnings.append(f"{os.path.basename(path)} is {mb:.1f} MB; {jname} takes files of at most "
+                                    f"{rules['max_mb']:g} MB")
+                else:
+                    notes.append(f"{os.path.basename(path)} is {mb:.1f} MB; {jname} asks for files under "
+                                 f"{rules['max_mb']:g} MB where possible")
+    return warnings, notes
 
 
 def _sha_kind(var: dict):

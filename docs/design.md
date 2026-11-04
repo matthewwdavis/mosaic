@@ -151,6 +151,34 @@ pre-export check says so.
     its fonts (from mosaic's text and placed PDFs' fonts; "only" lists warn, preferred ones note),
     and labels not in its style. Sizes a journal gives roughly ("about 6–8 pt") are notes. Pages
     without a journal keep the 5 pt smallest size.
+- **Journal checks: lines, resolution and files (2026-11-04):** each journal in `journals.py` also has
+  its line widths (`lines`), the resolution it asks of each kind of placed picture (`pictures`:
+  photo, photo with text or lines, line art, or kinds it wants as vector artwork) and the files it
+  takes (`export`: formats, colour, largest file, highest resolution, embedded fonts, alpha
+  channels). Matthew chose all three, a guessed picture kind with an override on the Picture tab,
+  the publisher's rules where a journal states none (mosaic's 0.25 pt and 300 dpi where nothing is
+  stated), and an Export window that flags what the journal doesn't take without changing the
+  settings.
+  - *Sources:* three research agents on 2026-11-04 (quotes and URLs; archived copies of the same
+    official URLs where a site refuses scripted reads). Cell and Molecular Plant take Cell Press's
+    rules (Molecular Plant's own 0.35–1.5 pt lines are from a 2023 page, gone since); New
+    Phytologist's resolution and files are Wiley's; Heredity's are Nature Portfolio's artwork
+    guide's; Genetics, G3, MBE and The Plant Cell take OUP's where they say nothing (OUP calls its
+    guide tips). Judgement calls: Heredity's house style says "rules" no thinner than 1 pt without
+    saying whether that means figures, so mosaic's 0.25 pt applies; Science's 0.5 pt (its
+    instructions page, 2025) over its 2022 guide's 0.28 pt, and that guide's CMYK only as a note;
+    Nature's main figures as vector files (its figure guides refuse JPEG, TIFF and PNG, though its
+    final-submission page takes TIFF for photos) and 300 dpi photos (one checklist line says
+    450); The Plant Cell's current page (TIFF, JPEG, EPS) over its 2020 guide's PDF.
+  - *Picture kind:* `picturekind.py` guesses from 16 px blocks of the pixels (flat colour with sharp
+    edges is line art; grain everywhere is a photo; one exact colour meeting the grain with a jump
+    is something drawn on it). Tuned on scikit-image's and macOS's photos, the example plots and
+    photos with letters, scale bars and axes added: all 44 right, JPEG plots included; a labelled
+    photo saved as JPEG passes for plain. `picture_kind` on the item overrides it.
+  - *Check:* per page, the journal's thinnest line replaces 0.25 pt (thicker than its thickest is a
+    note) and each picture is held to the journal's dpi for its kind, or flagged if the journal
+    wants that kind as vector artwork. *Export:* `export_check` runs on every change in the window;
+    file sizes are checked once written (`size_limits`; a limit asked "where possible" is a note).
 - **Text section in the Home tab (2026-11-04):** font, size and the rest in the ribbon, beside the
   properties panel's Text tab (`ui/js/textribbon.js`). Matthew chose all the extra controls
   (superscript and subscript, bigger and smaller, top/middle/bottom, the text style list, line

@@ -905,6 +905,17 @@ class Api:
         from ..export.preflight import preflight
         return preflight(doc, options or {})
 
+    def export_check(self, doc: dict, options: dict) -> list[dict]:
+        """The Export window's settings against the exported pages' journals."""
+        from ..export.preflight import export_check
+        return export_check(doc, options)
+
+    def picture_kinds(self, assets: dict) -> dict:
+        """Each placed PNG, TIFF or JPEG's guessed kind (photo, combination, line_art); None for
+        PDFs and SVGs."""
+        from ..picturekind import asset_kind
+        return {aid: asset_kind(asset, get_cache()) for aid, asset in assets.items()}
+
     def figure_report(self, doc: dict, options: dict) -> dict:
         """Write the figure report (report.py) in the chosen formats: {"files": [...]}."""
         from .. import report

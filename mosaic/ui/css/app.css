@@ -426,6 +426,7 @@ body.drop-busy { cursor: progress; }
 .check-line > span:not(.hint) { flex: 1 1 12rem; min-width: 0; }
 .check-line .hint { flex-basis: 100%; margin-left: 1.6rem; font-size: 0.8rem; }
 .advanced summary { cursor: pointer; padding: 0.3rem 0; }
+.journal-rules summary { cursor: pointer; padding: 0.2rem 0; font-size: 0.85rem; }
 .results ul, .report, .preflight, .plain { padding-left: 1.2rem; }
 .recovery-list { list-style: none; margin: 0.4rem 0; padding: 0; }
 .recovery-list li { padding: 0.5rem 0; border-top: 1px solid var(--line); }

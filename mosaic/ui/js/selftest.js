@@ -631,7 +631,8 @@ async function slidesChecks(app, ppt) {
     && go(dlg).disabled && go(dlg).textContent === "Open", "Open shows a deck's slides to choose from, titled, with hidden ones marked",
   dlg ? `${cards(dlg).map((li) => li.textContent).join(" | ")}; button ${go(dlg).textContent} ${go(dlg).disabled}` : "no picker");
   if (!dlg) return;
-  await until(() => cards(dlg).every((li) => li.classList.contains("drawn")), 15000);
+  // (and decoded: a hidden window can mark a picture drawn before its image is read)
+  await until(() => cards(dlg).every((li) => li.classList.contains("drawn") && li.querySelector("img").naturalWidth), 15000);
   check(cards(dlg).every((li) => li.querySelector("img").naturalWidth === 320 && li.querySelector("img").naturalHeight === 180),
     "and draws each slide small", cards(dlg).map((li) => `${li.className} ${li.querySelector("img").naturalWidth}`).join("; "));
   click(cards(dlg)[1]);
@@ -1554,6 +1555,106 @@ async function journalLabelChecks(app) {
   flagged.join(" | "));
 }
 
+// Journal checks: a placed PNG's kind (guessed from its pixels, or set on its Picture tab) decides
+// the resolution its page's journal asks for, the journal's thinnest line replaces mosaic's
+// 0.25 pt, and the Export window says what the journal takes and flags settings it doesn't
+async function journalCheckChecks(app) {
+  const js = (app.info.journals || []).filter((j) => j.pictures?.line_art > 300 && j.lines?.min_pt > 0.25 && j.export);
+  const j = js.find((x) => !x.export.formats.includes("svg")) || js[0];
+  check(j, "a journal with line, resolution and export rules to test with", (app.info.journals || []).map((x) => x.name).join(", "));
+  if (!j) return;
+  store.setDoc(await rpc("new_document"));
+  inspector.setJournalSize(j.name);
+  canvas.fit();
+  await settle();
+  // A plot drawn as a PNG (it records no resolution, so it's read as 300 dpi) and a 0.25 pt rule
+  const c = document.createElement("canvas");
+  c.width = 600;
+  c.height = 300;
+  const g = c.getContext("2d");
+  g.fillStyle = "#ffffff";
+  g.fillRect(0, 0, 600, 300);
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(40, 10);
+  g.lineTo(40, 270);
+  g.lineTo(590, 270);
+  g.stroke();
+  g.fillStyle = "#4682b4";
+  [120, 200, 90, 160].forEach((bar, i) => { g.fillRect(70 + i * 120, 270 - bar, 70, bar); g.strokeRect(70 + i * 120, 270 - bar, 70, bar); });
+  const up = await rpc("add_upload", "selftest-chart.png", c.toDataURL("image/png").split(",")[1]);
+  const [w, hh] = up.asset.size_pt;
+  store.update("Chart", (doc) => {
+    doc.assets[up.asset_id] = up.asset;
+    doc.pages[0].items.push({ id: "jcPic", type: "picture", name: "Chart", asset: up.asset_id, page_index: 0, frame: [20, 20, w, hh],
+      crop: [0, 0, 0, 0], rot: 0, flip_h: false, flip_v: false, opacity: 1, source: "auto" },
+    { id: "jcLine", type: "line", name: "Rule", points: [[20, 200], [120, 200]], rot: 0, arrow_start: null, arrow_end: null,
+      stroke: { color: "#000000", width: 0.25, dash: "solid", cap: "flat", join: "miter", opacity: 1 } });
+  }, { select: ["jcPic"] });
+  await settle();
+  inspector.render();
+  const kind = () => {   // (without drawing the panel again, which asks for the guess again)
+    const l = [...document.querySelectorAll("#inspector label")].find((x) => x.textContent === "Kind");
+    return l && document.getElementById(l.htmlFor);
+  };
+  await until(() => /looks like/.test(kind()?.selectedOptions[0]?.textContent || ""), 6000);
+  check(kind()?.value === "auto" && kind()?.selectedOptions[0]?.textContent === "Automatic (looks like line art)",
+    "a placed PNG's Picture tab has a Kind list, its Automatic choice naming the Check's guess", kind()?.selectedOptions[0]?.textContent);
+  const flagged = async () => (await rpc("preflight", store.doc, { pages: [0] })).items;
+  const dpiOf = (found) => found.find((f) => f.item === "jcPic" && /dpi at its placed size/.test(f.message));
+  let found = await flagged();
+  let d = dpiOf(found);
+  check(d?.level === "warning" && d.message === `Chart: 300 dpi at its placed size; ${j.name} asks for at least ${j.pictures.line_art} dpi `
+    + "for line art (kind guessed from the picture; its Picture tab can set it)", `Check holds it to ${j.name}'s resolution for line art`, d?.message);
+  const ruled = found.find((f) => f.item === "jcLine");
+  check(ruled?.level === (j.lines.about ? "info" : "warning") && ruled.message === `Rule: its line is 0.25 pt; ${j.name} asks for at least `
+    + `${j.lines.min_pt} pt`, `and the 0.25 pt rule to ${j.name}'s thinnest line, not mosaic's 0.25 pt`, ruled?.message);
+  const steps = store.history.length;
+  await choose("Kind", "photo");
+  check(store.item("jcPic").picture_kind === "photo" && store.history.length === steps + 1, "choosing Photo sets its kind, as one undo step",
+    `${store.item("jcPic").picture_kind} ${store.history.length - steps}`);
+  d = dpiOf(await flagged());
+  check(d?.level === (300 < j.pictures.photo - 0.5 ? "warning" : "ok") && d.message === `Chart: 300 dpi at its placed size; ${j.name} asks for `
+    + `at least ${j.pictures.photo} dpi for a photo`, "Check then holds it to the journal's resolution for photos, as set rather than guessed", d?.message);
+  await app.run("undo");
+  await settle();
+  check(!("picture_kind" in store.item("jcPic")), "undo puts it back to Automatic", JSON.stringify(store.item("jcPic")));
+  // The Export window: what the journal takes, then a format it doesn't and too low a resolution
+  await app.run("export");
+  const dlg = [...document.querySelectorAll("dialog[open]")].pop();
+  try {
+    await panels.reviewing;
+    const flags = () => [...dlg.querySelectorAll(".journal-export li")].map((li) => li.textContent);
+    check(flags().some((t) => t.startsWith(`ℹ Note ${j.name} takes `)), "the Export window says what the page's journal takes", flags().join(" | "));
+    const names = { pdf: "PDF", svg: "SVG", png: "PNG", tiff: "TIFF", jpeg: "JPEG", eps: "EPS", pptx: "PowerPoint" };
+    const refused = ["svg", "pptx", "png", "jpeg", "eps"].find((f) => !j.export.formats.includes(f));
+    const raster = ["tiff", "png", "jpeg"].find((f) => j.export.formats.includes(f));
+    for (const i of dlg.querySelectorAll(".formats input, .advanced input[value]")) i.checked = [refused, raster].includes(i.value);
+    const dpiLabel = [...dlg.querySelectorAll("label")].find((l) => l.textContent === "Resolution for PNG, TIFF and JPEG");
+    const dpi = document.getElementById(dpiLabel.htmlFor);
+    dpi.value = "300";
+    dpi.dispatchEvent(new Event("change", { bubbles: true }));
+    await panels.reviewing;
+    check(!refused || flags().includes(`⚠ Check ${j.name} doesn't take ${names[refused]} files for final figures`),
+      `ticking ${names[refused]} is flagged: ${j.name} doesn't take it`, flags().join(" | "));
+    check(!raster || flags().includes(`⚠ Check ${names[raster]} at 300 dpi: ${j.name} asks for at least ${j.pictures.line_art} dpi for line art`),
+      `and ${names[raster]} at 300 dpi of a page of line art`, flags().join(" | "));
+  } finally { dlg.close(); }
+  // The Page panel: what the journal asks for, folded under one line that stays open once opened
+  store.select([]);
+  inspector.render();
+  const folded = () => document.querySelector("#inspector .journal-rules");
+  const shut = folded() && !folded().open;
+  folded()?.querySelector("summary").click();
+  await wait(60);
+  inspector.render();
+  const said = [...(folded()?.querySelectorAll(".hint") || [])].map((p) => p.textContent);
+  check(shut && folded()?.open && folded().querySelector("summary").textContent === `What ${j.name} asks for`
+    && said.some((t) => t.startsWith(`Lines ${j.lines.max_pt ? "" : "at least "}${j.lines.min_pt}`))
+    && said.some((t) => t.startsWith("Pictures at least 300 dpi for photos")) && said.some((t) => t.startsWith("Files: ")),
+  `the Page panel folds what ${j.name} asks for under one line, which stays open once opened`, `${shut} ${said.join(" | ")}`);
+}
+
 async function clickThroughChecks(app) {
   store.setDoc(await rpc("new_document"));
   canvas.fit();
@@ -2001,6 +2102,7 @@ export async function run(app, params) {
     if (params.get("only") === "clickthrough") { await clickThroughChecks(app); throw ONLY; }
     if (params.get("only") === "textribbon") { await textRibbonChecks(app); throw ONLY; }
     if (params.get("only") === "journallabels") { await journalLabelChecks(app); throw ONLY; }
+    if (params.get("only") === "journalchecks") { await journalCheckChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3253,6 +3355,7 @@ export async function run(app, params) {
     await clickThroughChecks(app);
     await textRibbonChecks(app);
     await journalLabelChecks(app);
+    await journalCheckChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

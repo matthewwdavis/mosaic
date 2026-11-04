@@ -171,16 +171,19 @@ Now click **Check** at the top right. It lists anything a journal might object t
 
 ![The Check before export window](images/check.png)
 
-Here it found text smaller than 5 pt: the little *600* in *OD₆₀₀*. Many journals ask for at least
-5 pt, so you'd fix that in the R code, and the panel would update by itself. The thinnest line,
-0.58 pt, is fine (lines thinner than 0.25 pt get flagged), and the page fits Nature's double column
-size. Check also reports low-resolution images, placed files that can't be found, and any
-conversion an export would need.
+It goes by the page's journal, here Nature. It found text smaller than Nature's 5 pt: the little
+*600* in *OD₆₀₀*, so you'd fix that in the R code, and the panel would update by itself. It also
+notes a 1.07 pt line in the dose–response plot, a touch over Nature's 1 pt; notes are advice,
+checks are what a journal would send back. The thinnest line, 0.58 pt, is fine (Nature asks for at
+least 0.25 pt), and the page fits Nature's double column size. Check also reports pictures whose
+resolution is too low, placed files that can't be found, and any conversion an export would need.
 
 ## 8. Export
 
-Click **Export** (⌘E). Choose the formats you want: say **PDF**, and **PNG** at **600 dpi**. Then
-click **Export…** and choose where to save them.
+Click **Export** (⌘E). Choose the formats you want: say **PDF** for the journal, and **PNG** at
+**600 dpi** for a talk. Then click **Export…** and choose where to save them. The window says what
+the page's journal takes: Nature wants vector files such as PDF, so it flags the PNG, which is
+fine for slides. It only advises; your choices stay as they are.
 
 <img src="images/export.png" alt="The Export window" width="560">
 

@@ -913,25 +913,43 @@ export const panels = {
       h("label", { class: "check-line", for: "ex-fonts" }, h("input", { type: "checkbox", id: "ex-fonts", checked: saved.embed_fonts !== false }),
         h("span", {}, "Embed fonts missing from placed PDFs"), h("span", { class: "hint" }, "R's pdf() leaves Helvetica out")));
     const results = h("div", { class: "results", role: "status", "aria-live": "polite" });
+    // What the exported pages' journals take, and the settings here they don't (export_check)
+    const journal = h("div", { class: "journal-export", "aria-live": "polite" });
     const go = h("button", { type: "button", class: "btn primary" }, "Export…");
     const body = h("div", {},
       h("fieldset", { class: "formats" }, h("legend", {}, "Formats"),
         check("pdf", "PDF", "vector; placed PDFs go in unchanged"), check("svg", "SVG", "vector; placed SVGs go in unchanged"),
         check("png", "PNG"), check("tiff", "TIFF", "LZW-compressed"),
         check("pptx", "PowerPoint", "editable; what PowerPoint can't draw exactly goes in as pictures")),
-      dpiSel, custom, pages, bg, advanced, results);
+      dpiSel, custom, pages, bg, advanced, journal, results);
     const dlg = this.dialog("Export", body, [go]);
-    // (this.writing: the export under way, for whatever waits on it, such as the self-test)
-    const write = async () => {
-      const chosen = [...dlg.querySelectorAll(".formats input:checked, .advanced input[value]:checked")].map((i) => i.value);
-      if (!chosen.length) { results.textContent = "Choose at least one format."; return; }
+    const settings = () => {
       let dpi = dpiSel.querySelector("select").value;
       dpi = dpi === "custom" ? parseFloat(custom.querySelector("input").value) : parseFloat(dpi);
-      const opts = {
-        formats: chosen, dpi, transparent: bg.querySelector("select").value === "transparent",
+      return {
+        formats: [...dlg.querySelectorAll(".formats input:checked, .advanced input[value]:checked")].map((i) => i.value),
+        dpi, transparent: bg.querySelector("select").value === "transparent",
         cmyk: dlg.querySelector("#ex-cmyk").checked, embed_fonts: dlg.querySelector("#ex-fonts").checked,
         pages: pages.querySelector("select").value === "all" ? null : [store.pageIndex],
       };
+    };
+    let asked = 0;
+    const review = async () => {
+      const mine = ++asked;
+      let found = [];
+      try { found = await rpc("export_check", store.doc, settings()); } catch { found = []; }
+      if (mine !== asked) return;   // (a newer change's answer is on its way)
+      journal.replaceChildren(...(found.length ? [h("ul", { class: "preflight" }, ...found.map((f) => h("li", { class: f.level },
+        h("span", { class: "level" }, f.level === "warning" ? "⚠ Check" : "ℹ Note"), " ", f.message)))] : []));
+    };
+    // (this.reviewing: the latest look, for whatever waits on it, such as the self-test)
+    dlg.addEventListener("change", () => { this.reviewing = review(); });
+    custom.querySelector("input").addEventListener("input", () => { this.reviewing = review(); });
+    this.reviewing = review();
+    // (this.writing: the export under way, for whatever waits on it, such as the self-test)
+    const write = async () => {
+      const opts = settings(), chosen = opts.formats, dpi = opts.dpi;
+      if (!chosen.length) { results.textContent = "Choose at least one format."; return; }
       const base = await this.app.chooseExportBase();
       if (!base) return;
       go.disabled = true;
@@ -1025,8 +1043,8 @@ export const panels = {
   },
 
   async preflightDialog() {
-    // The page's size is compared with a journal's: the page's own journal size, else the one
-    // chosen here last time
+    // The page is checked against a journal's rules (size, text, labels, lines, resolution): the
+    // page's own journal size, else the one chosen here last time
     const journals = this.app.info.journals || [];
     const start = store.page().preset?.journal || this.app.prefs.check_journal || "";
     const results = h("div", { class: "preflight-results", "aria-live": "polite" });
@@ -1052,7 +1070,7 @@ export const panels = {
       }
     };
     this.dialog("Check before export", h("div", {},
-      selectField("Compare the page size with", start, [["", "No journal"], ...journals.map((j) => [j.name, j.name])],
+      selectField("Check against", start, [["", "No journal"], ...journals.map((j) => [j.name, j.name])],
         (v) => { this.app.savePrefs({ check_journal: v }); check(v); }),
       results,
       h("p", { class: "hint" }, "Fonts missing from placed PDFs are embedded automatically when you export."),

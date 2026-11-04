@@ -283,3 +283,152 @@ def test_every_journal_has_label_and_text_rules_with_sources():
         assert labels["case"] in ("lower", "upper") and "a" in labels["form"] and labels["size"] > 0 and labels["source"], j["name"]
         assert text["source"], j["name"]
         assert text["min_pt"] is None or text["max_pt"] is None or text["min_pt"] < text["max_pt"], j["name"]
+
+
+# Line widths, resolution and export settings against the page's journal (journals.py: "lines",
+# "pictures" and "export")
+def photo_png(path, size=(600, 300), dpi=300, label=False):
+    """A stand-in photo: smooth shading with grain; with label, a white letter drawn on it."""
+    from PIL import Image, ImageDraw
+    rng = np.random.default_rng(7)
+    y, x = np.mgrid[0:size[1], 0:size[0]]
+    base = 60 + 120 * (x / size[0]) + 40 * np.sin(y / 23.0)
+    a = np.clip(base[:, :, None] + rng.normal(0, 6, (size[1], size[0], 3)), 0, 255).astype(np.uint8)
+    im = Image.fromarray(a, "RGB")
+    if label:
+        d = ImageDraw.Draw(im)
+        d.rectangle([20, 20, 30, 70], fill="white")
+        d.rectangle([20, 20, 60, 30], fill="white")
+        d.rectangle([size[0] - 140, size[1] - 20, size[0] - 40, size[1] - 14], fill="white")
+    im.save(path, dpi=(dpi, dpi))
+    return path
+
+
+def chart_png(path, size=(600, 300), dpi=300):
+    """A stand-in plot: axes and a few bars on white."""
+    from PIL import Image, ImageDraw
+    im = Image.new("RGB", size, "white")
+    d = ImageDraw.Draw(im)
+    d.line([(40, 10), (40, size[1] - 30), (size[0] - 10, size[1] - 30)], fill="black", width=2)
+    for i, h in enumerate((120, 200, 90, 160)):
+        d.rectangle([70 + i * 120, size[1] - 30 - h, 140 + i * 120, size[1] - 31], fill=(70, 130, 180), outline="black")
+    im.save(path, dpi=(dpi, dpi))
+    return path
+
+
+def test_the_kind_of_a_picture(tmp_path):
+    from mosaic.picturekind import guess
+    assert guess(str(photo_png(tmp_path / "photo.png"))) == "photo"
+    assert guess(str(photo_png(tmp_path / "labelled.png", label=True))) == "combination"
+    assert guess(str(chart_png(tmp_path / "chart.png"))) == "line_art"
+    # A plot saved as JPEG is still line art, despite JPEG's noise round its edges
+    from PIL import Image
+    Image.open(tmp_path / "chart.png").save(tmp_path / "chart.jpg", quality=85)
+    assert guess(str(tmp_path / "chart.jpg")) == "line_art"
+    # A 16-bit microscope image is read at its full range, not clipped at 255
+    Image.fromarray((np.asarray(Image.open(tmp_path / "photo.png").convert("L")).astype(np.uint16) * 200)).save(tmp_path / "deep.tif")
+    assert guess(str(tmp_path / "deep.tif")) == "photo"
+
+
+LINES_JOURNAL = {**JOURNAL, "lines": {"min_pt": 0.5, "max_pt": 1.5, "source": "test"},
+                 "pictures": {"photo": 300.0, "combination": 500.0, "line_art": 1000.0, "source": "test"},
+                 "export": {"formats": ["pdf", "eps", "tiff"], "colour": "rgb", "max_mb": 0.001, "max_dpi": 1200.0,
+                            "embed_fonts": True, "no_alpha": True, "source": "test"}}
+
+
+def test_line_widths_against_the_pages_journal(monkeypatch):
+    from mosaic.export import preflight as pf
+    monkeypatch.setattr(pf, "JOURNALS", [LINES_JOURNAL])
+    doc = journal_page(line(0.25), {**line(2.0), "id": "l2", "name": "Bracket"})
+    found = {f["message"]: f["level"] for f in pf.preflight(doc, {"pages": [0]})["items"]}
+    assert found["Line: its line is 0.25 pt; Test Journal asks for at least 0.5 pt"] == "warning"
+    # A thicker line than the journal asks for is only a note
+    assert found["Bracket: its line is 2.00 pt; Test Journal asks for at most 1.5 pt"] == "info"
+    # The journal's smallest width replaces mosaic's 0.25 pt for all pages
+    assert not any(m.startswith("thinnest line is") for m in found)
+    doc["pages"][0]["items"] = [line(0.75)]
+    assert [m for m in messages(doc) if "line" in m] == []
+    # Without a journal: mosaic's 0.25 pt, and no largest width
+    del doc["pages"][0]["preset"]
+    doc["pages"][0]["items"] = [line(0.2), {**line(3.0), "id": "l2"}]
+    assert messages(doc)[0] == "thinnest line is 0.20 pt (below 0.25 pt)"
+    assert not any("at most" in m for m in messages(doc))
+
+
+def test_resolution_by_kind_against_the_pages_journal(monkeypatch, tmp_path):
+    from mosaic.export import preflight as pf
+    monkeypatch.setattr(pf, "JOURNALS", [LINES_JOURNAL])
+    doc = journal_page()
+    pic = place(doc, photo_png(tmp_path / "micrograph.png"))
+    found = {f["message"]: f["level"] for f in pf.preflight(doc, {"pages": [0]})["items"]}
+    assert found["Plot: 300 dpi at its placed size; Test Journal asks for at least 300 dpi for a photo (kind guessed from "
+                 "the picture; its Picture tab can set it)"] == "ok"
+    # Set by hand on the Picture tab: no longer a guess
+    pic["picture_kind"] = "line_art"
+    found = {f["message"]: f["level"] for f in pf.preflight(doc, {"pages": [0]})["items"]}
+    assert found["Plot: 300 dpi at its placed size; Test Journal asks for at least 1000 dpi for line art"] == "warning"
+    del pic["picture_kind"]
+    doc["pages"][0]["items"] = []
+    place(doc, chart_png(tmp_path / "chart.png"), scale=0.25)   # 1200 dpi placed at a quarter of its size
+    assert "Plot: 1200 dpi at its placed size; Test Journal asks for at least 1000 dpi for line art (kind guessed from " \
+           "the picture; its Picture tab can set it)" in messages(doc)
+    # A journal that wants line art as vector files, not pictures
+    monkeypatch.setattr(pf, "JOURNALS", [{**LINES_JOURNAL, "pictures": {"photo": 300.0, "vector": ["line_art", "combination"],
+                                                                          "source": "test"}}])
+    assert "Plot: 1200 dpi at its placed size; Test Journal asks for line art as vector files (PDF, EPS or SVG), not " \
+           "pictures (kind guessed from the picture; its Picture tab can set it)" in messages(doc)
+    doc["pages"][0]["items"][0]["picture_kind"] = "combination"
+    assert "Plot: 1200 dpi at its placed size; Test Journal asks for text and lines over photos to stay editable, not " \
+           "drawn into the picture (add them in mosaic)" in messages(doc)
+    # Without a journal: mosaic's 300 dpi, whatever the kind
+    del doc["pages"][0]["preset"]
+    assert "Plot: 1200 dpi at its placed size" in messages(doc)
+
+
+def test_export_settings_against_the_pages_journal(monkeypatch, tmp_path):
+    from mosaic.export import preflight as pf
+    monkeypatch.setattr(pf, "JOURNALS", [LINES_JOURNAL])
+    doc = journal_page(text_box("t1", "Axis", size=7))
+    settings = {"formats": ["pdf", "png", "tiff"], "dpi": 600, "cmyk": False, "embed_fonts": True, "transparent": False,
+                "pages": [0]}
+    found = {f["message"]: f["level"] for f in pf.export_check(doc, settings)}
+    assert found == {"Test Journal takes PDF, EPS or TIFF files in RGB colour, at most 0.001 MB each": "info",
+                     "Test Journal doesn't take PNG files for final figures": "warning",
+                     # A page of text and drawings is line art as a picture
+                     "TIFF at 600 dpi: Test Journal asks for at least 1000 dpi for line art": "warning"}
+    # With a photo on it, the page is a photo with text or lines
+    place(doc, photo_png(tmp_path / "micrograph.png"))
+    assert "TIFF at 600 dpi: Test Journal asks for at least 500 dpi for a photo with text or lines" not in \
+        [f["message"] for f in pf.export_check(doc, settings)]
+    got = [f["message"] for f in pf.export_check(doc, {**settings, "dpi": 400})]
+    assert "TIFF at 400 dpi: Test Journal asks for at least 500 dpi for a photo with text or lines" in got
+    got = [f["message"] for f in pf.export_check(doc, {**settings, "dpi": 2400, "cmyk": True, "embed_fonts": False,
+                                                       "transparent": True})]
+    assert "TIFF at 2400 dpi: Test Journal takes at most 1200 dpi" in got
+    assert "CMYK colour is ticked; Test Journal asks for RGB" in got
+    assert "Fonts left out of placed PDFs won't be embedded; Test Journal asks for embedded fonts" in got
+    assert "Test Journal takes no transparency (alpha channels): set Background to White" in got
+    # Pages without a journal aren't checked; written files bigger than the journal takes are
+    (tmp_path / "fig.tif").write_bytes(b"x" * 5000)
+    assert pf.size_limits(doc, [0], [str(tmp_path / "fig.tif")]) == (
+        ["fig.tif is 0.0 MB; Test Journal takes files of at most 0.001 MB"], [])
+    # A limit asked "where possible" is a note
+    LINES_JOURNAL["export"]["firm"] = False
+    assert pf.size_limits(doc, [0], [str(tmp_path / "fig.tif")]) == (
+        [], ["fig.tif is 0.0 MB; Test Journal asks for files under 0.001 MB where possible"])
+    del LINES_JOURNAL["export"]["firm"]
+    del doc["pages"][0]["preset"]
+    assert pf.export_check(doc, settings) == [] and pf.size_limits(doc, [0], [str(tmp_path / "fig.tif")]) == ([], [])
+
+
+def test_every_journal_has_line_picture_and_export_rules_with_sources():
+    from mosaic.export.preflight import COLOUR_NAMES, FORMAT_NAMES
+    from mosaic.journals import JOURNALS
+    for j in JOURNALS:
+        lines, pictures, export = j["lines"], j["pictures"], j["export"]
+        assert lines["source"] and pictures["source"] and export["source"], j["name"]
+        assert lines["min_pt"] is None or lines["max_pt"] is None or lines["min_pt"] < lines["max_pt"], j["name"]
+        # Every kind of picture has a resolution, or the journal wants it as vector artwork
+        assert all(pictures[k] or k in pictures["vector"] for k in ("photo", "combination", "line_art")), j["name"]
+        assert export["formats"] and set(export["formats"]) <= set(FORMAT_NAMES) and export["colour"] in COLOUR_NAMES, j["name"]
+

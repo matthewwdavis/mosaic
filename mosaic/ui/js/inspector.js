@@ -29,6 +29,7 @@ const HEADS = [["none", "None"], ["triangle", "Triangle"], ["stealth", "Stealth"
   ["oval", "Circle"], ["diamond", "Diamond"], ["bar", "Bar (inhibition)"], ["half", "Half arrow"], ["open_circle", "Open circle"],
   ["open_triangle", "Open triangle"]];
 const SIZES = [["sm", "Small"], ["med", "Medium"], ["lg", "Large"]];
+const KIND_NAMES = { photo: "a photo", combination: "a photo with text or lines", line_art: "line art" };   // picturekind.py
 // Symbols for the Text tab, with names for screen readers
 const SYMBOLS = [["µ", "micro"], ["°", "degree"], ["±", "plus or minus"], ["×", "times"], ["÷", "divided by"], ["−", "minus"],
   ["≤", "less than or equal to"], ["≥", "greater than or equal to"], ["≈", "approximately"], ["≠", "not equal to"], ["∞", "infinity"],
@@ -255,9 +256,7 @@ export const inspector = {
           journal ? journal.types.map((t) => [t.name, `${t.name} — ${len(t.width_mm)} wide`]) : [["", "Choose a journal first"]],
           (v) => this.setJournalSize(journal.name, v), { disabled: !journal }),
         journal ? h("p", { class: "hint" }, `${journal.name}: ${journal.note} Source: ${journal.source}.`) : null,
-        journal?.labels ? h("p", { class: "hint" }, `Panel labels: ${labelLook(journal.labels)}. Source: ${journal.labels.source}.`) : null,
-        journal?.text ? h("p", { class: "hint" }, textRules(journal.text) ? `${textRules(journal.text)} Source: ${journal.text.source}.`
-          : `${journal.text.source}.`) : null,
+        journal ? this.journalRules(journal) : null,
         row(numField("Width", page.width, pu, (v) => this.setPageWidth(v), { min: 1 }),
           numField("Height", page.height, pu, (v) => this.setPageHeight(v), { min: 1 })),
         h("div", { class: "button-row" },
@@ -573,6 +572,17 @@ export const inspector = {
     }
     return section("Position and size", kids);
   },
+  // What a page's journal asks for besides its size (panel labels, text, lines, pictures, files),
+  // folded under one line so the size fields stay in view; once opened it stays open
+  journalRules(journal) {
+    const say = (r, words) => (r ? h("p", { class: "hint" }, words(r) ? `${words(r)} Source: ${r.source}.` : `${r.source}.`) : null);
+    const d = h("details", { class: "journal-rules", open: !!this.rulesOpen },
+      h("summary", {}, `What ${journal.name} asks for`),
+      say(journal.labels, (l) => `Panel labels: ${labelLook(l)}.`), say(journal.text, textRules),
+      say(journal.lines, lineRules), say(journal.pictures, pictureRules), say(journal.export, fileRules));
+    d.addEventListener("toggle", () => { this.rulesOpen = d.open; });
+    return d;
+  },
   pictureSection(it) {
     const a = store.doc.assets[it.asset];
     const [sw, sh] = (a.page_sizes && a.page_sizes[it.page_index || 0]) || a.size_pt;
@@ -588,6 +598,13 @@ export const inspector = {
     const status = h("p", { class: "link-status", id: `link-${it.id}` }, "Checking file…");
     this.updateLinkStatus(a, it.asset, status);
     const exportKinds = [["auto", "Automatic (best copy for each format)"], ...Object.keys(a.variants).map((k) => [k, `Always the ${k.toUpperCase()} copy`])];
+    // A PNG, TIFF or JPEG with no PDF or SVG copy: what kind of picture it is (journals ask more
+    // dpi of line art than of photos). Automatic is the Check's guess from its pixels
+    const raster = !a.variants.pdf && !a.variants.svg;
+    const kind = raster ? selectField("Kind", it.picture_kind || "auto", [["auto", "Automatic"], ["photo", "Photo"],
+      ["combination", "Photo with text or lines"], ["line_art", "Line art (graphs, drawings)"]],
+    (v) => this.edit("Picture kind", (o) => { if (v === "auto") delete o.picture_kind; else o.picture_kind = v; })) : null;
+    if (kind) this.guessKind(a, it.asset, kind);
     return section("Picture", [
       h("p", { class: "file-name", title: a.name }, a.name),
       status,
@@ -610,6 +627,7 @@ export const inspector = {
         }), "100%")),
       ...(it.inset ? [] : this.cropShapeFields(it)),   // (an inset's shape is set in its Zoom inset section)
       selectField("Export from", it.source || "auto", exportKinds, (v) => this.edit("Export source", (o) => { o.source = v; })),
+      kind, kind ? h("p", { class: "hint" }, "Journals ask for more dpi for line art than for photos; Check goes by this.") : null,
       h("div", { class: "button-row" },
         button("Replace with another file", () => this.app.run("replacePicture"), "Replace…"),
         button("Show the linked file in the Finder", () => this.app.run("revealPicture"), "Show file"),
@@ -787,6 +805,14 @@ export const inspector = {
     kids.push(h("p", { class: "hint" }, "Drag it to place it; it moves with its picture, and its length follows the picture's "
       + "size and crop."));
     return section("Scale bar", kids);
+  },
+  // The Check's guess at a picture's kind, named in the Kind list's Automatic choice
+  async guessKind(asset, assetId, field) {
+    try {
+      const guess = (await rpc("picture_kinds", { [assetId]: asset }))[assetId];
+      const opt = field.querySelector('option[value="auto"]');
+      if (guess && opt) opt.textContent = `Automatic (looks like ${KIND_NAMES[guess]})`;
+    } catch { /* it stays "Automatic" */ }
   },
   async updateLinkStatus(asset, assetId, el) {
     try {
@@ -1148,6 +1174,31 @@ function textRules(t) {
   const fonts = names ? `${t.fonts_only ? "only " : ""}${names}${t.fonts_only ? "" : " preferred"}` : "";
   if (!sizes && !fonts) return "";
   return `Text${sizes ? ` ${sizes}` : ""}${sizes && fonts ? "; fonts: " : fonts ? " fonts: " : ""}${fonts}. Check flags other text.`;
+}
+// A journal's line widths, picture resolution and files in words: "Lines 0.5–1.5 pt."
+function lineRules(l) {
+  const w = l.min_pt != null && l.max_pt != null ? `${l.about ? "about " : ""}${fmt(l.min_pt)}–${fmt(l.max_pt)} pt`
+    : l.min_pt != null ? `at least ${fmt(l.min_pt)} pt` : l.max_pt != null ? `at most ${fmt(l.max_pt)} pt` : "";
+  return w ? `Lines ${w}; Check flags thinner ones.` : "";
+}
+function pictureRules(p) {
+  const vector = p.vector || [];
+  const and = (list) => `${list.slice(0, -1).join(", ")}${list.length > 1 ? " and " : ""}${list.at(-1)}`;
+  const each = [["photo", "photos"], ["combination", "photos with text or lines"], ["line_art", "line art"]]
+    .filter(([k]) => p[k] && !vector.includes(k)).map(([k, what]) => `${fmt(p[k], 0)} dpi for ${what}`);
+  const vec = [vector.includes("line_art") ? "line art as vector files" : "",
+    vector.includes("combination") ? "text and lines over photos kept editable" : ""].filter(Boolean);
+  const said = [each.length ? `pictures at least ${and(each)}` : "", vec.length ? and(vec) : ""].filter(Boolean).join("; ");
+  return said ? `${said[0].toUpperCase()}${said.slice(1)} (a picture's kind is on its Picture tab).` : "";
+}
+const FORMAT_NAMES = { pdf: "PDF", svg: "SVG", png: "PNG", tiff: "TIFF", jpeg: "JPEG", eps: "EPS", pptx: "PowerPoint" };
+function fileRules(e) {
+  const list = (e.formats || []).map((f) => FORMAT_NAMES[f]);
+  if (!list.length) return "";
+  return `Files: ${list.length > 1 ? `${list.slice(0, -1).join(", ")} or ${list.at(-1)}` : list[0]}, in `
+    + `${{ rgb: "RGB", rgb_preferred: "RGB (preferred) or CMYK", either: "RGB or CMYK",
+      cmyk_preferred: "CMYK (preferred for print) or RGB", cmyk: "CMYK" }[e.colour || "either"]} colour`
+    + `${e.max_mb ? `, ${e.firm === false ? "under" : "at most"} ${fmt(e.max_mb, 1)} MB each${e.firm === false ? " where possible" : ""}` : ""}.`;
 }
 export function pagePreset(page, info) {
   const near = (a, b) => Math.abs(a - b) < 0.05;

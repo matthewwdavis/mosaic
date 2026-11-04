@@ -158,6 +158,11 @@ Matthew's choices are in brackets.
 - [x] Journal styles: a page's journal gives its panel labels the journal's look (case, brackets,
       font, size, bold; measured from published figures where the guidelines don't say) and Check
       its text sizes and fonts; switching journals keeps hand changes [Matthew's choices]
+- [x] Journal checks: Check holds each page to its journal's line widths and to its resolution for
+      each kind of picture (photo, photo with text or lines, line art; guessed from the pixels, set
+      on the Picture tab), and the Export window flags formats, resolution, colour, fonts and
+      transparency the journal doesn't take, and files too big [line widths, resolution and export;
+      guessed kind with an override; the publisher's rules, else mosaic's; flag, don't change]
 - [x] Text section in the Home tab: style, font, size, bigger and smaller (⌘⇧> and ⌘⇧<), line
       spacing, bold, italic, underline, superscript, subscript, colour, alignment, top/middle/bottom;
       on the text boxes selected (several at once) or the highlighted words while typing (each an
@@ -196,7 +201,7 @@ Matthew's choices are in brackets.
 ## Later
 
 - Importer coverage for every figure deck (vertical text, bullets)
-- Optional raster DPI cap / file-size targets for journal limits
+- Exports that meet a journal's file-size limit by themselves (Export only flags them for now)
 - Editable text from placed figures (asked 2026-11-04, kept as an idea): every label in a placed plot
   as a text box in its own font, size, colour and angle. Timed on three real figures (130-160 labels
   each): an edit takes about 30 ms instead of 15, opening and export no slower. To decide first: all

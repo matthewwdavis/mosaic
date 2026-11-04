@@ -135,6 +135,11 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
             warnings.append("EPS can't hold transparency; Ghostscript flattened any transparent areas")
         else:
             raise ValueError(f"unknown format {fmt!r}")
+    # Files bigger than the pages' journals take
+    from .preflight import size_limits
+    big, roomy = size_limits(doc, pages, files)
+    warnings += big
+    notes += roomy
     # De-duplicate while keeping order
     seen = set()
     warnings = [w for w in warnings if not (w in seen or seen.add(w))]
