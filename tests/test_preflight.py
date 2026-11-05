@@ -288,8 +288,11 @@ def test_horticulture_research_notes_text_under_7_pt():
     doc = journal_page(text_box("t1", "Axis", size=5, font="Arial"), text_box("la", "A", size=10, font="Arial", bold=True, y=60))
     doc["pages"][0]["preset"] = {"journal": "Horticulture Research", "type": "Double column"}
     doc["pages"][0]["width"] = 178 * MM
-    found = {f["message"]: f["level"] for f in pf.preflight(doc, {"pages": [0]})["items"] if f["level"] != "ok"}
-    assert found == {"“Axis”: text at 5.00 pt; Horticulture Research asks for at least 7 pt": "info"}
+    found = {f["message"]: f["level"] for f in pf.preflight(doc, {"pages": [0]})["items"]}
+    assert found["“Axis”: text at 5.00 pt; Horticulture Research asks for at least 7 pt"] == "info"
+    # Nothing warns (on Linux, Arial is drawn in Liberation Sans, which gets a font note of its own)
+    assert [m for m, level in found.items() if level == "warning"] == []
+    assert not any(m.startswith("Panel label") for m in found)
 
 
 def test_every_journal_has_label_and_text_rules_with_sources():
