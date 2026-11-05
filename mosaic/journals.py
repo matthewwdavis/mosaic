@@ -5,7 +5,7 @@ maximum figure depth ("Fit to content" crops it afterwards). To add a journal, a
 with its widths and depth and say where the numbers come from.
 
 Where a journal publishes no figure sizes, the widths and depth were measured from a
-published open-access article (PubMed Central, 2025): the width of a text column, the full
+published open-access article (PubMed Central, 2025-26): the width of a text column, the full
 text width, and the depth of the text block. Measured widths are rounded to the nearest
 0.5 mm and depths down to the whole millimetre. Checked against PNAS's published sizes, the
 method gets the column width within 0.2 mm; the full text width can be up to ~3 mm wider
@@ -49,8 +49,8 @@ STANDARD_SIZES = [
 DEFAULT_SIZE = "A4"
 
 
-def _measured(pmcid: str) -> str:
-    return f"measured from a published article ({pmcid}, 2025); the journal publishes no figure sizes"
+def _measured(pmcid: str, year: int = 2025) -> str:
+    return f"measured from a published article ({pmcid}, {year}); the journal publishes no figure sizes"
 
 
 JOURNALS = sorted([
@@ -141,6 +141,13 @@ JOURNALS = sorted([
         "types": [{"name": "Single column", "width_mm": 87.5}, {"name": "Double column", "width_mm": 181.0}],
         "note": "87.5 mm column, 181 mm full text width, 238 mm text depth.",
         "source": _measured("PMC13545244"),
+    },
+    {
+        "name": "Horticulture Research",
+        "depth_mm": 241.0,
+        "types": [{"name": "Single column", "width_mm": 85.5}, {"name": "Double column", "width_mm": 178.0}],
+        "note": "85.5 mm column, 178 mm (7 in) full text width, 241 mm text depth.",
+        "source": _measured("PMC13102514; the same in PMC13091401 and PMC13255517", 2026),
     },
     {
         "name": "Molecular Biology and Evolution",
@@ -354,6 +361,22 @@ RULES = {
         "export": _files("MBE's guidelines: .tif, .eps, .ppt, .xls, .doc, .pdf, .gif or .jpg; "
                          f"{_OUP}: RGB recommended, fonts embedded", ["tiff", "eps", "pptx", "pdf", "jpeg"], "rgb_preferred",
                          embed_fonts=True),
+    },
+    "Horticulture Research": {
+        "labels": _labels("Arial", 10.0, True, "upper", "Horticulture Research's guidelines: capital letters A, B, C at each "
+                          "panel's upper left; the look measured in published figures (13 articles, 2026): mostly bold, "
+                          "sans-serif ones in Arial (PMC13102514's, kept as text, 8.95 pt Arial Bold), 10 pt the middle size",
+                          measured=True),
+        "text": _text(f"{_OUP} (linked from Horticulture Research's guidelines): text no less than 7 pt; Arial, Times New "
+                      "Roman, Courier or Symbol. OUP calls its guide tips rather than strict rules, so Check notes rather "
+                      "than warns", 7.0, None, ["Arial", "Times New Roman", "Courier", "Symbol"], about=True),
+        "lines": _lines(f"{_OUP} (linked from Horticulture Research's guidelines): line thickness 0.25–1 pt", 0.25, 1.0),
+        "pictures": _pictures("Horticulture Research's guidelines: printed pictures at least 350 dpi, line art at least 600 "
+                              f"dpi (1200 for complex or finely drawn line art); {_OUP}: combination half-tones 600–900 dpi",
+                              350.0, 600.0, 600.0),
+        "export": _files("Horticulture Research's guidelines: TIFF for photographs; EPS, AI or PDF for charts and diagrams; "
+                         f"not Word or JPEG; {_OUP}: SVG and PNG too, RGB recommended, fonts embedded",
+                         ["tiff", "eps", "pdf", "svg", "png"], "rgb_preferred", embed_fonts=True),
     },
 }
 for _j in JOURNALS:

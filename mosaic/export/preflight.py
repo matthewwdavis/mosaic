@@ -298,7 +298,9 @@ def preflight(doc: dict, options: dict) -> dict:
         if sizes:
             low = min(size for size, _, _ in sizes)
             smallest = min(smallest or 1e9, low)
-            if rules.get("min_pt") is None:   # (a journal's own smallest size is checked with its rules)
+            # (a journal's own smallest size is checked with its rules; one it gives roughly, "about",
+            # is only a note, so mosaic's smallest size for all pages still holds)
+            if rules.get("min_pt") is None or rules.get("about"):
                 free_smallest = min(free_smallest or 1e9, low)
     summary = {"smallest_text_pt": round(smallest, 2) if smallest else None,
                "thinnest_line_pt": round(thinnest, 2) if thinnest is not None else None}

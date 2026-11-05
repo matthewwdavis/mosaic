@@ -274,6 +274,22 @@ def test_rough_sizes_and_preferred_fonts(monkeypatch, tmp_path):
     assert found["“Axis”: text at 5.00 pt; Test Journal asks for about 6–8 pt"] == "info"
     assert found["Panel label “a” isn't in Test Journal's style (A, B, C in bold 8 pt Arial as measured in its published "
                  "figures)"] == "info"
+    # A rough smallest size is only a note, so mosaic's 5 pt for all pages still warns
+    assert not any(m.startswith("smallest text is") for m in found)
+    doc["pages"][0]["items"][0]["text"]["paragraphs"][0]["runs"][0]["size"] = 4
+    found = {f["message"]: f["level"] for f in pf.preflight(doc, {"pages": [0]})["items"]}
+    assert found["smallest text is 4.00 pt (below 5.0 pt)"] == "warning"
+    assert found["“Axis”: text at 4.00 pt; Test Journal asks for about 6–8 pt"] == "info"
+
+
+def test_horticulture_research_notes_text_under_7_pt():
+    # OUP's 7 pt is a tip: a note at 5 pt, nothing more; capital bold 10 pt Arial labels
+    from mosaic.export import preflight as pf
+    doc = journal_page(text_box("t1", "Axis", size=5, font="Arial"), text_box("la", "A", size=10, font="Arial", bold=True, y=60))
+    doc["pages"][0]["preset"] = {"journal": "Horticulture Research", "type": "Double column"}
+    doc["pages"][0]["width"] = 178 * MM
+    found = {f["message"]: f["level"] for f in pf.preflight(doc, {"pages": [0]})["items"] if f["level"] != "ok"}
+    assert found == {"“Axis”: text at 5.00 pt; Horticulture Research asks for at least 7 pt": "info"}
 
 
 def test_every_journal_has_label_and_text_rules_with_sources():

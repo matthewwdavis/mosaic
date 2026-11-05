@@ -1048,8 +1048,9 @@ async function pageSizeChecks(app) {
   sizeBtn.click();
   menuItem("Journal").click();
   const nature = menuItem("Nature: Double column", true);
-  check(nature && document.querySelectorAll(".context-menu.submenu .menu-item").length === 33,
-    "its Journal submenu has every journal's figure types", document.querySelectorAll(".context-menu.submenu .menu-item").length);
+  const allTypes = (app.info.journals || []).reduce((n, j) => n + j.types.length, 0);
+  check(nature && allTypes >= 35 && document.querySelectorAll(".context-menu.submenu .menu-item").length === allTypes,
+    "its Journal submenu has every journal's figure types", `${document.querySelectorAll(".context-menu.submenu .menu-item").length} of ${allTypes}`);
   nature?.click();
   check(sizeIs(180, 170) && store.page().preset?.journal === "Nature", "a journal's figure type from the menu", pageSize());
   sizeBtn.click();

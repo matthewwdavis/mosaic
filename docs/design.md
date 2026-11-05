@@ -58,9 +58,10 @@ pre-export check says so.
   width and the journal's maximum figure depth (e.g. Nature 90/180 mm x 170 mm; Science
   5.7/12.1/18.4 cm x 19.9 cm, leaving room for the legend). 14 journals (2026-10-31): Cell, G3,
   Genetics, Genome Biology, Genome Research, Heredity, MBE, Molecular Plant, Nature, New
-  Phytologist, Plant Cell, PLOS Genetics, PNAS, Science. Where a journal publishes no sizes
-  (Genetics, G3, Genome Research, Heredity, MBE), they were measured from a published 2025
-  open-access article, as Matthew chose; the app's note says so. On journal pages "Fit to
+  Phytologist, Plant Cell, PLOS Genetics, PNAS, Science; Horticulture Research added 2026-11-05
+  (below). Where a journal publishes no sizes (Genetics, G3, Genome Research, Heredity, MBE,
+  Horticulture Research), they were measured from a published 2025-26 open-access article, as
+  Matthew chose; the app's note says so. On journal pages "Fit to
   content" keeps the column width. Data and sources: `journals.py`.
 - **Shapes (2026-10-31):** a Shapes menu (S, now in the drawing tools beside the page) with PowerPoint's rectangles,
   basic shapes, block arrows, stars, brackets and braces, and equation symbols (88 in all),
@@ -179,6 +180,23 @@ pre-export check says so.
     note) and each picture is held to the journal's dpi for its kind, or flagged if the journal
     wants that kind as vector artwork. *Export:* `export_check` runs on every change in the window;
     file sizes are checked once written (`size_limits`; a limit asked "where possible" is a note).
+- **Horticulture Research (2026-11-05):** the 15th journal (OUP, Nanjing Agricultural University).
+  Its instructions (academic.oup.com/hr/pages/general-instructions, read 2026-11-05) give capital
+  A, B, C labels at each panel's upper left, 350 dpi pictures and 600 dpi line art (1200 for
+  complex), TIFF/EPS/AI/PDF and no Word or JPEG, but no sizes, text or lines; for those they
+  link OUP's artwork guide (2022 PDF: text no less than 7 pt in Arial, Times New Roman, Courier
+  or Symbol; lines 0.25–1 pt; combination half-tones 600–900 dpi; RGB recommended; fonts
+  embedded; "tips rather than strict rules").
+  - *Sizes:* measured from three 2026 articles' publisher PDFs (PMC13091401, PMC13102514,
+    PMC13255517), identical in all three: 85.7 mm columns, 177.8 mm (7 in) text width, 241.5 mm
+    text depth, so 85.5 / 178 x 241 mm by the usual rounding.
+  - *Labels:* the journal doesn't restyle authors' figures, so labels vary. In 13 articles (2026),
+    12 used capitals, 7 of 12 measured were bold, sizes ran 8.5–16 pt with 10 pt the middle;
+    the only label kept as text was 8.95 pt Arial Bold. Matthew chose 10 pt Arial Bold capitals.
+  - *Text:* Matthew chose OUP's 7 pt as a note (it's a tip), with its four fonts preferred.
+    Genetics, G3 and MBE also fall back on OUP's guide but keep no text rule (his choice: leave
+    them). On the way, a journal's rough smallest size ("about") no longer lifts mosaic's 5 pt for
+    all pages, so Cell and Molecular Plant pages now warn below 5 pt too (before: only a note).
 - **Text section in the Home tab (2026-11-04):** font, size and the rest in the ribbon, beside the
   properties panel's Text tab (`ui/js/textribbon.js`). Matthew chose all the extra controls
   (superscript and subscript, bigger and smaller, top/middle/bottom, the text style list, line

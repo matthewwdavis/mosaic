@@ -23,7 +23,8 @@ def test_journal_figure_sizes():
     assert journals.journal_size("G3", "Double column") == journals.journal_size("Genetics", "Double column")
     assert journals.journal_size("PLOS Genetics", "Full width") == pytest.approx((190.5 * MM, 222.3 * MM))
     names = [j["name"] for j in journals.JOURNALS]
-    assert len(names) == 14 and names == sorted(names, key=str.lower)
+    assert journals.journal_size("Horticulture Research", "Double column") == pytest.approx((178 * MM, 241 * MM))
+    assert len(names) == 15 and names == sorted(names, key=str.lower)
     for j in journals.JOURNALS:
         types = [t["name"] for t in j["types"]]
         assert len(types) == len(set(types)) and j["depth_mm"] > 0 and j["source"]
