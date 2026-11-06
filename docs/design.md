@@ -59,9 +59,9 @@ pre-export check says so.
   5.7/12.1/18.4 cm x 19.9 cm, leaving room for the legend). 14 journals (2026-10-31): Cell, G3,
   Genetics, Genome Biology, Genome Research, Heredity, MBE, Molecular Plant, Nature, New
   Phytologist, Plant Cell, PLOS Genetics, PNAS, Science; Horticulture Research added 2026-11-05
-  (below). Where a journal publishes no sizes (Genetics, G3, Genome Research, Heredity, MBE,
-  Horticulture Research), they were measured from a published 2025-26 open-access article, as
-  Matthew chose; the app's note says so. On journal pages "Fit to
+  and The Plant Journal 2026-11-06 (below). Where a journal publishes no sizes (Genetics, G3,
+  Genome Research, Heredity, MBE, Horticulture Research; The Plant Journal's depth), they were
+  measured from a published 2025-26 open-access article, as Matthew chose; the app's note says so. On journal pages "Fit to
   content" keeps the column width. Data and sources: `journals.py`.
 - **Shapes (2026-10-31):** a Shapes menu (S, now in the drawing tools beside the page) with PowerPoint's rectangles,
   basic shapes, block arrows, stars, brackets and braces, and equation symbols (88 in all),
@@ -197,6 +197,23 @@ pre-export check says so.
     Genetics, G3 and MBE also fall back on OUP's guide but keep no text rule (his choice: leave
     them). On the way, a journal's rough smallest size ("about") no longer lifts mosaic's 5 pt for
     all pages, so Cell and Molecular Plant pages now warn below 5 pt too (before: only a note).
+- **The Plant Journal (2026-11-06):** the 16th journal (Wiley, Society for Experimental Biology),
+  listed by its full name as Matthew chose. Wiley's site refuses scripted reads, so its author
+  guidelines come from the Wayback Machine's latest copy (2022-10-25): figures 8 cm wide, or up
+  to 16.8 cm for full-page composite photographs; lettering "in 8pt Helvetica if possible"; panels
+  in lowercase letters. They link Wiley's figure guidelines (2016 PDF; the current
+  authorservices.wiley.com page agrees): images 300 dpi, line art 600 dpi and figures with both
+  as line art; PDF/EPS for line art, TIFF/PNG for images, any standard type after acceptance;
+  under 10 MB each preferred; no line widths or colour mode.
+  - *Sizes:* in 17 publisher PDFs (2026) the columns are 79.9 mm and the full width 168.6 mm,
+    matching the guidelines, and figures of every kind use the full width, so 80 / 168 mm; the
+    text block is 226.5 mm deep (PMC13725933, PMC13732550, PMC13720327 and others), so 226 mm,
+    as New Phytologist (also Wiley) states.
+  - *Labels:* Wiley re-letters every panel label: in 81 figures from 15 articles, all were
+    bracketed, regular weight, about 9 pt (brackets 8.4–8.6 pt tall, capital A 6.5 pt, a 5.0 pt);
+    case follows the authors (7 articles (A), 8 (a)). Matthew chose the guidelines' 8 pt Helvetica
+    and lowercase, with the published brackets and weight: (a) in regular 8 pt Helvetica.
+  - *Text:* Matthew chose 8 pt as a note ("if possible"), with Helvetica preferred.
 - **Text section in the Home tab (2026-11-04):** font, size and the rest in the ribbon, beside the
   properties panel's Text tab (`ui/js/textribbon.js`). Matthew chose all the extra controls
   (superscript and subscript, bigger and smaller, top/middle/bottom, the text style list, line

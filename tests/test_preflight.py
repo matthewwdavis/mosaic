@@ -295,6 +295,22 @@ def test_horticulture_research_notes_text_under_7_pt():
     assert not any(m.startswith("Panel label") for m in found)
 
 
+def test_plant_journal_notes_text_under_8_pt():
+    # "8pt Helvetica if possible": a note at 6 pt, nothing more; (a) labels in regular 8 pt Helvetica
+    from mosaic.export import preflight as pf
+    doc = journal_page(text_box("t1", "Axis", size=6), text_box("la", "(a)", size=8, y=60),
+                       text_box("lb", "B", size=8, bold=True, y=80))
+    doc["pages"][0]["preset"] = {"journal": "The Plant Journal", "type": "Double column"}
+    doc["pages"][0]["width"] = 168 * MM
+    found = {f["message"]: f["level"] for f in pf.preflight(doc, {"pages": [0]})["items"]}
+    assert found["“Axis”: text at 6.00 pt; The Plant Journal asks for at least 8 pt"] == "info"
+    # Nothing warns (on Linux, Helvetica is drawn in a stand-in, which gets a font note of its own)
+    assert [m for m, level in found.items() if level == "warning"] == []
+    assert [m for m in found if m.startswith("Panel label")] == [
+        "Panel label “B” isn't in The Plant Journal's style ((a), (b), (c) in 8 pt Helvetica as measured in its "
+        "published figures)"]
+
+
 def test_every_journal_has_label_and_text_rules_with_sources():
     from mosaic.journals import JOURNALS
     for j in JOURNALS:

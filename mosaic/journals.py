@@ -164,6 +164,16 @@ JOURNALS = sorted([
         "note": "6.68 to 19.05 cm wide (13.2 cm lines up with the text column); at most 22.23 cm tall.",
         "source": "PLOS figure guidelines (journals.plos.org)",
     },
+    {
+        "name": "The Plant Journal",
+        "depth_mm": 226.0,
+        "types": [{"name": "Single column", "width_mm": 80.0}, {"name": "Double column", "width_mm": 168.0}],
+        "note": "8 cm column; 16.8 cm full width (the guidelines keep it for composite photographs, but published "
+                "figures of every kind use it); 226 mm text depth.",
+        "source": "The Plant Journal author guidelines (an archived 2022 copy; the current Wiley page couldn't be read "
+                  "automatically): 8 cm, and 16.8 cm for full-page figures; the depth measured from published articles "
+                  "(PMC13725933, PMC13732550 and PMC13720327, 2026), whose columns match: 79.9 and 168.6 mm",
+    },
 ], key=lambda j: j["name"].lower())
 
 
@@ -377,6 +387,21 @@ RULES = {
         "export": _files("Horticulture Research's guidelines: TIFF for photographs; EPS, AI or PDF for charts and diagrams; "
                          f"not Word or JPEG; {_OUP}: SVG and PNG too, RGB recommended, fonts embedded",
                          ["tiff", "eps", "pdf", "svg", "png"], "rgb_preferred", embed_fonts=True),
+    },
+    "The Plant Journal": {
+        "labels": _labels("Helvetica", 8.0, False, "lower", "The Plant Journal author guidelines (2022 copy): lowercase "
+                          "letters, lettering in 8 pt Helvetica; brackets and regular weight as Wiley letters every label "
+                          "in its published figures (15 articles, 2026, where they print at about 9 pt)", form="(a)",
+                          measured=True),
+        "text": _text("The Plant Journal author guidelines (2022 copy): lettering in 8 pt Helvetica if possible, so Check "
+                      "notes rather than warns", 8.0, None, ["Helvetica"], about=True),
+        "lines": _lines("Neither The Plant Journal's guidelines nor Wiley's figure guidelines give line widths, so Check "
+                        "uses mosaic's 0.25 pt"),
+        "pictures": _pictures("Wiley's figure guidelines (The Plant Journal's page links to them): images 300 dpi, line art "
+                              "600 dpi, and figures with both follow line art", 300.0, 600.0, 600.0),
+        "export": _files("Wiley's figure guidelines: PDF or EPS for line art, TIFF or PNG for images, any standard file type "
+                         "after acceptance (SVG isn't among those listed), under 10 MB each preferred; no colour mode "
+                         "stated", ["pdf", "eps", "tiff", "png", "jpeg", "pptx"], "either", 10.0, firm=False),
     },
 }
 for _j in JOURNALS:

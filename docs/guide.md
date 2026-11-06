@@ -110,8 +110,8 @@ With nothing selected (click the grey area or press Escape), the right panel sho
 - **Journal** and **Figure type**: sets the page to that journal's column width and its greatest
   figure depth, e.g. Nature double column, 180 × 170 mm. Built in: Cell, G3, Genetics, Genome
   Biology, Genome Research, Heredity, Horticulture Research, Molecular Biology and Evolution,
-  Molecular Plant, Nature, New Phytologist, Plant Cell, PLOS Genetics, PNAS and Science. The note
-  below says where each size comes from. Some journals don't publish sizes; for those the sizes
+  Molecular Plant, Nature, New Phytologist, Plant Cell, PLOS Genetics, PNAS, Science and The
+  Plant Journal. The note below says where each size comes from. Some journals don't publish sizes; for those the sizes
   were measured from a recent published article, and the note says so.
   - A journal also gives the page's panel labels its look (see
     [Text and panel labels](#text-and-panel-labels)), Check judges the page by its rules (text
