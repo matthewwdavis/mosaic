@@ -249,6 +249,14 @@ pre-export check says so.
     mosaic's width; PowerPoint gets `kern="100"` (from 1 pt up) or `kern="0"`.
   - *R:* R's pdf() kerns with Adobe's Helvetica AFM (about 250 pairs, "Ty" -120/1000); macOS's
     Helvetica has 105 pairs ("Ty" -55), so lifted text gets closer to R's spacing, not identical.
+- **Refresh All Pictures (2026-11-09):** Matthew's choices: re-read everything (every linked file
+  whatever its date, an undone update included, and copies saved beside a file since it was
+  placed), every page, a Refresh button in the Home tab's File group plus File menu, the page's
+  right-click menu and command search, and ⌘⇧R. `refresh_asset(force=True)` re-reads each
+  variant and `_new_copies` adds siblings as `new_asset` would (same name, same size within
+  0.05 pt; PDF and SVG, PNG only for a picture without vector copies). It's one "Update from file"
+  step, so its undo asks first as an automatic update's does, and texts lifted out in dangerous
+  mode are matched again in the new files.
 - **Text section in the Home tab (2026-11-04):** font, size and the rest in the ribbon, beside the
   properties panel's Text tab (`ui/js/textribbon.js`). Matthew chose all the extra controls
   (superscript and subscript, bigger and smaller, top/middle/bottom, the text style list, line

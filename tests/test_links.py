@@ -92,6 +92,39 @@ def test_a_new_name_a_missing_file_and_an_unlinked_picture_are_left_alone(tmp_pa
     assert api.link_status({aid: asset}) == {aid: "missing"}
 
 
+def test_refresh_all_reads_every_file_again_and_finds_new_copies(tmp_path):
+    # Placed as an SVG alone; R then saves a PDF copy too, and re-saves the SVG keeping its size
+    # and date (as a copy from a synced folder can be): the regular look sees neither
+    folder = tmp_path / "Figures"
+    folder.mkdir()
+    path = str(folder / "plot.svg")
+    (folder / "plot.svg").write_text(svg(100))
+    aid, asset, _ = new_asset(path)
+    assert sorted(asset["variants"]) == ["svg"]
+    write_pdf(str(folder / "plot.pdf"), 100)
+    st = os.stat(path)
+    (folder / "plot.svg").write_text(svg(100, "#993399"))   # (the same length: one colour for another)
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))
+    api = Api()
+    assert api.refresh_assets({aid: asset}) == {"changed": {}}
+    res = api.refresh_assets({aid: asset}, None, True)
+    neu = res["changed"][aid]
+    assert res["added"] == {aid: ["pdf"]} and res["missing"] == []
+    assert sorted(neu["variants"]) == ["pdf", "svg"] and neu["variants"]["svg"]["sha256"] != asset["variants"]["svg"]["sha256"]
+    assert neu["variants"]["pdf"]["src"] == str(folder / "plot.pdf")
+    # A copy of another size isn't the same plot
+    write_pdf(str(folder / "other.pdf"), 120)
+    (folder / "other.svg").write_text(svg(100))
+    oid, other, _ = new_asset(str(folder / "other.svg"))
+    assert sorted(other["variants"]) == ["svg"]
+    assert api.refresh_assets({oid: other}, None, True) == {"changed": {}, "added": {}, "missing": []}
+    # Nothing new: nothing changed; a file gone is listed
+    assert api.refresh_assets({aid: neu}, None, True) == {"changed": {}, "added": {}, "missing": []}
+    os.remove(path)
+    os.remove(str(folder / "plot.pdf"))
+    assert api.refresh_assets({aid: neu}, None, True)["missing"] == [aid]
+
+
 def test_a_document_moved_with_its_figures_finds_them_beside_it(tmp_path):
     first = tmp_path / "project"
     path = plot(first / "Figures")

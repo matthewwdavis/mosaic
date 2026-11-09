@@ -361,10 +361,14 @@ def resolve_link(var: dict, doc_dir: str | None) -> str | None:
     return None
 
 
-def refresh_asset(asset: dict, cache: AssetCache, doc_dir: str | None = None) -> list[str]:
-    """Re-read linked variants whose files changed. Returns the kinds that changed."""
+def refresh_asset(asset: dict, cache: AssetCache, doc_dir: str | None = None, force: bool = False) -> list[str]:
+    """Re-read linked variants whose files changed. Returns the kinds that changed.
+
+    `force` (Refresh All Pictures): re-read every linked file whatever its date says, and take in
+    copies of the plot saved since it was placed (the same name, another format, the same size,
+    as new_asset finds them); those count as changed too."""
     changed = []
-    if not asset.get("auto_update"):
+    if not asset.get("auto_update") and not (force and any(v.get("src") for v in asset["variants"].values())):
         return changed
     for kind, var in list(asset["variants"].items()):
         src = resolve_link(var, doc_dir)
@@ -374,7 +378,7 @@ def refresh_asset(asset: dict, cache: AssetCache, doc_dir: str | None = None) ->
             st = os.stat(src)
         except OSError:
             continue
-        if var.get("mtime") == st.st_mtime and var.get("bytes") == st.st_size:
+        if not force and var.get("mtime") == st.st_mtime and var.get("bytes") == st.st_size:
             continue
         new = make_variant(src, cache, link=True)
         if new["sha256"] != var["sha256"]:
@@ -382,12 +386,38 @@ def refresh_asset(asset: dict, cache: AssetCache, doc_dir: str | None = None) ->
             changed.append(kind)
         else:
             var["mtime"], var["bytes"] = st.st_mtime, st.st_size
+    if force:
+        changed += _new_copies(asset, cache, doc_dir)
     if changed:
         prim = asset["variants"][asset["primary"]]
         asset["size_pt"] = list(prim["size_pt"])
         if "page_sizes" in prim:
             asset["page_sizes"] = prim["page_sizes"]
     return changed
+
+
+def _new_copies(asset: dict, cache: AssetCache, doc_dir: str | None) -> list[str]:
+    """Copies of a linked plot saved beside its file since it was placed, added to its variants
+    as new_asset would have (PDF and SVG copies; a PNG copy of a picture with no vector copy)."""
+    primary = asset.get("primary")
+    src = resolve_link(asset["variants"].get(primary) or {}, doc_dir)
+    if not src:
+        return []
+    added = []
+    ref = asset["variants"][primary]["size_pt"]
+    for kind, path in siblings(src).items():
+        if kind in asset["variants"] or kind not in VECTOR_KINDS + ("png",):
+            continue
+        if kind in RASTER_KINDS and (primary in VECTOR_KINDS or any(k in asset["variants"] for k in VECTOR_KINDS)):
+            continue   # a vector plot exports from its vector copies
+        try:
+            var = make_variant(path, cache, link=True)
+        except Exception:
+            continue
+        if abs(var["size_pt"][0] - ref[0]) <= SIZE_TOLERANCE and abs(var["size_pt"][1] - ref[1]) <= SIZE_TOLERANCE:
+            asset["variants"][kind] = var
+            added.append(kind)
+    return added
 
 
 # ---------------------------------------------------------------------------

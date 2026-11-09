@@ -89,6 +89,7 @@ const app = {
     return [
       { title: "File", items: [c("New", "new"), c("Open…", "open"), { title: "Open Recent", recent: true }, "-",
         { title: "Close", selector: "performClose:", keys: `${M}W` }, c("Save", "save"), c("Save As…", "saveAs"), "-",
+        c("Refresh All Pictures", "refreshAll"), "-",
         c("Export…", "export"), c("Check Before Export…", "preflight"), c("Figure Report…", "figureReport")] },
       { title: "Edit", items: [c("Undo", "undo"), c("Redo", "redo"), "-",
         c("Cut", "cut"), c("Copy", "copy"), c("Paste", "paste"), c("Paste as Picture", "pastePicture"),
@@ -649,16 +650,24 @@ const app = {
       return !!store.doc.assets[id];
     });
     if (!ids.length) return;
-    // Texts lifted out of these plots in dangerous mode are lifted out of the new files too; those
-    // no longer there are dropped (liftedtext.js)
+    const dropped = await this.takeUpdates(changed, ids);
+    if (dropped === null) return;
+    announce(`Updated ${ids.map((id) => changed[id].name).join(", ")} from ${ids.length === 1 ? "its file" : "their files"}`
+      + this.droppedNote(dropped));
+  },
+  // Pictures' files read again: each picture keeps its place and scale, as one undo step. Texts
+  // lifted out of these plots in dangerous mode are lifted out of the new files too; those no
+  // longer there are dropped (liftedtext.js). The dropped edits, or null if a drag began meanwhile
+  async takeUpdates(changed, ids) {
     const lost = {};
     for (const id of ids) Object.assign(lost, await lostAfterUpdate(store.doc, id, changed[id]));
-    if (store._live) return;
+    if (store._live) return null;
     let dropped = [];
     store.update(UPDATE_FROM_FILE, (doc) => {
       dropped = dropLost(doc, lost);
       for (const id of ids) {
         const old = doc.assets[id], neu = changed[id];
+        if (!old) continue;
         const walk = (items) => items.forEach((it) => {
           if (it.type === "group") walk(it.items);
           if (it.type !== "picture" || it.asset !== id) return;
@@ -669,9 +678,35 @@ const app = {
         doc.assets[id] = neu;
       }
     });
-    announce(`Updated ${ids.map((id) => changed[id].name).join(", ")} from ${ids.length === 1 ? "its file" : "their files"}`
-      + (dropped.length ? `; ${dropped.length} edited text${dropped.length === 1 ? " isn't" : "s aren't"} in the new file, so `
-        + `${dropped.length === 1 ? "its edit was" : "their edits were"} dropped (Check lists ${dropped.length === 1 ? "it" : "them"})` : ""));
+    return dropped;
+  },
+  droppedNote(dropped) {
+    const one = dropped.length === 1;
+    return dropped.length ? `; ${dropped.length} edited text${one ? " isn't" : "s aren't"} in the new file, so `
+      + `${one ? "its edit was" : "their edits were"} dropped (Check lists ${one ? "it" : "them"})` : "";
+  },
+  // Refresh All Pictures (⌘⇧R): every linked picture on every page read again from its files now,
+  // whatever their dates say, an update undone before included, and copies (PDF, SVG, PNG) saved
+  // beside a file since it was placed taken in
+  async refreshAll() {
+    if (!store.doc) return;
+    const linked = {};
+    for (const [id, a] of Object.entries(store.doc.assets)) if (Object.values(a.variants).some((v) => v.src)) linked[id] = a;
+    if (!Object.keys(linked).length) return announce("No linked pictures to refresh: every picture is stored in the document only");
+    announce("Refreshing pictures from their files…");
+    const { changed, added, missing } = await rpc("refresh_assets", linked, store.path, true);
+    const ids = Object.keys(changed).filter((id) => store.doc.assets[id]);
+    for (const id of Object.keys(linked)) delete this.declined[id];
+    const dropped = ids.length ? await this.takeUpdates(changed, ids) : [];
+    if (dropped === null) return announce("Not refreshed: something was being dragged");
+    const name = (id) => linked[id]?.name || id;
+    const copies = Object.entries(added || {}).flatMap(([id, kinds]) => kinds.map((k) => `${k.toUpperCase()} of ${name(id)}`));
+    const n = Object.keys(linked).length;
+    announce(`Refreshed ${n} linked picture${n === 1 ? "" : "s"}: `
+      + (ids.length ? `${ids.map(name).join(", ")} updated` : "all up to date")
+      + (copies.length ? `; new copies found: ${copies.join(", ")}` : "")
+      + (missing?.length ? `; file not found for ${missing.map(name).join(", ")} (using the stored copy)` : "")
+      + this.droppedNote(dropped));
   },
   // Undo and redo. Undoing an update from a linked file keeps the version before it until the
   // file is saved again (refreshLinks); redoing it takes the update back. That undo asks first,
@@ -1619,7 +1654,7 @@ const app = {
     return [
       store.scope.length && { label: "Leave the group", keys: "Escape", run: () => { store.exitGroup(); announce("Left the group"); } },
       store.scope.length && "-",
-      ...this.pasteEntries(clip, at), c("selectAll"),
+      ...this.pasteEntries(clip, at), c("selectAll"), c("refreshAll"),
       "-",
       c("insertPicture", { label: "Insert picture…" }), c("fitPage"),
       "-",
@@ -2326,6 +2361,8 @@ app.commands = {
   straighten: cmd("Make line straight", () => app.straighten()),
   shapeToCurve: cmd("Make editable curve", () => app.shapeToCurve()),
   replacePicture: cmd("Replace picture", () => app.replacePicture()),
+  refreshAll: cmd("Refresh all pictures: read every linked plot's files again now, with copies saved since", () => app.refreshAll(),
+    `${M}${S}R`, key("r", { shift: true }), "Refresh"),
   revealPicture: cmd("Show the picture's file", async () => {
     const it = store.selected()[0];
     const a = it && store.doc.assets[it.asset];

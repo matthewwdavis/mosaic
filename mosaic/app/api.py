@@ -794,19 +794,29 @@ class Api:
             fh.write(base64.b64decode(data_b64))
         return path
 
-    def refresh_assets(self, assets: dict, doc_path: str | None = None) -> dict:
-        """Re-read linked files that changed on disk; returns the updated asset records."""
+    def refresh_assets(self, assets: dict, doc_path: str | None = None, force: bool = False) -> dict:
+        """Re-read linked files that changed on disk; returns the updated asset records. `force`
+        (Refresh All Pictures): every linked file re-read, copies saved since placing taken in,
+        and which files couldn't be found ({"changed", "added": {id: [kinds]}, "missing": [ids]})."""
+        from ..assets import resolve_link
         doc_dir = os.path.dirname(doc_path) if doc_path else None
-        changed = {}
+        changed, added, missing = {}, {}, []
         for aid, asset in assets.items():
             asset = json.loads(json.dumps(asset))
+            before = set(asset.get("variants", {}))
+            if force and not any(resolve_link(v, doc_dir) for v in asset.get("variants", {}).values() if v.get("src")):
+                missing.append(aid)
+                continue
             try:
-                kinds = refresh_asset(asset, get_cache(), doc_dir)
+                kinds = refresh_asset(asset, get_cache(), doc_dir, force=force)
             except Exception:
                 continue
             if kinds:
                 changed[aid] = asset
-        return {"changed": changed}
+                new = sorted(set(asset["variants"]) - before)
+                if new:
+                    added[aid] = new
+        return {"changed": changed, "added": added, "missing": missing} if force else {"changed": changed}
 
     def link_status(self, assets: dict, doc_path: str | None = None) -> dict:
         from ..assets import resolve_link

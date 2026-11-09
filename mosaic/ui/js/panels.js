@@ -21,6 +21,7 @@ import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon
 // notices are in THIRD_PARTY_NOTICES.md)
 const ICONS = {
   danger: "M12 3l10 18H2zM12 10v5M12 18h.01",
+  refresh: "M20 12a8 8 0 11-2.3-5.7M20 4v5h-5",
   select: "M5 3l13 9-6 1.5L9.5 20z", text: "M5 6V4h14v2M12 4v16M9 20h6",
   label: "M4 4h16v16H4zM9 15l3-7 3 7M10 13h4", line: "M5 19L19 5", arrow: "M5 19L18 6M10 6h8v8",
   rect: "M4 6h16v12H4z", roundrect: "M8 5h8a4 4 0 014 4v6a4 4 0 01-4 4H8a4 4 0 01-4-4V9a4 4 0 014-4z",
@@ -271,7 +272,7 @@ export const panels = {
     };
     const tabs = [
       ["home", "Home", [
-        group("File", t("new", "new"), t("open", "open"), t("save", "save")),
+        group("File", t("new", "new"), t("open", "open"), t("save", "save"), t("refreshAll", "refresh")),
         group("Edit", t("undo", "undo"), t("redo", "redo")),
         textRibbon.build(this.app, this),
         group("Clipboard", t("cut", "cut"), t("copy", "copy"), t("paste", "paste"), this.painterButton()),

@@ -487,6 +487,57 @@ async function linkedFileChecks(app) {
   }
 }
 
+// Refresh All Pictures (⌘⇧R): every linked picture read again now, even while the window is
+// hidden (when the regular look waits) and after an update was undone (which the regular look
+// keeps undone); in the Home tab, the File menu and the page's menu
+async function refreshAllChecks(app) {
+  const showing = (on) => Object.defineProperty(document, "hidden", { get: () => !on, configurable: true });
+  const soon = async (cond, ms) => { const t0 = performance.now(); while (!cond() && performance.now() - t0 < ms) await wait(50); return cond(); };
+  const said = () => document.getElementById("live").textContent;
+  try {
+    showing(true);
+    store.setDoc(await rpc("new_document"));
+    canvas.fit();
+    await settle();
+    const plot = (w, colour) => btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}pt" height="50pt" viewBox="0 0 ${w} 50">`
+      + `<rect x="5" y="5" width="${w - 10}" height="30" fill="${colour}"/></svg>`);
+    const path = await rpc("selftest_scratch", "refresh_plot.svg", plot(100, "#336699"));
+    await app.placeFiles([path], [80, 120], false);
+    const id = store.items().find((it) => it.type === "picture")?.id;
+    if (!id) return check(false, "a figure is placed linked for Refresh All", path);
+    const size = () => store.doc.assets[store.item(id).asset].size_pt.join();
+    const menu = app.menuSpec().find((m) => m.title === "File").items.find((x) => x.title === "Refresh All Pictures");
+    check(document.querySelector('#rpanel-home [data-cmd="refreshAll"]') && menu?.action === "refreshAll"
+      && app.commands.refreshAll.keys === `${isMac ? "⌘" : "Ctrl+"}${isMac ? "⇧" : "Shift+"}R`
+      && app.pageMenu({}).some((x) => x && x.label === "Refresh all pictures"),
+    "Refresh All Pictures is in the Home tab, the File menu and the page's menu, with ⌘⇧R",
+    `${menu?.action}; ${app.commands.refreshAll.keys}`);
+    // Saved again while the window is hidden: the regular look waits, Refresh takes it now
+    showing(false);
+    await rpc("selftest_scratch", "refresh_plot.svg", plot(140, "#993333"));
+    await app.run("refreshAll");
+    await soon(() => said().startsWith("Refreshed"), 2000);
+    check(size() === "140,50" && near(store.item(id).frame[2], 140) && said() === "Refreshed 1 linked picture: refresh_plot.svg updated",
+      "Refresh All reads a re-saved file at once, keeping its picture's place and scale", `${size()}; ${said()}`);
+    // Undone, the update stays undone for the regular look; Refresh All takes it again
+    showing(true);
+    await app.run("undo");
+    await wait(3000);
+    const undone = size();
+    await app.run("refreshAll");
+    await soon(() => size() === "140,50", 3000);
+    check(undone === "100,50" && size() === "140,50", "after an update is undone, Refresh All takes the file's version again",
+      `${undone}; ${size()}`);
+    // Nothing new: it says so
+    await app.run("refreshAll");
+    await soon(() => said().includes("all up to date"), 2000);
+    check(said() === "Refreshed 1 linked picture: all up to date" && store.history.at(-1)?.label === "Update from file",
+      "with nothing new, Refresh All says all is up to date and adds no undo step", said());
+  } finally {
+    delete document.hidden;
+  }
+}
+
 // Dangerous mode (liftedtext.js): off at first; on, a double-click on a placed plot's text lifts it
 // out as a text box over the plot, which is then drawn without it; the boxes go with the picture;
 // Put back deletes one and the plot's text shows again; a copy of the picture alone shows its
@@ -2233,6 +2284,7 @@ export async function run(app, params) {
     if (params.get("only") === "journallabels") { await journalLabelChecks(app); throw ONLY; }
     if (params.get("only") === "journalchecks") { await journalCheckChecks(app); throw ONLY; }
     if (params.get("only") === "dangerous") { await dangerousModeChecks(app); throw ONLY; }
+    if (params.get("only") === "refresh") { await refreshAllChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3487,6 +3539,7 @@ export async function run(app, params) {
     await journalLabelChecks(app);
     await journalCheckChecks(app);
     await dangerousModeChecks(app);
+    await refreshAllChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

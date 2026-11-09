@@ -816,8 +816,8 @@ shortcut beside it:
   - Right-clicking an object that isn't selected selects it.
   - Right-clicking one of several selected objects keeps them all selected, so **Group** groups
     the lot.
-- **Empty page:** Paste, Select all, Insert picture, Fit page to content, and the Rulers, Grid,
-  Guides and Snap switches; Leave the group while editing inside one.
+- **Empty page:** Paste, Select all, Refresh all pictures, Insert picture, Fit page to content,
+  and the Rulers, Grid, Guides and Snap switches; Leave the group while editing inside one.
 - **A guide** (on the page where no object covers it, or its mark on a ruler): Remove guide,
   Remove all guides, Hide guides.
 - **Paste** from a right-click puts things where you clicked. When the clipboard holds both text
@@ -1042,6 +1042,12 @@ under one name. As with exporting, the window then closes and a note names the f
   the document). A changed file updates its picture; a missing one falls back to the stored copy.
   A figure saved under a new name (`plot_v2.svg`) isn't followed: point the picture at it once
   with **Replace…**.
+- **Refresh All Pictures** (⌘⇧R; **Refresh** in the Home tab, File ▸ Refresh All Pictures, or
+  right-click the page) reads every linked picture on every page again from its files now,
+  without waiting for the check. It takes an update you undid before, and copies of a plot saved
+  beside its file since you placed it (a PDF or SVG that wasn't there yet), so each export can use
+  its own copy. Pictures keep their place and scale, the status bar says what changed and which
+  files weren't found, and ⌘Z undoes it in one step.
 - **Recovery:** unsaved work is copied every minute, and as a window closes without saving. If
   mosaic closes unexpectedly, it offers the work back next time. That window can also **Delete**
   copies you don't need, one at a time or all together. **Settings → Unsaved work** shows how
@@ -1214,6 +1220,7 @@ Press **?** in mosaic for this list.
 | Zoom in, Zoom out, Fit page in window, True size | ⌘+, ⌘−, ⌘0, ⌘1 | Ctrl+Plus, Ctrl+Minus, Ctrl+0, Ctrl+1 |
 | Centre page (keeping the zoom) | ⌘⇧0 | Ctrl+Shift+0 |
 | Rulers, Grid, Guides | ⌘R, ⌘', ⌘; | Ctrl+R, Ctrl+', Ctrl+; |
+| Refresh all pictures from their files | ⌘⇧R | Ctrl+Shift+R |
 | Snap on or off | ⌘⇧; | Ctrl+Shift+; |
 | Select, Text, Panel label | V, T, P | V, T, P |
 | Line, Arrow, Pen | L, A, B | L, A, B |

@@ -195,6 +195,8 @@ Matthew's choices are in brackets.
       [Matthew's choices]
 - [x] Kerning (asked 2026-11-09): the font's own pairs; new text kerned at every size, a Kerning
       box on the Text tab, PowerPoint text as each run says, saved figures unchanged [Matthew's choices]
+- [x] Refresh All Pictures (asked 2026-11-09): every linked picture on every page read again now,
+      undone updates and newly saved copies included; Home tab, File menu, page menu, ⌘⇧R [Matthew's choices]
 
 ## Acceptance test (test slide)
 
