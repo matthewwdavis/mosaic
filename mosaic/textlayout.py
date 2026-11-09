@@ -26,8 +26,12 @@ SMALL_TEXT_SHIFT = 0.75
 SCRIPT_SCALE = 2.0 / 3.0                # super/subscript size relative to the run
 SYNTHETIC_ITALIC_SKEW = 0.2126          # tan(12 degrees)
 
+# kern: letter pairs set as the font's kerning says. Off unless a run says so, so text from
+# before mosaic kerned (2026-11-09) keeps its spacing; text made in mosaic since has it on, and
+# text from PowerPoint follows each run's own setting there (PowerPoint kerns from a size up)
 DEFAULT_RUN = {"font": "Helvetica", "size": 6.0, "bold": False, "italic": False,
-               "color": "#000000", "opacity": 1.0, "baseline": 0.0, "underline": False}
+               "color": "#000000", "opacity": 1.0, "baseline": 0.0, "underline": False, "kern": False}
+BREAKS = " -–—/"   # a line may break after these, so no kerning reaches across them
 
 
 @dataclass
@@ -115,6 +119,8 @@ def _pieces(runs: list[dict], defaults: dict | None, index: FontIndex | None) ->
             adv = f.advance(gid) * size
             last = out[-1] if out else None
             if last is not None and last.face is f and last.style is st and last.synth_italic == s:
+                if st.get("kern") and last.text[-1] not in BREAKS + "\n\t":   # (the pair's space goes on the first)
+                    last.advances[-1] += f.kern(last.gids[-1], gid) * size
                 last.text += ch
                 last.gids.append(gid)
                 last.advances.append(adv)
@@ -149,7 +155,7 @@ def _break_lines(pieces: list[_Piece], max_width: float | None) -> list[list[_Pi
             last_break = -1
         line.append((p, i))
         width += adv
-        if ch in " -–—/":
+        if ch in BREAKS:
             last_break = len(line) - 1
     lines.append(line)
     # Regroup characters into pieces per line

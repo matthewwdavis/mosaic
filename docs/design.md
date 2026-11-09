@@ -237,6 +237,18 @@ pre-export check says so.
     as the SVG's text-anchor says (PDFs don't say: left), not auto-fitted (it would grow from the
     left); `followLifted` keeps them on their picture through moves, crops, scaling (sizes too)
     and turns. A copy of the picture alone shows the texts whose boxes still exist elsewhere.
+- **Kerning (2026-11-09):** letter pairs set as the font says. Matthew chose: new text kerned at
+  every size (with a Kerning box on the Text tab), text from PowerPoint as each run's own setting
+  (`kern`, hundredths of a point: kerned from that size up, so PowerPoint's default 12 pt leaves
+  figure text unkerned), and saved figures left as they are (a run kerns only with `kern: true`).
+  - *Source:* `Face.kern` reads the font's GPOS kern feature (pair positioning, glyph pairs and
+    classes, extension lookups), else its kern table; no shaping library. Pairs stop at the
+    characters a line can break after, so no kerning crosses a line break.
+  - *Exports:* the layout's advances carry the kerning; PDF writes a TJ with the gaps (unkerned
+    runs are the same Tj as before); SVG keeps textLength, so a viewer's own kerning is held to
+    mosaic's width; PowerPoint gets `kern="100"` (from 1 pt up) or `kern="0"`.
+  - *R:* R's pdf() kerns with Adobe's Helvetica AFM (about 250 pairs, "Ty" -120/1000); macOS's
+    Helvetica has 105 pairs ("Ty" -55), so lifted text gets closer to R's spacing, not identical.
 - **Text section in the Home tab (2026-11-04):** font, size and the rest in the ribbon, beside the
   properties panel's Text tab (`ui/js/textribbon.js`). Matthew chose all the extra controls
   (superscript and subscript, bigger and smaller, top/middle/bottom, the text style list, line

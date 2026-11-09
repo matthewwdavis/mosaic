@@ -37,7 +37,7 @@ const SYMBOLS = [["µ", "micro"], ["°", "degree"], ["±", "plus or minus"], ["�
   ["→", "right arrow"], ["←", "left arrow"], ["↑", "up arrow"], ["↓", "down arrow"], ["⇌", "equilibrium"], ["‰", "per mille"],
   ["′", "prime"], ["″", "double prime"], ["Å", "ångström"], ["·", "middle dot"], ["†", "dagger"], ["‡", "double dagger"], ["§", "section"]];
 const GREEK = [..."αβγδεζηθικλμνξοπρστυφχψωΓΔΘΛΞΠΣΦΨΩ"].map((ch) => [ch, `Greek ${ch.toLowerCase() === ch ? "small" : "capital"} letter`]);
-const DEFAULT_RUN = { font: "Helvetica", size: 6, bold: false, italic: false, color: "#000000" };
+const DEFAULT_RUN = { font: "Helvetica", size: 6, bold: false, italic: false, color: "#000000", kern: true };
 const ROUNDED_HEADS = ["triangle", "stealth", "arrow", "diamond", "open_triangle"];   // heads whose corners can be rounded
 // What decides which outline choices look different on an object: its fill, its line, and
 // whether that line goes all the way round an area (presets.encloses; a freeform's closed line)
@@ -1119,6 +1119,10 @@ export const inspector = {
         (v) => canvas.changeText("Text position", { body: (x) => { x.anchor = v; } }, target())),
       checkField("Wrap text in the box", body.wrap !== false, (on) => this.edit("Wrap", (o) => { o.text.wrap = on; })),
       checkField("Resize the box to fit the text", body.autofit === "shape", (on) => this.edit("Autofit", (o) => { o.text.autofit = on ? "shape" : "none"; })),
+      // Kerning: on for text made since mosaic kerned; text from before keeps its spacing until turned on
+      checkField("Kerning (letter pairs such as Ty and AV set closer, as the font says)",
+        body.paragraphs.some((p) => (p.runs || []).some((r) => r.kern)),
+        (on) => setRuns(on ? "Kerning on" : "Kerning off", (r) => { if (on) r.kern = true; else delete r.kern; })),
     ]);
   },
 

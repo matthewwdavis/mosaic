@@ -197,6 +197,8 @@ class SlideImporter:
             out["baseline"] = int(rpr.get("baseline")) / 100000.0
         if rpr.get("cap") == "all":
             out["_caps"] = True
+        if rpr.get("kern") is not None:   # kerning from this size up (hundredths of a point); 0: none
+            out["_kern"] = int(rpr.get("kern")) / 100.0
         if rpr.get("spc") not in (None, "0"):
             self.notes["character spacing ignored"] += 1
         latin = rpr.find("a:latin", NS)
@@ -290,6 +292,9 @@ class SlideImporter:
                     text = r.findtext("a:t", default="", namespaces=NS)
                     if props.pop("_caps", False):
                         text = text.upper()
+                    from_size = props.pop("_kern", 0.0)
+                    if from_size > 0 and props["size"] >= from_size:   # (its size in the deck, before any shrinking to fit)
+                        props["kern"] = True
                     if text:
                         props["size"] = round(props["size"] * scale, 4)
                         runs.append(dict(props, t=text))
@@ -297,6 +302,7 @@ class SlideImporter:
                 elif t == "br":
                     props = self._run_props(r.find("a:rPr", NS), run_defaults)
                     props.pop("_caps", None)
+                    props.pop("_kern", None)
                     props["size"] = round(props["size"] * scale, 4)
                     runs.append(dict(props, t="\n"))
             end = p.find("a:endParaRPr", NS)

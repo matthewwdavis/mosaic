@@ -265,9 +265,8 @@ class PdfWriter:
             gs = self._gstate(res, run.opacity, run.opacity)
             if gs:
                 ops.append(f"/{gs} gs")
-            hexstr = "".join(f"{g:04X}" for g in run.gids)
             ops += [f"{_rgb(run.color)} rg", "BT", f"/{name} {_n(run.size)} Tf",
-                    " ".join(_n(v, 6) for v in tm.as_tuple()) + " Tm", f"<{hexstr}> Tj", "ET"]
+                    " ".join(_n(v, 6) for v in tm.as_tuple()) + " Tm", _show(run), "ET"]
             if run.underline:
                 pos, thick = run.face.underline_position * run.size, run.face.underline_thickness * run.size
                 um = prim.matrix @ Matrix.translate(run.x, run.y - pos)
@@ -440,6 +439,21 @@ class PdfWriter:
             mask.Filter = Name.FlateDecode
             stream.SMask = self.pdf.make_indirect(mask)
         return self.pdf.make_indirect(stream)
+
+
+def _show(run) -> str:
+    """The run's glyphs as a Tj, or a TJ where kerning moves a glyph from where its advance (the
+    font's /W) would put it: the gap in thousandths of the text size."""
+    parts, chunk = [], []
+    for k, g in enumerate(run.gids):
+        chunk.append(f"{g:04X}")
+        gap = run.advances[k] - run.face.advance(g) * run.size if k < len(run.gids) - 1 else 0.0
+        if abs(gap) > 1e-6:
+            parts += [f"<{''.join(chunk)}>", _n(-gap / run.size * 1000.0, 3)]
+            chunk = []
+    if chunk:
+        parts.append(f"<{''.join(chunk)}>")
+    return f"{parts[0]} Tj" if len(parts) == 1 else f"[{' '.join(parts)}] TJ"
 
 
 def write_pdf(doc: dict, pages: list[dict], resolved_pages: list[list[Resolved]], path: str,

@@ -2,7 +2,9 @@
 
 Fonts are found in the platform's font folders and indexed by family and style. Glyph
 advances come straight from each font's hmtx table, so text measured here lands in exactly
-the same place in every export format.
+the same place in every export format. Kerning (pairs of letters set closer or further apart
+than their advances, "Ty", "AV") comes from the font too: its OpenType kern feature (GPOS pair
+adjustments, glyph pairs and classes), else its older kern table.
 """
 from __future__ import annotations
 
@@ -263,6 +265,7 @@ class Face:
         self.is_cff = "CFF " in tt or "CFF2" in tt
         self.ps_name = ref.ps_name
         self.num_glyphs = len(order)
+        self._kern = None   # read the first time it's wanted (kern)
         tt.close()
 
     @property
@@ -282,10 +285,87 @@ class Face:
     def text_width(self, text: str, size: float) -> float:
         return sum(self.advance(self.gid(ch)) for ch in text) * size
 
+    def kern(self, left: int, right: int) -> float:
+        """How much closer (negative) or further apart two glyphs are set than their advances
+        say, in em."""
+        if self._kern is None:
+            with _lock:
+                if self._kern is None:
+                    try:
+                        self._kern = _read_kerning(self.ref)
+                    except Exception:   # (a font whose tables can't be read: no kerning)
+                        self._kern = lambda a, b: 0.0
+        return self._kern(left, right)
+
     @property
     def embeddable(self) -> bool:
         # fsType bit 1 (value 2) alone means "restricted license": no embedding allowed
         return (self.fs_type & 0x000F) != 0x0002
+
+
+def _read_kerning(ref: FaceRef):
+    """A font's kerning as a function (left glyph, right glyph) -> em. The kern feature's pair
+    lookups in order (a pair listed for its glyphs, else their classes' value), else the kern
+    table's pairs."""
+    tt = TTFont(ref.path, fontNumber=ref.index, lazy=True)
+    try:
+        order = tt.getGlyphOrder()
+        gid = {name: i for i, name in enumerate(order)}
+        upm = float(tt["head"].unitsPerEm)
+        tables = []   # each: ("pairs", {(a, b): em}) or ("classes", (first glyphs, classes 1, classes 2, values))
+        x = lambda v: (getattr(v, "XAdvance", 0) or 0) / upm if v is not None else 0.0
+        if "GPOS" in tt:
+            gpos = tt["GPOS"].table
+            wanted = []
+            for rec in (gpos.FeatureList.FeatureRecord if gpos.FeatureList else []):
+                if rec.FeatureTag == "kern":
+                    wanted += [i for i in rec.Feature.LookupListIndex if i not in wanted]
+            for i in sorted(wanted):
+                lookup = gpos.LookupList.Lookup[i]
+                for sub in lookup.SubTable:
+                    if lookup.LookupType == 9:
+                        if sub.ExtensionLookupType != 2:
+                            continue
+                        sub = sub.ExtSubTable
+                    elif lookup.LookupType != 2:
+                        continue
+                    if sub.Format == 1:
+                        pairs = {}
+                        for first, ps in zip(sub.Coverage.glyphs, sub.PairSet):
+                            for rec in ps.PairValueRecord:
+                                if rec.SecondGlyph in gid and first in gid:
+                                    pairs[(gid[first], gid[rec.SecondGlyph])] = x(rec.Value1)
+                        tables.append(("pairs", pairs))
+                    elif sub.Format == 2:
+                        firsts = {gid[g] for g in sub.Coverage.glyphs if g in gid}
+                        c1 = {gid[g]: c for g, c in sub.ClassDef1.classDefs.items() if g in gid}
+                        c2 = {gid[g]: c for g, c in sub.ClassDef2.classDefs.items() if g in gid}
+                        values = [[x(r.Value1) for r in rec.Class2Record] for rec in sub.Class1Record]
+                        tables.append(("classes", (firsts, c1, c2, values)))
+        if not tables and "kern" in tt:
+            pairs = {}
+            for sub in tt["kern"].kernTables:
+                for (a, b), v in (getattr(sub, "kernTable", None) or {}).items():
+                    if a in gid and b in gid:
+                        pairs.setdefault((gid[a], gid[b]), v / upm)
+            tables.append(("pairs", pairs))
+    finally:
+        tt.close()
+
+    def kern(a: int, b: int) -> float:
+        # As a shaper does: the first subtable that has the pair (a pair table listing it, or a
+        # class table covering the first glyph) gives its value
+        for kind, t in tables:
+            if kind == "pairs":
+                v = t.get((a, b))
+                if v is not None:
+                    return v
+            elif a in t[0]:
+                row = t[3][t[1].get(a, 0)] if t[1].get(a, 0) < len(t[3]) else []
+                k = t[2].get(b, 0)
+                return row[k] if k < len(row) else 0.0
+        return 0.0
+    return kern
 
 
 _index: FontIndex | None = None

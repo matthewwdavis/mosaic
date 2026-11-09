@@ -1914,7 +1914,7 @@ export const canvas = {
       // A label takes the look of the page's journal (labels.js), else the one in Settings
       const journal = lab && pageLabels(store.page(), this.journals), pl = journal || d.panel_label || {};
       const run = { t: lab ? this.nextPanelLetter(journal) : "", font: lab ? pl.font || "Helvetica" : d.text?.font || "Helvetica",
-        size: lab ? pl.size || 8 : d.text?.size || 6, bold: lab ? !!pl.bold : false, italic: false, color: "#000000" };
+        size: lab ? pl.size || 8 : d.text?.size || 6, bold: lab ? !!pl.bold : false, italic: false, color: "#000000", kern: true };
       const boxed = op.moved && !lab;
       item = { id: uid("it"), type: "shape", geom: "rect", textbox: true, stroke: null, fill: null, rot: 0,
         frame: boxed ? frame : [ax, ay, 10, 10],
@@ -2275,7 +2275,7 @@ export const canvas = {
   startEdit(id, isNew = false) {
     const it = store.item(id);
     if (!it || it.type !== "shape" || it.geom === "region") return;   // an area fill holds no text
-    if (!it.text) it.text = { paragraphs: [{ align: "ctr", runs: [{ t: "", font: "Helvetica", size: 6 }] }],
+    if (!it.text) it.text = { paragraphs: [{ align: "ctr", runs: [{ t: "", font: "Helvetica", size: 6, kern: true }] }],
       insets: [7.2, 3.6, 7.2, 3.6], wrap: true, anchor: "ctr", autofit: "none" };
     // (range: the words last highlighted, as positions; mine, top and redo: the undo steps changes
     // from the ribbon made while typing, and where the history stood after them; typed: since then)

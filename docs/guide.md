@@ -254,8 +254,9 @@ scales and turns with its picture. A double-click that misses the text crops the
 - R lays out a plot's PDF and SVG copies slightly differently (by up to about 1 pt), because it
   measures text differently for each. Texts are lifted from the copy mosaic shows, usually the
   SVG, so in a PDF export a lifted text can sit up to about a point from where the plot's own was.
-- mosaic doesn't kern letter pairs yet, so a lifted title can come out a fraction of a point
-  longer than R drew it ("Ty", "Da").
+- Lifted text is kerned with the installed font's pairs, which aren't quite R's (see
+  [Kerning](#text-and-panel-labels)), so a lifted title can come out a fraction of a point longer
+  than R drew it.
 - Letters a program saved as outlines can't be lifted, nor can text in a flipped picture or an
   equation. A zoom inset of the picture shows the plot's own text.
 - Check notes every picture with text lifted out, so it's never a surprise in a figure you send.
@@ -363,7 +364,17 @@ height you drag at, with the label above. Drag upright instead for one with its 
   the cursor is while you type, or at the end of the selected text box otherwise.
 - The properties panel's **Text** tab sets the font, size (in points), colour, bold, italic and
   underline for the whole box (while you type in it too), and alignment, vertical position,
-  wrapping and **Resize the box to fit the text**.
+  wrapping, **Resize the box to fit the text** and **Kerning**.
+- **Kerning** sets letter pairs such as "To", "AV" and "Ty" closer, by as much as the font says
+  (its own kerning table). New text is kerned, at every size; text made before mosaic kerned
+  (November 2026) keeps its spacing until you tick **Kerning** on its Text tab. Text from a
+  PowerPoint deck keeps PowerPoint's own setting, which by default kerns only text of 12 pt and
+  more. PowerPoint export carries each box's setting, so PowerPoint spaces it the same way.
+  - mosaic kerns with the installed font's pairs. Fonts differ: your Mac's Helvetica sets 105
+    pairs, mostly capitals, while R's PDFs use Adobe's Helvetica metrics, which set more pairs
+    and closer. So text lifted out of an R plot in
+    [dangerous mode](#dangerous-mode-editing-a-plots-own-text) can still be spaced slightly
+    differently from R's.
 - **Panel label (P):** click to add the next free letter (a, b, c…) in bold 8 pt Helvetica, or
   in the look of the page's journal. Settings changes the size and case.
   - **A journal's look:** a page with a journal's size (Page panel or **Size**) gives its panel

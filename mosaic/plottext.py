@@ -811,11 +811,14 @@ def lift_box(t: dict, scale: float = 1.0) -> dict:
     letters sit where the plot's were at `scale` (the picture's size against its file), with the
     same alignment, and its text. The editor scales it onto the page."""
     from .fonts import resolve_face
-    from .textlayout import first_baseline, line_height
+    from .textlayout import first_baseline, layout_text, line_height
     scale = float(scale or 1.0)
     size = float(t["size"]) * scale
     face = resolve_face(t["font"], bool(t["bold"]), bool(t["italic"]))[0]
-    wm = face.text_width(t["text"], size) / scale
+    # (its width as mosaic lays it out, kerned like R's)
+    one = {"t": t["text"], "font": t["font"], "size": size, "bold": bool(t["bold"]), "italic": bool(t["italic"]), "kern": True}
+    wm = sum(r.width for r in layout_text({"paragraphs": [{"runs": [one]}], "insets": [0, 0, 0, 0], "wrap": False},
+                                          1e6, 1e6).runs) / scale
     lh = line_height(face, size)
     base = first_baseline(face, size, lh) / scale
     lh /= scale
@@ -826,7 +829,7 @@ def lift_box(t: dict, scale: float = 1.0) -> dict:
     ox, oy = t["origin"]
     mx, my = ox + cx * math.cos(a) - cy * math.sin(a), oy + cx * math.sin(a) + cy * math.cos(a)
     run = {"t": t["text"], "font": t["font"], "size": float(t["size"]), "bold": bool(t["bold"]),
-           "italic": bool(t["italic"]), "color": t.get("color", "#000000")}
+           "italic": bool(t["italic"]), "color": t.get("color", "#000000"), "kern": True}
     if float(t.get("opacity", 1.0)) < 0.999:
         run["opacity"] = float(t["opacity"])
     return {"frame": [mx - wm / 2, my - lh / 2, wm, lh], "rot": float(t["angle"]) % 360.0,

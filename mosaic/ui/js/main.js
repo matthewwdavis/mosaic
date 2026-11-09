@@ -1824,7 +1824,7 @@ const app = {
   // Long paragraphs wrap in a box 60% of the page wide; short ones size the box to the text
   pasteText(paragraphs, at) {
     const d = canvas.defaults || {};
-    const base = { font: d.text?.font || "Helvetica", size: d.text?.size || 6, color: "#000000" };
+    const base = { font: d.text?.font || "Helvetica", size: d.text?.size || 6, color: "#000000", kern: true };
     const paras = paragraphs.map((runs) => ({ align: "l",
       runs: (runs.length ? runs : [{ t: "" }]).map((r) => ({ ...base, t: r.t, bold: !!r.bold, italic: !!r.italic })) }));
     const longest = Math.max(0, ...paragraphs.map((runs) => runs.reduce((n, r) => n + r.t.length, 0)));

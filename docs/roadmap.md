@@ -193,6 +193,8 @@ Matthew's choices are in brackets.
       text box (anything about it editable, and movable); each placed copy its own; edits re-applied
       when R saves the file again, the rest dropped and listed by Check; the file itself untouched
       [Matthew's choices]
+- [x] Kerning (asked 2026-11-09): the font's own pairs; new text kerned at every size, a Kerning
+      box on the Text tab, PowerPoint text as each run says, saved figures unchanged [Matthew's choices]
 
 ## Acceptance test (test slide)
 

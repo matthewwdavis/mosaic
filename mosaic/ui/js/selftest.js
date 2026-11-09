@@ -3743,6 +3743,25 @@ export async function run(app, params) {
     const runs = tb?.text.paragraphs[0].runs || [];
     check(runs.length === 3 && runs[1].bold && !runs[0].bold, "typed text keeps bold runs", JSON.stringify(runs.map((r) => [r.t, !!r.bold])));
     check(canvas.els.get(tb?.id)?.g.querySelector("text"), "text drawn by the engine");
+    // Kerning: new text has it, typing keeps it, and the Text tab turns it off and on (an
+    // auto-fitted box narrows as the pairs close up)
+    canvas.startEdit(tb.id);
+    canvas.editor.innerHTML = "<div>Hello <b>bold</b> world: To AVA</div>";
+    canvas.commitEdit();
+    await settle();
+    const kerned = store.item(tb.id).text.paragraphs[0].runs.every((r) => r.kern === true), wideOn = store.item(tb.id).frame[2];
+    store.select([tb.id]);
+    const kernBox = fieldByLabel("Kerning (letter pairs such as Ty and AV set closer, as the font says)");
+    const ticked = kernBox?.checked;
+    kernBox?.click();
+    await settle();
+    const off = store.item(tb.id).text.paragraphs[0].runs.every((r) => !r.kern), wideOff = store.item(tb.id).frame[2];
+    fieldByLabel("Kerning (letter pairs such as Ty and AV set closer, as the font says)")?.click();
+    await settle();
+    check(kerned && ticked && off && wideOff > wideOn + 0.3 && store.item(tb.id).text.paragraphs[0].runs.every((r) => r.kern)
+      && Math.abs(store.item(tb.id).frame[2] - wideOn) < 1e-6,
+    "new text is kerned and stays kerned while typed in; the Text tab's Kerning box turns it off (the box widens) and on",
+    `kerned ${kerned}; ticked ${ticked}; off ${off}; widths ${wideOn} / ${wideOff} / ${store.item(tb.id).frame[2]}`);
 
     // Cropping: drag the left crop handle inwards
     const p0 = store.item(pics[0].id);

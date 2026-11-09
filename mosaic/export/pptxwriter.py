@@ -139,6 +139,8 @@ def _text_body(item: dict) -> str:
                    + (' b="1"' if run.get("bold") else ' b="0"') + (' i="1"' if run.get("italic") else ' i="0"')
                    + (' u="sng"' if run.get("underline") else "")
                    + (f' baseline="{int(round(float(run["baseline"]) * 100000))}"' if run.get("baseline") else "")
+                   # (PowerPoint kerns text from the size given up; 0 is never, as mosaic left it)
+                   + (' kern="100"' if run.get("kern") else ' kern="0"')
                    + f' dirty="0"><a:solidFill>{_colour(run.get("color"))}</a:solidFill>'
                    + f'<a:latin typeface={quoteattr(run.get("font") or "Helvetica")}/>'
                    + f'<a:cs typeface={quoteattr(run.get("font") or "Helvetica")}/></a:rPr>')
