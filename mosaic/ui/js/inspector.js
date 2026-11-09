@@ -16,6 +16,7 @@ import { CORNER_NAMES, asLabel, pageLabels, restyleLabels } from "./labels.js";
 import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePicture, outlinePicture, pathPicture, reachPicture,
   routePicture, shapePicture, stylePicture, zoomShapePicture } from "./pictures.js";
 import { ZOOM_SHAPES, zoomShape } from "./zoom.js";
+import { hiddenOf, liftedFrom } from "./liftedtext.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, luminance,
@@ -321,10 +322,11 @@ export const inspector = {
   // [key, tab name, sections] for one object
   itemTabs(it) {
     const arrange = ["arrange", "Arrange", [this.objectSection(it), this.arrangeSection(it), ...this.alignSections(1)]];
+    if (it.lifted && liftedFrom(it)) arrange[2].splice(1, 0, this.liftedSection(it));
     if (it.type === "picture" && it.equation) return [arrange, ["picture", "Equation", [this.equationSection(it), this.borderSection(it)]]];
     if (it.type === "picture") {
-      return [arrange, ["picture", "Picture", [this.pictureSection(it), this.borderSection(it), it.inset ? this.insetSection(it) : null,
-        this.scaleSection(it)]]];
+      return [arrange, ["picture", "Picture", [this.pictureSection(it), this.plotTextSection(it), this.borderSection(it),
+        it.inset ? this.insetSection(it) : null, this.scaleSection(it)]]];
     }
     if (it.type === "scalebar") return [["arrange", "Arrange", [this.objectSection(it), ...this.alignSections(1)]],
       ["scalebar", "Scale bar", [this.scalebarSection(it)]]];
@@ -582,6 +584,36 @@ export const inspector = {
       say(journal.lines, lineRules), say(journal.pictures, pictureRules), say(journal.export, fileRules));
     d.addEventListener("toggle", () => { this.rulesOpen = d.open; });
     return d;
+  },
+  // Dangerous mode (liftedtext.js): the texts lifted out of a plot, and edits dropped when its file changed
+  plotTextSection(it) {
+    const hidden = hiddenOf(it), dropped = it.lifted_text?.dropped || [];
+    if (!hidden.length && !dropped.length) return null;
+    const kids = [];
+    if (hidden.length) {
+      kids.push(h("p", { class: "hint" }, `${hidden.length} text${hidden.length === 1 ? "" : "s"} lifted out in dangerous mode, now `
+        + `text boxes: ${hidden.map((d) => `“${d.text}”`).join(", ")}. The file itself is unchanged.`),
+      h("div", { class: "button-row" }, button("Restore plot text", () => this.app.run("restorePlotText"), "Restore plot text")));
+    }
+    if (dropped.length) {
+      kids.push(h("p", { class: "hint warn" }, `Dropped when its file changed (the text wasn't there any more): `
+        + dropped.map((d) => `“${d.text}”${d.box_text && d.box_text !== d.text ? ` (edited to “${d.box_text}”)` : ""}`).join(", ")),
+      h("div", { class: "button-row" }, button("Clear this list", () => this.edit("Clear dropped edits", (o) => {
+        if (o.lifted_text) delete o.lifted_text.dropped;
+        if (o.lifted_text && !hiddenOf(o).length) delete o.lifted_text;
+      }), "Clear")));
+    }
+    return section("Text lifted out", kids);
+  },
+  // A text box lifted out of a plot: where it came from, and putting it back
+  liftedSection(it) {
+    const pic = liftedFrom(it), asset = pic && store.doc.assets[pic.asset];
+    const d = hiddenOf(pic).find((x) => x.id === it.lifted.of);
+    return section("Lifted from a plot", [
+      h("p", { class: "hint" }, `Lifted out of ${asset?.name || "a placed plot"} in dangerous mode`
+        + (d ? ` (it said “${d.text}”)` : "") + ". It moves and scales with its picture."),
+      h("div", { class: "button-row" }, button("Put back in plot", () => this.app.run("putBackText"), "Put back")),
+    ]);
   },
   pictureSection(it) {
     const a = store.doc.assets[it.asset];

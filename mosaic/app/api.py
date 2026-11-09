@@ -963,6 +963,27 @@ class Api:
         except Exception:
             return None
 
+    # Dangerous mode: text lifted out of placed plots (plottext.py) --------------------------
+
+    def plot_texts(self, asset: dict, page_index: int = 0, prefer: str | None = None) -> dict:
+        """The texts in a placed plot's file, with where each is (source points), to pick one."""
+        from .. import plottext
+        try:
+            return plottext.plot_texts(asset, int(page_index or 0), prefer)
+        except Exception as exc:
+            return {"kind": None, "texts": [], "error": f"{type(exc).__name__}: {exc}"}
+
+    def lift_plot_text(self, text: dict, scale: float = 1.0) -> dict:
+        """A text box for a text lifted out of a plot (in the source's points) and what the
+        picture keeps of it, to find it again."""
+        from .. import plottext
+        return {"box": plottext.lift_box(text, float(scale or 1.0)), "descriptor": plottext.descriptor(text)}
+
+    def lifted_copy(self, asset: dict, page_index: int, hidden: list[dict]) -> dict:
+        """A picture's copies without the texts it lifted ({"variants", "missing"})."""
+        from .. import plottext
+        return plottext.derived(asset, int(page_index or 0), hidden or [], get_cache())
+
     # Native helpers --------------------------------------------------------------------
 
     def open_dialog(self, kind: str = "document") -> list[str] | None:

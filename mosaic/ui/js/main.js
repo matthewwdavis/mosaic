@@ -24,6 +24,7 @@ import { applyStyle, styleOf } from "./styles.js";
 import { SAME, sameAs, sameCommand } from "./selectsame.js";
 import { barFrame, niceLength, pageScale, pxPerPt, scaleText } from "./scalebar.js";
 import { ZOOM_ROUNDING, zoomShape } from "./zoom.js";
+import { dropLost, hiddenOf, liftedFrom, lostAfterUpdate, putBack } from "./liftedtext.js";
 import { stackLevels } from "./brackets.js";
 import { colourHolders, swatchById } from "./swatches.js";
 import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, setFormat } from "./textstyles.js";
@@ -97,7 +98,7 @@ const app = {
       { title: "View", items: [c("Zoom In", "zoomIn"), c("Zoom Out", "zoomOut"), c("True Size", "zoom100"),
         c("Fit Page in Window", "zoomFit"), c("Centre Page", "centrePage"), "-",
         tick("Rulers", "toggleRulers"), tick("Grid", "toggleGrid"), tick("Guides", "toggleGuides"), tick("Snap", "toggleSnap"),
-        tick("Arrow Keys Follow the Zoom", "toggleNudgeZoom"), "-",
+        tick("Arrow Keys Follow the Zoom", "toggleNudgeZoom"), tick("Dangerous Mode", "toggleDangerous"), "-",
         { title: "Colour-Vision Preview", items: [...VISION.map(([mode, title]) => tick(title, `vision:${mode}`)), "-",
           c("Side by Side…", "compareVision")] }, "-",
         { title: "Enter Full Screen", selector: "toggleFullScreen:", keys: "⌃⌘F" }] },
@@ -112,7 +113,7 @@ const app = {
   menuChecks() {
     const vision = canvas.colourVision || "normal";
     return { toggleRulers: !!this.prefs.show_rulers, toggleGrid: !!this.prefs.show_grid, toggleGuides: !!this.prefs.show_guides,
-      toggleSnap: !!this.prefs.snap, toggleNudgeZoom: !!this.prefs.nudge_zoom,
+      toggleSnap: !!this.prefs.snap, toggleNudgeZoom: !!this.prefs.nudge_zoom, toggleDangerous: !!this.dangerous,
       ...Object.fromEntries(VISION.map(([mode]) => [`vision:${mode}`, vision === mode])) };
   },
   syncMenus() {
@@ -149,6 +150,17 @@ const app = {
     const on = !this.prefs[key];
     await this.savePrefs({ [key]: on });
     announce(on ? onMessage : offMessage);
+  },
+  // Dangerous mode (liftedtext.js): a double-click on a placed plot's text lifts it out as a text
+  // box. Never saved: every window opens with it off
+  dangerous: false,
+  toggleDangerous(on = !this.dangerous) {
+    this.dangerous = !!on;
+    canvas.setDangerous(this.dangerous);
+    panels.renderDangerous?.();
+    this.syncMenus();
+    announce(this.dangerous ? "Dangerous mode on: double-click a placed plot's text to lift it out of the plot as a text box"
+      : "Dangerous mode off");
   },
 
   // Files ---------------------------------------------------------------------------
@@ -637,7 +649,14 @@ const app = {
       return !!store.doc.assets[id];
     });
     if (!ids.length) return;
+    // Texts lifted out of these plots in dangerous mode are lifted out of the new files too; those
+    // no longer there are dropped (liftedtext.js)
+    const lost = {};
+    for (const id of ids) Object.assign(lost, await lostAfterUpdate(store.doc, id, changed[id]));
+    if (store._live) return;
+    let dropped = [];
     store.update(UPDATE_FROM_FILE, (doc) => {
+      dropped = dropLost(doc, lost);
       for (const id of ids) {
         const old = doc.assets[id], neu = changed[id];
         const walk = (items) => items.forEach((it) => {
@@ -650,7 +669,9 @@ const app = {
         doc.assets[id] = neu;
       }
     });
-    announce(`Updated ${ids.map((id) => changed[id].name).join(", ")} from ${ids.length === 1 ? "its file" : "their files"}`);
+    announce(`Updated ${ids.map((id) => changed[id].name).join(", ")} from ${ids.length === 1 ? "its file" : "their files"}`
+      + (dropped.length ? `; ${dropped.length} edited text${dropped.length === 1 ? " isn't" : "s aren't"} in the new file, so `
+        + `${dropped.length === 1 ? "its edit was" : "their edits were"} dropped (Check lists ${dropped.length === 1 ? "it" : "them"})` : ""));
   },
   // Undo and redo. Undoing an update from a linked file keeps the version before it until the
   // file is saved again (refreshLinks); redoing it takes the update back. That undo asks first,
@@ -1575,6 +1596,8 @@ const app = {
       one?.type === "picture" && { label: "Crop picture", keys: one.equation ? null : "Enter", run: () => canvas.startCrop(one.id) },
       one?.type === "picture" && c("replacePicture", { label: "Replace picture…" }),
       asset?.variants[asset.primary]?.src && c("revealPicture"),
+      one?.type === "picture" && hiddenOf(one).length > 0 && c("restorePlotText"),
+      one && liftedFrom(one) && c("putBackText"),
       one?.geom === "custom" && { label: "Edit points", keys: "Enter", run: () => canvas.startPointEdit(one.id) },
       one?.type === "shape" && !one.textbox && !["custom", "region", "arc"].includes(one.geom) && c("makeEditable"),
       one?.type === "shape" && one.geom !== "region" && { label: "Edit text", keys: one.geom === "custom" ? null : "Enter", run: () => canvas.startEdit(one.id) },
@@ -2263,6 +2286,21 @@ app.commands = {
   (e) => mod(e) && e.shiftKey && !e.altKey && (e.key === ";" || e.key === ":" || e.code === "Semicolon"), "Snap"),
   toggleNudgeZoom: cmd("Arrow keys follow the zoom: smaller moves zoomed in, bigger zoomed out", () => app.togglePref("nudge_zoom",
     "Arrow keys follow the zoom", "Arrow keys move 1 pt at every zoom"), null, null, "Arrows follow zoom"),
+  toggleDangerous: cmd("Dangerous mode: double-click text in a placed PDF or SVG to lift it out and edit it", () => app.toggleDangerous(),
+    null, null, "Dangerous"),
+  putBackText: cmd("Put back in plot: delete this lifted text box and show the plot's own text again", () => {
+    const box = store.selected()[0], pic = liftedFrom(box);
+    if (!pic) return announce("This text box wasn't lifted out of a plot");
+    putBack(pic.id, [box.lifted.of], "Put text back in plot");
+    announce("Put back: the plot shows its own text again");
+  }),
+  restorePlotText: cmd("Restore plot text: put back every text lifted out of this picture, deleting their text boxes", () => {
+    const pic = store.selected()[0];
+    if (pic?.type !== "picture" || !hiddenOf(pic).length) return announce("No text has been lifted out of this picture");
+    const n = hiddenOf(pic).length;
+    putBack(pic.id, null, "Restore plot text");
+    announce(`Put back ${n} text${n === 1 ? "" : "s"}: the plot shows its own text again`);
+  }),
   toolSelect: tool("select", "Select and move", "v", "Select"),
   toolText: tool("text", "Text", "t", "Text"),
   toolLabel: tool("label", "Panel label (a, b, c…)", "p", "Label"),

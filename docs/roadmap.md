@@ -188,6 +188,11 @@ Matthew's choices are in brackets.
       GitHub repo, folder); documents save as .mosaic and .figasm ones still open; settings and
       recovery copies copied over from ~/.figassemble once; a new icon, figure panels fitted
       together as a mosaic [Matthew's choices]
+- [x] Dangerous mode (asked 2026-11-09; the 11-04 idea of editable text from placed figures): in the
+      View menu, off at launch, a red status-bar badge; a double-click lifts a plot's text out as a
+      text box (anything about it editable, and movable); each placed copy its own; edits re-applied
+      when R saves the file again, the rest dropped and listed by Check; the file itself untouched
+      [Matthew's choices]
 
 ## Acceptance test (test slide)
 
@@ -202,9 +207,3 @@ Matthew's choices are in brackets.
 
 - Importer coverage for every figure deck (vertical text, bullets)
 - Exports that meet a journal's file-size limit by themselves (Export only flags them for now)
-- Editable text from placed figures (asked 2026-11-04, kept as an idea): every label in a placed plot
-  as a text box in its own font, size, colour and angle. Timed on three real figures (130-160 labels
-  each): an edit takes about 30 ms instead of 15, opening and export no slower. To decide first: all
-  text at once or a per-picture command; the plot shown and exported without its own text (a modified
-  copy, against the never-convert rule); R re-saving a figure whose labels were edited; R kerns letter
-  pairs and mosaic doesn't yet; R's PDF draws "-" as a minus sign, its SVG a hyphen

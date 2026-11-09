@@ -113,6 +113,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .status-zoom { display: inline-flex; align-items: center; gap: 0.1rem; }
 .status-zoom .zoom-label { min-width: 2.8rem; }
 .nudge-step { white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Dangerous mode (liftedtext.js): the status bar says so, and a plot's texts are outlined under the pointer */
+.danger-badge { white-space: nowrap; background: var(--panel); border: 2px solid var(--danger); color: var(--danger); font-weight: 600; }
+.danger-badge:hover { background: var(--hover); }
+.plot-text { fill: none; stroke: var(--danger); stroke-width: 0.75; stroke-dasharray: 2 2; pointer-events: none; }
+.plot-text.hot { stroke-width: 1.5; stroke-dasharray: none; }
 /* A new version ready (or a failed install): the status bar's one note that asks for a click */
 .update-chip { white-space: nowrap; background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .update-chip.warn { background: var(--panel); border-color: var(--danger); color: var(--danger); }
@@ -334,6 +339,7 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .file-name { font-weight: 600; word-break: break-all; margin: 0.2rem 0; }
 .link-status { margin: 0.2rem 0; }
 .link-status.missing { color: var(--warn); }
+.hint.warn { color: var(--warn); }
 .link-status.linked { color: var(--ok); }
 .scale.warn { color: var(--warn); }
 

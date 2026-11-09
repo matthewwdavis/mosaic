@@ -359,26 +359,28 @@ def _number(value, default: float) -> float:
         return default
 
 
-def _declarations(text: str) -> dict:
+def _declarations(text: str, props=None) -> dict:
+    props = PROPS if props is None else props
     out = {}
     for part in (text or "").split(";"):
         if ":" in part:
             k, v = part.split(":", 1)
             k = k.strip().lower()
-            if k in PROPS:
+            if k in props:
                 out[k] = v.replace("!important", "").strip()
     return out
 
 
-def _css_rules(root) -> list:
+def _css_rules(root, props=None) -> list:
     """Rules from the SVG's style sheets, in the order they apply: selectors made of tags,
     classes and ids, joined by spaces (descendant) or ">" (child), as svglite and Illustrator
-    write them. Other selectors are left out."""
+    write them. Other selectors are left out. `props`: the properties wanted (PROPS: lines
+    and fills)."""
     rules = []
     for sheet in root.iter(f"{{{SVG_NS}}}style"):
         text = re.sub(r"/\*.*?\*/", "", sheet.text or "", flags=re.S)
         for block in re.finditer(r"([^{}]+)\{([^{}]*)\}", text):
-            decls = _declarations(block.group(2))
+            decls = _declarations(block.group(2), props)
             if not decls:
                 continue
             for sel in block.group(1).split(","):

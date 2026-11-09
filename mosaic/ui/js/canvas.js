@@ -9,6 +9,7 @@ import { finishEdits } from "./symbols.js";
 import { moveHandle, moveNode, nearestOn, ringsOf, segments, splitAt, toLocal, toPageOf, toggleSmooth, writeRings } from "./pen.js";
 import { followScaleBars } from "./scalebar.js";
 import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
+import { followLifted, isLifted, isPlot, lift, plotTexts, plotTextsNow, quadOnPage, remapCopies, shownVariants, textAt } from "./liftedtext.js";
 import { labelRoom } from "./brackets.js";
 import { applyTextStyle } from "./textstyles.js";
 import { collapsed, formatText, ordered, paraLength } from "./textformat.js";
@@ -279,8 +280,10 @@ export const canvas = {
   },
   // Pictures are drawn here directly: the frame maps the cropped source box
   renderPicture(it, e) {
-    const asset = store.doc.assets[it.asset];
-    if (!asset) return;
+    const stored = store.doc.assets[it.asset];
+    if (!stored) return;
+    // (a plot with text lifted out in dangerous mode: its copy without that text, once it's made)
+    const asset = { ...stored, variants: shownVariants(it, stored, () => this.updatePreviews()) };
     const key = JSON.stringify([it.frame, it.crop, it.rot, it.flip_h, it.flip_v, it.opacity, it.page_index,
       asset.variants, this.previewBucket(it), it.mask, it.border]);
     if (e.key === key) return;
@@ -551,6 +554,7 @@ export const canvas = {
     }
     if (this.cropping) this.drawCropHandles();
     if (this.altDown && !this.op && sel.length) this.drawDistances(o, sel);
+    if (this.dangerous && !this.op) this.drawPlotTexts(o);
   },
   // A selected panel label's panel, dashed, and a line from the corner it keeps to the label
   drawAttachment(o, it) {
@@ -1006,6 +1010,7 @@ export const canvas = {
   },
   hover(pt, p) {
     this.hoverAt = p;
+    if (this.dangerous) this.hoverPlotText(p);
     if (this.altDown && store.selection.length) this.drawOverlay();
     if (["line", "arrow"].includes(this.tool)) {
       this.sitePointer = p;
@@ -1070,12 +1075,52 @@ export const canvas = {
       if (store.scope.length && store.exitGroup()) announce("Left the group");
       return;
     }
+    if (this.dangerous && hit.type === "picture" && !hit.locked && !hit.equation && isPlot(store.doc.assets[hit.asset])) {
+      // Dangerous mode: the text under the pointer comes out of the plot as a text box (else a crop)
+      const prefer = this.previewVariant(store.doc.assets[hit.asset]).kind;
+      textAt(hit, p, prefer).then((t) => (t ? lift(hit, t, (id) => this.startEdit(id)) : this.startCrop(hit.id)));
+      return;
+    }
     if (hit.type === "group") this.enterGroup(hit.id);
     else if (hit.type === "symbol") this.onEditSymbol?.(hit.id);
     else if (hit.equation) this.onEditEquation?.(hit.id);
     else if (hit.type === "picture") this.startCrop(hit.id);
     else if (hit.geom === "custom") this.startPointEdit(hit.id);
     else if (hit.type === "shape") this.startEdit(hit.id);
+  },
+  // Dangerous mode (liftedtext.js): on, a double-click on a placed plot's text lifts it out, and the
+  // texts of the plot under the pointer are outlined (the one a double-click would take, solid)
+  setDangerous(on) {
+    this.dangerous = !!on;
+    this.plotHover = null;
+    this.stage.classList.toggle("dangerous", this.dangerous);
+    this.drawOverlay();
+  },
+  async hoverPlotText(p) {
+    const pic = this.itemAt(p);
+    const asset = pic?.type === "picture" && !pic.equation && store.doc.assets[pic.asset];
+    if (!isPlot(asset) || pic.locked) {
+      if (this.plotHover) { this.plotHover = null; this.drawOverlay(); }
+      return;
+    }
+    const prefer = this.previewVariant(asset).kind;
+    const found = await plotTexts(asset, pic.page_index || 0, prefer);
+    const t = await textAt(pic, p, prefer);
+    if (this.hoverAt !== p || !this.dangerous) return;   // (the pointer moved on meanwhile)
+    const next = { id: pic.id, text: t?.id ?? null, count: found.texts?.length || 0 };
+    if (JSON.stringify(next) !== JSON.stringify(this.plotHover)) {
+      this.plotHover = next;
+      this.drawOverlay();
+    }
+  },
+  drawPlotTexts(o) {
+    const hov = this.plotHover, pic = hov && store.item(hov.id), asset = pic && store.doc.assets[pic.asset];
+    const found = asset && plotTextsNow(asset, pic.page_index || 0, this.previewVariant(asset).kind);
+    if (!found) return;
+    for (const t of found.texts || []) {
+      if (isLifted(pic, t)) continue;
+      o.append(this.outline(quadOnPage(pic, asset, t), t.id === hov.text ? "plot-text hot" : "plot-text"));
+    }
   },
   // A zoom inset: the next drag boxes the area of a picture to enlarge
   // A zoom inset's box, dragged next: a rectangle, a rounded rectangle, an ellipse or a circle
@@ -1703,6 +1748,7 @@ export const canvas = {
     finishEdits(doc, store.scope);        // a symbol edited in place goes back once it's left (symbols.js)
     followGrids(items);                   // grid layouts put their parts in their cells
     followZooms(items, doc.assets);       // zoom insets show what's in their boxes
+    followLifted(items, doc.assets);      // text lifted out of a plot goes with its picture (liftedtext.js)
     followScaleBars(items, doc.assets);   // scale bars keep their length and place on their pictures
     followLabels(items);                  // panel labels go with their panels
     const lines = allLines(items).filter((l) => l.start_link || l.end_link);
@@ -2610,6 +2656,7 @@ export function copyItems(items) {
     remap(it.attach, "to");   // a label copied with its panel goes with the copy
   });
   walk(copies);
+  remapCopies(copies, ids, store.doc);   // text lifted out of plots (liftedtext.js)
   const oldId = new Map([...ids].map(([o, n]) => [n, o]));
   for (const it of allRegions(copies)) {
     const lines = (it.region.items || []).map((id) => ids.get(id));

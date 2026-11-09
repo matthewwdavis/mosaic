@@ -9,6 +9,7 @@ import pikepdf
 
 from ..assets import AssetCache, SourceResolver, get_cache
 from ..fonts import FontIndex
+from ..plottext import with_lifts
 from ..resolve import Resolver
 from . import raster
 from .pdfwriter import PdfWriter
@@ -38,6 +39,7 @@ def page_thumbnail(doc: dict, index: int, width_px: int, cache: AssetCache | Non
                    fonts: FontIndex | None = None):
     """A small picture of one page on white (a PIL image `width_px` wide), as the PNG export
     would draw it, e.g. for the slide picker. Fonts placed PDFs leave out aren't embedded first."""
+    doc = with_lifts(doc, cache)   # (plots drawn without the texts lifted out of them in dangerous mode)
     page = doc["pages"][index]
     resolved = [r for r in Resolver(doc, fonts).resolve_page(page) if _on_page(r.bbox, page)]
     w = PdfWriter(SourceResolver(doc, cache or get_cache(), None))
@@ -58,6 +60,7 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
     PDF holds all chosen pages in one file; other formats write one file per page.
     """
     cache = cache or get_cache()
+    doc = with_lifts(doc, cache)   # (plots drawn without the texts lifted out of them in dangerous mode)
     sel = [doc["pages"][i] for i in (pages if pages is not None else range(len(doc["pages"])))]
     resolver = Resolver(doc, fonts)
     # Items parked entirely off the page (PowerPoint's pasteboard habit) aren't exported

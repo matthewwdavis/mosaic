@@ -6,7 +6,7 @@ import math
 import os
 import re
 
-from .. import picturekind, vectors
+from .. import picturekind, plottext, vectors
 from ..assets import PDFIUM_LOCK, get_cache, resolve_link
 from ..geometry import DrawPath
 from ..journals import JOURNALS, MM
@@ -148,6 +148,7 @@ def _visible_stroke(prim, fills: dict) -> bool:
 
 def preflight(doc: dict, options: dict) -> dict:
     cache = get_cache()
+    doc = plottext.with_lifts(doc, cache)   # (plots as exported: without texts lifted out in dangerous mode)
     pages = options.get("pages")
     sel = [doc["pages"][i] for i in (pages if pages is not None else range(len(doc["pages"])))]
     resolver = Resolver(doc)
@@ -264,7 +265,10 @@ def preflight(doc: dict, options: dict) -> dict:
                                       "message": f"{name} is stretched, {across * 100:.1f}% across and {down * 100:.1f}% "
                                                  f"down, so its text and curves are distorted (100% on its Picture tab "
                                                  f"puts it back)"})
-                    prim_var = variants.get(asset.get("primary")) or next(iter(variants.values()))
+                    for level, message in plottext.notes(name, item, asset):
+                        found.append({"level": level, "item": item.get("id"), "page": page["id"], "message": message})
+                    linked = doc["assets"].get(asset.get("lifted_from")) or asset   # (its own file, not the copy without lifted texts)
+                    prim_var = linked["variants"].get(linked.get("primary")) or next(iter(linked["variants"].values()))
                     if prim_var.get("src") and not resolve_link(prim_var, None):
                         found.append({"level": "info", "item": item.get("id"), "page": page["id"],
                                       "message": f"{name}: linked file not found; using the copy stored "

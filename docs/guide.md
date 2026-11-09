@@ -227,6 +227,39 @@ warning that its text and curves are distorted. Its buttons:
 The Arrange tab has its position, size (proportions kept), rotation, flips and **Transparency**.
 For screen readers, give each picture a **Description** in the Object section.
 
+### Dangerous mode: editing a plot's own text
+
+Turn on **View ▸ Dangerous Mode** in the Mac menu bar, **Dangerous** in the ribbon's View tab, or
+find it with command search (⌘/). It stays on in that window until you turn it off, and mosaic
+always opens with it off. While it's on, a red **⚠ Dangerous mode** badge sits in the status bar;
+click it to turn it off.
+
+In dangerous mode, the texts of a placed PDF or SVG are outlined in red as the pointer passes
+over it, the one under the pointer solid. **Double-click** a text to lift it out of the plot: it
+becomes an ordinary text box in the same font, size, colour, angle and place, ready to type in,
+and the plot is drawn without it. From then on it's like any other text box: change its words,
+font, size, colour or weight, move it, or delete it (the plot still leaves it out). It moves,
+scales and turns with its picture. A double-click that misses the text crops the picture as usual.
+
+- **The file never changes.** The picture is shown and exported from a copy without the texts
+  you lifted, and the file you placed stays in the document as it was. Right-click a lifted text
+  box and choose **Put back in plot** to delete it and show the plot's own text again;
+  **Restore plot text** (right-click the picture, or its Picture tab) puts them all back.
+- **Each placed copy has its own edits.** A copy of the picture made without its lifted boxes
+  shows the plot's own text.
+- **When R saves the file again,** the same texts are lifted out of the new file wherever they're
+  still there, in the same words, size and place. An edit whose text has changed or moved (a new
+  axis title, say) is dropped: its box goes, the status bar says so, and the Picture tab and
+  **Check** list what it said. Undo (⌘Z) brings back the older version with the edits.
+- R lays out a plot's PDF and SVG copies slightly differently (by up to about 1 pt), because it
+  measures text differently for each. Texts are lifted from the copy mosaic shows, usually the
+  SVG, so in a PDF export a lifted text can sit up to about a point from where the plot's own was.
+- mosaic doesn't kern letter pairs yet, so a lifted title can come out a fraction of a point
+  longer than R drew it ("Ty", "Da").
+- Letters a program saved as outlines can't be lifted, nor can text in a flipped picture or an
+  equation. A zoom inset of the picture shows the plot's own text.
+- Check notes every picture with text lifted out, so it's never a surprise in a figure you send.
+
 ## Scale bars
 
 A scale bar shows a real length on a photograph or micrograph, and stays right when the picture is
@@ -765,8 +798,10 @@ shortcut beside it:
 
 - **An object:** Cut, Copy, Paste, Duplicate, Delete; Select same, Copy style, Paste style;
   Group, Ungroup, Grid layout; the four Order commands; Lock position, Hide. A picture adds Crop, Replace and Show the
-  picture's file; a text box or shape adds Edit text; a line attached to objects adds Detach
-  the ends; a group adds Edit inside the group.
+  picture's file, and Restore plot text once text has been lifted out of it in
+  [dangerous mode](#dangerous-mode-editing-a-plots-own-text); a text box or shape adds Edit text,
+  and a lifted text box Put back in plot; a line attached to objects adds Detach the ends; a
+  group adds Edit inside the group.
   - Right-clicking an object that isn't selected selects it.
   - Right-clicking one of several selected objects keeps them all selected, so **Group** groups
     the lot.

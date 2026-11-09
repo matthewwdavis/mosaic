@@ -20,6 +20,7 @@ import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon
 // 24 x 24 stroke icons, drawn for mosaic; a few follow Feather's and Lucide's designs (their
 // notices are in THIRD_PARTY_NOTICES.md)
 const ICONS = {
+  danger: "M12 3l10 18H2zM12 10v5M12 18h.01",
   select: "M5 3l13 9-6 1.5L9.5 20z", text: "M5 6V4h14v2M12 4v16M9 20h6",
   label: "M4 4h16v16H4zM9 15l3-7 3 7M10 13h4", line: "M5 19L19 5", arrow: "M5 19L18 6M10 6h8v8",
   rect: "M4 6h16v12H4z", roundrect: "M8 5h8a4 4 0 014 4v6a4 4 0 01-4 4H8a4 4 0 01-4-4V9a4 4 0 014-4z",
@@ -299,8 +300,10 @@ export const panels = {
           this.toggleButton("toggleGuides", "guides", "show_guides", ". Drag a new one out of a ruler")),
         group("Grid", t("gridSettings", "gear")),
         group("Check colours", colourVisionField(), t("compareVision", "compare")),
+        group("Plot text", this.dangerButton = this.toolButton("toggleDangerous", "danger")),
       ]],
     ];
+    this.dangerButton.setAttribute("aria-pressed", "false");
     const tabRow = h("div", { class: "ribbon-tabs", role: "tablist", "aria-label": "Command tabs" });
     this.ribbonTabs = {};
     const panelEls = tabs.map(([key, title, groups]) => {
@@ -840,8 +843,17 @@ export const panels = {
     this.nudge = h("button", { type: "button", class: "btn toggle small nudge-step", "data-pref": "nudge_zoom",
       "aria-pressed": this.app.prefs.nudge_zoom ? "true" : "false" });
     this.nudge.addEventListener("click", () => this.app.run("toggleNudgeZoom"));
-    bar.append(this.message, h("span", { class: "spacer" }), zoom, this.nudge, this.cursor, this.saveState);
+    // While dangerous mode is on (never saved): a red badge saying so, a click turns it off
+    this.dangerBadge = h("button", { type: "button", class: "btn small danger-badge", hidden: true,
+      title: "Dangerous mode is on: a double-click on a placed plot's text lifts it out as a text box. Click to turn it off." },
+    "⚠ Dangerous mode");
+    this.dangerBadge.addEventListener("click", () => this.app.toggleDangerous(false));
+    bar.append(this.message, h("span", { class: "spacer" }), this.dangerBadge, zoom, this.nudge, this.cursor, this.saveState);
     this.renderNudge();
+  },
+  renderDangerous() {
+    if (this.dangerBadge) this.dangerBadge.hidden = !this.app.dangerous;
+    this.dangerButton?.setAttribute("aria-pressed", this.app.dangerous ? "true" : "false");
   },
   renderNudge() {
     const s = this.app.nudgeStep(), on = !!this.app.prefs.nudge_zoom;

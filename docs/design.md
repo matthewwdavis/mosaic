@@ -214,6 +214,29 @@ pre-export check says so.
     case follows the authors (7 articles (A), 8 (a)). Matthew chose the guidelines' 8 pt Helvetica
     and lowercase, with the published brackets and weight: (a) in regular 8 pt Helvetica.
   - *Text:* Matthew chose 8 pt as a note ("if possible"), with Helvetica preferred.
+- **Dangerous mode (2026-11-09):** editing the text of placed PDFs and SVGs, the 2026-11-04 idea
+  ("Later" on the roadmap) as Matthew asked for it: a mode switched on in the View menu (and the
+  ribbon's View tab, command search), off whenever mosaic opens, with a red status-bar badge;
+  everything about a text editable, and movable; each placed copy with its own edits; edits
+  re-applied when R saves the file again, those whose text is gone dropped and listed by Check.
+  - *Lifting rather than editing in place:* "everything about it" (any font) rules out rewriting
+    the file's own strings, so a double-clicked text becomes an ordinary mosaic text box and only
+    that text leaves the plot. Only touched texts become objects, so the 11-04 timing worries
+    (130-160 labels a figure) don't arise, and untouched text keeps R's kerning and minus signs.
+  - *The never-convert rule:* the placed file stays in the document unchanged; the picture keeps
+    `lifted_text.hidden` (each text as found: words, size, angle, the middle of its baseline,
+    font) and `plottext.derived` makes copies without those texts, cached by content, which the
+    editor shows and `with_lifts` gives every export and Check (a synthetic asset per picture,
+    never saved). A PDF text-showing operator is swapped for a TJ moving as far, so text after
+    it on the line stays put; an SVG `<text>` is removed, part of one hidden.
+  - *Matching:* by the same words (a minus sign counts as a hyphen), angle, size within 0.6 pt
+    (R's pdf() writes 4.8 pt text at 5 pt) and middle within 1.5 pt or half the size, as R's
+    PDF and SVG of one plot sit up to ~1.4 pt apart (it measures text differently for each). The
+    box is placed from the copy the editor shows (the SVG under 8 MB, else the PDF).
+  - *Boxes:* `lift_box` sets the frame so mosaic's first baseline lands on the plot's, lined up
+    as the SVG's text-anchor says (PDFs don't say: left), not auto-fitted (it would grow from the
+    left); `followLifted` keeps them on their picture through moves, crops, scaling (sizes too)
+    and turns. A copy of the picture alone shows the texts whose boxes still exist elsewhere.
 - **Text section in the Home tab (2026-11-04):** font, size and the rest in the ribbon, beside the
   properties panel's Text tab (`ui/js/textribbon.js`). Matthew chose all the extra controls
   (superscript and subscript, bigger and smaller, top/middle/bottom, the text style list, line

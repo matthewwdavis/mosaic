@@ -487,6 +487,134 @@ async function linkedFileChecks(app) {
   }
 }
 
+// Dangerous mode (liftedtext.js): off at first; on, a double-click on a placed plot's text lifts it
+// out as a text box over the plot, which is then drawn without it; the boxes go with the picture;
+// Put back deletes one and the plot's text shows again; a copy of the picture alone shows its
+// texts; R saving the file again drops edits whose text isn't there any more; Check notes both
+async function dangerousModeChecks(app) {
+  const showing = (on) => Object.defineProperty(document, "hidden", { get: () => !on, configurable: true });
+  const soon = async (cond, ms) => { const t0 = performance.now(); while (!cond() && performance.now() - t0 < ms) await wait(50); return cond(); };
+  try {
+    showing(true);
+    store.setDoc(await rpc("new_document"));
+    canvas.fit();
+    await settle();
+    const plot = (title) => btoa("<svg xmlns='http://www.w3.org/2000/svg' width='200pt' height='120pt' viewBox='0 0 200 120'>"
+      + "<rect x='20' y='10' width='170' height='80' style='fill: none; stroke: #000000;'/>"
+      + `<text x='105' y='110' text-anchor='middle' style='font-size: 8px; font-family: "Helvetica";'>${title}</text>`
+      + "<text transform='translate(10,50) rotate(-90)' text-anchor='middle' style='font-size: 8px; font-family: \"Helvetica\";'>Height</text>"
+      + "<text x='17' y='92' text-anchor='end' style='font-size: 6px; font-family: \"Helvetica\"; fill: #993333;'>0</text></svg>");
+    const path = await rpc("selftest_scratch", "danger_plot.svg", plot("Days after sowing"));
+    await app.placeFiles([path], [60, 60], false);
+    const picId = store.items().find((it) => it.type === "picture")?.id;
+    if (!picId) return check(false, "a plot is placed for dangerous mode", path);
+    const pic = () => store.item(picId);
+    const at = (x, y) => { const [fx, fy, fw] = pic().frame, k = fw / 200; return [fx + x * k, fy + y * k]; };
+    const dbl = (p) => { const [sx, sy] = screenOf(...p); canvas.stage.dispatchEvent(new MouseEvent("dblclick", { clientX: sx, clientY: sy, bubbles: true })); };
+    const boxes = () => store.items().filter((it) => it.lifted);
+    const words = (it) => it.text.paragraphs.map((q) => q.runs.map((r) => r.t).join("")).join("\n");
+    check(!app.dangerous && !app.menuChecks().toggleDangerous && panels.dangerBadge?.hidden,
+      "dangerous mode is off when mosaic opens, unticked in the View menu, no badge", `${app.dangerous}; ${panels.dangerBadge?.hidden}`);
+    await app.run("toggleDangerous");
+    check(app.dangerous && app.menuChecks().toggleDangerous && !panels.dangerBadge.hidden && canvas.stage.classList.contains("dangerous")
+      && panels.dangerButton.getAttribute("aria-pressed") === "true",
+      "View ▸ Dangerous Mode turns it on: ticked, pressed in the View tab, and a red badge in the status bar says so",
+      `${panels.dangerBadge.hidden}; ${panels.dangerButton.getAttribute("aria-pressed")}`);
+    // Over a plot, its texts are outlined, the one under the pointer solid
+    pointer("pointermove", screenOf(...at(105, 107.5)), { buttons: 0 });
+    await soon(() => canvas.overlay.querySelectorAll(".plot-text").length === 3, 3000);
+    const hot = canvas.overlay.querySelectorAll(".plot-text.hot").length;
+    check(canvas.overlay.querySelectorAll(".plot-text").length === 3 && hot === 1,
+      "over a plot, dangerous mode outlines its texts, the one under the pointer solid",
+      `${canvas.overlay.querySelectorAll(".plot-text").length} outlined, ${hot} solid`);
+    // The x axis title, lined up in the middle: a text box in its font, size and colour, being edited
+    dbl(at(105, 107.5));
+    await soon(() => boxes().length === 1 && canvas.editing, 4000);
+    const box = boxes()[0], run = box?.text.paragraphs[0].runs[0];
+    const k = pic().frame[2] / 200;
+    check(box && words(box) === "Days after sowing" && run.font === "Helvetica" && near(run.size, 8 * k, 0.001) && box.text.paragraphs[0].align === "ctr"
+      && box.rot === 0 && canvas.editing?.id === box.id && store.selection.join() === box.id
+      && pic().lifted_text?.hidden?.length === 1 && pic().lifted_text.hidden[0].box === box.id
+      && near(box.frame[0] + box.frame[2] / 2, at(105, 0)[0], 0.05) && store.items().indexOf(box) === store.items().indexOf(pic()) + 1,
+    "a double-click on a plot's text lifts it out: a text box just above the picture, in its font and size, centred where it was, being edited",
+    JSON.stringify([box && words(box), run, box?.frame, box?.rot, canvas.editing?.id]));
+    document.execCommand("selectAll");
+    document.execCommand("insertText", false, "Days after planting");
+    canvas.commitEdit();
+    await settle();
+    check(words(store.item(box.id)) === "Days after planting", "its text is edited like any other", words(store.item(box.id)));
+    // The plot is now drawn from a copy without that text
+    const own = store.doc.assets[pic().asset].variants.svg.sha256;
+    const href = () => canvas.els.get(picId)?.g.querySelector("image")?.getAttribute("href") || "";
+    await soon(() => href() && !href().includes(own), 4000);
+    const copy = await rpc("lifted_copy", store.doc.assets[pic().asset], 0, pic().lifted_text.hidden);
+    const left = await rpc("plot_texts", { ...store.doc.assets[pic().asset], variants: copy.variants }, 0, "svg");
+    check(!href().includes(own) && left.texts.map((t) => t.text).join() === "Height,0" && !copy.missing.svg.length,
+      "the picture is drawn from a copy of its file without the lifted text", `${href().slice(-30)}; ${left.texts.map((t) => t.text)}`);
+    // The y axis title, turned: its box is turned too
+    dbl(at(5, 50));
+    await soon(() => boxes().length === 2, 4000);
+    canvas.commitEdit();
+    await settle();
+    const turned = boxes().find((b) => words(b) === "Height");
+    // (its letters stand left of the baseline at x 10: the box's middle is a little left of it)
+    check(turned && turned.rot === 270 && near(turned.frame[0] + turned.frame[2] / 2, at(7.6, 0)[0], 1.5 * k)
+      && near(turned.frame[1] + turned.frame[3] / 2, at(0, 50)[1], 0.05),
+      "a turned text comes out as a turned text box", JSON.stringify([turned?.rot, turned?.frame]));
+    // The boxes go with their picture: moved, then scaled (sizes too)
+    const before = boxes().map((b) => [...b.frame]);
+    store.update("Move plot", (doc) => { findDeep(doc.pages[store.pageIndex].items, picId).frame[0] += 20; });
+    const moved = boxes().every((b, i) => near(b.frame[0], before[i][0] + 20, 1e-6) && near(b.frame[1], before[i][1], 1e-6));
+    store.update("Scale plot", (doc) => { const o = findDeep(doc.pages[store.pageIndex].items, picId); o.frame[2] *= 1.5; o.frame[3] *= 1.5; });
+    const grown = store.item(box.id).text.paragraphs[0].runs[0].size;
+    check(moved && near(grown, 8 * k * 1.5, 1e-6) && near(store.item(box.id).frame[0] + store.item(box.id).frame[2] / 2, at(105, 0)[0], 0.05),
+      "lifted text boxes move and scale with their picture", `${moved}; ${grown}`);
+    // Put back: the box goes and the plot shows its own text again
+    store.select([turned.id]);
+    await app.run("putBackText");
+    await settle();
+    check(!store.item(turned.id) && pic().lifted_text.hidden.length === 1 && boxes().length === 1,
+      "Put Back in Plot deletes the box and the plot shows that text again", JSON.stringify(pic().lifted_text));
+    // A copy of the picture alone shows the texts whose boxes weren't copied with it
+    store.select([picId]);
+    await app.run("duplicate");
+    const dup = store.selected()[0];
+    check(dup?.type === "picture" && dup.id !== picId && !(dup.lifted_text?.hidden || []).length,
+      "a copy of the picture without its lifted boxes shows its own text", JSON.stringify(dup?.lifted_text));
+    store.update("Delete copy", (doc) => { const items = doc.pages[store.pageIndex].items; items.splice(items.findIndex((it) => it.id === dup.id), 1); });
+    // Check says what was lifted
+    const notes = (await rpc("preflight", store.doc, {})).items.map((f) => f.message);
+    check(notes.some((m) => m.includes("1 text lifted out in dangerous mode (“Days after sowing”)")),
+      "Check notes the text lifted out of the plot", notes.join(" | "));
+    // R saves the file again with another title: that edit is dropped, its box goes, Check says so
+    await rpc("selftest_scratch", "danger_plot.svg", plot("Days"));
+    await soon(() => !boxes().length && (pic().lifted_text?.dropped || []).length === 1, 9000);
+    await soon(() => document.getElementById("live").textContent.includes("danger_plot"), 1000);   // (announce waits 60 ms)
+    const said = document.getElementById("live").textContent;
+    const dropped = pic().lifted_text?.dropped?.[0];
+    const notes2 = (await rpc("preflight", store.doc, {})).items.map((f) => f.message);
+    check(!boxes().length && !hiddenCount(pic()) && dropped?.text === "Days after sowing" && dropped.box_text === "Days after planting"
+      && said.includes("1 edited text isn't in the new file, so its edit was dropped")
+      && notes2.some((m) => m.includes("the edit to “Days after sowing” was dropped when its file changed")),
+    "when R saves the file again without that text, its edit is dropped and Check says so",
+    `boxes ${boxes().length}; hidden ${hiddenCount(pic())}; dropped ${dropped?.text} / ${dropped?.box_text}; `
+      + `${said}; ${notes2.filter((m) => m.includes("dropped")).join(" | ")}`);
+    // Off: a double-click crops again, and the badge goes
+    await app.run("toggleDangerous");
+    store.select([]);
+    dbl(at(100, 60));
+    await settle();
+    check(!app.dangerous && panels.dangerBadge.hidden && canvas.cropping && !boxes().length,
+      "with dangerous mode off, a double-click on a plot crops it as before",
+      `on ${app.dangerous}; badge hidden ${panels.dangerBadge.hidden}; cropping ${!!canvas.cropping}; boxes ${boxes().length}`);
+    if (canvas.cropping) canvas.endCrop();
+  } finally {
+    delete document.hidden;
+    if (app.dangerous) app.toggleDangerous(false);
+  }
+}
+const hiddenCount = (it) => (it?.lifted_text?.hidden || []).length;
+
 // Updates (updates.py looks, downloads and installs; here, with the updater saying what each case
 // needs, what the editor shows): the status bar's note when a version is ready, What's new and
 // Restart now (unsaved work saved first, or kept as a copy to recover), Ask me first with Skip
@@ -2104,6 +2232,7 @@ export async function run(app, params) {
     if (params.get("only") === "textribbon") { await textRibbonChecks(app); throw ONLY; }
     if (params.get("only") === "journallabels") { await journalLabelChecks(app); throw ONLY; }
     if (params.get("only") === "journalchecks") { await journalCheckChecks(app); throw ONLY; }
+    if (params.get("only") === "dangerous") { await dangerousModeChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3357,6 +3486,7 @@ export async function run(app, params) {
     await textRibbonChecks(app);
     await journalLabelChecks(app);
     await journalCheckChecks(app);
+    await dangerousModeChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;
