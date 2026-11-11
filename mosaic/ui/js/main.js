@@ -848,7 +848,7 @@ const app = {
         const t = findDeep(doc.pages[store.pageIndex].items, sid);
         if (!t) continue;
         if (style) applyObjectStyle(t, style);
-        else delete t.object_style;
+        else (function clear(x) { delete x.object_style; if (x.type === "group") x.items.forEach(clear); })(t);
       }
     });
   },

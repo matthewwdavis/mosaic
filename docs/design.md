@@ -136,6 +136,14 @@ pre-export check says so.
     as a percentage in the Line section; PowerPoint gets a custDash. The Dash menu's pictures are
     drawn at 2 pt: at the line's 1 pt, Dot and Round dot all but vanished in WebKit (checked in a
     WKWebView snapshot).
+  - *Several objects' Style tab (2026-11-10, Matthew's choices):* several selected, or one group,
+    get a Style tab (`inspector.lookTab`) working on every line and shape among them, inside groups
+    too (not a clipping mask's shape). The single-object sections are reused: built from a
+    representative look (the first object's, each part from the first that has it), with the
+    fields that differ blank or "Mixed" (`mixedLooks`, `mx`, numField/colorField/pictureField/
+    checkField `mixed`), and their `edit` swapped for one that goes to each target that can take the
+    change (`editLooks`: fills to shapes, arrowheads to lines and open shapes, line and outline
+    settings to those that have one). Shape kind and corner rounding too (not freeforms' kind).
   - *Key objects (2026-11-10, Matthew's choices):* he found Top aligning to the first selected
     object, not the highest. A plain click on one of several selected objects had switched Align
     to into Key mode, which was saved in his settings, and with no key clicked it took the first

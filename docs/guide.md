@@ -450,6 +450,13 @@ LaTeX's maths, not whole LaTeX documents).
 - **Style** tab: colour, width (in points), [dash](#dashes), line ends (round, flat or square),
   corners, transparency. Every list there shows a small picture of each choice (see
   [Shapes](#shapes)).
+- **Several at once:** select several shapes, lines and arrows (or a group) and use the Style
+  tab to change them all together: object style, shape and corner rounding, fill, line,
+  arrowheads and outline. A field shows what they share; where they differ it's blank or reads
+  **Mixed**, and setting it gives them all the same. Each change goes only to the objects that can
+  take it, those inside groups too: a fill to the shapes, arrowheads to the lines, line settings
+  to the ones that have a line. **No line** takes the shapes' lines away and leaves lines theirs.
+  It's one undo step.
 - **Arrowheads:** each end can be none, triangle, stealth, open arrow, circle or diamond, small
   to large. **Rounding** (0-100%) rounds a pointed head's tip, which still ends exactly on the
   line's end. **Swap ends** swaps them.

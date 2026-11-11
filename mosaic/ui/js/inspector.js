@@ -11,7 +11,7 @@ import { applyToParagraph, differs } from "./textstyles.js";
 import { UNITS, anchorFor, convert, niceLength, pxPerPt, scaleText } from "./scalebar.js";
 import { DEFAULT_GAP } from "./gridlayout.js";
 import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
-import { differs as looksDiffer } from "./objectstyles.js";
+import { differs as looksDiffer, takes } from "./objectstyles.js";
 import { CORNER_NAMES, asLabel, pageLabels, restyleLabels } from "./labels.js";
 import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePicture, outlinePicture, pathPicture, reachPicture,
   routePicture, shapePicture, stylePicture, zoomShapePicture } from "./pictures.js";
@@ -359,18 +359,18 @@ export const inspector = {
         h("p", { class: "hint" }, `Its top shape clips the ${it.items.length - 1} object${it.items.length === 2 ? "" : "s"} under it. `
           + "Double-click it (or press Enter) to move them within the shape, or to change the shape."),
         button("Release the clipping mask: separate the shape and what it clips", () => this.app.run("releaseClipMask"), "Release")]));
-      return [arrange];
+      return [arrange, this.lookTab([it])].filter(Boolean);
     }
     if (it.type === "group" && it.grid) {
       arrange[2].push(this.gridSection(it));
-      return [arrange];
+      return [arrange, this.lookTab([it])].filter(Boolean);
     }
     if (it.type === "group") {
       arrange[2].push(section("Group", [
         h("p", { class: "hint" }, `${it.items.length} objects. Double-click it to edit them inside it, or Ungroup `
           + `(${this.app.mod}Shift+G) to separate them.`),
         button("Ungroup", () => this.app.run("ungroup"), "Ungroup")]));
-      return [arrange];
+      return [arrange, this.lookTab([it])].filter(Boolean);
     }
     if (it.zoom) arrange[2].push(this.zoomBoxSection(it));
     if (it.textbox) arrange[2].splice(2, 0, this.labelSection(it));
@@ -927,6 +927,7 @@ export const inspector = {
     const mode = !f ? "none" : g ? (g.type === "radial" ? "radial" : "linear") : "solid";
     const opts = [["none", "No fill"], ["solid", "Colour"], ["linear", "Linear gradient"], ["radial", "Radial gradient"]];
     const kids = [pictureField("Fill", mode, opts.map(([value, label]) => ({ value, label, picture: () => fillPicture(it, value) })), (v) => this.edit("Fill", (o) => {
+      if (v === "solid" && o.fill && !o.fill.gradient) return;   // (with several objects: a colour fill keeps its colour)
       const old = o.fill, og = old?.gradient;
       if (v === "none") o.fill = null;
       else if (v === "solid") o.fill = og ? { color: og.stops[0].color, opacity: og.stops[0].opacity ?? 1 }
@@ -939,11 +940,14 @@ export const inspector = {
           : { type: "linear", angle: og?.angle ?? 90, scaled: og?.scaled ?? false, stops };
         o.fill = { color: stops[0].color, opacity: 1, gradient };
       }
-    }))];
-    if (mode === "solid") kids.push(row(
-      colorField("Fill colour", f.color, (v, sw) => this.edit("Fill colour", (o) => { o.fill = linked({ ...o.fill, color: v }, sw); }), f.swatch),
-      transparencyField("Fill transparency", f.opacity, (op) => this.edit("Fill transparency", (o) => { o.fill = { ...o.fill, opacity: op }; }))));
-    if (g) kids.push(...this.gradientFields(g));
+    }), { mixed: this.mx("fill") })];
+    if (mode === "solid" && !this.mx("fill")) kids.push(row(
+      colorField("Fill colour", f.color, (v, sw) => this.edit("Fill colour", (o) => { o.fill = linked({ ...o.fill, color: v }, sw); }),
+        this.mx("fill.swatch") ? null : f.swatch, { mixed: this.mx("fill.color") }),
+      transparencyField("Fill transparency", f.opacity, (op) => this.edit("Fill transparency", (o) => { o.fill = { ...o.fill, opacity: op }; }),
+        { mixed: this.mx("fill.opacity") })));
+    // (several objects: their gradients' stops only when they all have the same gradient)
+    if (g && !this.mx("fill") && !this.mx("fill.gradient")) kids.push(...this.gradientFields(g));
     if (f) kids.push(this.fillReachField(it));
     return section("Fill", kids);
   },
@@ -957,7 +961,7 @@ export const inspector = {
     (v) => this.edit("Fill reaches", (o) => {
       if (v === "middle") delete o.fill_reach;
       else o.fill_reach = v;
-    }), { disabled: lines.some(shows) ? null : "For dashed, dotted or see-through lines" });
+    }), { disabled: lines.some(shows) || this.mixedLook ? null : "For dashed, dotted or see-through lines", mixed: this.mx("fill_reach") });
   },
   // A gradient's direction (linear) or starting point (radial), and its colour stops, each with
   // a position and a transparency
@@ -999,42 +1003,51 @@ export const inspector = {
   strokeSection(it) {
     const st = it.stroke;
     const kids = [];
+    // (with several objects: lines keep theirs, and a line added keeps any there already)
     if (it.type !== "line") kids.push(pictureField("Line", st ? "solid" : "none", [["none", "No line"], ["solid", "Line"]]
       .map(([value, label]) => ({ value, label, picture: () => linePicture(st, value === "solid") })), (v) =>
-      this.edit(v === "none" ? "Remove line" : "Add line", (o) => { o.stroke = v === "none" ? null : { color: "#000000", width: this.app.prefs.stroke_width || 1, dash: "solid", cap: "round", join: "round", opacity: 1 }; })));
+      this.edit(v === "none" ? "Remove line" : "Add line", (o) => {
+        if (v === "none" && o.type === "line") return;
+        o.stroke = v === "none" ? null : o.stroke || { color: "#000000", width: this.app.prefs.stroke_width || 1, dash: "solid", cap: "round", join: "round", opacity: 1 };
+      }), { mixed: this.mx("stroke") }));
     if (st) {
       const set = (label, key, conv = (v) => v) => (v) => this.edit(label, (o) => { o.stroke = { ...o.stroke, [key]: conv(v) }; });
       kids.push(row(colorField("Line colour", st.color || "#000000",
-        (v, sw) => this.edit("Line colour", (o) => { o.stroke = linked({ ...o.stroke, color: v }, sw); }), st.swatch),
-        numField("Line width", st.width ?? 1, "pt", set("Line width", "width", (v) => Math.max(v, 0)), { min: 0, step: 0.25 })));
+        (v, sw) => this.edit("Line colour", (o) => { o.stroke = linked({ ...o.stroke, color: v }, sw); }),
+        this.mx("stroke.swatch") ? null : st.swatch, { mixed: this.mx("stroke.color") }),
+        numField("Line width", st.width ?? 1, "pt", set("Line width", "width", (v) => Math.max(v, 0)),
+          { min: 0, step: 0.25, mixed: this.mx("stroke.width") })));
       kids.push(pictureField("Dash", typeof st.dash === "string" ? st.dash : "solid",
-        DASHES.map(([value, label]) => ({ value, label, picture: () => dashPicture(st, value) })), set("Dash", "dash")));
+        DASHES.map(([value, label]) => ({ value, label, picture: () => dashPicture(st, value) })), set("Dash", "dash"),
+        { mixed: this.mx("stroke.dash") }));
       // How close the dashes or dots are: their gaps as a percentage of the style's (lower is
       // denser), the dashes keeping their length
-      if (st.dash && st.dash !== "solid") {
+      const dashed = (st.dash && st.dash !== "solid") || this.mx("stroke.dash");
+      if (dashed) {
         kids.push(numField("Dash spacing", (st.dash_spacing ?? 1) * 100, "%", (v) => this.edit("Dash spacing", (o) => {
           const f = Math.max(v, 0) / 100;
           o.stroke = { ...o.stroke };
           if (Math.abs(f - 1) < 1e-9) delete o.stroke.dash_spacing;
           else o.stroke.dash_spacing = f;
-        }), { min: 0, max: 1000, step: 10 }),
+        }), { min: 0, max: 1000, step: 10, mixed: this.mx("stroke.dash_spacing") }),
         h("p", { class: "hint" }, "The gaps between dashes or dots: 100% as the style has them, lower is denser."));
       }
       // Dashed lines get a dash (or dot) on every corner and end, evenly spaced between them;
       // unticked, the pattern runs on regardless of corners, as in PowerPoint
-      if (st.dash && st.dash !== "solid") {
+      if (dashed) {
         kids.push(checkField("Even dashes: one on every corner and end", st.even_dashes !== false, (on) =>
           this.edit(on ? "Even dashes" : "PowerPoint dash spacing", (o) => {
             o.stroke = { ...o.stroke };
             if (on) delete o.stroke.even_dashes;
             else o.stroke.even_dashes = false;
-          })));
+          }), { mixed: this.mx("stroke.even_dashes") }));
       }
       kids.push(row(pictureField("Ends", st.cap || "flat", [["round", "Round"], ["flat", "Flat"], ["square", "Square"]]
-        .map(([value, label]) => ({ value, label, picture: () => capPicture(st, value) })), set("Line ends", "cap")),
+        .map(([value, label]) => ({ value, label, picture: () => capPicture(st, value) })), set("Line ends", "cap"), { mixed: this.mx("stroke.cap") }),
       pictureField("Corners", st.join || "round", [["round", "Round"], ["miter", "Sharp"], ["bevel", "Bevelled"]]
-        .map(([value, label]) => ({ value, label, picture: () => joinPicture(st, value) })), set("Corners", "join"))));
-      kids.push(transparencyField("Line transparency", st.opacity, (op) => this.edit("Line transparency", (o) => { o.stroke = { ...o.stroke, opacity: op }; })));
+        .map(([value, label]) => ({ value, label, picture: () => joinPicture(st, value) })), set("Corners", "join"), { mixed: this.mx("stroke.join") })));
+      kids.push(transparencyField("Line transparency", st.opacity, (op) => this.edit("Line transparency", (o) => { o.stroke = { ...o.stroke, opacity: op }; }),
+        { mixed: this.mx("stroke.opacity") }));
     }
     return section("Line", kids);
   },
@@ -1042,14 +1055,17 @@ export const inspector = {
   outlineSection(it) {
     const o = it.outline, k = outlineKind(it), inside = k.filled || k.encloses, sides = outlineSides(k);
     const kids = [checkField("Outline around it", !!o, (on) => this.edit(on ? "Add outline" : "Remove outline", (x) => {
-      x.outline = on ? { color: contrastingOutline(x), width: 1, opacity: 1 } : null;
-    }))];
+      x.outline = on ? x.outline || { color: contrastingOutline(x), width: 1, opacity: 1 } : null;
+    }), { mixed: this.mx("outline") })];
     if (o) {
       const set = (label, key) => (v) => this.edit(label, (x) => { x.outline = { ...x.outline, [key]: v }; });
       kids.push(row(colorField("Outline colour", o.color,
-        (v, sw) => this.edit("Outline colour", (x) => { x.outline = linked({ ...x.outline, color: v }, sw); }), o.swatch),
-        numField("Outline thickness", o.width ?? 1, "pt", (v) => set("Outline thickness", "width")(Math.max(v, 0.05)), { min: 0.05, step: 0.25 })));
-      kids.push(transparencyField("Outline transparency", o.opacity, (op) => set("Outline transparency", "opacity")(op)));
+        (v, sw) => this.edit("Outline colour", (x) => { x.outline = linked({ ...x.outline, color: v }, sw); }),
+        this.mx("outline.swatch") ? null : o.swatch, { mixed: this.mx("outline.color") }),
+        numField("Outline thickness", o.width ?? 1, "pt", (v) => set("Outline thickness", "width")(Math.max(v, 0.05)),
+          { min: 0.05, step: 0.25, mixed: this.mx("outline.width") })));
+      kids.push(transparencyField("Outline transparency", o.opacity, (op) => set("Outline transparency", "opacity")(op),
+        { mixed: this.mx("outline.opacity") }));
       // Sides and Gaps each change only their half of the type; every choice is offered, greyed
       // out with the reason where it would change nothing yet. (A line made from a closed one keeps
       // its left or right side, shown as it is)
@@ -1059,10 +1075,10 @@ export const inspector = {
       kids.push(row(
         pictureField("Sides", look.sides, sides.map(([value, label]) => ({ value, label,
           picture: () => outlinePicture(it, outlineType(value, look.gaps), inside) })), pick("Outline sides", "sides"),
-        { disabled: k.lined || k.filled ? null : "For something with a line or a fill" }),
+        { disabled: k.lined || k.filled ? null : "For something with a line or a fill", mixed: this.mx("outline.type") }),
         pictureField("Gaps", look.gaps, OUTLINE_GAPS.map(([value, label]) => ({ value, label,
           picture: () => outlinePicture(it, outlineType(look.sides, value), inside) })), pick("Outline gaps", "gaps"),
-        { disabled: k.dashed ? null : "For dashed and dotted lines" })));
+        { disabled: k.dashed || this.mixedLook ? null : "For dashed and dotted lines", mixed: this.mx("outline.type") })));
     }
     kids.push(h("p", { class: "hint" }, "A band of another colour around everything it draws, e.g. a white edge that keeps a black arrow "
       + "visible on a photo."
@@ -1078,16 +1094,16 @@ export const inspector = {
       const out = [row(pictureField(label, spec?.type || "none", HEADS.map(([value, name]) => ({ value, label: name,
         picture: () => headPicture(it, key, value, spec?.w || "med") })), (v) => this.edit("Arrowhead", (o) => {
         o[key] = v === "none" ? null : { ...(o[key] || {}), type: v, w: o[key]?.w || "med", len: o[key]?.len || "med" };
-      })), pictureField(`${label} size`, spec?.w || "med", SIZES.map(([value, name]) => ({ value, label: name,
+      }), { mixed: this.mx(key) }), pictureField(`${label} size`, spec?.w || "med", SIZES.map(([value, name]) => ({ value, label: name,
         picture: () => headPicture(it, key, spec?.type || "triangle", value) })), (v) => this.edit("Arrowhead size", (o) => {
         if (o[key]) o[key] = { ...o[key], w: v, len: v };
-      }), { disabled: spec ? null : "Choose an arrowhead first" }))];
+      }), { disabled: spec ? null : "Choose an arrowhead first", mixed: this.mx(`${key}.w`) }))];
       if (spec && ROUNDED_HEADS.includes(spec.type)) {
         out.push(numField(`${label} rounding`, (spec.rounding || 0) * 100, "%", (v) => this.edit("Arrowhead rounding", (o) => {
-          if (!o[key]) return;
+          if (!o[key] || !ROUNDED_HEADS.includes(o[key].type)) return;
           o[key] = { ...o[key], rounding: Math.min(Math.max(v, 0), 100) / 100 };
           if (!o[key].rounding) delete o[key].rounding;
-        }), { min: 0, max: 100, step: 5 }));
+        }), { min: 0, max: 100, step: 5, mixed: this.mx(`${key}.rounding`) }));
       }
       return out;
     };
@@ -1188,7 +1204,93 @@ export const inspector = {
         button("Delete", () => this.app.run("delete"), "Delete"))]),
     sel.every((it) => it.type === "bracket") ? section("Brackets", [
       button("Stack the brackets in tidy levels, the narrowest lowest", () => this.app.run("stackBrackets"), "Stack"),
-      h("p", { class: "hint" }, "Brackets that don't overlap share a level; each level sits just above the one below.")]) : null]]];
+      h("p", { class: "hint" }, "Brackets that don't overlap share a level; each level sits just above the one below.")]) : null]],
+    this.lookTab(sel)].filter(Boolean);
+  },
+  // Several objects' looks at once (several selected, or a group): the Style tab's object style,
+  // shape, fill, line, arrowheads and outline, for every line and shape among them, those inside
+  // groups too (lookTargets). Each field shows what they share, blank ("Mixed") where they differ
+  // (mx), and a change goes to each one that can take it (editLooks), as one undo step
+  lookTab(items) {
+    const all = lookTargets(items);
+    if (!all.length) return null;
+    const plain = (o) => o.type === "shape" && !o.textbox && o.geom !== "region";
+    const lined = all.filter((o) => takes(o, "stroke")), filled = all.filter((o) => takes(o, "fill"));
+    const headed = all.filter((o) => takes(o, "arrow_start")), shaped = all.filter(plain);
+    // What the fields show: the first one's look, each part from the first that has it
+    const first = shaped[0] || all.find((o) => o.type === "shape") || all[0];
+    const rep = JSON.parse(JSON.stringify(first));
+    for (const [key, list] of [["stroke", lined], ["fill", filled], ["outline", all], ["arrow_start", headed], ["arrow_end", headed]]) {
+      rep[key] = JSON.parse(JSON.stringify(list.find((o) => o[key])?.[key] ?? null));
+    }
+    rep.fill_reach = filled.find((o) => o.fill)?.fill_reach;
+    const via = (want) => {
+      const ctx = Object.create(this);
+      ctx.edit = (label, fn) => this.editLooks(label, fn, want, all);
+      return ctx;
+    };
+    this.mixedLook = mixedLooks(lined, filled, headed, shaped, all);
+    try {
+      return ["style", "Style", [
+        this.multiObjectStyleSection(rep, all),
+        shaped.length ? this.multiShapeSection(shaped, via) : null,
+        filled.length ? this.fillSection.call(via((o, label) => takes(o, "fill")
+          && (label === "Fill" || (/gradient/i.test(label) ? !!o.fill?.gradient : !!o.fill))), rep) : null,
+        lined.length ? this.strokeSection.call(via((o, label) => takes(o, "stroke")
+          && (label === "Add line" || label === "Remove line" || !!o.stroke)),
+        { ...rep, type: lined.every((o) => o.type === "line") ? "line" : "shape" }) : null,
+        headed.length ? this.endsSection.call(via((o) => takes(o, "arrow_start")), rep) : null,
+        this.outlineSection.call(via((o, label) => label === "Add outline" || label === "Remove outline" || !!o.outline), rep),
+      ]];
+    } finally {
+      this.mixedLook = null;
+    }
+  },
+  mx(path) { return !!this.mixedLook?.has(path); },
+  editLooks(label, fn, want, targets) {
+    const ids = targets.map((o) => o.id);
+    store.update(label, (doc) => {
+      for (const id of ids) {
+        const it = findDeep(doc.pages[store.pageIndex].items, id);
+        if (it && want(it, label)) fn(it, doc);
+      }
+    });
+  },
+  // Several objects' object style: the one they share, or Mixed; a choice goes to them all
+  multiObjectStyleSection(rep, all) {
+    const styles = store.doc.object_styles || [], used = new Set(all.map((o) => o.object_style || ""));
+    return section("Object style", [pictureField("Object style", used.size === 1 ? [...used][0] : "",
+      [{ value: "", label: "None", picture: () => stylePicture(rep, null) },
+        ...styles.map((x) => ({ value: x.id, label: x.name, picture: () => stylePicture(rep, x) }))],
+      (v) => this.app.useObjectStyle(v), { mixed: used.size > 1 })]);
+  },
+  // Several shapes' kind and corner rounding (not freeform shapes' kind, nor text boxes)
+  multiShapeSection(shaped, via) {
+    const roundable = (o) => !!shapeCatalog.shapes[o.geom]?.corners || o.geom === "custom";
+    const kids = [];
+    const kinds = shaped.filter((o) => o.geom !== "custom"), round = shaped.filter(roundable);
+    if (kinds.length) {
+      const groups = shapeCatalog.groups.map((g) => [g.title, g.shapes]);
+      const geom = kinds[0].geom;
+      if (!this.mx("geom") && !shapeCatalog.groups.some((g) => g.shapes.includes(geom))) groups.push(["From PowerPoint", [geom]]);
+      const ctx = via((o) => o.type === "shape" && !o.textbox && o.geom !== "region" && o.geom !== "custom");
+      kids.push(pictureField("Shape", geom, groups.flatMap(([heading, geoms]) => [{ heading },
+        ...geoms.map((g) => ({ value: g, label: shapeName(g), picture: () => shapePicture(g) }))]), (v) => ctx.edit("Change shape", (o) => {
+        o.geom = v;
+        o.adj = {};
+        if (!shapeCatalog.shapes[v]?.open) { o.arrow_start = null; o.arrow_end = null; }
+      }), { mixed: this.mx("geom") }));
+    }
+    if (round.length) {
+      const ctx = via((o) => o.type === "shape" && roundable(o));
+      kids.push(numField("Corner rounding", (round[0].rounding || 0) * 100, "%", (v) => ctx.edit("Corner rounding", (o) => {
+        o.rounding = Math.min(Math.max(v, 0), 100) / 100;
+        if (!o.rounding) delete o.rounding;
+      }), { min: 0, max: 100, step: 5, mixed: this.mx("rounding") }),
+      h("p", { class: "hint" }, "Corner rounding: 0% keeps the corners sharp; 100% is as round as the shape allows. "
+        + "It goes to the shapes with corners."));
+    }
+    return kids.length ? section("Shape", kids) : null;
   },
   // Align, distribute and spacing, as in the ribbon's Arrange tab (one object aligns to the page)
   alignSections(n) {
@@ -1211,6 +1313,50 @@ export const inspector = {
 };
 
 // Which tab opens first for each kind of object (until another is chosen)
+// The lines and shapes among objects, those inside groups too (not a clipping mask's shape, which
+// isn't drawn): what several objects' Style tab works on
+function lookTargets(items) {
+  const out = [];
+  const walk = (list) => {
+    for (const it of list) {
+      if (it.type === "group") walk(it.clip ? it.items.slice(0, -1) : it.items);
+      else if (it.type === "line" || it.type === "shape") out.push(it);
+    }
+  };
+  walk(items);
+  return out;
+}
+// Where several objects' looks differ, by field ("stroke" whether they have a line, "stroke.width"
+// its width among those that have one...): what inspector.mx asks
+const PART_DEFAULT = { opacity: 1, dash: "solid", dash_spacing: 1, even_dashes: true, cap: "flat", join: "round", width: 1 };
+function mixedLooks(lined, filled, headed, shaped, all) {
+  const out = new Set();
+  const differ = (path, list, get) => {
+    if (new Set(list.map((o) => JSON.stringify(get(o) ?? null))).size > 1) out.add(path);
+  };
+  const parts = (key, list) => {
+    differ(key, list, (o) => !!o[key]);
+    const have = list.filter((o) => o[key]);
+    for (const sub of new Set(have.flatMap((o) => Object.keys(o[key])))) differ(`${key}.${sub}`, have, (o) => o[key][sub] ?? PART_DEFAULT[sub]);
+  };
+  parts("stroke", lined);
+  parts("outline", all);
+  differ("fill", filled, (o) => (!o.fill ? "none" : o.fill.gradient ? (o.fill.gradient.type === "radial" ? "radial" : "linear") : "solid"));
+  const fills = filled.filter((o) => o.fill);
+  for (const sub of ["color", "opacity", "swatch", "gradient"]) differ(`fill.${sub}`, fills, (o) => o.fill[sub] ?? PART_DEFAULT[sub]);
+  differ("fill_reach", fills, (o) => o.fill_reach || "middle");
+  for (const key of ["arrow_start", "arrow_end"]) {
+    differ(key, headed, (o) => o[key]?.type || "none");
+    const have = headed.filter((o) => o[key]);
+    differ(`${key}.w`, have, (o) => o[key].w || "med");
+    differ(`${key}.rounding`, have.filter((o) => ROUNDED_HEADS.includes(o[key].type)), (o) => o[key].rounding || 0);
+  }
+  differ("object_style", all, (o) => o.object_style || "");
+  differ("geom", shaped.filter((o) => o.geom !== "custom"), (o) => o.geom);
+  differ("rounding", shaped.filter((o) => shapeCatalog.shapes[o.geom]?.corners || o.geom === "custom"), (o) => o.rounding || 0);
+  return out;
+}
+
 const DEFAULT_TAB = { shape: "style", textbox: "text", line: "style", picture: "picture", group: "arrange", multi: "arrange",
   region: "style", scalebar: "scalebar", bracket: "bracket" };
 function kindKey(it) { return it.geom === "region" ? "region" : it.type === "shape" && it.textbox ? "textbox" : it.type; }
@@ -1309,11 +1455,13 @@ function section(title, children) {
 function row(...children) { return h("div", { class: "row" }, ...children); }
 function label(text, id) { return h("label", { for: id }, text); }
 
+// opts.mixed: the objects selected differ here, so it's blank ("Mixed") until a value is typed
 export function numField(text, valuePt, unit, onCommit, opts = {}) {
   const id = `f${++fieldId}`;
   const isLen = unit in { pt: 1, mm: 1, cm: 1, in: 1, px: 1 };
   const shown = isLen ? toUnit(valuePt, unit) : valuePt;
-  const input = h("input", { id, type: "number", inputmode: "decimal", value: fmt(shown, isLen ? digits(unit) : 2),
+  const input = h("input", { id, type: "number", inputmode: "decimal", value: opts.mixed ? "" : fmt(shown, isLen ? digits(unit) : 2),
+    placeholder: opts.mixed ? "Mixed" : null,
     step: opts.step ?? (isLen ? { in: 0.01, pt: 0.5, cm: 0.1, mm: 0.5, px: 1 }[unit] : 1), min: opts.min, max: opts.max,
     "data-bind": opts.bind, "aria-describedby": `${id}-u` });
   input.addEventListener("change", () => {
@@ -1351,20 +1499,21 @@ function textArea(text, value, onCommit) {
 export function pictureField(text, value, options, onChange, opts = {}) {
   const id = `f${++fieldId}`;
   const choices = options.filter((o) => !o.heading);
-  const shown = choices.find((o) => o.value === value) || choices[0];
+  const mixed = !!opts.mixed;   // (the objects selected differ: no picture, "Mixed", nothing ticked)
+  const shown = mixed ? { label: "Mixed" } : choices.find((o) => o.value === value) || choices[0];
   const why = opts.disabled ? h("p", { class: "hint why", id: `${id}-why` }, opts.disabled) : null;
   const btn = h("button", { type: "button", id, class: "pic-select", "aria-haspopup": "menu", "aria-disabled": why ? "true" : null,
     "aria-describedby": why ? `${id}-why` : null },
   h("span", { class: "pic" }, shown?.picture?.() || null), h("span", { class: "pic-label" }, shown?.label ?? ""),
   h("span", { class: "pic-arrow", "aria-hidden": "true" }, "▾"));
-  btn.value = value ?? "";
+  btn.value = mixed ? "" : value ?? "";
   btn.choices = choices.map((o) => o.value);
   const open = () => {
     if (why) return;
     const r = btn.getBoundingClientRect();
     contextMenu.show(options.map((o) => (o.heading ? o : { label: o.label, value: o.value, picture: o.picture?.(),
-      checked: o.value === value, disabled: !!o.disabled, note: o.disabled || null,
-      run: () => { if (o.value !== value) onChange(o.value); } })), r.left, r.bottom + 2, btn, { label: text, focusChecked: true });
+      checked: !mixed && o.value === value, disabled: !!o.disabled, note: o.disabled || null,
+      run: () => { if (mixed || o.value !== value) onChange(o.value); } })), r.left, r.bottom + 2, btn, { label: text, focusChecked: true });
   };
   btn.addEventListener("click", open);
   btn.addEventListener("keydown", (e) => {
@@ -1386,14 +1535,16 @@ export function selectField(text, value, options, onChange, opts = {}) {
 // A colour picker with its hex code beside it; either can be edited, which drops a link to a
 // swatch. The swatch button picks one of the figure's swatches (and links to it), or adds one.
 // onChange(colour, swatch id or null)
-function colorField(text, value, onChange, swatch = null) {
+// opts.mixed: the objects selected differ, so the hex code is blank ("Mixed")
+function colorField(text, value, onChange, swatch = null, opts = {}) {
   const id = `f${++fieldId}`;
   const hex = parseHex(value) || "#000000";
   const picker = h("input", { id, type: "color", value: hex });
-  const code = h("input", { id: `${id}-hex`, type: "text", class: "hex", value: hex.toUpperCase(), maxlength: 7,
-    spellcheck: "false", autocomplete: "off", "aria-label": `${text} hex code` });
+  const code = h("input", { id: `${id}-hex`, type: "text", class: "hex", value: opts.mixed ? "" : hex.toUpperCase(), maxlength: 7,
+    placeholder: opts.mixed ? "Mixed" : null, spellcheck: "false", autocomplete: "off", "aria-label": `${text} hex code` });
   picker.addEventListener("change", () => { code.value = picker.value.toUpperCase(); onChange(picker.value, null); });
   const commit = () => {
+    if (opts.mixed && !code.value.trim()) return;   // (left blank: each keeps its own)
     const v = parseHex(code.value);
     if (!v) {
       announce(`“${code.value}” isn't a hex colour; use 6 digits such as #1A2B3C`);
@@ -1401,7 +1552,7 @@ function colorField(text, value, onChange, swatch = null) {
       return;
     }
     code.value = v.toUpperCase();
-    if (v !== picker.value) { picker.value = v; onChange(v, null); }
+    if (v !== picker.value || opts.mixed) { picker.value = v; onChange(v, null); }
   };
   code.addEventListener("change", commit);
   code.addEventListener("keydown", (e) => {
@@ -1424,18 +1575,20 @@ function colorField(text, value, onChange, swatch = null) {
     sw ? h("div", { class: "swatch-link" }, `Swatch: ${sw.name}`) : null);
 }
 // Transparency in percent (0 = solid), as PowerPoint shows it; items store opacity
-function transparencyField(text, opacity, onCommit) {
+function transparencyField(text, opacity, onCommit, opts = {}) {
   return numField(text, (1 - (opacity ?? 1)) * 100, "%", (v) => onCommit(Math.min(Math.max(1 - v / 100, 0), 1)),
-    { min: 0, max: 100, step: 5 });
+    { min: 0, max: 100, step: 5, ...opts });
 }
 // White around dark things, black around light ones
 function contrastingOutline(it) {
   const main = parseHex(it.type === "line" ? it.stroke?.color : (it.fill?.color || it.stroke?.color)) || "#000000";
   return luminance(main) > 0.4 ? "#000000" : "#ffffff";
 }
-function checkField(text, checked, onChange) {
+// opts.mixed: some of the objects selected have it and some don't (a dash in the box)
+function checkField(text, checked, onChange, opts = {}) {
   const id = `f${++fieldId}`;
-  const input = h("input", { id, type: "checkbox", checked });
+  const input = h("input", { id, type: "checkbox", checked: opts.mixed ? false : checked });
+  if (opts.mixed) input.indeterminate = true;
   input.addEventListener("change", () => onChange(input.checked));
   return h("div", { class: "field check" }, input, label(text, id));
 }

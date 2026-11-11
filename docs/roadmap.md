@@ -205,6 +205,9 @@ Matthew's choices are in brackets.
       panel's tabs, following drags, typed to change; groups scale from their top-left [Matthew's choices]
 - [x] Dash spacing (asked 2026-11-10): the gaps between dashes and dots as a percentage of the
       style's, in the Line section; Dash menu pictures at 2 pt so dots show [Matthew's choices]
+- [x] Several objects' styles at once (asked 2026-11-10): a Style tab for several selected or a
+      group, blank (Mixed) where they differ, each change to those that can take it, groups'
+      objects included, shape kind and rounding too [Matthew's choices]
 
 ## Acceptance test (test slide)
 

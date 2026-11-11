@@ -1502,6 +1502,67 @@ async function pictureMenuChecks(app) {
 // Clicks pick shapes by what's drawn of them: an empty one (no fill, or a clear one) only by its
 // line or its text, a click inside it reaching what's under it; an ellipse inside its curve, not at
 // its frame's corners. A selected empty shape drags from inside, and a click there picks what's under
+// Several objects' Style tab: shapes, an arrow and a line inside a group selected together show
+// what they share, blank ("Mixed") where they differ, and a change goes to every one that can
+// take it, the line in the group too, as one undo step; a group selected alone has the tab too
+async function multiLookChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  const black = (w) => ({ color: "#000000", width: w, dash: "solid", cap: "round", join: "round", opacity: 1 });
+  store.update("Objects", (doc) => {
+    doc.pages[store.pageIndex].items.push(
+      { ...gRectFor("mR1", 40, 40, 80, 40), stroke: black(1), fill: { color: "#ff0000", opacity: 1 } },
+      { ...gRectFor("mR2", 140, 40, 80, 40), stroke: black(2), fill: { color: "#0000ff", opacity: 1 } },
+      { id: "mA", type: "line", points: [[40, 120], [200, 120]], arrow_start: null, arrow_end: { type: "triangle", w: "med", len: "med" },
+        stroke: black(1) },
+      { id: "mG", type: "group", items: [{ id: "mGL", type: "line", points: [[40, 160], [200, 160]], arrow_start: null, arrow_end: null,
+        stroke: black(0.5) }, { ...gRectFor("mGR", 40, 180, 40, 20), fill: { color: "#ff0000", opacity: 1 } }] });
+  }, { select: ["mR1", "mR2", "mA", "mG"] });
+  await settle();
+  inspector.render();
+  document.getElementById("itab-style")?.click();
+  const fieldFor = (text) => {
+    const l = [...document.querySelectorAll("#inspector label")].find((x) => x.textContent === text);
+    return l ? document.getElementById(l.htmlFor) : null;
+  };
+  const width = fieldFor("Line width"), colour = fieldFor("Line colour");
+  check(document.getElementById("itab-style") && width && width.value === "" && width.placeholder === "Mixed"
+    && document.getElementById(`${colour?.id}-hex`)?.value === "#000000",
+  "several objects have a Style tab: widths that differ are blank (Mixed), the colour they share shows", `${width?.value} ${width?.placeholder}`);
+  const steps = store.history.length;
+  await choose("Line width", "0.75");
+  const widths = ["mR1", "mR2", "mA", "mGL", "mGR"].map((id) => store.item(id).stroke.width);
+  check(widths.every((w) => w === 0.75) && store.history.length === steps + 1,
+    "a width typed in goes to every line and shape, those in the group too, as one undo step", widths.join(" "));
+  inspector.render();
+  const fillHex = document.getElementById(`${fieldFor("Fill colour")?.id}-hex`);
+  check(fillHex && fillHex.value === "" && fillHex.placeholder === "Mixed", "fill colours that differ are blank", fillHex?.value);
+  fillHex.value = "#00ff00";
+  fillHex.dispatchEvent(new Event("change"));
+  await settle();
+  check(["mR1", "mR2", "mGR"].every((id) => store.item(id).fill?.color === "#00ff00") && !("fill" in store.item("mA")),
+    "a fill colour goes to the shapes; the lines don't get a fill", JSON.stringify(store.item("mR1").fill));
+  inspector.render();
+  const endWas = fieldFor("End")?.querySelector(".pic-label")?.textContent;
+  await choose("End", "stealth");
+  check(endWas === "Mixed" && store.item("mA").arrow_end?.type === "stealth" && store.item("mGL").arrow_end?.type === "stealth"
+    && !store.item("mR1").arrow_end, "arrowheads that differ read Mixed; a choice goes to the lines (not the rectangles)", endWas);
+  await choose("Dash", "dash");
+  check(["mR1", "mR2", "mA", "mGL", "mGR"].every((id) => store.item(id).stroke.dash === "dash"), "a dash goes to them all");
+  await choose("Corner rounding", "20");
+  check(["mR1", "mR2", "mGR"].every((id) => store.item(id).rounding === 0.2), "corner rounding goes to every rectangle");
+  // A line never loses its line
+  await choose("Line", "none");
+  check(store.item("mR1").stroke === null && store.item("mA").stroke && store.item("mGL").stroke,
+    "No line takes the shapes' lines away and leaves the lines theirs");
+  store.select(["mG"]);
+  await settle();
+  inspector.render();
+  check(!!document.getElementById("itab-style") && fieldFor("Line width")?.value === "0.75",
+    "a group selected alone has the Style tab too, showing what its objects share", fieldFor("Line width")?.value);
+  store.select([]);
+}
+
 // Dash spacing: the gaps between dashes and dots as a percentage of the style's, in the Line
 // section; the Dash menu's pictures are drawn at 2 pt so dots show
 async function dashSpacingChecks(app) {
@@ -2462,6 +2523,7 @@ export async function run(app, params) {
     if (params.get("only") === "arrangetab") { await arrangeTabChecks(app); throw ONLY; }
     if (params.get("only") === "sizestrip") { await sizeStripChecks(app); throw ONLY; }
     if (params.get("only") === "dashspacing") { await dashSpacingChecks(app); throw ONLY; }
+    if (params.get("only") === "multilook") { await multiLookChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3724,6 +3786,7 @@ export async function run(app, params) {
     await arrangeTabChecks(app);
     await sizeStripChecks(app);
     await dashSpacingChecks(app);
+    await multiLookChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;
