@@ -109,6 +109,7 @@ export const inspector = {
       if (what === "doc" && detail?.live) return this.refreshValues();
       if (["selection", "doc", "page", "saved"].includes(what)) this.schedule();
     });
+    document.addEventListener("fa-areas", () => this.schedule());   // (an area fill's area lost or found again)
   },
   schedule() {
     if (this._raf) return;
@@ -348,11 +349,15 @@ export const inspector = {
     if (it.geom === "region") {
       // Its shape comes from its lines and shapes: no position or size of its own to type
       const n = it.region?.items?.length || 0;
-      const fillArrange = ["arrange", "Arrange", [this.objectSection(it), section("Area fill", [
+      // (its lines no longer enclose an area: said on both tabs, as it opens on Style)
+      const lost = () => (canvas.areaLost(it.id) ? h("p", { class: "hint warn area-lost-note" }, `Its ${n} line${n === 1 ? "" : "s"} `
+        + `and shape${n === 1 ? "" : "s"} don't enclose an area any more, so there's nothing to fill: the dashed outline is where it `
+        + "was. Join the gap again (an end within 3.5 pt of a line closes it) and the fill comes back; Undo also brings it back.") : null);
+      const fillArrange = ["arrange", "Arrange", [this.objectSection(it), section("Area fill", [lost(),
         h("p", { class: "hint" }, `It fills the space ${n} line${n === 1 ? "" : "s"} and shape${n === 1 ? "" : "s"} enclose, and follows them `
           + "when they move or change shape. Dragging it moves them all."),
         button("Make it an ordinary shape that stays put when the lines move", () => this.app.detachArea(), "Make an ordinary shape")])]];
-      return [fillArrange, ["style", "Style", [this.objectStyleSection(it), this.fillSection(it), this.outlineSection(it)]]];
+      return [fillArrange, ["style", "Style", [lost(), this.objectStyleSection(it), this.fillSection(it), this.outlineSection(it)]]];
     }
     if (it.type === "group" && it.clip) {
       arrange[2].push(section("Clipping mask", [

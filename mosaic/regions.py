@@ -8,7 +8,9 @@ well inside it, ready for the next change.
 
 Lines enclose an area along their centre lines; the fill is drawn behind them, so their width
 covers its edge. An open line's ends reach a little past where they stop (half the line's
-width and a bit), so lines that look joined close the area even with a hairline gap.
+width and a bit), so lines that look joined close the area even with a hairline gap; and an
+open end within BRIDGE of another line (or of its own other end) is joined to it by a short
+straight edge, so a line nudged or dragged a little off the others doesn't lose its fill.
 """
 from __future__ import annotations
 
@@ -25,9 +27,12 @@ PER_CURVE = 24    # points along each curve segment
 REACH = 0.25      # pt past half a line's width that an open line's ends reach
 GRID = 1e-4       # pt: coordinates closer than this are the same point
 TOUCH = 0.5       # pt of shared edge that makes an item part of an area's boundary
+BRIDGE = 3.5      # pt: an open end this close to another line is joined to it (_bridges); an arrow-key nudge is 2.8
 
 
-def _lines(item: dict) -> list[LineString]:
+def _lines(item: dict, ends: list | None = None) -> list[LineString]:
+    """An item's centre lines, open ones reaching a little past their ends; `ends` collects each
+    open end as (its point, the line's index in the list returned)."""
     out = []
     for path, width in centre_paths(item):
         for sub in path.subpaths():
@@ -46,7 +51,54 @@ def _lines(item: dict) -> list[LineString]:
             def past(a, b):
                 d = math.dist(a, b)
                 return (a[0] + (a[0] - b[0]) / d * reach, a[1] + (a[1] - b[1]) / d * reach)
+            if ends is not None:
+                ends += [(pts[0], len(out), pts[-1]), (pts[-1], len(out), pts[0])]
             out.append(LineString([past(pts[0], pts[1]), *pts, past(pts[-1], pts[-2])]))
+    return out
+
+
+def _lines_of(items: list[dict]) -> tuple[dict, list[LineString]]:
+    """Each item's lines by id, and the short edges that join open ends to lines within BRIDGE."""
+    by_id, every, ends = {}, [], []
+    for it in items:
+        own = []
+        found = _lines(it, own)
+        ends += [(p, len(every) + k, other) for p, k, other in own]
+        by_id[it["id"]] = found
+        every += found
+    return by_id, _bridges(every, ends)
+
+
+def _bridges(lines: list[LineString], ends: list) -> list[LineString]:
+    """A short straight edge from each open end (point, its line, its line's other end) to the
+    nearest other line within BRIDGE, or to its own other end, when it doesn't meet one already."""
+    if not ends:
+        return []
+    tree = shapely.STRtree(lines)
+    out = []
+    for p, own, other_end in ends:
+        pt = Point(p)
+        best = None
+        for j in tree.query(pt, predicate="dwithin", distance=BRIDGE):
+            if int(j) == own:
+                continue
+            d = lines[int(j)].distance(pt)
+            if best is None or d < best[0]:
+                best = (d, ops.nearest_points(lines[int(j)], pt)[0])
+        if best is not None and best[0] <= GRID * 10:
+            continue   # (it meets that line already)
+        d_own = math.dist(p, other_end)
+        if d_own <= BRIDGE and (best is None or d_own < best[0]) and d_own > GRID * 10:
+            best = (d_own, Point(other_end))   # (a line that nearly closes on itself)
+        if best is None:
+            continue
+        q = (best[1].x, best[1].y)
+        d = math.dist(p, q)
+        if d <= GRID * 10:
+            continue
+        ux, uy = (q[0] - p[0]) / d, (q[1] - p[1]) / d
+        e = 0.05   # (a little past each end, so the edge crosses what it joins)
+        out.append(LineString([(p[0] - ux * e, p[1] - uy * e), (q[0] + ux * e, q[1] + uy * e)]))
     return out
 
 
@@ -202,10 +254,10 @@ def edge_traced(areas: list, lines: list, tol: float) -> bool:
 def area_at(items: list[dict], point) -> dict | None:
     """The area enclosed round `point` by `items` (a page's items): {items: ids of those round it,
     seed: [u, v], frame: its box}, or None if nothing encloses that point."""
-    lines_by = {it["id"]: _lines(it) for it in _flat(items)}
+    lines_by, bridges = _lines_of(_flat(items))
     every = [line for lines in lines_by.values() for line in lines]
     pt = Point(point)
-    face = next((f for f in _faces(every) if f.contains(pt)), None)
+    face = next((f for f in _faces(every + bridges) if f.contains(pt)), None)
     if face is None:
         return None
     edge = face.boundary.buffer(GRID * 10)
@@ -218,18 +270,27 @@ def area_at(items: list[dict], point) -> dict | None:
 def find(region: dict, items: dict) -> dict | None:
     """An area fill's area now: {path, frame, seed} from its lines and shapes (`items` by id), or
     None if they no longer enclose an area round its seed."""
-    lines = [line for i in region.get("items", []) if i in items for line in _lines(items[i])]
+    lines_by, bridges = _lines_of([items[i] for i in region.get("items", []) if i in items])
+    lines = [line for found in lines_by.values() for line in found]
     if not lines:
         return None
     x0, y0, w, h = _box(lines)
     u, v = region.get("seed", (0.5, 0.5))
     pt = Point(x0 + u * w, y0 + v * h)
-    faces = _faces(lines)
+    faces = _faces(lines + bridges)
     face = next((f for f in faces if f.contains(pt)), None)
     if face is None:
         # Just on an edge: the nearest area within a hair
         near = [f for f in faces if f.distance(pt) < 0.01]
         face = min(near, key=lambda f: f.distance(pt)) if near else None
+    if face is None and faces:
+        # The seed fell outside after a big change at once: the area its lines and shapes still go
+        # round, the one most of them edge (then the nearest)
+        def edged(f):
+            edge = f.boundary.buffer(GRID * 10)
+            return sum(any(line.intersection(edge).length > TOUCH for line in found) for found in lines_by.values())
+        best = max(faces, key=lambda f: (edged(f), -f.distance(pt)))
+        face = best if edged(best) >= min(2, len(lines_by)) else None
     if face is None:
         return None
     return {"path": _path(face), "frame": _frame(face), "seed": _seed(face, lines)}

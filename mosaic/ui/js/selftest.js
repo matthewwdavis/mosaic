@@ -1502,6 +1502,60 @@ async function pictureMenuChecks(app) {
 // Clicks pick shapes by what's drawn of them: an empty one (no fill, or a clear one) only by its
 // line or its text, a click inside it reaching what's under it; an ellipse inside its curve, not at
 // its frame's corners. A selected empty shape drags from inside, and a click there picks what's under
+// An area fill whose lines are nudged or have an end dragged a little off a corner keeps its fill
+// (small gaps bridged); dragged well away, it has no area: selected, its last outline shows
+// dashed and the panel says why; Undo brings it back
+async function areaGapChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const snapWas = app.prefs.snap;
+  await app.savePrefs({ snap: false });
+  const lineItem = (id, a, b) => ({ id, type: "line", points: [a, b], arrow_start: null, arrow_end: null,
+    stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 } });
+  store.update("Triangle", (doc) => doc.pages[store.pageIndex].items.push(lineItem("gp1", [100, 300], [200, 120]),
+    lineItem("gp2", [200, 120], [300, 300]), lineItem("gp3", [300, 300], [100, 300])), { select: [] });
+  await settle();
+  key("f");
+  pointer("pointerdown", screenOf(200, 250));
+  pointer("pointerup", screenOf(200, 250), { buttons: 0 });
+  await until(() => store.items().some((i) => i.geom === "region"), 4000);
+  await settle();
+  const area = () => store.items().find((i) => i.geom === "region");
+  const drawn = () => !!canvas.els.get(area()?.id)?.g.querySelector("path");
+  await until(drawn, 3000);
+  store.select(["gp3"]);
+  key("ArrowDown");
+  await settle();
+  await settle();
+  const moved = store.item("gp3").points[0][1] > 300.5;
+  check(moved && drawn(), "a line nudged off its corners with an arrow key keeps the fill", JSON.stringify(store.item("gp3").points));
+  app.run("undo");
+  await settle();
+  store.select(["gp3"]);
+  await settle();
+  await drag([300, 300], [302, 302.5]);
+  await settle();
+  await settle();
+  check(drawn() && !canvas.areaLost(area().id), "an end dragged a couple of points off its corner keeps the fill",
+    JSON.stringify(store.item("gp3").points));
+  await drag([302, 302.5], [340, 340]);
+  await until(() => canvas.areaLost(area().id), 3000);
+  store.select([area().id]);
+  await settle();
+  inspector.render();
+  check(!drawn() && canvas.overlay.querySelector(".area-lost") && document.querySelector("#inspector .area-lost-note"),
+    "dragged well away, the fill has no area: selected, its last outline shows dashed and the panel says why");
+  app.run("undo");
+  await until(() => drawn(), 3000);
+  await settle();
+  inspector.render();
+  check(drawn() && !canvas.areaLost(area().id) && !canvas.overlay.querySelector(".area-lost") && !document.querySelector("#inspector .area-lost-note"),
+    "Undo brings the fill back, and the note goes");
+  await app.savePrefs({ snap: snapWas });
+  store.select([]);
+}
+
 // In a dark theme, objects reaching off the page are drawn again over the pasteboard, clipped to
 // outside the page, through a filter that turns colours too dark to see there white; objects on
 // the page aren't; not in a light theme, nor with Settings' switch off
@@ -2641,6 +2695,7 @@ export async function run(app, params) {
     if (params.get("only") === "multilook") { await multiLookChecks(app); throw ONLY; }
     if (params.get("only") === "freeform") { await freeformChecks(app); throw ONLY; }
     if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
+    if (params.get("only") === "areagap") { await areaGapChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3906,6 +3961,7 @@ export async function run(app, params) {
     await multiLookChecks(app);
     await freeformChecks(app);
     await offPageChecks(app);
+    await areaGapChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

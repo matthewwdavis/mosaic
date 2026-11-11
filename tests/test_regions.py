@@ -30,6 +30,7 @@ def test_three_lines_enclose_an_area():
 
 def test_a_gap_narrower_than_the_line_still_closes_it():
     assert regions.area_at(triangle(gap=0.6), [100, 120]) is not None      # hidden by the 1.5 pt line's round end
+    assert regions.area_at(triangle(gap=3.0), [100, 120]) is not None      # a line nudged off: bridged (regions.BRIDGE)
     assert regions.area_at(triangle(gap=5.0), [100, 120]) is None          # a real opening
 
 
@@ -57,6 +58,32 @@ def test_it_follows_its_lines_and_opens_when_one_goes():
         it["points"] = [[x + 300, y + 50] for x, y in it["points"]]
     assert round(regions.find(region, {it["id"]: it for it in shifted})["frame"][0], 3) == 320
     assert regions.find(region, {it["id"]: it for it in items[:2]}) is None
+
+
+def test_a_line_nudged_or_its_end_dragged_a_little_keeps_the_fill():
+    items = triangle()
+    found = regions.area_at(items, [100, 120])
+    region = {"items": found["items"], "seed": found["seed"]}
+    by_id = lambda its: {it["id"]: it for it in its}
+    # One line nudged once with the arrow keys (0.1 cm): its ends leave the corners
+    nudged = copy.deepcopy(items)
+    nudged[2]["points"] = [[x, y + 2.83] for x, y in nudged[2]["points"]]
+    assert regions.find(region, by_id(nudged)) is not None
+    # One end dragged a little off its corner
+    dragged = copy.deepcopy(items)
+    dragged[2]["points"][0] = [203, 152]
+    assert regions.find(region, by_id(dragged)) is not None
+    # Dragged well away: a real opening
+    dragged[2]["points"][0] = [230, 175]
+    assert regions.find(region, by_id(dragged)) is None
+
+
+def test_the_area_is_found_when_a_big_change_leaves_the_seed_outside():
+    items = triangle()
+    found = regions.area_at(items, [100, 120])
+    region = {"items": found["items"], "seed": [0.05, 0.05]}   # (a seed in a corner of the box, outside the triangle)
+    area = regions.find(region, {it["id"]: it for it in items})
+    assert area is not None and [round(v, 3) for v in area["frame"]] == [20, 20, 180, 130]
 
 
 def test_dashed_outlines_and_what_encloses_nothing():

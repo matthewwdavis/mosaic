@@ -506,11 +506,19 @@ export const canvas = {
       results = await rpc("resolve", this.assetSizes(), items, context, store.doc.symbols || []);
     } catch (err) { console.error(err); return; }
     const autofit = [], areas = [];
+    let lostNow = false;
     results.forEach((r, i) => {
       if (!this.showDrawn(items[i], r, keys[i])) return;
       if (r.autofit_frame) autofit.push([r.id, r.autofit_frame]);
       if (r.region) areas.push([r.id, r.region]);
+      // An area fill whose lines no longer enclose an area: nothing to draw, but it keeps its last
+      // outline, dashed when selected, and the panel says why (areaLost)
+      if (items[i].geom === "region") {
+        const e = this.els.get(r.id), lost = !r.region;
+        if (e && !!e.areaLost !== lost) { e.areaLost = lost; lostNow = true; }
+      }
     });
+    if (lostNow) document.dispatchEvent(new CustomEvent("fa-areas"));
     if (autofit.length || areas.length) {
       store.silent((doc) => {
         for (const [id, f] of autofit) {
@@ -605,6 +613,7 @@ export const canvas = {
       this.drawPointEdit(o, sel[0]);
     } else if (sel.length === 1 && !this.cropping) {
       this.drawAttachment(o, sel[0]);
+      this.drawLostArea(o, sel[0]);
       this.drawHandles(sel[0]);
     } else if (sel.length > 1) {
       const key = this.keyObject?.();
@@ -619,6 +628,22 @@ export const canvas = {
     if (this.altDown && !this.op && sel.length) this.drawDistances(o, sel);
     if (this.dangerous && !this.op) this.drawPlotTexts(o);
   },
+  // An area fill whose lines don't enclose an area any more: its last outline, dashed
+  drawLostArea(o, it) {
+    const e = this.els.get(it.id);
+    if (it.geom !== "region" || !e?.areaLost || !e.regionPath) return;
+    let d = "";
+    for (const sub of e.regionPath.subpaths || []) {
+      for (const [op, ...v] of sub.cmds || []) {
+        if (op === "Z") { d += "Z"; continue; }
+        const pts = [];
+        for (let k = 0; k < v.length; k += 2) pts.push(this.toScreen(v[k] + it.frame[0], v[k + 1] + it.frame[1]).join(" "));
+        d += `${op}${pts.join(" ")}`;
+      }
+    }
+    if (d) o.append(s("path", { class: "area-lost", d }));
+  },
+  areaLost(id) { return !!this.els.get(id)?.areaLost; },
   // A selected panel label's panel, dashed, and a line from the corner it keeps to the label
   drawAttachment(o, it) {
     const panel = it.attach && findDeep(store.items(), it.attach.to);

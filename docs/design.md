@@ -136,6 +136,13 @@ pre-export check says so.
     as a percentage in the Line section; PowerPoint gets a custDash. The Dash menu's pictures are
     drawn at 2 pt: at the line's 1 pt, Dot and Round dot all but vanished in WebKit (checked in a
     WKWebView snapshot).
+  - *Area fills keep going through small gaps (2026-11-10, Matthew's report and choices):* a
+    corner's two ends are usually one attached to the other, so dragging the attached end, or
+    moving that whole line, opened a gap and the fill vanished, though it stayed selectable by its
+    last outline. Now regions.py bridges an open end within BRIDGE (3.5 pt; an arrow nudge is 2.8)
+    of another line with a short edge (`_bridges`, STRtree), and `find` falls back to the face most
+    of its items edge when the seed drifts outside after a big change. Past that, the canvas marks
+    the fill areaLost: selected, its last outline dashed (warn colour), and a note on both tabs.
   - *Black off the page in a dark theme (2026-11-10, Matthew's choices):* objects reaching past
     the page's edge get a `<use>` copy in a layer over the items (canvas.drawOffPage), clipped to
     outside the page, through an SVG filter (#fa-offpage): pixels whose linear luminance is below

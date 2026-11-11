@@ -584,15 +584,18 @@ can choose its colour, or a gradient, in the Style tab.
 - **It follows its lines.** Move a line, drag a corner or reshape a curve, and the fill reshapes
   with it. Dragging the fill, or nudging it with the arrow keys, moves its lines and shapes with
   it.
-- Lines that look joined close an area, even with a hairline gap, as long as the gap is narrower
-  than about the line's width.
+- Lines that look joined close an area, even with a hairline gap. A line's end within **3.5 pt**
+  of another line counts as joined, too: nudge a line with the arrow keys, or drag an end a little
+  off its corner, and the fill keeps going (with a short straight edge across the gap).
 - A shape inside the area leaves a hole.
 - **Fill reaches** (Style tab, Fill) sets where the fill stops against its lines: their middle
   (the default), their inner edge or their outer edge, as for a shape's fill. It shows in the gaps
   of dashed and dotted lines, or through see-through ones. A dashed line encloses an area just as
   a solid one does: the fill never leaks out through its gaps.
-- If the lines no longer enclose the space (one is moved away or deleted), the fill disappears
-  until they do again. Deleting all of its lines and shapes deletes it too.
+- If the lines no longer enclose the space (one is moved further away, or deleted), there's
+  nothing to fill until they do again. Selected, the fill shows its last outline dashed, and the
+  panel says so; join the gap again, or Undo, and it comes back. Deleting all of its lines and
+  shapes deletes it too.
 - **Make an ordinary shape** (Arrange tab or right-click) turns it into a plain shape of the area
   as it is, which stays put when the lines move. Copied on its own, without its lines, a fill
   becomes one of these.

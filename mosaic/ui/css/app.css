@@ -360,6 +360,7 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .sel-outline { fill: none; stroke: var(--sel); stroke-width: 1.5; }
 .sel-outline.thin { stroke-width: 1; stroke-dasharray: 3 2; }
 .sel-outline.key { stroke-width: 3; }
+.area-lost { fill: none; stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 5 4; }
 .sel-outline.crop { stroke: #111; stroke-width: 2; }
 .crop-full { fill: none; stroke: #777; stroke-width: 1; stroke-dasharray: 5 3; }
 .handle { fill: #fff; stroke: var(--sel); stroke-width: 1.5; }

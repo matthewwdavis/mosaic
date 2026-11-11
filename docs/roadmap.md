@@ -212,6 +212,8 @@ Matthew's choices are in brackets.
       smoothed into curves, as in PowerPoint; beside the Pen, N [Matthew's choices]
 - [x] Black off the page shows white in a dark theme (asked 2026-11-10): near-black too, only the
       part off the page, pictures included, never exported; a Settings switch [Matthew's choices]
+- [x] Area fills that vanished when a line was moved or an end dragged off a corner (reported
+      2026-11-10): gaps up to 3.5 pt bridged; past that, a dashed outline and a note [Matthew's choices]
 
 ## Acceptance test (test slide)
 
