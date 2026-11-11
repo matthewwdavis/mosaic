@@ -136,6 +136,13 @@ pre-export check says so.
     as a percentage in the Line section; PowerPoint gets a custDash. The Dash menu's pictures are
     drawn at 2 pt: at the line's 1 pt, Dot and Round dot all but vanished in WebKit (checked in a
     WKWebView snapshot).
+  - *Black off the page in a dark theme (2026-11-10, Matthew's choices):* objects reaching past
+    the page's edge get a `<use>` copy in a layer over the items (canvas.drawOffPage), clipped to
+    outside the page, through an SVG filter (#fa-offpage): pixels whose linear luminance is below
+    the 2:1-contrast threshold against the theme's --stage turn white, unless light pixels lie
+    within two screen pixels (a blurred light mask), so black text on a white box or a
+    white-backed plot stays black. Pictures too; display only, never exported; a Settings switch
+    (offpage_light). Checked in a WKWebView snapshot on a real transparent R plot.
   - *Freeform tool (2026-11-10, Matthew's choices):* PowerPoint's Freeform beside the Pen (N):
     clicks are corners with straight lines, a drag draws freehand, fitted as it's let go
     (pen.fitFreehand: Schneider's curve fitting, corners where the path turns more than 70°,

@@ -1153,6 +1153,7 @@ export const panels = {
         chk("show_tool_labels", "Show labels under toolbar buttons"),
         chk("text_home_tab", "Show the Home tab while text is selected, then the tab you were on"),
         chk("several_arrange_tab", "Show the Arrange tab while several objects are selected, then the tab you were on"),
+        chk("offpage_light", "In a dark theme, show black objects off the page in white (never exported)"),
         chk("reduced_motion", "Reduce motion")),
       h("fieldset", {}, h("legend", {}, "Rulers, grid and guides"),
         chk("show_rulers", `Show rulers (${keys("toggleRulers")})`),

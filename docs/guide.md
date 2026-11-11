@@ -138,6 +138,13 @@ saves with the document. Exports show only the page: anything past its edges is 
 and objects wholly off the page are left out (PowerPoint export too). A click picks an object
 anywhere it shows, its line's or border's outer half included.
 
+In a dark theme, black off the page shows **white**, so it stands out against the dark area
+around the page. This covers black lines, text and shapes, a plot's axes and labels, and any
+colour too dark to see there. Only the part off the page changes; on the page, and in every
+export, the colours are what they are. Black that sits on something light, such as text in a
+white box or in a plot with a white background, stays black. Settings turns this off (**In a
+dark theme, show black objects off the page in white**).
+
 **Pages:** the + button above the Pages list adds a page with the same size, background and
 guides. The other buttons duplicate or delete the current page. Deleting the only page leaves an
 empty page of the same size, background and guides in its place (a page with objects asks first;

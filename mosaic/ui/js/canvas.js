@@ -16,10 +16,11 @@ import { collapsed, formatText, ordered, paraLength } from "./textformat.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, edgeReach, emptyShape, frameMatrix, h, hitItem, invert, isMac,
   itemBBox, itemLabel, itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch,
-  pointInPoly, rotate, s, shapeCatalog, svgMatrix, translate, uid,
+  luminance, parseHex, pointInPoly, rotate, s, shapeCatalog, svgMatrix, translate, uid,
 } from "./util.js";
 
 const HANDLE = 8;             // handle size, CSS px
+let elCount = 0;              // (each object's element has an id, for its copy off the page)
 const SNAP_PX = 6;            // snapping distance, CSS px
 const GUIDE_HIT = 4;          // how near (CSS px) the pointer must be to grab a guide
 const SITE_PX = 8;            // how near (CSS px) a line end must come to attach to a connection point
@@ -99,13 +100,45 @@ export const canvas = {
     // The grid and guides lie over the objects (pictures would hide them) and under the handles
     this.gridLayer = s("g", { class: "grid" });
     this.guidesLayer = s("g", { class: "guides" });
-    this.view.append(this.pageShadow, this.pageRect, this.ghostLayer, this.itemsLayer, this.gridLayer, this.guidesLayer);
+    // Off the page in a dark theme (drawOffPage): a copy of each object reaching past the page's
+    // edge, clipped to outside the page, where colours too dark to see on the pasteboard are white
+    this.offClip = s("path", { "clip-rule": "evenodd" });
+    this.offInner = s("g", { filter: "url(#fa-offpage)" });
+    this.offLayer = s("g", { class: "offpage", "clip-path": "url(#fa-offpage-clip)" });
+    this.offLayer.append(this.offInner);
+    this.view.append(this.pageShadow, this.pageRect, this.ghostLayer, this.itemsLayer, this.offLayer, this.gridLayer, this.guidesLayer);
     this.overlay = s("g", { class: "overlay" });
     this.cvdMatrix = s("feColorMatrix", { type: "matrix" });
     const cvd = s("filter", { id: "fa-cvd", "color-interpolation-filters": "linearRGB" });
     this.defs = s("defs");
     cvd.append(this.cvdMatrix);
-    this.defs.append(cvd);
+    // Dark → white: a pixel whose luminance (linear, as contrast is measured) is below the
+    // threshold turns white, fading out over the last 30% below it (offPageThreshold); but not
+    // where light colours lie within a couple of pixels (offBlur), so black text on a white box,
+    // or in a plot with a white background, stays black
+    const transfer = (input, result) => {
+      const f = s("feFuncA", { type: "linear", slope: 0, intercept: 0 }), t = s("feComponentTransfer", { in: input, result });
+      t.append(f);
+      return [t, f];
+    };
+    const [darkStep, darkRamp] = transfer("lum", "dark"), [lightStep, lightRamp] = transfer("lum", "light");
+    const [nearStep, nearRamp] = transfer("lightBlur", "near");
+    nearRamp.setAttribute("slope", 4);
+    this.offRamps = [darkRamp, lightRamp];
+    this.offBlur = s("feGaussianBlur", { in: "lightA", stdDeviation: 2, result: "lightBlur" });
+    const off = s("filter", { id: "fa-offpage", "color-interpolation-filters": "linearRGB" });
+    const merge = s("feMerge");
+    merge.append(s("feMergeNode", { in: "SourceGraphic" }), s("feMergeNode", { in: "lit" }));
+    off.append(s("feColorMatrix", { in: "SourceGraphic", type: "luminanceToAlpha", result: "lum" }), darkStep, lightStep,
+      s("feComposite", { in: "light", in2: "SourceAlpha", operator: "in", result: "lightA" }), this.offBlur, nearStep,
+      s("feComposite", { in: "dark", in2: "SourceAlpha", operator: "in", result: "darkA" }),
+      s("feComposite", { in: "darkA", in2: "near", operator: "out", result: "mask" }),
+      s("feFlood", { "flood-color": "#ffffff", result: "white" }),
+      s("feComposite", { in: "white", in2: "mask", operator: "in", result: "lit" }), merge);
+    const offClip = s("clipPath", { id: "fa-offpage-clip" });
+    offClip.append(this.offClip);
+    this.defs.append(cvd, off, offClip);
+    document.addEventListener("fa-prefs", () => { this.offPageThreshold(); if (store.doc) this.drawOffPage(); });
     this.svg.append(this.defs, this.view, this.overlay);
     stage.append(this.svg);
     this.cvdNote = h("div", { class: "cvd-note", role: "status", hidden: true });
@@ -155,6 +188,7 @@ export const canvas = {
   applyView() {
     this.keepInReach();
     this.view.setAttribute("transform", `translate(${this.panX} ${this.panY}) scale(${this.k})`);
+    this.offBlur?.setAttribute("stdDeviation", 2 / this.k);   // (two screen pixels, in page points)
     this.drawGrid();
     this.drawOverlay();
     this.drawGuidePreview();
@@ -224,6 +258,7 @@ export const canvas = {
     const seen = new Set();
     this.syncChildren(this.itemsLayer, page.items, seen);
     for (const id of [...this.els.keys()]) if (!seen.has(id)) { this.els.get(id).g.remove(); this.els.delete(id); }
+    this.drawOffPage();
     this.markScope();
     this.flushResolve();
     this.drawGrid();
@@ -231,6 +266,34 @@ export const canvas = {
     this.drawOverlay();
     if (this.cropping) this.drawGhost();
     if (this.editing) this.positionEditor();   // (a box fitted to its text again, after a change from the ribbon)
+  },
+  // In a dark theme, objects off the page are drawn again over the pasteboard with their black
+  // (and anything as hard to see there) in white: only the parts off the page, pictures too, never
+  // in an export (Settings: prefs.offpage_light). The threshold is where a colour's contrast with
+  // the pasteboard falls below 2:1, as for the menus' pictures (pictures.js ink)
+  offPageThreshold() {
+    const stage = parseHex(getComputedStyle(document.documentElement).getPropertyValue("--stage").trim());
+    const lum = stage ? luminance(stage) : 1;
+    this.offPageOn = lum < 0.18 && this.defaults?.offpage_light !== false;
+    const t = 2 * lum + 0.05, fade = 0.3 * t, [dark, light] = this.offRamps;
+    dark.setAttribute("slope", -1 / fade);
+    dark.setAttribute("intercept", t / fade);
+    light.setAttribute("slope", 1 / fade);
+    light.setAttribute("intercept", 1 - t / fade);
+  },
+  drawOffPage() {
+    if (this.offPageOn === undefined) this.offPageThreshold();
+    const page = store.page(), [w, h] = [page.width, page.height], M = 1e5;
+    this.offClip.setAttribute("d", `M${-M} ${-M}H${M}V${M}H${-M}Z M0 0H${w}V${h}H0Z`);
+    const margin = 2;   // (a line along the edge: its stroke reaches past it)
+    const off = (it) => {
+      const b = itemBBox(it);
+      return b && (b[0] < margin || b[1] < margin || b[2] > w - margin || b[3] > h - margin);
+    };
+    const want = this.offPageOn ? page.items.filter((it) => !it.hidden && this.els.get(it.id) && off(it)) : [];
+    const now = [...this.offInner.children];
+    if (now.length === want.length && now.every((u, i) => u.dataset.id === want[i].id)) return;
+    this.offInner.replaceChildren(...want.map((it) => s("use", { href: `#${this.els.get(it.id).g.id}`, "data-id": it.id })));
   },
   // Inside a group being edited (isolation mode), everything outside it is faded, and a note
   // over the page names the group, with a button to leave it
@@ -258,7 +321,7 @@ export const canvas = {
       seen.add(it.id);
       let e = this.els.get(it.id);
       if (!e) {
-        e = { g: s("g", { "data-id": it.id }), key: null };
+        e = { g: s("g", { "data-id": it.id, id: `fa-el-${++elCount}` }), key: null };
         this.els.set(it.id, e);
       }
       if (parent.children[i] !== e.g) parent.insertBefore(e.g, parent.children[i] || null);
@@ -1344,7 +1407,7 @@ export const canvas = {
     const m = COLOUR_VISION[mode];
     this.colourVision = m ? mode : "normal";
     if (m) this.cvdMatrix.setAttribute("values", visionMatrix(mode));
-    for (const el of [this.pageRect, this.ghostLayer, this.itemsLayer]) {
+    for (const el of [this.pageRect, this.ghostLayer, this.itemsLayer, this.offLayer]) {
       if (m) el.setAttribute("filter", "url(#fa-cvd)");
       else el.removeAttribute("filter");
     }

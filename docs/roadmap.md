@@ -210,6 +210,8 @@ Matthew's choices are in brackets.
       objects included, shape kind and rounding too [Matthew's choices]
 - [x] Freeform tool (asked 2026-11-10): clicks for straight lines, drags drawn freehand and
       smoothed into curves, as in PowerPoint; beside the Pen, N [Matthew's choices]
+- [x] Black off the page shows white in a dark theme (asked 2026-11-10): near-black too, only the
+      part off the page, pictures included, never exported; a Settings switch [Matthew's choices]
 
 ## Acceptance test (test slide)
 

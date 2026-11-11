@@ -50,6 +50,8 @@ PREFS_DEFAULTS = {
     "text_home_tab": True,
     # Selecting several objects shows the Arrange tab, and the tab before comes back after
     "several_arrange_tab": True,
+    # In a dark theme, black (and other too-dark colours) off the page show white (never exported)
+    "offpage_light": True,
     # The journal Check last compared a page's size with (a page with a journal size uses its own)
     "check_journal": "",
     # The page size new documents start at: {"standard": name} or {"journal": name, "type": figure type}

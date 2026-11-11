@@ -1502,6 +1502,48 @@ async function pictureMenuChecks(app) {
 // Clicks pick shapes by what's drawn of them: an empty one (no fill, or a clear one) only by its
 // line or its text, a click inside it reaching what's under it; an ellipse inside its curve, not at
 // its frame's corners. A selected empty shape drags from inside, and a click there picks what's under
+// In a dark theme, objects reaching off the page are drawn again over the pasteboard, clipped to
+// outside the page, through a filter that turns colours too dark to see there white; objects on
+// the page aren't; not in a light theme, nor with Settings' switch off
+async function offPageChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  const keep = { theme: app.prefs.theme, theme_day: app.prefs.theme_day, theme_night: app.prefs.theme_night };
+  const stageNow = () => getComputedStyle(document.documentElement).getPropertyValue("--stage").trim();
+  const black = { color: "#000000", width: 2, dash: "solid", cap: "round", join: "round", opacity: 1 };
+  store.update("Objects", (doc) => {
+    doc.pages[store.pageIndex].items.push(
+      { ...gRectFor("oHalf", -40, 100, 120, 60), stroke: black, fill: { color: "#000000", opacity: 1 } },
+      { id: "oLine", type: "line", points: [[-80, 300], [-20, 360]], arrow_start: null, arrow_end: null, stroke: black },
+      { ...gRectFor("oOn", 200, 200, 80, 40), stroke: black },
+      { ...gRectFor("oRed", 100, -60, 60, 30), stroke: { ...black, color: "#d55e00" } });
+  }, { select: [] });
+  await settle();
+  const copies = () => [...canvas.offInner.children].map((u) => u.dataset.id).join(",");
+  await app.savePrefs({ theme: "dark" });
+  await until(() => stageNow() === (app.info.themes || []).find((t) => t.id === "dark")?.colors.stage, 4000);
+  await settle();
+  const darkCopies = copies(), slope = Number(canvas.offRamps[0].getAttribute("slope"));
+  check(darkCopies === "oHalf,oLine,oRed" && slope < 0 && canvas.offLayer.getAttribute("clip-path") === "url(#fa-offpage-clip)",
+    "in a dark theme, each object reaching off the page is drawn again outside it, through the dark-to-white filter", darkCopies);
+  const href = canvas.offInner.firstChild?.getAttribute("href");
+  check(href && document.querySelector(href) === canvas.els.get("oHalf").g, "the copy is of the object itself, so it follows every change");
+  store.update("Onto the page", (doc) => { findItem(doc, "oHalf").frame[0] = 40; });
+  await settle();
+  check(copies() === "oLine,oRed", "an object moved onto the page has no copy any more", copies());
+  await app.savePrefs({ offpage_light: false });
+  await settle();
+  const offSwitch = copies();
+  await app.savePrefs({ offpage_light: true });
+  await app.savePrefs({ theme: "light" });
+  await until(() => stageNow() === (app.info.themes || []).find((t) => t.id === "light")?.colors.stage, 4000);
+  await settle();
+  check(offSwitch === "" && copies() === "", "not with Settings' switch off, nor in a light theme", `${offSwitch} | ${copies()}`);
+  await app.savePrefs(keep);
+  await settle();
+  store.select([]);
+}
+
 // The Freeform tool: clicks place corners joined by straight lines, a drag draws freehand, fitted
 // with a few smooth curves that keep close to where the pointer went; a click on the first point,
 // or a drag let go there, closes the shape; Backspace takes a freehand stretch back whole
@@ -2598,6 +2640,7 @@ export async function run(app, params) {
     if (params.get("only") === "dashspacing") { await dashSpacingChecks(app); throw ONLY; }
     if (params.get("only") === "multilook") { await multiLookChecks(app); throw ONLY; }
     if (params.get("only") === "freeform") { await freeformChecks(app); throw ONLY; }
+    if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3862,6 +3905,7 @@ export async function run(app, params) {
     await dashSpacingChecks(app);
     await multiLookChecks(app);
     await freeformChecks(app);
+    await offPageChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;
