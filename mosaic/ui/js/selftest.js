@@ -1502,6 +1502,73 @@ async function pictureMenuChecks(app) {
 // Clicks pick shapes by what's drawn of them: an empty one (no fill, or a clear one) only by its
 // line or its text, a click inside it reaching what's under it; an ellipse inside its curve, not at
 // its frame's corners. A selected empty shape drags from inside, and a click there picks what's under
+// Selecting several objects shows the Arrange tab, and the tab before comes back once one or
+// none is selected (a tab picked meanwhile stays). Text boxes count too; one text box shows Home.
+// The group Group makes keeps Arrange showing; Settings turns it off
+async function arrangeTabChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const textBox = (id, y) => ({ id, type: "shape", geom: "rect", textbox: true, frame: [40, y, 160, 24], rot: 0, flip_h: false,
+    flip_v: false, stroke: null, fill: null, text: { paragraphs: [{ align: "l", runs: [{ t: id, font: "Helvetica", size: 6,
+      bold: false, italic: false, color: "#000000" }] }], insets: [0, 0, 0, 0], wrap: false, anchor: "t", autofit: "shape" } });
+  store.update("Objects", (doc) => {
+    doc.pages[store.pageIndex].items.push(gRectFor("aA", 40, 120, 60, 40), gRectFor("aB", 140, 120, 60, 40),
+      textBox("aT", 40), textBox("aU", 80));
+  }, { select: [] });
+  await settle();
+  const showing = () => panels.ribbonTab;
+  const pickTab = (key) => document.getElementById(`rtab-${key}`).click();
+  const stageTops = Object.keys(panels.ribbonTabs).map((k) => { pickTab(k); return [k, canvas.stage.getBoundingClientRect().top]; });
+  check(stageTops.every(([, top]) => top === stageTops[0][1]), "every ribbon tab is as tall, so the page doesn't jump as the tab changes",
+    stageTops.map(([k, top]) => `${k} ${top}`).join(", "));
+
+  pickTab("view");
+  store.select(["aA"]);
+  const one = showing();
+  store.select(["aA", "aB"]);
+  const two = showing();
+  store.select(["aA", "aB", "aT"]);
+  const three = showing();
+  store.select(["aA"]);
+  const back = showing();
+  check(one === "view" && two === "arrange" && three === "arrange" && back === "view",
+    "one object leaves the tab alone; two show Arrange, and back to one brings the tab before back", `${one}, ${two}, ${three}, ${back}`);
+  store.select(["aT"]);
+  const text = showing();
+  store.select(["aT", "aU"]);
+  const texts = showing();
+  store.select(["aU"]);
+  const oneText = showing();
+  store.select([]);
+  check(text === "home" && texts === "arrange" && oneText === "home" && showing() === "view",
+    "one text box shows Home, two text boxes Arrange, one again Home; none brings the tab before back",
+    `${text}, ${texts}, ${oneText}, ${showing()}`);
+  store.select(["aA", "aB"]);
+  pickTab("figure");
+  store.select([]);
+  const kept = showing();
+  store.select(["aA", "aB"]);
+  check(kept === "figure" && showing() === "arrange", "a tab picked while several are selected stays; several selected later show Arrange again",
+    `${kept}, then ${showing()}`);
+  await app.run("group");
+  await settle();
+  const grouped = store.selected().length === 1 && store.selected()[0].type === "group" && showing() === "arrange";
+  store.select([]);
+  const after = showing();
+  store.select([store.page().items.find((it) => it.type === "group").id]);
+  check(grouped && after === "figure" && showing() === "figure",
+    "Group keeps Arrange showing for the group it makes; a group selected by itself leaves the tab alone", `${after}, ${showing()}`);
+  store.select([]);
+  await app.savePrefs({ several_arrange_tab: false });
+  store.select(["aT", "aU"]);
+  const off = showing();
+  store.select([]);
+  await app.savePrefs({ several_arrange_tab: true });
+  check(off === "home", "with Settings' switch off, several objects leave the tab alone (several text boxes still show Home)", off);
+  pickTab("home");
+}
+
 // The Home tab's Text section: what the text boxes selected share, changes to all of them, and
 // while typing to the highlighted words only (with only the caret, to what's typed next), each an
 // undo step that ⌘Z takes back without ending the typing. Selecting text shows the Home tab and
@@ -2285,6 +2352,7 @@ export async function run(app, params) {
     if (params.get("only") === "journalchecks") { await journalCheckChecks(app); throw ONLY; }
     if (params.get("only") === "dangerous") { await dangerousModeChecks(app); throw ONLY; }
     if (params.get("only") === "refresh") { await refreshAllChecks(app); throw ONLY; }
+    if (params.get("only") === "arrangetab") { await arrangeTabChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3540,6 +3608,7 @@ export async function run(app, params) {
     await journalCheckChecks(app);
     await dangerousModeChecks(app);
     await refreshAllChecks(app);
+    await arrangeTabChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

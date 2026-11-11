@@ -352,7 +352,8 @@ height you drag at, with the label above. Drag upright instead for one with its 
     is an undo step of its own: ⌘Z straight after one takes it back, and you carry on typing.
   - Selecting a text box shows the Home tab. Once no text is selected, the tab you were on comes
     back, unless you picked another tab meanwhile. Settings turns this off (**Show the Home tab
-    while text is selected**).
+    while text is selected**). Two or more text boxes show the Arrange tab instead (see
+    [Align and distribute](#align-and-distribute)); the Text section still works on them all.
   - Shapes with text in them, and scale bar and bracket labels, are set in their properties
     instead.
 
@@ -835,7 +836,10 @@ Escape goes back.
 
 ## Align and distribute
 
-Select objects and use the **Arrange** tab, or the panel on the right:
+Select objects and use the **Arrange** tab, or the panel on the right. Selecting two or more
+objects shows the Arrange tab by itself (text boxes too), and it stays while you group them. Once
+one object or none is selected, the tab you were on comes back, unless you picked another tab
+meanwhile. Settings turns this off (**Show the Arrange tab while several objects are selected**).
 
 - **Align**: left edges, centres, right edges, tops, middles, bottoms. One object on its own
   aligns to the page.

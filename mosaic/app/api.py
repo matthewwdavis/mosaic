@@ -48,6 +48,8 @@ PREFS_DEFAULTS = {
     "ribbon_tab": "home", "inspector_tabs": {}, "inspector_closed": [], "panel_widths": {},
     # Selecting text shows the ribbon's Home tab (its Text section), and the tab before comes back after
     "text_home_tab": True,
+    # Selecting several objects shows the Arrange tab, and the tab before comes back after
+    "several_arrange_tab": True,
     # The journal Check last compared a page's size with (a page with a journal size uses its own)
     "check_journal": "",
     # The page size new documents start at: {"standard": name} or {"journal": name, "type": figure type}

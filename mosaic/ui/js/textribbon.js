@@ -4,7 +4,7 @@
 // or several), or while typing in one on the highlighted words: with only the caret, on what's
 // typed next; alignment, line spacing and styles on the lines the words are in. Selecting text
 // shows the Home tab, and the tab before comes back afterwards unless another one was picked
-// meanwhile (Settings: prefs.text_home_tab).
+// meanwhile (Settings: prefs.text_home_tab; the ribbon's followSelection, in panels.js).
 
 import { SUBSCRIPT, SUPERSCRIPT, canvas } from "./canvas.js";
 import { contextMenu } from "./contextmenu.js";
@@ -34,8 +34,6 @@ export const textRibbon = {
   app: null,
   ribbon: null,
   els: null,
-  wasText: false,     // whether text was selected when last looked at
-  returnTab: null,    // the tab to go back to once no text is selected
   held: null,         // what a field works on while it has the focus
 
   build(app, ribbon) {
@@ -175,7 +173,7 @@ export const textRibbon = {
   refresh() {
     if (!this.els || !store.doc) return;
     const t = this.target();
-    this.follow(!!t);
+    this.ribbon.followSelection(!!t);
     const els = this.els;
     const controls = [els.style, els.font, els.size, els.bigger, els.smaller, els.spacing, els.bold, els.italic, els.underline,
       els.sup, els.sub, els.colour, ...Object.values(els.align), ...Object.values(els.anchor)];
@@ -219,21 +217,6 @@ export const textRibbon = {
     if (document.activeElement !== sel) sel.value = current === undefined ? MIXED : current;
   },
 
-  // Selecting text shows the Home tab; when none is selected any more, the tab before comes back
-  // (unless another tab was picked meanwhile: picked)
-  follow(isText) {
-    if (isText === this.wasText) return;
-    this.wasText = isText;
-    const r = this.ribbon;
-    if (isText) {
-      this.returnTab = this.app.prefs.text_home_tab !== false && r.ribbonTab !== "home" ? r.ribbonTab : null;
-      if (this.returnTab) r.showTab("home", false);
-    } else {
-      if (this.returnTab && r.ribbonTab === "home") r.showTab(this.returnTab, false);
-      this.returnTab = null;
-    }
-  },
-  picked() { this.returnTab = null; },
 
   // Changes -----------------------------------------------------------------------------
 

@@ -155,6 +155,10 @@ function verticalNeighbour(items, i, down) {
 }
 
 export const panels = {
+  // The ribbon's tab following the selection (followSelection): the tab it calls for, the one
+  // shown for it, and the tab to go back to afterwards
+  wantTab: null, shownTab: null, returnTab: null,
+
   init(app) {
     this.app = app;
     this.buildRibbon();
@@ -336,7 +340,9 @@ export const panels = {
       t("shortcuts", "help"));
     quick.querySelector("button").tabIndex = 0;
     roving(quick, "button.tool");
-    root.append(h("div", { class: "ribbon-bar" }, tabRow, h("div", { class: "spacer" }), quick), ...panelEls);
+    // (the tabs' panels share one place, as tall as the tallest, so the page stays put as they change)
+    root.append(h("div", { class: "ribbon-bar" }, tabRow, h("div", { class: "spacer" }), quick),
+      h("div", { class: "ribbon-panels" }, ...panelEls));
     this.showTab(this.ribbonTabs[this.app.prefs.ribbon_tab] ? this.app.prefs.ribbon_tab : "home", false);
   },
   arrangeGroups(group, t) {
@@ -353,17 +359,42 @@ export const panels = {
         t("sendToBack", "back")),
     ];
   },
-  // (remember: picked by hand, which also keeps it when the text selected is deselected; the Text
-  // section's own switch to Home doesn't)
+  // (remember: picked by hand, which also keeps it once the selection that showed a tab is gone;
+  // followSelection's own switches don't)
   showTab(key, remember = true) {
     this.ribbonTab = key;
-    if (remember) textRibbon.picked();
+    if (remember) this.returnTab = this.shownTab = null;
     for (const [k, { tab, panel }] of Object.entries(this.ribbonTabs)) {
       tab.setAttribute("aria-selected", k === key ? "true" : "false");
       tab.tabIndex = k === key ? 0 : -1;
       panel.hidden = k !== key;
     }
     if (remember) this.app.rememberUi({ ribbon_tab: key });
+  },
+  // The tab the selection shows, each with a Settings switch: Arrange for several objects (and
+  // for the one group Group makes of them, so the tab stays while it's in use), Home for text
+  // selected or typed in (text: the Text section has something to work on)
+  selectionTab(text) {
+    const prefs = this.app.prefs, sel = store.doc && !canvas.editing ? store.selected() : [];
+    const several = sel.length > 1 || (sel.length === 1 && sel[0].type === "group" && this.shownTab === "arrange");
+    if (several && prefs.several_arrange_tab !== false) return "arrange";
+    return text && prefs.text_home_tab !== false ? "home" : null;
+  },
+  // Show the selection's tab; once it calls for none, the tab before comes back, unless another
+  // one was picked meanwhile (showTab)
+  followSelection(text) {
+    const want = this.selectionTab(text);
+    if (want === this.wantTab) return;
+    this.wantTab = want;
+    if (want) {
+      if (this.ribbonTab === want) return;
+      if (!this.shownTab) this.returnTab = this.ribbonTab;
+      this.showTab(want, false);
+      this.shownTab = want;
+    } else {
+      if (this.returnTab && this.ribbonTab === this.shownTab) this.showTab(this.returnTab, false);
+      this.returnTab = this.shownTab = null;
+    }
   },
 
   // Drawing tools, down the side of the page as in Illustrator and Photoshop
@@ -1119,6 +1150,7 @@ export const panels = {
         h("div", { class: "field" }, h("label", { for: "pref-scale" }, "Interface text size"), scale),
         chk("show_tool_labels", "Show labels under toolbar buttons"),
         chk("text_home_tab", "Show the Home tab while text is selected, then the tab you were on"),
+        chk("several_arrange_tab", "Show the Arrange tab while several objects are selected, then the tab you were on"),
         chk("reduced_motion", "Reduce motion")),
       h("fieldset", {}, h("legend", {}, "Rulers, grid and guides"),
         chk("show_rulers", `Show rulers (${keys("toggleRulers")})`),

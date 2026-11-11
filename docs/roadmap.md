@@ -197,6 +197,8 @@ Matthew's choices are in brackets.
       box on the Text tab, PowerPoint text as each run says, saved figures unchanged [Matthew's choices]
 - [x] Refresh All Pictures (asked 2026-11-09): every linked picture on every page read again now,
       undone updates and newly saved copies included; Home tab, File menu, page menu, ⌘⇧R [Matthew's choices]
+- [x] Arrange tab for several objects (asked 2026-11-10): two or more selected show it, text boxes
+      included; one or none brings the tab before back; a Settings switch, on [Matthew's choices]
 
 ## Acceptance test (test slide)
 

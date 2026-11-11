@@ -116,6 +116,14 @@ pre-export check says so.
   first object); align to selection / key object / page. Clicking (without dragging) one of several
   selected objects makes it the key object and switches to key mode, as in Illustrator; clicking it
   again stops. Controls in the ribbon's Arrange tab and the properties panel stay in step.
+  - *Arrange tab follows the selection (2026-11-10, Matthew's choices):* two or more objects show
+    it (text boxes too, ahead of the Text section's switch to Home); one or none brings the tab
+    before back unless another was picked meanwhile; a Settings switch, on by default
+    (`several_arrange_tab`). The one group Group makes keeps it showing, so the tab doesn't flip
+    away under the button just pressed; a group selected by itself doesn't show it.
+    `panels.followSelection` holds both rules and one tab to go back to. The tabs' panels now
+    share one grid cell (hidden ones invisible but still taking room), since Arrange was 1.4 px
+    taller than Home and the page jumped by that whenever the tab changed by itself.
 - **Connectors (2026-10-31):** line and arrow ends attach to connection points and follow them
   (`start_link` / `end_link`: {item, site}). Points come from each shape's own outline (Matthew's
   choice): corners (sharp ones and rounded corners' middles) and side middles; 8 points round
