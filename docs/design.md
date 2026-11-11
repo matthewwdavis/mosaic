@@ -124,6 +124,13 @@ pre-export check says so.
     `panels.followSelection` holds both rules and one tab to go back to. The tabs' panels now
     share one grid cell (hidden ones invisible but still taking room), since Arrange was 1.4 px
     taller than Home and the page jumped by that whenever the tab changed by itself.
+  - *Position and size strip (2026-11-10, Matthew's choices):* X, Y, Width and Height moved from
+    the Arrange tab to a strip above the properties panel's tabs, sticky with them, so they're in
+    view on the Picture and Style tabs too (where pictures, shapes and lines open) and follow a
+    handle drag (`inspector.sizeStrip`, refreshValues). Groups got editable fields: their
+    outline's, a width or height scaling everything from the top-left (`scaleItem`, as Match size
+    and Transform Again do; groups have no resize handles). Lines keep their points in Arrange;
+    area fills and scale bars have none. Several objects selected show no size.
   - *Key objects (2026-11-10, Matthew's choices):* he found Top aligning to the first selected
     object, not the highest. A plain click on one of several selected objects had switched Align
     to into Key mode, which was saved in his settings, and with no key clicked it took the first

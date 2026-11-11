@@ -2,7 +2,7 @@
 // labelled form fields grouped in fieldsets, so they work with the keyboard and screen readers.
 
 import { rpc } from "./api.js";
-import { SUBSCRIPT, SUPERSCRIPT, canvas, findDeep, pageGuides, shiftItem } from "./canvas.js";
+import { SUBSCRIPT, SUPERSCRIPT, canvas, findDeep, pageGuides, scaleItem, shiftItem } from "./canvas.js";
 import { icon } from "./panels.js";
 import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
@@ -127,13 +127,14 @@ export const inspector = {
     const sel = store.selected();
     let parts;
     if (sel.length === 0) parts = this.pageSections();
-    else if (sel.length === 1) parts = this.tabbed(kindKey(sel[0]), kindName(sel[0]), this.itemTabs(sel[0]));
+    else if (sel.length === 1) parts = this.tabbed(kindKey(sel[0]), kindName(sel[0]), this.itemTabs(sel[0]), this.sizeStrip(sel[0]));
     else parts = this.tabbed("multi", `${sel.length} objects`, this.multiTabs(sel));
     this.root.replaceChildren(...parts.filter(Boolean));
   },
   // Tabs (Arrange, Style, Text...) over folding sections, like PowerPoint's Format pane; the tab
-  // last used for each kind of object opens next time
-  tabbed(kind, title, tabs) {
+  // last used for each kind of object opens next time. Above the tabs (strip), kept in view as
+  // the panel scrolls: the object's position and size
+  tabbed(kind, title, tabs, strip = null) {
     const remembered = (this.app.prefs.inspector_tabs || {})[kind] || DEFAULT_TAB[kind];
     let active = tabs.some(([key]) => key === remembered) ? remembered : tabs[0][0];
     const list = h("div", { class: "insp-tabs", role: "tablist", "aria-label": `${title}: properties` });
@@ -163,7 +164,8 @@ export const inspector = {
       entries.find((x) => x.key === active).tab.focus();
     });
     show(active);
-    return [h("p", { class: "insp-kind" }, title), entries.length > 1 ? list : null, ...entries.map((e) => e.panel)];
+    const head = strip || entries.length > 1 ? h("div", { class: "insp-head" }, strip, entries.length > 1 ? list : null) : null;
+    return [h("p", { class: "insp-kind" }, title), head, ...entries.map((e) => e.panel)];
   },
   // During drags only the numbers change
   refreshValues() {
@@ -179,6 +181,10 @@ export const inspector = {
     const u = this.units();
     if (key === "rot") return fmt(it.rot || 0, 2);
     if (it.frame && "xywh".includes(key)) return fmt(toUnit(it.frame["xywh".indexOf(key)], u), digits(u));
+    if (it.type === "group" && "xywh".includes(key)) {
+      const b = itemsBBox(it.items);
+      return fmt(toUnit([b[0], b[1], b[2] - b[0], b[3] - b[1]]["xywh".indexOf(key)], u), digits(u));
+    }
     const m = it.points && /^p(\d+)([xy])$/.exec(key);
     if (m && it.points[Number(m[1])]) return fmt(toUnit(it.points[Number(m[1])][m[2] === "x" ? 0 : 1], u), digits(u));
     return undefined;
@@ -515,64 +521,69 @@ export const inspector = {
           + "halfway along the line to bend it; double-click a point to remove it, or the line to add one."),
       ]);
     }
-    if (it.type === "group") {
-      const b = itemsBBox(it.items);
-      const move = (axis) => (v) => {
-        const was = itemsBBox(store.item(it.id).items);
-        this.app.noteTransform?.({ kind: "move", dx: axis === 0 ? v - was[0] : 0, dy: axis === 1 ? v - was[1] : 0 });
-        this.edit("Move", (x) => {
-          const bb = itemsBBox(x.items);
-          const orig = JSON.parse(JSON.stringify(x));
-          shiftItem(x, orig, axis === 0 ? v - bb[0] : 0, axis === 1 ? v - bb[1] : 0);
-        });
-      };
-      return section("Position", [row(numField("X", b[0], u, move(0)), numField("Y", b[1], u, move(1))),
-        h("p", { class: "hint" }, `${fmt(toUnit(b[2] - b[0], u), 2)} × ${fmt(toUnit(b[3] - b[1], u), 2)} ${UNIT_LABEL[u]}`)]);
-    }
-    const [x, y, w, hh] = it.frame;
-    const lockAspect = it.type === "picture" || !!it.zoom?.circle;
-    // Typed changes count as transforms too, for Transform Again (⌘⇧D), measured from the object
-    // as it is now (the numbers here can be from before a drag)
+    if (it.type === "group") return null;   // (its position and size: the strip above the tabs)
+    // Rotation and flips; X, Y, width and height are in the strip above the tabs (sizeStrip)
     const now = () => store.item(it.id);
-    const note = (t) => this.app.noteTransform?.(t);
-    const setW = (v) => {
-      const nw = Math.max(v, 0.1), was = now().frame[2];
-      if (was > 0) note({ kind: "resize", sx: nw / was, sy: lockAspect ? nw / was : 1, anchor: [0, 0] });
-      this.edit("Resize", (o) => {
-        if (lockAspect) o.frame[3] = o.frame[3] * nw / o.frame[2];
-        o.frame[2] = nw;
-      });
-    };
-    const setH = (v) => {
-      const nh = Math.max(v, 0.1), was = now().frame[3];
-      if (was > 0) note({ kind: "resize", sx: lockAspect ? nh / was : 1, sy: nh / was, anchor: [0, 0] });
-      this.edit("Resize", (o) => {
-        if (lockAspect) o.frame[2] = o.frame[2] * nh / o.frame[3];
-        o.frame[3] = nh;
-      });
-    };
     const setRot = (v) => {
-      note({ kind: "rotate", angle: ((((v - (now().rot || 0)) % 360) + 540) % 360) - 180 });
+      this.app.noteTransform?.({ kind: "rotate", angle: ((((v - (now().rot || 0)) % 360) + 540) % 360) - 180 });
       this.edit("Rotate", (o) => { o.rot = ((v % 360) + 360) % 360; });
     };
-    const setPos = (i) => (v) => {
-      note({ kind: "move", dx: i === 0 ? v - now().frame[0] : 0, dy: i === 1 ? v - now().frame[1] : 0 });
-      this.edit("Move", (o) => { o.frame[i] = v; });
-    };
     const kids = [
-      row(numField("X", x, u, setPos(0), { bind: "x" }), numField("Y", y, u, setPos(1), { bind: "y" })),
-      row(numField("Width", w, u, setW, { bind: "w", min: 0.1 }), numField("Height", hh, u, setH, { bind: "h", min: 0.1 })),
       row(numField("Rotation", it.rot || 0, "deg", setRot, { bind: "rot", step: 1 }),
         h("div", { class: "button-row inline" },
           toggle("Flip horizontally", !!it.flip_h, (on) => this.edit("Flip", (o) => { o.flip_h = on; }), "⇋"),
           toggle("Flip vertically", !!it.flip_v, (on) => this.edit("Flip", (o) => { o.flip_v = on; }), "⇵"))),
     ];
-    if (lockAspect) kids.push(h("p", { class: "hint" }, it.zoom?.circle ? "Width and height stay equal, so the circle stays round."
-      : "Width and height keep the picture's proportions."));
     if (it.type === "picture") {
       kids.push(transparencyField("Transparency", it.opacity, (op) => this.edit("Transparency", (o) => { o.opacity = op; })));
     }
-    return section("Position and size", kids);
+    return section(it.type === "picture" ? "Rotation and transparency" : "Rotation", kids);
+  },
+  // Position and size, above the tabs so they're in view whatever tab is open, and while a handle
+  // is dragged (refreshValues): X, Y, width and height, typed to change them. A picture keeps its
+  // proportions; a group's are its outline's, and its width or height scales everything in it
+  // from the top-left corner, keeping its proportions (text sizes and line widths stay). Lines
+  // (their points), area fills and scale bars have none
+  sizeStrip(it) {
+    const isGroup = it.type === "group";
+    if ((!it.frame && !isGroup) || it.type === "line" || it.geom === "region" || it.type === "scalebar") return null;
+    const u = this.units();
+    const now = () => store.item(it.id);
+    const note = (t) => this.app.noteTransform?.(t);
+    // Typed changes count as transforms too, for Transform Again (⌘⇧D), measured from the object
+    // as it is now (the numbers here can be from before a drag)
+    const box = (x) => {
+      if (!isGroup) return x.frame;
+      const b = itemsBBox(x.items);
+      return [b[0], b[1], b[2] - b[0], b[3] - b[1]];
+    };
+    const lockAspect = isGroup || it.type === "picture" || !!it.zoom?.circle;
+    const setPos = (i) => (v) => {
+      const was = box(now());
+      note({ kind: "move", dx: i === 0 ? v - was[0] : 0, dy: i === 1 ? v - was[1] : 0 });
+      this.edit("Move", (o) => {
+        if (!isGroup) { o.frame[i] = v; return; }
+        const b = box(o);
+        shiftItem(o, JSON.parse(JSON.stringify(o)), i === 0 ? v - b[0] : 0, i === 1 ? v - b[1] : 0);
+      });
+    };
+    const setSize = (i) => (v) => {
+      const want = Math.max(v, 0.1), was = box(now())[i];
+      if (!(was > 0)) return;
+      const k = want / was;
+      note({ kind: "resize", sx: lockAspect || i === 2 ? k : 1, sy: lockAspect || i === 3 ? k : 1, anchor: [0, 0] });
+      this.edit("Resize", (o) => {
+        if (isGroup) { scaleItem(o, k, k, [0, 0]); return; }
+        if (lockAspect) o.frame[5 - i] = o.frame[5 - i] * want / o.frame[i];
+        o.frame[i] = want;
+      });
+    };
+    const [x, y, w, hh] = box(it);
+    return h("div", { class: "insp-strip", role: "group", "aria-label": "Position and size" },
+      row(numField("X", x, u, setPos(0), { bind: "x" }), numField("Y", y, u, setPos(1), { bind: "y" })),
+      row(numField("Width", w, u, setSize(2), { bind: "w", min: 0.1 }), numField("Height", hh, u, setSize(3), { bind: "h", min: 0.1 })),
+      lockAspect ? h("p", { class: "hint" }, isGroup ? "Width and height scale everything in the group together, keeping its proportions."
+        : it.zoom?.circle ? "Width and height stay equal, so the circle stays round." : "Width and height keep the picture's proportions.") : null);
   },
   // What a page's journal asks for besides its size (panel labels, text, lines, pictures, files),
   // folded under one line so the size fields stay in view; once opened it stays open

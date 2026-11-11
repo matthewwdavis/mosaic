@@ -269,8 +269,12 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 
 /* Properties panel: tabs over sections that fold away */
 .insp-kind { margin: 0 0 0.35rem; font-weight: 650; font-size: 0.95rem; }
-.insp-tabs { display: flex; gap: 0.15rem; position: sticky; top: -0.5rem; z-index: 2; margin: 0 -0.75rem 0.15rem;
-  padding: 0.3rem 0.75rem 0; background: var(--panel); border-bottom: 1px solid var(--line); }
+/* The position and size strip and the tabs stay at the top as the panel scrolls */
+.insp-head { position: sticky; top: -0.5rem; z-index: 2; margin: 0 -0.75rem 0.15rem; padding: 0.3rem 0.75rem 0;
+  background: var(--panel); border-bottom: 1px solid var(--line); }
+.insp-strip { padding-bottom: 0.35rem; }
+.insp-strip .hint { margin: 0.2rem 0 0; }
+.insp-tabs { display: flex; gap: 0.15rem; }
 .insp-tab { padding: 0.35rem 0.75rem; border: 1px solid transparent; border-bottom: none; border-radius: 0.35rem 0.35rem 0 0;
   background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; margin-bottom: -1px; }
 .insp-tab:hover { color: var(--text); background: var(--hover); }

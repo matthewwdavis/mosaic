@@ -201,6 +201,8 @@ Matthew's choices are in brackets.
       included; one or none brings the tab before back; a Settings switch, on [Matthew's choices]
 - [x] Aligning to the highest (leftmost…) object (asked 2026-11-10): key objects by Option-click only,
       for that selection only and never saved; Same width / height with no key match the largest [Matthew's choices]
+- [x] Position and size always in view (asked 2026-11-10): X, Y, Width, Height above the properties
+      panel's tabs, following drags, typed to change; groups scale from their top-left [Matthew's choices]
 
 ## Acceptance test (test slide)
 

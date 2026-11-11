@@ -55,8 +55,9 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
    others (see [The Objects list](#the-objects-list)).
 5. **Drawing tools**, beside the page.
 6. **The page**, with rulers along the top and left.
-7. **Properties** of the selection, in tabs: **Arrange** (position, size, alignment, connections),
-   **Style** (shape, fill, line, arrowheads, outline), **Text**, **Picture**. With nothing
+7. **Properties** of the selection: its **X, Y, Width and Height** at the top, in view whatever
+   tab is open, then tabs: **Arrange** (rotation, alignment, connections), **Style** (shape,
+   fill, line, arrowheads, outline), **Text**, **Picture**. With nothing
    selected, it shows the page, its guides and the document. Click a section heading to fold it;
    folded sections stay folded, and each kind of object opens on the tab you used last.
 8. **Status bar:** messages, zoom, how far the arrow keys move a selection (click it to switch
@@ -224,7 +225,8 @@ warning that its text and curves are distorted. Its buttons:
 - **Show file** reveals the linked file in Finder or Explorer.
 - **Unlink** stops following the file and keeps the stored copy.
 
-The Arrange tab has its position, size (proportions kept), rotation, flips and **Transparency**.
+Its position and size (proportions kept) are at the top of the properties panel; the Arrange tab
+has its rotation, flips and **Transparency**.
 For screen readers, give each picture a **Description** in the Object section.
 
 ### Dangerous mode: editing a plot's own text
@@ -665,8 +667,11 @@ PowerPoint and Visio:
 - **Resize:** drag a handle. Corners keep a picture's proportions (Shift does the opposite).
   Option (Alt) resizes from the centre. Option+Shift+arrows change the size by one step.
 - **Rotate:** drag the round handle above the object; Shift keeps to 15° steps.
-- **Exact values:** the Arrange tab's X, Y, Width, Height and Rotation, in centimetres (change
-  the unit in Settings), plus flips.
+- **Exact values:** X, Y, Width and Height at the top of the properties panel, whatever tab is
+  open. They follow a drag as it happens; type a number and press Enter to set it. They're in
+  centimetres (change the unit in Settings). A group's are its outline's: typing its width or
+  height scales everything in it from its top-left corner, keeping its proportions (text sizes
+  and line widths stay as they are). Rotation and flips are in the Arrange tab.
 - **Distances:** with something selected, hold **Option** (Alt) and point at another object to see
   the gap between them (or, when one is inside the other, the four distances between their
   edges); point at empty space for the distances to the page's edges. They're in your position

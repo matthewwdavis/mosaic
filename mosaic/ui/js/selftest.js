@@ -1502,6 +1502,74 @@ async function pictureMenuChecks(app) {
 // Clicks pick shapes by what's drawn of them: an empty one (no fill, or a clear one) only by its
 // line or its text, a click inside it reaching what's under it; an ellipse inside its curve, not at
 // its frame's corners. A selected empty shape drags from inside, and a click there picks what's under
+// Position and size above the properties panel's tabs, whatever tab is open: the numbers follow
+// a drag as it happens, and typed ones move and resize; a group's width scales everything in it,
+// keeping its proportions. Lines have none
+async function sizeStripChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  store.update("Objects", (doc) => {
+    doc.pages[store.pageIndex].items.push(gRectFor("sR", 40, 40, 100, 50),
+      { id: "sG", type: "group", items: [gRectFor("sG1", 200, 40, 40, 20), gRectFor("sG2", 260, 80, 40, 40)] },
+      { id: "sLn", type: "line", points: [[40, 200], [200, 260]], arrow_start: null, arrow_end: null,
+        stroke: { color: "#000000", width: 1, dash: "solid", cap: "flat", join: "miter", opacity: 1 } });
+  }, { select: [] });
+  await settle();
+  const u = app.prefs.units || "cm", shown = (pt) => Number(toUnit(pt, u).toFixed(3));
+  const field = (key) => document.querySelector(`#inspector .insp-strip [data-bind="${key}"]`);
+  const type = async (key, pt) => {
+    const f = field(key);
+    f.value = String(toUnit(pt, u));
+    f.dispatchEvent(new Event("change"));
+    await settle();
+    inspector.render();
+  };
+  store.select(["sR"]);
+  await settle();
+  inspector.render();
+  document.getElementById("itab-style")?.click();
+  const w = field("w"), r = w?.getBoundingClientRect();
+  check(w && r.height > 0 && near(Number(w.value), shown(100), 0.01) && near(Number(field("h").value), shown(50), 0.01)
+    && document.querySelectorAll('#inspector [data-bind="w"]').length === 1,
+    "a shape's X, Y, width and height show above the tabs with its Style tab open (and only there)", `${w?.value} ${r?.height}`);
+  // While a handle is dragged, the numbers follow
+  store.beginLive();
+  store.item("sR").frame[2] = 160;
+  store.live();
+  const during = field("w").value;
+  store.cancelLive();
+  await settle();
+  inspector.render();
+  check(near(Number(during), shown(160), 0.01), "the width follows a drag as it happens", during);
+  await type("w", 120);
+  await type("y", 60);
+  const fr = store.item("sR").frame;
+  check(near(fr[2], 120, 0.01) && near(fr[3], 50, 0.01) && near(fr[1], 60, 0.01) && near(fr[0], 40, 0.01),
+    "a width typed in resizes it (a shape's height stays), a Y moves it", JSON.stringify(fr));
+  // A group: its outline's numbers; a width scales it all from the top-left, keeping proportions
+  store.select(["sG"]);
+  await settle();
+  inspector.render();
+  const gw = field("w");
+  check(gw && near(Number(gw.value), shown(100), 0.01) && near(Number(field("h").value), shown(80), 0.01)
+    && near(Number(field("x").value), shown(200), 0.01), "a group shows its outline's position and size", gw?.value);
+  await type("w", 150);
+  const [a, b] = store.item("sG").items.map((it) => it.frame);
+  check(near(a[0], 200, 0.01) && near(a[1], 40, 0.01) && near(a[2], 60, 0.01) && near(b[0], 290, 0.01) && near(b[1], 100, 0.01)
+    && near(b[2], 60, 0.01) && near(b[3], 60, 0.01) && near(Number(field("h").value), shown(120), 0.01),
+    "a group's width typed in scales everything in it from its top-left corner, keeping its proportions",
+    `${JSON.stringify(a)} ${JSON.stringify(b)}`);
+  await type("x", 210);
+  check(near(store.item("sG").items[0].frame[0], 210, 0.01) && near(store.item("sG").items[1].frame[0], 300, 0.01),
+    "a group's X moves it", JSON.stringify(store.item("sG").items.map((it) => it.frame[0])));
+  store.select(["sLn"]);
+  await settle();
+  inspector.render();
+  check(!document.querySelector("#inspector .insp-strip"), "a line has no size strip (its points are in the Arrange tab)");
+  store.select([]);
+}
+
 // Selecting several objects shows the Arrange tab, and the tab before comes back once one or
 // none is selected (a tab picked meanwhile stays). Text boxes count too; one text box shows Home.
 // The group Group makes keeps Arrange showing; Settings turns it off
@@ -2353,6 +2421,7 @@ export async function run(app, params) {
     if (params.get("only") === "dangerous") { await dangerousModeChecks(app); throw ONLY; }
     if (params.get("only") === "refresh") { await refreshAllChecks(app); throw ONLY; }
     if (params.get("only") === "arrangetab") { await arrangeTabChecks(app); throw ONLY; }
+    if (params.get("only") === "sizestrip") { await sizeStripChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3613,6 +3682,7 @@ export async function run(app, params) {
     await dangerousModeChecks(app);
     await refreshAllChecks(app);
     await arrangeTabChecks(app);
+    await sizeStripChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;
