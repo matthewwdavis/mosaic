@@ -208,6 +208,8 @@ Matthew's choices are in brackets.
 - [x] Several objects' styles at once (asked 2026-11-10): a Style tab for several selected or a
       group, blank (Mixed) where they differ, each change to those that can take it, groups'
       objects included, shape kind and rounding too [Matthew's choices]
+- [x] Freeform tool (asked 2026-11-10): clicks for straight lines, drags drawn freehand and
+      smoothed into curves, as in PowerPoint; beside the Pen, N [Matthew's choices]
 
 ## Acceptance test (test slide)
 

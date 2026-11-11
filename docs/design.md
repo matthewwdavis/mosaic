@@ -136,6 +136,13 @@ pre-export check says so.
     as a percentage in the Line section; PowerPoint gets a custDash. The Dash menu's pictures are
     drawn at 2 pt: at the line's 1 pt, Dot and Round dot all but vanished in WebKit (checked in a
     WKWebView snapshot).
+  - *Freeform tool (2026-11-10, Matthew's choices):* PowerPoint's Freeform beside the Pen (N):
+    clicks are corners with straight lines, a drag draws freehand, fitted as it's let go
+    (pen.fitFreehand: Schneider's curve fitting, corners where the path turns more than 70°,
+    end directions from a little way along) within max(0.5 pt, 2 px); the Pen keeps its curve
+    handles. Shares the pen's state (pen.freeform), finishing, closing and Backspace (a whole
+    freehand stretch, by its run). The window's grid column is now minmax(0, 1fr): a long status
+    message (editing points) had widened the window past the screen.
   - *Several objects' Style tab (2026-11-10, Matthew's choices):* several selected, or one group,
     get a Style tab (`inspector.lookTab`) working on every line and shape among them, inside groups
     too (not a clipping mask's shape). The single-object sections are reused: built from a

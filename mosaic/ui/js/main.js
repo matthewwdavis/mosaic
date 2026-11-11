@@ -2361,6 +2361,8 @@ app.commands = {
   toolLine: tool("line", "Line", "l", "Line"),
   toolArrow: tool("arrow", "Arrow", "a", "Arrow"),
   toolPen: tool("pen", "Pen: click for corners, drag for curves, click the first point to close", "b", "Pen"),
+  toolFreeform: tool("freeform", "Freeform: click for straight lines, drag to draw freehand, click the first point to close", "n",
+    "Freeform"),
   toolRect: tool("rect", "Rectangle", "r", "Rect"),
   toolRoundRect: tool("roundrect", "Rounded rectangle", "u", "Rounded"),
   toolEllipse: tool("ellipse", "Ellipse or circle", "o", "Ellipse"),

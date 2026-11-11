@@ -35,6 +35,7 @@ html, body { height: 100%; margin: 0; }
 body {
   font-family: var(--font); font-size: 1rem; color: var(--text); background: var(--bg);
   display: grid; grid-template-rows: auto 1fr auto; overflow: hidden;
+  grid-template-columns: minmax(0, 1fr);   /* (a long status message is cut short, not the window widened) */
 }
 .visually-hidden {
   position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);

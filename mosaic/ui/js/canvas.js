@@ -6,7 +6,7 @@ import { store } from "./store.js";
 import { followGrids } from "./gridlayout.js";
 import { asLabel, followLabels, labelLetter, pageLabels, panelAt } from "./labels.js";
 import { finishEdits } from "./symbols.js";
-import { moveHandle, moveNode, nearestOn, ringsOf, segments, splitAt, toLocal, toPageOf, toggleSmooth, writeRings } from "./pen.js";
+import { fitFreehand, moveHandle, moveNode, nearestOn, ringsOf, segments, splitAt, toLocal, toPageOf, toggleSmooth, writeRings } from "./pen.js";
 import { followScaleBars } from "./scalebar.js";
 import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
 import { followLifted, isLifted, isPlot, lift, plotTexts, plotTextsNow, quadOnPage, remapCopies, shownVariants, textAt } from "./liftedtext.js";
@@ -836,7 +836,7 @@ export const canvas = {
       this.op = { type: "zoombox", pic: pic.id, start: p, cur: p, shape: this.zoomShape || "rect" };
       return;
     }
-    if (this.tool === "pen") return this.penDown(p, e);
+    if (this.tool === "pen" || this.tool === "freeform") return this.penDown(p, e);
     if (this.tool !== "select") return this.startDraw(p, e);
     if (this.pointEdit && this.pointDown(pt, p)) return;
     const hd = this.handleAt(pt);
@@ -922,7 +922,7 @@ export const canvas = {
     try { this.stage.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
     this.snapGuides = [];
     if (!op) return;
-    if (op.type === "pen") return;
+    if (op.type === "pen") return this.penUp(op, cancelled);
     if (op.type === "pointdrag") {
       if (op.moved && !cancelled) store.endLive("Move point");
       else store.cancelLive();
@@ -1825,7 +1825,7 @@ export const canvas = {
   // Drawing tools ----------------------------------------------------------------------
 
   setTool(tool, geom = null) {
-    if (this.pen && tool !== "pen") this.finishPen(false);
+    if (this.pen && tool !== (this.pen.freeform ? "freeform" : "pen")) this.finishPen(false);
     if (tool !== "select") this.pointEdit = null;
     if (this.editing) this.commitEdit();
     if (tool === "shape" && geom) this.shapeGeom = geom;
@@ -1980,32 +1980,77 @@ export const canvas = {
   // The pen: a click places a corner, a drag pulls out a smooth point's handles, a click on the
   // first point closes the shape; Enter, Escape or a double-click finishes an open path, and
   // Backspace takes back the last point. An open path of corners becomes a line.
+  // The Freeform tool (pen.freeform), as in PowerPoint: a click places a corner (straight lines
+  // between them), a drag draws freehand, made into smooth curves as it's let go (fitFreehand);
+  // finishing as with the pen, and letting go of a drag on the first point closes the shape too.
 
   penDown(p, e) {
     this.penTargets ||= this.snapTargets([]);
-    const q = this.snapPoint(p, this.penTargets, e), pen = this.pen ||= { nodes: [] };
+    const q = this.snapPoint(p, this.penTargets, e), pen = this.pen ||= { nodes: [], freeform: this.tool === "freeform" };
     const first = pen.nodes[0];
     if (first && pen.nodes.length >= 2) {
       const [ax, ay] = this.toScreen(...first.p), [bx, by] = this.toScreen(...q);
       if (Math.hypot(ax - bx, ay - by) <= HANDLE) return this.finishPen(true);
     }
     pen.nodes.push({ p: q, hin: null, hout: null, smooth: false });
-    this.op = { type: "pen" };
+    this.op = { type: "pen", trail: pen.freeform ? [q] : null, drawing: false };
     this.drawOverlay();
   },
   penDrag(p) {
     const n = this.pen?.nodes[this.pen.nodes.length - 1];
     if (!n) return;
+    if (this.pen.freeform) {
+      const op = this.op;
+      if (!op.drawing && Math.hypot(p[0] - n.p[0], p[1] - n.p[1]) * this.k < 3) return;
+      op.drawing = true;
+      op.trail.push(p);
+      this.penHover = null;
+      this.drawOverlay();
+      return;
+    }
     if (Math.hypot(p[0] - n.p[0], p[1] - n.p[1]) * this.k < 3) Object.assign(n, { hin: null, hout: null, smooth: false });
     else Object.assign(n, { hout: p, hin: [2 * n.p[0] - p[0], 2 * n.p[1] - p[1]], smooth: true });
     this.penHover = null;
     this.drawOverlay();
   },
+  // A freehand stretch let go: smooth curves within half a point of where the pointer went, or two
+  // pixels on the screen (so a hand's wobble goes), each of its points marked as one stretch so
+  // Backspace takes it back whole; let go on the first point, the shape closes
+  penUp(op, cancelled) {
+    const pen = this.pen;
+    if (!pen?.freeform || !op.drawing || cancelled || op.trail.length < 2) return this.drawOverlay();
+    const start = pen.nodes[pen.nodes.length - 1];
+    const fitted = fitFreehand(op.trail, Math.max(0.5, 2 / this.k));
+    const run = (pen.runs = (pen.runs || 0) + 1);
+    start.hout = fitted[0].hout;
+    start.smooth = false;
+    const added = fitted.slice(1).map((n) => ({ ...n, run }));
+    const first = pen.nodes[0], end = added[added.length - 1];
+    const [ax, ay] = this.toScreen(...first.p), [bx, by] = this.toScreen(...end.p);
+    if (pen.nodes.length + added.length >= 3 && Math.hypot(ax - bx, ay - by) <= HANDLE) {
+      // (the stretch ends on the first point: that point takes its last curve)
+      added.pop();
+      first.hin = end.hin;
+      pen.nodes.push(...added);
+      return this.finishPen(true);
+    }
+    pen.nodes.push(...added);
+    this.drawOverlay();
+  },
   finishPen(closed) {
     const pen = this.pen;
     this.pen = this.penHover = this.penTargets = null;
-    // A double-click's second click lands on the last point again
-    const nodes = (pen?.nodes || []).filter((n, i, all) => i === 0 || n.hin || Math.hypot(n.p[0] - all[i - 1].p[0], n.p[1] - all[i - 1].p[1]) > 0.01);
+    // A double-click's second click lands on the last point again, and a freehand stretch may start
+    // on the point just clicked: one point there, with the curve out of it
+    const nodes = [];
+    for (const n of pen?.nodes || []) {
+      const prev = nodes[nodes.length - 1];
+      if (prev && !n.hin && Math.hypot(n.p[0] - prev.p[0], n.p[1] - prev.p[1]) <= 0.01) {
+        if (n.hout) prev.hout = n.hout;
+        continue;
+      }
+      nodes.push(n);
+    }
     if (nodes.length < 2) { this.drawOverlay(); return; }
     const d = this.defaults || {};
     const stroke = { color: "#000000", width: d.stroke_width || 1, dash: "solid", cap: "round", join: "round", opacity: 1 };
@@ -2017,7 +2062,7 @@ export const canvas = {
         arrow_start: null, arrow_end: null };
       writeRings(item, [{ nodes, closed, group: 0, fill: true, stroke: true }]);
     }
-    store.update("Draw with the pen", (doc) => store.container(doc).push(item), { select: [item.id] });
+    store.update(pen.freeform ? "Draw a freeform shape" : "Draw with the pen", (doc) => store.container(doc).push(item), { select: [item.id] });
     announce(`Drew ${closed ? "a closed shape" : item.type === "line" ? "a line" : "an open path"} of ${nodes.length} points; `
       + (item.type === "shape" ? "double-click it to edit its points" : "drag its points to change it"));
     this.setTool("select");
@@ -2031,6 +2076,9 @@ export const canvas = {
       d += a.hout || n.hin ? `C${S(a.hout || a.p)} ${S(n.hin || n.p)} ${S(n.p)}` : `L${S(n.p)}`;
     });
     o.append(s("path", { class: "pen-path", d }));
+    if (this.op?.type === "pen" && this.op.drawing) {   // (a freehand stretch as it's drawn)
+      o.append(s("polyline", { class: "pen-path", points: this.op.trail.map((q) => this.toScreen(...q).join(",")).join(" ") }));
+    }
     const last = pen.nodes[pen.nodes.length - 1];
     if (this.penHover) {
       o.append(s("path", { class: "pen-next", d: `M${S(last.p)}${last.hout ? `C${S(last.hout)} ${S(this.penHover)} ` : "L"}${S(this.penHover)}` }));
@@ -2147,7 +2195,12 @@ export const canvas = {
     if (this.pen) {
       if (e.key === "Enter" || e.key === "Escape") { this.finishPen(false); return true; }
       if (e.key === "Backspace" || e.key === "Delete") {
-        this.pen.nodes.pop();
+        // (a freehand stretch goes back whole, to the point it started from)
+        const nodes = this.pen.nodes, run = nodes[nodes.length - 1].run;
+        if (run) {
+          while (nodes.length && nodes[nodes.length - 1].run === run) nodes.pop();
+          if (nodes.length) Object.assign(nodes[nodes.length - 1], { hout: null, smooth: false });
+        } else nodes.pop();
         if (!this.pen.nodes.length) this.pen = null;
         this.drawOverlay();
         return true;

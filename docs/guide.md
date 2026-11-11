@@ -536,6 +536,18 @@ The **Pen** (B, beside the line tools) draws freeform paths and shapes, as in Il
   becomes a freeform shape you can fill, outline and give arrowheads (when it's open).
 - Points snap like line ends do; hold ⌘ to place one without snapping.
 
+The **Freeform** tool (N, under the Pen) draws as PowerPoint's Freeform does:
+
+- Click from point to point for straight lines between them.
+- Press and drag to draw freehand: as you let go, the stretch you drew becomes a few smooth
+  curves, within half a point of where the pointer went (or two pixels on the screen, zoomed out),
+  so a hand's wobble goes. Sharp turns stay corners. Clicks and drags mix in one shape.
+- Click the first point, or let go of a drag on it, to close the shape. **Enter**, **Escape** or a
+  double-click finishes an open one. **Backspace** takes back the last point, or the whole last
+  freehand stretch.
+- What you draw is a freeform shape (straight clicks only, left open, an ordinary line), whose
+  points and curves you can edit as below.
+
 **Editing points:** double-click a freeform shape (or select it and press Enter, or **Edit points**
 in its Style tab's Shape section) to see its points and their handles:
 
@@ -1250,7 +1262,7 @@ Press **?** in mosaic for this list.
 | Refresh all pictures from their files | ⌘⇧R | Ctrl+Shift+R |
 | Snap on or off | ⌘⇧; | Ctrl+Shift+; |
 | Select, Text, Panel label | V, T, P | V, T, P |
-| Line, Arrow, Pen | L, A, B | L, A, B |
+| Line, Arrow, Pen, Freeform | L, A, B, N | L, A, B, N |
 | Rectangle, Rounded rectangle, Ellipse | R, U, O | R, U, O |
 | Shapes menu | S | S |
 | Fill an enclosed area | F | F |

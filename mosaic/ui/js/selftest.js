@@ -10,7 +10,7 @@ import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
 import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog, toUnit } from "./util.js";
 import { sameCommand } from "./selectsame.js";
-import { ringsOf, toPageOf } from "./pen.js";
+import { ringsOf, toLocal, toPageOf } from "./pen.js";
 
 const MMPT = 72 / 25.4;
 const gRectFor = (id, x, y, w, hh) => ({ id, type: "shape", geom: "rect", frame: [x, y, w, hh], rot: 0, flip_h: false, flip_v: false,
@@ -1502,6 +1502,79 @@ async function pictureMenuChecks(app) {
 // Clicks pick shapes by what's drawn of them: an empty one (no fill, or a clear one) only by its
 // line or its text, a click inside it reaching what's under it; an ellipse inside its curve, not at
 // its frame's corners. A selected empty shape drags from inside, and a click there picks what's under
+// The Freeform tool: clicks place corners joined by straight lines, a drag draws freehand, fitted
+// with a few smooth curves that keep close to where the pointer went; a click on the first point,
+// or a drag let go there, closes the shape; Backspace takes a freehand stretch back whole
+async function freeformChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const snapWas = app.prefs.snap;
+  await app.savePrefs({ snap: false });
+  const along = async (pts) => {
+    pointer("pointerdown", screenOf(...pts[0]));
+    for (const q of pts.slice(1)) pointer("pointermove", screenOf(...q));
+    pointer("pointerup", screenOf(...pts.at(-1)));
+    await settle();
+  };
+  // A wave down the page, from a point, as a hand would drag it (a little wobble too)
+  const wave = (x, y0, y1, n = 80) => Array.from({ length: n + 1 }, (_, i) =>
+    [x + 25 * Math.sin((2 * Math.PI * i) / n) + 0.3 * Math.sin(i * 2.7), y0 + ((y1 - y0) * i) / n]);
+  const tol = () => Math.max(0.5, 2 / canvas.k) + 0.05;
+  const cubicPts = (item) => {
+    const r = ringsOf(item)[0], out = [], P = (q) => toPageOf(item, q);
+    const segs = r.nodes.map((a, i) => [a, r.nodes[(i + 1) % r.nodes.length]]).slice(0, r.closed ? r.nodes.length : r.nodes.length - 1);
+    for (const [a, b] of segs) {
+      const c = [a.p, a.hout || a.p, b.hin || b.p, b.p].map(P);
+      for (let k = 0; k <= 60; k++) {
+        const t = k / 60, u = 1 - t;
+        out.push([0, 1].map((d) => u * u * u * c[0][d] + 3 * u * u * t * c[1][d] + 3 * u * t * t * c[2][d] + t * t * t * c[3][d]));
+      }
+    }
+    return out;
+  };
+  const farthest = (pts, onPath) => Math.max(...pts.map((p) => Math.min(...onPath.map((q) => Math.hypot(p[0] - q[0], p[1] - q[1])))));
+
+  canvas.setTool("freeform");
+  check(document.querySelector('#toolbox [data-tool="freeform"]')?.getAttribute("aria-pressed") === "true",
+    "the Freeform tool is in the drawing tools");
+  await drag([100, 100], [100, 100]);
+  await drag([200, 100], [200, 100]);
+  const w = wave(200, 100, 260);
+  await along(w);
+  const during = canvas.pen?.nodes.length;
+  await drag([100, 100], [100, 100]);
+  const shape = store.selected()[0], ring = shape && ringsOf(shape)[0];
+  const curve = shape ? farthest(w, cubicPts(shape)) : Infinity;
+  check(shape?.geom === "custom" && ring.closed && canvas.tool === "select" && during >= 4 && during < 20,
+    "clicks and a freehand drag make a closed freeform shape, the drag a few smooth curves",
+    `${shape?.geom} closed=${ring?.closed} nodes while drawing=${during}`);
+  check(curve < tol() && near(ring.nodes[0].p[0], toLocal(shape, [100, 100])[0], 1e-6),
+    "the curves keep within half a point (or two pixels) of where the pointer went, and the clicks are corners",
+    `${curve.toFixed(3)} pt (tolerance ${tol().toFixed(3)})`);
+  const sides = cubicPts(shape).filter((p) => Math.abs(p[1] - 100) < 1e-6 && p[0] > 101 && p[0] < 199);
+  check(sides.length > 10, "between two clicks the line is straight");
+  // A drag let go on the first point closes the shape
+  canvas.setTool("freeform");
+  await drag([300, 300], [300, 300]);
+  await along([[400, 300], ...Array.from({ length: 40 }, (_, i) => [400 - 2.5 * (i + 1), 300 + 40 * Math.sin((Math.PI * (i + 1)) / 40)])]);
+  const loop = store.selected()[0];
+  check(loop?.id !== shape.id && loop?.geom === "custom" && ringsOf(loop)[0].closed, "a freehand drag let go on the first point closes the shape");
+  // Backspace takes back a whole freehand stretch; clicks alone make a line
+  canvas.setTool("freeform");
+  await drag([100, 400], [100, 400]);
+  await along(wave(150, 400, 500));
+  const before = canvas.pen?.nodes.length;
+  key("Backspace");
+  const after = canvas.pen?.nodes.length;
+  key("Enter");
+  const line = store.selected()[0];
+  check(before > 3 && after === 2 && line?.type === "line" && line.points.length === 2,
+    "Backspace takes back the whole freehand stretch; corners alone make an ordinary line", `${before} -> ${after}, ${line?.type}`);
+  await app.savePrefs({ snap: snapWas });
+  store.select([]);
+}
+
 // Several objects' Style tab: shapes, an arrow and a line inside a group selected together show
 // what they share, blank ("Mixed") where they differ, and a change goes to every one that can
 // take it, the line in the group too, as one undo step; a group selected alone has the tab too
@@ -2524,6 +2597,7 @@ export async function run(app, params) {
     if (params.get("only") === "sizestrip") { await sizeStripChecks(app); throw ONLY; }
     if (params.get("only") === "dashspacing") { await dashSpacingChecks(app); throw ONLY; }
     if (params.get("only") === "multilook") { await multiLookChecks(app); throw ONLY; }
+    if (params.get("only") === "freeform") { await freeformChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3787,6 +3861,7 @@ export async function run(app, params) {
     await sizeStripChecks(app);
     await dashSpacingChecks(app);
     await multiLookChecks(app);
+    await freeformChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;
