@@ -20,7 +20,7 @@ from xml.sax.saxutils import escape, quoteattr
 
 from .. import presets
 from ..assets import PDFIUM_LOCK, SourceResolver
-from ..geometry import Matrix, Path, smooth_path
+from ..geometry import Matrix, Path, dash_pattern, smooth_path
 from ..resolve import DrawGroup, DrawPath, Resolved, Resolver, flat_prims, shape_to_custom
 from .run import _on_page
 
@@ -76,6 +76,9 @@ def _line(s: dict | None, start: dict | None = None, end: dict | None = None) ->
     if not s:
         return "<a:ln><a:noFill/></a:ln>"
     dash = s.get("dash", "solid")
+    spacing = float(s.get("dash_spacing", 1.0))
+    if spacing != 1.0 and dash not in ("solid", None):
+        dash = list(dash_pattern(dash, spacing) or []) or "solid"   # (a style with other gaps: a custom dash)
     if isinstance(dash, list):
         pairs = list(zip(dash[0::2], dash[1::2]))
         dash_xml = "<a:custDash>" + "".join(f'<a:ds d="{int(d * 100000)}" sp="{int(sp * 100000)}"/>' for d, sp in pairs) + "</a:custDash>"

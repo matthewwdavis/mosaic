@@ -858,16 +858,28 @@ DASH_PRESETS: dict[str, tuple[float, ...] | None] = {
 }
 
 
-def dash_array(dash, width: float, cap: str = "flat") -> list[float] | None:
-    """Dash lengths in points for a stroke, or None for a solid line.
-
-    `dash` is a preset name or a list of multiples of the line width. Round and square
-    caps extend every dash by half a line width at each end, so the drawn dashes are
-    shortened by one width (and the gaps lengthened) to keep the preset's rhythm.
-    """
+def dash_pattern(dash, spacing: float = 1.0) -> tuple[float, ...] | None:
+    """A stroke's dashes and gaps in multiples of its width, or None for a solid line. `dash` is a
+    preset name or a list; `spacing` scales the gaps (1: as the preset has them, 0.5: dashes and
+    dots twice as close), the dashes keeping their length."""
     if dash is None:
         return None
     pattern = DASH_PRESETS.get(dash) if isinstance(dash, str) else tuple(dash)
+    if not pattern:
+        return None
+    spacing = max(float(spacing), 0.0)
+    return tuple(v * spacing if i % 2 else v for i, v in enumerate(pattern)) if spacing != 1.0 else tuple(pattern)
+
+
+def dash_array(dash, width: float, cap: str = "flat", spacing: float = 1.0) -> list[float] | None:
+    """Dash lengths in points for a stroke, or None for a solid line.
+
+    `dash` is a preset name or a list of multiples of the line width, its gaps scaled by
+    `spacing` (dash_pattern). Round and square caps extend every dash by half a line width at
+    each end, so the drawn dashes are shortened by one width (and the gaps lengthened) to keep
+    the preset's rhythm.
+    """
+    pattern = dash_pattern(dash, spacing)
     if not pattern:
         return None
     w = max(width, 1e-6)

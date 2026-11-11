@@ -131,3 +131,34 @@ def test_exports_draw_dashes_without_a_dash_pattern(cache, tmp_path):
     svg = open(out["files"][1], encoding="utf-8").read()
     assert not re.search(r"\[[^\]]*\]\s+[\d.]+\s+d\b", content) and re.search(r"\b1 J\b", content)   # round caps, no dashes
     assert "stroke-dasharray" not in svg and "stroke-linecap:round" in svg
+
+
+def test_dash_spacing_scales_the_gaps_only():
+    # The gaps grow or shrink by the spacing, the dashes keeping their length
+    assert dash_array("dash", 2, "flat", 0.5) == [8, 3]
+    assert dash_array("dot", 1, "flat", 2.0) == [1, 6]
+    assert dash_array("dashDot", 1, "round", 1.5) == [3, 5.5, 0, 5.5]   # (round caps: the visible gap is still 4.5 widths)
+    assert dash_array("dash", 1, "flat", 1.0) == dash_array("dash", 1, "flat")
+    # Drawn: a denser dotted line has more dots along the same length
+    line = lambda spacing: {"id": "l", "type": "line", "points": [[0, 0], [100, 0]], "arrow_start": None, "arrow_end": None,
+                            "stroke": {"color": "#000000", "width": 1, "dash": "dot", "cap": "round",
+                                       **({"dash_spacing": spacing} if spacing != 1 else {})}}
+    count = lambda spacing: len(pieces(Resolver({}).resolve(line(spacing)).prims[0].path))
+    assert count(0.5) > count(1) > count(2)
+    assert abs(count(1) - 26) <= 1 and abs(count(0.5) - 41) <= 1   # (a dot every 4 pt, then every 2.5 pt)
+
+
+def test_dash_spacing_goes_to_powerpoint_as_a_custom_dash(cache, tmp_path):
+    import zipfile
+    from mosaic.export.run import export_document
+    doc = model.new_document()
+    for i, spacing in enumerate((None, 2.0)):
+        st = {"color": "#000000", "width": 1, "dash": "sysDot", "cap": "flat", "even_dashes": False}
+        if spacing:
+            st["dash_spacing"] = spacing
+        doc["pages"][0]["items"].append({"id": f"l{i}", "type": "line", "points": [[10, 10 + 20 * i], [90, 10 + 20 * i]],
+                                         "arrow_start": None, "arrow_end": None, "stroke": st})
+    export_document(doc, str(tmp_path / "d"), ["pptx"], cache=cache)
+    xml = zipfile.ZipFile(tmp_path / "d.pptx").read("ppt/slides/slide1.xml").decode()
+    assert '<a:prstDash val="sysDot"/>' in xml
+    assert '<a:custDash><a:ds d="100000" sp="200000"/></a:custDash>' in xml

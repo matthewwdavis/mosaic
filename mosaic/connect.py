@@ -29,7 +29,7 @@ def shape_sites(item: dict) -> list[tuple[str, float, float]]:
     stroke = item.get("stroke") or {}
     if stroke and stroke.get("even_dashes", True) is not False:
         layout = dashes.layout(path, dash_array(stroke.get("dash", "solid"), float(stroke.get("width", 1.0)),
-                                                stroke.get("cap", "flat")))
+                                                stroke.get("cap", "flat"), float(stroke.get("dash_spacing", 1.0))))
         if layout is not None:
             pts += layout.sites()
     return [(key, x / w, y / h) for key, x, y in pts]

@@ -507,8 +507,9 @@ LaTeX's maths, not whole LaTeX documents).
 **Pictures of the choices:** each list in the Style tab (the shape, fill, line, dash, ends,
 corners, arrowheads and their size, the outline's sides and gaps, a connector's route) shows its
 choice as a small picture beside its name. Click it, or press ↓, for a menu with a picture of
-every choice, in the object's own colours and line width: a dash, an arrowhead or an outline
-looks there exactly as it will on the page. A colour too faint to see against the menu is
+every choice, in the object's own colours and line width: an arrowhead or an outline looks
+there exactly as it will on the page. Dashes are drawn 2 pt thick whatever the line's width, so
+dots show and the styles are easy to tell apart. A colour too faint to see against the menu is
 shown grey instead: a black line in a dark theme, a white or pale yellow one in a light theme.
 The corners are drawn on a thick line's outline, so you can see whether its corner is square
 (Sharp), rounded (Round) or cut across (Bevelled). A list greyed out changes nothing yet, and
@@ -587,6 +588,11 @@ it's an ordinary shape (**Make an ordinary shape** in its Arrange tab).
 ## Dashes
 
 Choose a dash in the **Line** section (round dot, short dash, dash, dash-dot, long dash…).
+
+**Dash spacing** sets how close the dashes or dots are: their gaps as a percentage of the
+style's. 100% is the style as it is, 50% twice as dense, 200% half as dense; the dashes and dots
+keep their length. Like the styles themselves, it scales with the line's width. PowerPoint gets it
+as a custom dash.
 
 mosaic puts a dash (or a dot) **on every corner**, bend and line end, rounded corners
 included, and spaces the dashes evenly between them. PowerPoint runs the pattern on regardless,

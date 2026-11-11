@@ -48,7 +48,9 @@ swatches (on the document) [{id, name, color}]: named colours. A colour picked f
         editor recolours it when the swatch changes; only color is drawn
 stroke {color, width, dash (preset or list of widths), cap: flat|round|square,
         join: round|miter|bevel, opacity, even_dashes: false for PowerPoint's dash spacing
-        (absent or true: a dash on every corner and end, evenly spaced; dashes.py)}
+        (absent or true: a dash on every corner and end, evenly spaced; dashes.py),
+        dash_spacing: the gaps between dashes and dots as a multiple of the style's (absent: 1;
+        0.5 twice as dense)}
 fill   {color, opacity}
 text_styles (on the document) [{id, name, font, size, bold, italic, underline, color, swatch, align,
         line_spacing, space_before, space_after}]: named text formats; a paragraph using one has

@@ -8,7 +8,7 @@ import { clone, shapeCatalog } from "./util.js";
 
 export const KEYS = ["stroke", "fill", "outline", "arrow_start", "arrow_end"];
 const BY_PART = new Set(["stroke", "fill", "outline"]);
-const PART_DEFAULTS = { opacity: 1, swatch: null, even_dashes: false, dash: "solid" };
+const PART_DEFAULTS = { opacity: 1, swatch: null, even_dashes: false, dash: "solid", dash_spacing: 1 };
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const samePart = (k, a, b) => JSON.stringify(a ?? PART_DEFAULTS[k] ?? null) === JSON.stringify(b ?? PART_DEFAULTS[k] ?? null);
 

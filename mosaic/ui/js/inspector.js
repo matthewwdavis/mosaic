@@ -1009,6 +1009,17 @@ export const inspector = {
         numField("Line width", st.width ?? 1, "pt", set("Line width", "width", (v) => Math.max(v, 0)), { min: 0, step: 0.25 })));
       kids.push(pictureField("Dash", typeof st.dash === "string" ? st.dash : "solid",
         DASHES.map(([value, label]) => ({ value, label, picture: () => dashPicture(st, value) })), set("Dash", "dash")));
+      // How close the dashes or dots are: their gaps as a percentage of the style's (lower is
+      // denser), the dashes keeping their length
+      if (st.dash && st.dash !== "solid") {
+        kids.push(numField("Dash spacing", (st.dash_spacing ?? 1) * 100, "%", (v) => this.edit("Dash spacing", (o) => {
+          const f = Math.max(v, 0) / 100;
+          o.stroke = { ...o.stroke };
+          if (Math.abs(f - 1) < 1e-9) delete o.stroke.dash_spacing;
+          else o.stroke.dash_spacing = f;
+        }), { min: 0, max: 1000, step: 10 }),
+        h("p", { class: "hint" }, "The gaps between dashes or dots: 100% as the style has them, lower is denser."));
+      }
       // Dashed lines get a dash (or dot) on every corner and end, evenly spaced between them;
       // unticked, the pattern runs on regardless of corners, as in PowerPoint
       if (st.dash && st.dash !== "solid") {

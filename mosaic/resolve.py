@@ -467,7 +467,7 @@ def make_stroke(d: dict | None) -> Stroke | None:
         return None
     cap = d.get("cap", "flat")
     return Stroke(color=d.get("color", "#000000"), width=width,
-                  dash=dash_array(d.get("dash", "solid"), width, cap), cap=cap,
+                  dash=dash_array(d.get("dash", "solid"), width, cap, float(d.get("dash_spacing", 1.0))), cap=cap,
                   join=d.get("join", "round"), opacity=float(d.get("opacity", 1.0)),
                   even_dashes=d.get("even_dashes", True) is not False)
 

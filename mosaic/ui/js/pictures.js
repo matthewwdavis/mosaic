@@ -71,8 +71,10 @@ const pictureStroke = (st, extra = {}) => ({ cap: "round", join: "round", ...(st
 const colourOf = (st) => ink(st?.color || "#000000");
 const across = () => ({ type: "line", points: [[4, LINE_BOX[1] / 2], [LINE_BOX[0] - 4, LINE_BOX[1] / 2]] });
 
+// Each dash style at 2 pt, whatever the line's width, so dots show (at 1 pt they all but vanish)
+// and the styles are easy to tell apart; at the style's own spacing
 export function dashPicture(st, dash) {
-  return enginePicture({ ...across(), stroke: pictureStroke(st, { dash }) }, LINE_BOX);
+  return enginePicture({ ...across(), stroke: pictureStroke(st, { dash, width: 2, dash_spacing: 1 }) }, LINE_BOX);
 }
 // A thick stub ending at a hairline, so a round or square end shows how far past it it reaches
 export function capPicture(st, cap) {

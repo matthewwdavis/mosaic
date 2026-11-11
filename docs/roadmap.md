@@ -203,6 +203,8 @@ Matthew's choices are in brackets.
       for that selection only and never saved; Same width / height with no key match the largest [Matthew's choices]
 - [x] Position and size always in view (asked 2026-11-10): X, Y, Width, Height above the properties
       panel's tabs, following drags, typed to change; groups scale from their top-left [Matthew's choices]
+- [x] Dash spacing (asked 2026-11-10): the gaps between dashes and dots as a percentage of the
+      style's, in the Line section; Dash menu pictures at 2 pt so dots show [Matthew's choices]
 
 ## Acceptance test (test slide)
 

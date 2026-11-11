@@ -1502,6 +1502,45 @@ async function pictureMenuChecks(app) {
 // Clicks pick shapes by what's drawn of them: an empty one (no fill, or a clear one) only by its
 // line or its text, a click inside it reaching what's under it; an ellipse inside its curve, not at
 // its frame's corners. A selected empty shape drags from inside, and a click there picks what's under
+// Dash spacing: the gaps between dashes and dots as a percentage of the style's, in the Line
+// section; the Dash menu's pictures are drawn at 2 pt so dots show
+async function dashSpacingChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  store.update("Line", (doc) => doc.pages[store.pageIndex].items.push({ id: "dL", type: "line", points: [[40, 100], [300, 100]],
+    arrow_start: null, arrow_end: null, stroke: { color: "#000000", width: 1, dash: "solid", cap: "round", join: "round", opacity: 1 } }),
+  { select: ["dL"] });
+  await settle();
+  inspector.render();
+  document.getElementById("itab-style")?.click();
+  const fieldFor = (text) => {
+    const lab = [...document.querySelectorAll("#inspector label")].find((l) => l.textContent === text);
+    return lab ? document.getElementById(lab.htmlFor) : null;
+  };
+  check(!fieldFor("Dash spacing"), "a solid line has no dash spacing");
+  store.update("Dotted", (doc) => { findItem(doc, "dL").stroke.dash = "sysDot"; });
+  await settle();
+  inspector.render();
+  const spacing = fieldFor("Dash spacing");
+  check(spacing && spacing.value === "100", "a dotted line's Line section has Dash spacing, at 100%", spacing?.value);
+  spacing.value = "50";
+  spacing.dispatchEvent(new Event("change"));
+  await settle();
+  check(store.item("dL").stroke.dash_spacing === 0.5, "50% halves the gaps", JSON.stringify(store.item("dL").stroke));
+  inspector.render();
+  fieldFor("Dash spacing").value = "100";
+  fieldFor("Dash spacing").dispatchEvent(new Event("change"));
+  await settle();
+  check(!("dash_spacing" in store.item("dL").stroke), "back to 100% is the style as it was", JSON.stringify(store.item("dL").stroke));
+  inspector.render();
+  fieldFor("Dash").click();
+  await until(() => [...document.querySelectorAll(".context-menu .menu-item svg path")].length >= 8, 4000);
+  const widths = [...document.querySelectorAll(".context-menu .menu-item svg path")].map((p) => p.getAttribute("style")?.match(/stroke-width:([\d.]+)/)?.[1]);
+  check(widths.length >= 8 && widths.every((w) => w === "2"), "the Dash menu draws every style at 2 pt", widths.join(" "));
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  store.select([]);
+}
+
 // Position and size above the properties panel's tabs, whatever tab is open: the numbers follow
 // a drag as it happens, and typed ones move and resize; a group's width scales everything in it,
 // keeping its proportions. Lines have none
@@ -2422,6 +2461,7 @@ export async function run(app, params) {
     if (params.get("only") === "refresh") { await refreshAllChecks(app); throw ONLY; }
     if (params.get("only") === "arrangetab") { await arrangeTabChecks(app); throw ONLY; }
     if (params.get("only") === "sizestrip") { await sizeStripChecks(app); throw ONLY; }
+    if (params.get("only") === "dashspacing") { await dashSpacingChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
     const ribbonTabs = [...document.querySelectorAll(".rtab")];
@@ -3683,6 +3723,7 @@ export async function run(app, params) {
     await refreshAllChecks(app);
     await arrangeTabChecks(app);
     await sizeStripChecks(app);
+    await dashSpacingChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;
     store.dirty = keepDirty;

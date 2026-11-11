@@ -131,6 +131,11 @@ pre-export check says so.
     outline's, a width or height scaling everything from the top-left (`scaleItem`, as Match size
     and Transform Again do; groups have no resize handles). Lines keep their points in Arrange;
     area fills and scale bars have none. Several objects selected show no size.
+  - *Dash spacing and dash pictures (2026-11-10, Matthew's choices):* `stroke.dash_spacing`
+    scales a dash style's gaps (dash_pattern in geometry.py; the dashes keep their length), shown
+    as a percentage in the Line section; PowerPoint gets a custDash. The Dash menu's pictures are
+    drawn at 2 pt: at the line's 1 pt, Dot and Round dot all but vanished in WebKit (checked in a
+    WKWebView snapshot).
   - *Key objects (2026-11-10, Matthew's choices):* he found Top aligning to the first selected
     object, not the highest. A plain click on one of several selected objects had switched Align
     to into Key mode, which was saved in his settings, and with no key clicked it took the first
