@@ -3353,16 +3353,20 @@ export async function run(app, params) {
       "double-clicked, the Format Painter keeps painting", canvas.tool);
     key("Escape");
     check(canvas.tool === "select" && painterBtn.getAttribute("aria-pressed") === "false", "and Escape puts it away", canvas.tool);
-    // Match size: the others take the key object's height (or width), keeping their proportions
+    // Match size: the others take the key object's height (or width), or with no key the tallest's
+    // (widest's), keeping their proportions
     store.update("Bigger copy", (doc) => { const d = findItem(doc, dupB.id); d.frame[2] *= 2; d.frame[3] *= 3; });
-    const bigWas = store.item(dupB.id).frame.slice(), keyFrame = store.item(rect.id).frame;
+    const tallWas = store.item(dupB.id).frame.slice(), smallWas = store.item(rect.id).frame.slice();
+    const tallH = () => { const b = itemBBox(store.item(dupB.id)); return b[3] - b[1]; };
+    const heightWas = tallH();
     store.select([rect.id, dupB.id]);
     document.querySelector('#rpanel-arrange [data-cmd="sameHeight"]').click();
-    const matched = store.item(dupB.id).frame;
-    check(near(matched[3], keyFrame[3], 1e-6) && near(matched[2] / matched[3], bigWas[2] / bigWas[3], 1e-6)
-      && near(matched[0], bigWas[0], 1e-6) && near(matched[1], bigWas[1], 1e-6),
-    "Same height makes the others as tall as the first selected, keeping their proportions and corner",
-    `${JSON.stringify(bigWas)} -> ${JSON.stringify(matched)} (key ${JSON.stringify(keyFrame)})`);
+    const matched = store.item(rect.id).frame, mb = itemBBox(store.item(rect.id));
+    check(near(mb[3] - mb[1], heightWas, 1e-6) && near(matched[2] / matched[3], smallWas[2] / smallWas[3], 1e-6)
+      && near(matched[0], smallWas[0], 1e-6) && near(matched[1], smallWas[1], 1e-6)
+      && JSON.stringify(store.item(dupB.id).frame) === JSON.stringify(tallWas),
+    "Same height with no key object makes the others as tall as the tallest, keeping their proportions and corner",
+    `${JSON.stringify(smallWas)} -> ${JSON.stringify(matched)} (tallest ${JSON.stringify(tallWas)})`);
     // Fonts: each font the text uses, and Replace swaps one everywhere
     store.update("Arial text for the test", (doc) => doc.pages[store.pageIndex].items.push({ id: "fonttest", type: "shape", geom: "rect",
       textbox: true, frame: [50, 50, 60, 12], rot: 0, stroke: null, fill: null,
@@ -4120,12 +4124,24 @@ export async function run(app, params) {
     app.run("distributeCenter");
     check(near(fr("eqB")[0], 390, 1e-6) && near(fr("eqA")[0], 330, 1e-6) && near(fr("eqC")[0], 450, 1e-6),
       "Distribute centres spaces the centres evenly between the outer two", `${fr("eqA")[0]} ${fr("eqB")[0]} ${fr("eqC")[0]}`);
-    const cAt = screenOf(fr("eqC")[0] + 20, fr("eqC")[1] + 20);
+    // With no key object, Top goes to the highest of them, whichever was selected first
+    store.update("Nudge for test", (doc) => { findItem(doc, "eqA").frame[1] = 520; findItem(doc, "eqB").frame[1] = 470; });
+    app.run("alignTop");
+    check(near(fr("eqA")[1], 470, 1e-6) && near(fr("eqB")[1], 470, 1e-6) && near(fr("eqC")[1], 470, 1e-6),
+      "Align tops with no key object lines them up with the highest one", `${fr("eqA")[1]} ${fr("eqB")[1]} ${fr("eqC")[1]}`);
+    store.update("Back for test", (doc) => { for (const id of ["eqA", "eqB", "eqC"]) findItem(doc, id).frame[1] = 500; });
+    const cAt = screenOf(fr("eqC")[0] + 20, fr("eqC")[1] + 20), itemsBefore = store.page().items.length;
     pointer("pointerdown", cAt);
     pointer("pointerup", cAt);
     await settle();
-    check(app.prefs.align_to === "key" && app.keyObject()?.id === "eqC" && store.selection.length === 3,
-      "clicking one of the selected objects makes it the key object", `${app.prefs.align_to} ${app.keyObject()?.id} ${store.selection}`);
+    const plainKey = app.alignTo();
+    pointer("pointerdown", cAt, { altKey: true });
+    pointer("pointerup", cAt, { altKey: true });
+    await settle();
+    check(plainKey === "selection" && app.alignTo() === "key" && app.keyObject()?.id === "eqC" && store.selection.length === 3
+      && store.page().items.length === itemsBefore && app.prefs.align_to !== "key",
+      "a plain click on one of the selected objects leaves Align to alone; an Option-click makes it the key object (not saved)",
+      `${plainKey} ${app.alignTo()} ${app.keyObject()?.id} ${store.selection} ${store.page().items.length}/${itemsBefore}`);
     store.update("Nudge for test", (doc) => { findItem(doc, "eqA").frame[1] = 470; findItem(doc, "eqB").frame[1] = 530; });
     app.run("alignTop");
     check(near(fr("eqA")[1], 500, 1e-6) && near(fr("eqB")[1], 500, 1e-6) && near(fr("eqC")[1], 500, 1e-6),
@@ -4139,7 +4155,11 @@ export async function run(app, params) {
       "a set gap spaces them exactly that far apart, counted out from the key object", `${fr("eqA")[0]} ${fr("eqB")[0]} ${fr("eqC")[0]}`);
     gapIn.value = "";
     gapIn.dispatchEvent(new Event("change"));
+    // The key lasts for that selection only
     const toSel = document.querySelector('#rpanel-arrange [data-sync="align_to"]');
+    store.select(["eqA", "eqB"]);
+    check(app.alignTo() === "selection" && !app.keyObject() && toSel.value === "selection",
+      "selecting other objects ends the key object: Align to goes back to Selection", `${app.alignTo()} ${toSel.value}`);
     toSel.value = "page";
     toSel.dispatchEvent(new Event("change"));
     store.select(["eqA", "eqB"]);

@@ -199,6 +199,8 @@ Matthew's choices are in brackets.
       undone updates and newly saved copies included; Home tab, File menu, page menu, ⌘⇧R [Matthew's choices]
 - [x] Arrange tab for several objects (asked 2026-11-10): two or more selected show it, text boxes
       included; one or none brings the tab before back; a Settings switch, on [Matthew's choices]
+- [x] Aligning to the highest (leftmost…) object (asked 2026-11-10): key objects by Option-click only,
+      for that selection only and never saved; Same width / height with no key match the largest [Matthew's choices]
 
 ## Acceptance test (test slide)
 

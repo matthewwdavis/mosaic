@@ -19,7 +19,7 @@ import { ZOOM_SHAPES, zoomShape } from "./zoom.js";
 import { hiddenOf, liftedFrom } from "./liftedtext.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
-  UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, luminance,
+  UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, isMac, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, luminance,
   parseHex, shapeCatalog, shapeName, toUnit,
 } from "./util.js";
 
@@ -1183,7 +1183,8 @@ export const inspector = {
         h("div", { class: "button-row icons" }, b("distributeH", "spaceH"), b("distributeV", "spaceV")), gapField(this.app)),
       h("p", { class: "hint" }, "Equal gaps between neighbours; with a gap set, exactly that gap.")]),
       section("Align to", [alignToField(this.app), h("p", { class: "hint" },
-        "Key object: the one that stays put. Click one of the selected objects to make it the key.")])];
+        `Key object: the one that stays put. ${isMac ? "Option" : "Alt"}-click one of the selected objects to make it the key; `
+        + "it lasts until the selection changes.")])];
   },
 };
 
@@ -1450,7 +1451,7 @@ export function gapField(app) {
 }
 // What aligning and distributing line up with
 export function alignToField(app) {
-  const f = selectField("Align to", app.prefs.align_to || "selection",
+  const f = selectField("Align to", app.alignTo(),
     [["selection", "Selection"], ["key", "Key object"], ["page", "Page"]], (v) => app.setAlignTo(v));
   f.querySelector("select").dataset.sync = "align_to";
   return f;

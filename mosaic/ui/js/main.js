@@ -1174,14 +1174,15 @@ const app = {
     }, { select: [shape.id] });
     announce(`${names[how]}: ${sel.length} shapes are now one`);
   },
-  // Match sizes: the other selected objects take the key object's width (or height), keeping
-  // their proportions and their top-left corners. Line widths don't scale, so the box grows in a
-  // straight line with the factor: one trial scale gives the exact one
+  // Match sizes: the other selected objects take the key object's width (or height), or with no
+  // key the widest's (tallest's), keeping their proportions and their top-left corners. Line
+  // widths don't scale, so the box grows in a straight line with the factor: one trial scale
+  // gives the exact one
   matchSize(axis) {
     const sel = store.selected().filter((it) => !it.locked && it.geom !== "region");
-    const key = this.keyObject();
-    if (sel.length < 2 || !key) { announce("Select two or more objects: the others match the key object, or the first selected"); return; }
+    if (sel.length < 2) { announce("Select two or more objects: the others match the key object, or the largest"); return; }
     const span = (it) => { const b = itemBBox(it); return axis === "w" ? b[2] - b[0] : b[3] - b[1]; };
+    const key = this.keyObject() || sel.reduce((a, b) => (span(b) > span(a) ? b : a));
     const want = span(key), others = sel.filter((it) => it.id !== key.id);
     store.update(axis === "w" ? "Same width" : "Same height", (doc) => {
       for (const o of others) {
@@ -1197,33 +1198,51 @@ const app = {
     announce(`Made ${others.length} object${others.length === 1 ? "" : "s"} as ${axis === "w" ? "wide" : "tall"} as ${itemLabel(key, store.doc)}`);
   },
   // Align and distribute, as in Illustrator: to the selection, a key object or the page. One
-  // object on its own always goes to the page. In key mode the key object stays put; it's the one
-  // last clicked among the selected objects, or the first selected.
+  // object on its own always goes to the page. A key object stays put; it's the one Option-
+  // clicked among the selected objects, or the first selected when Key object is picked in Align
+  // to. It lasts for that selection only (keySel: the selection it was made for), so Align to goes
+  // back to what it was (Selection or Page, the setting kept) once the selection changes.
+  alignTo() {
+    return this.keySel ? "key" : this.prefs.align_to === "page" ? "page" : "selection";
+  },
   alignMode(sel) {
-    return sel.length === 1 ? "page" : this.prefs.align_to || "selection";
+    return sel.length === 1 ? "page" : this.alignTo();
   },
   keyObject() {
+    if (!this.keySel) return null;
     const id = this.keyId && store.selection.includes(this.keyId) ? this.keyId : store.selection[0];
     return id ? store.item(id) : null;
   },
-  setAlignTo(mode) {
-    this.rememberUi({ align_to: mode });
-    for (const el of document.querySelectorAll('[data-sync="align_to"]')) el.value = mode;
+  selectionKey() { return `${store.pageIndex}:${[...store.selection].sort().join(",")}`; },
+  setAlignTo(mode, quiet = false) {
+    if (mode === "key" && store.selection.length < 2) {
+      if (!quiet) announce(`Select two or more objects, then ${isMac ? "Option" : "Alt"}-click the one to align to`);
+      mode = this.alignTo() === "key" ? "selection" : this.alignTo();
+    }
+    if (mode === "key") {
+      this.keySel = this.selectionKey();
+      if (!store.selection.includes(this.keyId)) this.keyId = store.selection[0];
+    } else {
+      this.keySel = this.keyId = null;
+      if (mode !== this.prefs.align_to) this.rememberUi({ align_to: mode });
+    }
+    for (const el of document.querySelectorAll('[data-sync="align_to"]')) el.value = this.alignTo();
     canvas.drawOverlay();
+    if (quiet) return;
     const key = this.keyObject();
-    announce(mode === "key" && key ? `Aligning to the key object, ${itemLabel(key, store.doc)}; click another selected object to change it`
+    announce(key ? `Aligning to the key object, ${itemLabel(key, store.doc)}; ${isMac ? "Option" : "Alt"}-click another selected object to change it`
       : `Aligning to the ${mode}`);
   },
-  // Clicking one of several selected objects (without dragging) makes it the key object, or
-  // stops it being one
+  // Option-clicking one of several selected objects (without dragging) makes it the key object,
+  // or stops it being one
   toggleKeyObject(id) {
-    if (this.keyId === id && this.prefs.align_to === "key") {
-      this.keyId = null;
-      this.setAlignTo("selection");
-      return;
-    }
+    if (this.keySel && this.keyId === id) return this.setAlignTo(this.prefs.align_to === "page" ? "page" : "selection");
     this.keyId = id;
     this.setAlignTo("key");
+  },
+  // A key object goes once the selection it was made for changes
+  followKeySelection() {
+    if (this.keySel && this.selectionKey() !== this.keySel) this.setAlignTo(this.prefs.align_to === "page" ? "page" : "selection", true);
   },
   alignTarget(sel) {
     const page = store.page(), mode = this.alignMode(sel);
@@ -1280,7 +1299,7 @@ const app = {
     announce(`Distributed ${sel.length} objects by their ${{ left: "left edges", center: "centres", right: "right edges", top: "tops", middle: "middles", bottom: "bottoms" }[edge]}`);
   },
   // Equal gaps between neighbours across (h) or down (v). With a gap set, exactly that gap,
-  // counted out from the key object (or the first object); aligning to the page, the outer
+  // counted out from the key object (or the leftmost or topmost); aligning to the page, the outer
   // objects go to the page's edges.
   distribute(axisName) {
     const sel = store.selected().filter((it) => !it.locked);
@@ -2230,9 +2249,9 @@ app.commands = {
   textTop: cmd("Text at the top of its box", () => textRibbon.anchor("t"), null, null, "Top"),
   textMiddle: cmd("Text in the middle of its box", () => textRibbon.anchor("ctr"), null, null, "Middle"),
   textBottom: cmd("Text at the bottom of its box", () => textRibbon.anchor("b"), null, null, "Bottom"),
-  sameWidth: cmd("Same width: make the selected objects as wide as the key object (or the first selected), keeping "
+  sameWidth: cmd("Same width: make the selected objects as wide as the key object (or the widest), keeping "
     + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
-  sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the first selected), keeping "
+  sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the tallest), keeping "
     + "their proportions", () => app.matchSize("h"), null, null, "Same height"),
   addScaleBar: cmd("Scale bar: add one to the selected picture (it needs a scale)", () => app.addScaleBar(), null, null, "Scale bar"),
   measureScale: cmd("Measure a known length on the selected picture, to give it a scale", () => app.measureScale(), null, null,
@@ -2669,7 +2688,7 @@ async function start() {
   canvas.onEditSymbol = (id) => app.editSymbol(id);
   canvas.onEditEquation = (id) => app.editEquation(id);
   canvas.onFillArea = (p) => app.fillArea(p);
-  canvas.keyObject = () => (app.prefs.align_to === "key" && store.selection.length > 1 ? app.keyObject() : null);
+  canvas.keyObject = () => (store.selection.length > 1 ? app.keyObject() : null);
   // While typing: the commands that work there too (bigger and smaller text)
   canvas.typingKey = (e) => {
     const name = Object.keys(app.commands).find((n) => app.commands[n].typing && app.commands[n].match?.(e));
@@ -2690,6 +2709,7 @@ async function start() {
   rpc("fonts").then((f) => { app.fonts = f; }).catch(() => {});
   let state = null;
   store.on((what) => {
+    if (what === "selection" || what === "page") app.followKeySelection();
     if (what === "doc" || what === "saved") {
       const title = `${docName()}${store.dirty ? " — edited" : ""} — mosaic`;
       if (document.title !== title) {

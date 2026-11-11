@@ -868,11 +868,11 @@ export const canvas = {
       else if (!was) sel = add ? [...sel, hit.id] : [hit.id];
       store.select(sel);
       if (!e.shiftKey || sel.includes(hit.id)) this.startMove(p, e);
-      // Without a drag, a ⌘-click on a selected object takes it away, and a plain click on one of
-      // several selected objects makes it the key object
+      // Without a drag, a ⌘-click on a selected object takes it away, and an Option-click on one
+      // of several selected objects makes it the key object (Option-drag duplicates)
       if (this.op?.type === "move" && !e.shiftKey) {
         if (add && was) this.op.takeAway = hit.id;
-        else if (oneOfSeveral && !add) this.op.keyCandidate = hit.id;
+        else if (oneOfSeveral && !add && e.altKey) this.op.keyCandidate = hit.id;
       }
       announce(describeItem(hit, store.doc));
     } else {

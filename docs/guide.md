@@ -841,22 +841,27 @@ objects shows the Arrange tab by itself (text boxes too), and it stays while you
 one object or none is selected, the tab you were on comes back, unless you picked another tab
 meanwhile. Settings turns this off (**Show the Arrange tab while several objects are selected**).
 
-- **Align**: left edges, centres, right edges, tops, middles, bottoms. One object on its own
-  aligns to the page.
+- **Align**: left edges, centres, right edges, tops, middles, bottoms. With **Align to**
+  **Selection**, the selection's own edges: **Top** lines them up with the highest object, **Left**
+  with the leftmost, and so on. One object on its own aligns to the page.
 - **Distribute**: spreads three or more objects so their left edges (centres, right edges, tops,
   middles or bottoms) are evenly spaced. The outer two stay put.
 - **Spacing**: equal gaps between neighbours, **Across** or **Down**. Type a **Gap** (in your
-  position unit) for exactly that gap, counted out from the key object. Clear it for "as even as
-  fits".
+  position unit) for exactly that gap, counted out from the key object (or the leftmost or
+  topmost). Clear it for "as even as fits".
 - **Align to**:
   - **Selection** (the default): lines up with the selection's edges.
   - **Page**: lines up with the page's edges; distributing moves the outer objects to the edges.
-  - **Key object**: lines up with one object that doesn't move. Click one of the selected
-    objects (without dragging) to make it the key. It gets a thick outline; click it again to stop.
+    It stays chosen until you change it.
+  - **Key object**: lines up with one object that doesn't move. **Option-click** (Alt-click) one
+    of the selected objects, without dragging, to make it the key. It gets a thick outline;
+    Option-click it again to stop. Choosing Key object here makes the first selected the key. A
+    key lasts only while the same objects are selected: select anything else and Align to goes
+    back to Selection (or Page, if that was chosen).
 - **Match size**: **Same width** or **Same height** makes the selected objects as wide (or as
-  tall) as the key object, or the first one selected, keeping their proportions and their
-  top-left corners. Use it for panels of equal height in a row. Line widths and text sizes stay
-  as they are.
+  tall) as the key object, or with no key as the widest (or tallest), keeping their proportions
+  and their top-left corners. Use it for panels of equal height in a row. Line widths and text
+  sizes stay as they are.
 - **Grid layout** (Arrange tab → **Grid**, or right-click): puts the selected panels in rows and
   columns, in the order they lie (rows from the top, each left to right), and keeps them there.
   - Panels keep their sizes. Each column is as wide as its widest panel and each row as tall as
