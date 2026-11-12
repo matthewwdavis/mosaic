@@ -16,16 +16,17 @@ import { collapsed, formatText, ordered, paraLength } from "./textformat.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, edgeReach, emptyShape, frameMatrix, h, hitItem, invert, isMac,
   itemBBox, itemLabel, itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch,
-  luminance, parseHex, pointInPoly, rotate, s, shapeCatalog, svgMatrix, translate, uid,
+  fmt, pointInPoly, rotate, s, shapeCatalog, svgMatrix, translate, uid,
 } from "./util.js";
 
 const HANDLE = 8;             // handle size, CSS px
-let elCount = 0;              // (each object's element has an id, for its copy off the page)
 const SNAP_PX = 6;            // snapping distance, CSS px
 const GUIDE_HIT = 4;          // how near (CSS px) the pointer must be to grab a guide
 const SITE_PX = 8;            // how near (CSS px) a line end must come to attach to a connection point
 const GRID_MIN_PX = 6;        // grid lines closer than this on screen aren't drawn, or snapped to
 const ROT_OFFSET = 24;        // rotation handle distance above the frame, CSS px
+const ROT_SNAP = 4;           // turning by the handle pulls onto 0°, 45°, 90°… within this many degrees
+const AUTOFIT_EXTRA = 9 / 128;   // points the engine adds under a box's text (textlayout.py)
 const SEL_GAP = 6;            // the selection box and its handles stand this far outside the object, CSS px
 const REACH = 64;             // scrolling stops with this much of the page and its objects still in view, CSS px
 const HIT = document.createElement("canvas").getContext("2d");   // tells whether a point is on a shape's outline
@@ -100,45 +101,13 @@ export const canvas = {
     // The grid and guides lie over the objects (pictures would hide them) and under the handles
     this.gridLayer = s("g", { class: "grid" });
     this.guidesLayer = s("g", { class: "guides" });
-    // Off the page in a dark theme (drawOffPage): a copy of each object reaching past the page's
-    // edge, clipped to outside the page, where colours too dark to see on the pasteboard are white
-    this.offClip = s("path", { "clip-rule": "evenodd" });
-    this.offInner = s("g", { filter: "url(#fa-offpage)" });
-    this.offLayer = s("g", { class: "offpage", "clip-path": "url(#fa-offpage-clip)" });
-    this.offLayer.append(this.offInner);
-    this.view.append(this.pageShadow, this.pageRect, this.ghostLayer, this.itemsLayer, this.offLayer, this.gridLayer, this.guidesLayer);
+    this.view.append(this.pageShadow, this.pageRect, this.ghostLayer, this.itemsLayer, this.gridLayer, this.guidesLayer);
     this.overlay = s("g", { class: "overlay" });
     this.cvdMatrix = s("feColorMatrix", { type: "matrix" });
     const cvd = s("filter", { id: "fa-cvd", "color-interpolation-filters": "linearRGB" });
     this.defs = s("defs");
     cvd.append(this.cvdMatrix);
-    // Dark → white: a pixel whose luminance (linear, as contrast is measured) is below the
-    // threshold turns white, fading out over the last 30% below it (offPageThreshold); but not
-    // where light colours lie within a couple of pixels (offBlur), so black text on a white box,
-    // or in a plot with a white background, stays black
-    const transfer = (input, result) => {
-      const f = s("feFuncA", { type: "linear", slope: 0, intercept: 0 }), t = s("feComponentTransfer", { in: input, result });
-      t.append(f);
-      return [t, f];
-    };
-    const [darkStep, darkRamp] = transfer("lum", "dark"), [lightStep, lightRamp] = transfer("lum", "light");
-    const [nearStep, nearRamp] = transfer("lightBlur", "near");
-    nearRamp.setAttribute("slope", 4);
-    this.offRamps = [darkRamp, lightRamp];
-    this.offBlur = s("feGaussianBlur", { in: "lightA", stdDeviation: 2, result: "lightBlur" });
-    const off = s("filter", { id: "fa-offpage", "color-interpolation-filters": "linearRGB" });
-    const merge = s("feMerge");
-    merge.append(s("feMergeNode", { in: "SourceGraphic" }), s("feMergeNode", { in: "lit" }));
-    off.append(s("feColorMatrix", { in: "SourceGraphic", type: "luminanceToAlpha", result: "lum" }), darkStep, lightStep,
-      s("feComposite", { in: "light", in2: "SourceAlpha", operator: "in", result: "lightA" }), this.offBlur, nearStep,
-      s("feComposite", { in: "dark", in2: "SourceAlpha", operator: "in", result: "darkA" }),
-      s("feComposite", { in: "darkA", in2: "near", operator: "out", result: "mask" }),
-      s("feFlood", { "flood-color": "#ffffff", result: "white" }),
-      s("feComposite", { in: "white", in2: "mask", operator: "in", result: "lit" }), merge);
-    const offClip = s("clipPath", { id: "fa-offpage-clip" });
-    offClip.append(this.offClip);
-    this.defs.append(cvd, off, offClip);
-    document.addEventListener("fa-prefs", () => { this.offPageThreshold(); if (store.doc) this.drawOffPage(); });
+    this.defs.append(cvd);
     this.svg.append(this.defs, this.view, this.overlay);
     stage.append(this.svg);
     this.cvdNote = h("div", { class: "cvd-note", role: "status", hidden: true });
@@ -188,7 +157,6 @@ export const canvas = {
   applyView() {
     this.keepInReach();
     this.view.setAttribute("transform", `translate(${this.panX} ${this.panY}) scale(${this.k})`);
-    this.offBlur?.setAttribute("stdDeviation", 2 / this.k);   // (two screen pixels, in page points)
     this.drawGrid();
     this.drawOverlay();
     this.drawGuidePreview();
@@ -258,7 +226,6 @@ export const canvas = {
     const seen = new Set();
     this.syncChildren(this.itemsLayer, page.items, seen);
     for (const id of [...this.els.keys()]) if (!seen.has(id)) { this.els.get(id).g.remove(); this.els.delete(id); }
-    this.drawOffPage();
     this.markScope();
     this.flushResolve();
     this.drawGrid();
@@ -266,34 +233,6 @@ export const canvas = {
     this.drawOverlay();
     if (this.cropping) this.drawGhost();
     if (this.editing) this.positionEditor();   // (a box fitted to its text again, after a change from the ribbon)
-  },
-  // In a dark theme, objects off the page are drawn again over the pasteboard with their black
-  // (and anything as hard to see there) in white: only the parts off the page, pictures too, never
-  // in an export (Settings: prefs.offpage_light). The threshold is where a colour's contrast with
-  // the pasteboard falls below 2:1, as for the menus' pictures (pictures.js ink)
-  offPageThreshold() {
-    const stage = parseHex(getComputedStyle(document.documentElement).getPropertyValue("--stage").trim());
-    const lum = stage ? luminance(stage) : 1;
-    this.offPageOn = lum < 0.18 && this.defaults?.offpage_light !== false;
-    const t = 2 * lum + 0.05, fade = 0.3 * t, [dark, light] = this.offRamps;
-    dark.setAttribute("slope", -1 / fade);
-    dark.setAttribute("intercept", t / fade);
-    light.setAttribute("slope", 1 / fade);
-    light.setAttribute("intercept", 1 - t / fade);
-  },
-  drawOffPage() {
-    if (this.offPageOn === undefined) this.offPageThreshold();
-    const page = store.page(), [w, h] = [page.width, page.height], M = 1e5;
-    this.offClip.setAttribute("d", `M${-M} ${-M}H${M}V${M}H${-M}Z M0 0H${w}V${h}H0Z`);
-    const margin = 2;   // (a line along the edge: its stroke reaches past it)
-    const off = (it) => {
-      const b = itemBBox(it);
-      return b && (b[0] < margin || b[1] < margin || b[2] > w - margin || b[3] > h - margin);
-    };
-    const want = this.offPageOn ? page.items.filter((it) => !it.hidden && this.els.get(it.id) && off(it)) : [];
-    const now = [...this.offInner.children];
-    if (now.length === want.length && now.every((u, i) => u.dataset.id === want[i].id)) return;
-    this.offInner.replaceChildren(...want.map((it) => s("use", { href: `#${this.els.get(it.id).g.id}`, "data-id": it.id })));
   },
   // Inside a group being edited (isolation mode), everything outside it is faded, and a note
   // over the page names the group, with a button to leave it
@@ -321,7 +260,7 @@ export const canvas = {
       seen.add(it.id);
       let e = this.els.get(it.id);
       if (!e) {
-        e = { g: s("g", { "data-id": it.id, id: `fa-el-${++elCount}` }), key: null };
+        e = { g: s("g", { "data-id": it.id }), key: null };
         this.els.set(it.id, e);
       }
       if (parent.children[i] !== e.g) parent.insertBefore(e.g, parent.children[i] || null);
@@ -615,6 +554,7 @@ export const canvas = {
       this.drawAttachment(o, sel[0]);
       this.drawLostArea(o, sel[0]);
       this.drawHandles(sel[0]);
+      if (this.op?.type === "rotate") this.drawRotateLabel(o, sel[0]);
     } else if (sel.length > 1) {
       const key = this.keyObject?.();
       for (const it of sel) {
@@ -1137,6 +1077,9 @@ export const canvas = {
   },
   doubleClick(e) {
     if (e.target.closest?.(NOTES)) return;
+    // In the text being typed, a double-click highlights a word (the browser's own); it doesn't
+    // start typing in the box again, which would put back its text from before
+    if (this.editing && this.editor.contains(e.target)) return;
     const pt = this.eventPoint(e);
     const p = this.toPage(...pt);
     const sel = store.selected();
@@ -1432,7 +1375,7 @@ export const canvas = {
     const m = COLOUR_VISION[mode];
     this.colourVision = m ? mode : "normal";
     if (m) this.cvdMatrix.setAttribute("values", visionMatrix(mode));
-    for (const el of [this.pageRect, this.ghostLayer, this.itemsLayer, this.offLayer]) {
+    for (const el of [this.pageRect, this.ghostLayer, this.itemsLayer]) {
       if (m) el.setAttribute("filter", "url(#fa-cvd)");
       else el.removeAttribute("filter");
     }
@@ -1724,15 +1667,38 @@ export const canvas = {
     op.moved = true;
     store.live();
   },
+  // Turning by the round handle. Shift keeps to 15° steps; otherwise, while snapping is on (and
+  // ⌘ isn't held), the angle pulls onto 0°, 45°, 90°… within ROT_SNAP degrees and turns freely
+  // in between. The angle shows beside the pointer, with a guide when it's on one of those
+  // (drawRotateLabel)
   rotateTo(p, e) {
     const op = this.op, it = store.selected()[0], o = op.orig;
     const [x, y, w, h] = o.frame;
     let ang = (Math.atan2(p[1] - (y + h / 2), p[0] - (x + w / 2)) * 180) / Math.PI + 90;
     if (o.flip_v) ang += 180;
     if (e.shiftKey) ang = Math.round(ang / 15) * 15;
+    else if (this.snapEnabled(e) && Math.abs(ang - Math.round(ang / 45) * 45) <= ROT_SNAP) ang = Math.round(ang / 45) * 45;
     it.rot = ((ang % 360) + 360) % 360;
+    op.snapped = Math.abs(it.rot - Math.round(it.rot / 45) * 45) < 1e-9;
+    op.pt = this.toScreen(...p);
     op.moved = true;
     store.live();
+  },
+  // The angle beside the pointer while an object turns, and on 0°, 45°, 90°… a dashed guide
+  // through its middle along its own up and down, so the snap shows
+  drawRotateLabel(o, it) {
+    const op = this.op;
+    if (!op.pt || !it?.frame) return;
+    const rot = it.rot || 0;
+    if (op.snapped) {
+      const [x, y, w, h] = it.frame, [cx, cy] = this.toScreen(x + w / 2, y + h / 2);
+      const [ux, uy] = apply(rotate(rot), 0, -1), reach = Math.hypot(op.pt[0] - cx, op.pt[1] - cy) + 24;
+      o.append(s("line", { class: "snap-guide", x1: cx - ux * reach, y1: cy - uy * reach, x2: cx + ux * reach, y2: cy + uy * reach }));
+    }
+    const r = this.stage.getBoundingClientRect();
+    const label = s("text", { class: "guide-label", x: clamp(op.pt[0] + 14, 4, r.width - 60), y: clamp(op.pt[1] - 12, 16, r.height - 6) });
+    label.textContent = `${fmt((Math.round(rot * 10) / 10) % 360, 1)}°`;
+    o.append(label);
   },
   endTo(p, e) {
     const op = this.op, it = store.selected()[0];
@@ -2311,17 +2277,23 @@ export const canvas = {
 
   // Cropping ------------------------------------------------------------------------
 
-  startCrop(id) {
+  // ratio (width / height): after an aspect ratio crop (crop.js), corners keep it until cropping
+  // ends; the sides, or Shift, crop freely
+  startCrop(id, { ratio = null, ratioName = "" } = {}) {
     const it = store.item(id);
     if (!it || it.type !== "picture") return;
     store.select([id]);
     this.cropping = id;
+    this.cropRatio = ratio;
     this.drawGhost();
     this.drawOverlay();
-    announce("Cropping. Drag the edges to crop, drag the picture to move it inside the frame, press Enter when done.");
+    announce(ratio ? `Cropping to ${ratioName || "that shape"}. Drag a corner to crop and keep it, or a side or Shift to crop freely; `
+      + "drag the picture to move it inside the frame, press Enter when done."
+      : "Cropping. Drag the edges to crop, drag the picture to move it inside the frame, press Enter when done.");
   },
   endCrop() {
     this.cropping = null;
+    this.cropRatio = null;
     this.ghostLayer.replaceChildren();
     this.drawOverlay();
     announce("Done cropping");
@@ -2329,7 +2301,7 @@ export const canvas = {
   // The whole uncropped picture, faint, behind the crop window
   fullFrame(it) {
     const asset = store.doc.assets[it.asset];
-    const [sw, sh] = asset.size_pt;
+    const [sw, sh] = (asset.page_sizes && asset.page_sizes[it.page_index || 0]) || asset.size_pt;   // (as drawn: renderPicture)
     const [l, t, r, b] = it.crop;
     const scx = it.frame[2] / (sw * (1 - l - r)), scy = it.frame[3] / (sh * (1 - t - b));
     const m = frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v);
@@ -2373,25 +2345,45 @@ export const canvas = {
     store.beginLive();
     this.op = { type: "crop", dir: hd.dir, orig: JSON.parse(JSON.stringify(it)), moved: false, label: "Crop" };
   },
-  cropTo(p) {
+  cropTo(p, e) {
     const op = this.op, o = op.orig, it = store.item(this.cropping);
     const { m, sw, sh, scx, scy } = this.fullFrame(o);
     const [ux, uy] = apply(invert(m), ...p);     // pointer in source points
     let [l, t, r, b] = o.crop;
     const minW = 2 / scx, minH = 2 / scy;
-    if (op.dir.includes("w")) l = clamp(ux / sw, 0, 1 - r - minW / sw);
-    if (op.dir.includes("e")) r = clamp(1 - ux / sw, 0, 1 - l - minW / sw);
-    if (op.dir.includes("n")) t = clamp(uy / sh, 0, 1 - b - minH / sh);
-    if (op.dir.includes("s")) b = clamp(1 - uy / sh, 0, 1 - t - minH / sh);
-    // Keep the picture's scale: the frame follows the crop window
+    if (this.cropRatio && op.dir.length === 2 && !e?.shiftKey) {
+      // A corner keeping the ratio: the opposite corner stays, and the window follows whichever
+      // way the pointer has changed it more (for its size), as far as the picture's edges allow
+      const west = op.dir.includes("w"), north = op.dir.includes("n");
+      const ax = west ? sw * (1 - r) : sw * l, ay = north ? sh * (1 - b) : sh * t;   // the corner that stays
+      const roomW = (west ? ax : sw - ax) * scx, roomH = (north ? ay : sh - ay) * scy;
+      const w0 = sw * (1 - l - r) * scx, h0 = sh * (1 - t - b) * scy;
+      const wantW = Math.abs(ux - ax) * scx, wantH = Math.abs(uy - ay) * scy;
+      let pw = Math.abs(wantW / w0 - 1) >= Math.abs(wantH / h0 - 1) ? wantW : wantH * this.cropRatio;
+      pw = Math.max(Math.min(pw, roomW, roomH * this.cropRatio), 2);
+      const uw = pw / scx, vh = pw / this.cropRatio / scy;
+      if (west) l = (ax - uw) / sw; else r = 1 - (ax + uw) / sw;
+      if (north) t = (ay - vh) / sh; else b = 1 - (ay + vh) / sh;
+    } else {
+      if (op.dir.includes("w")) l = clamp(ux / sw, 0, 1 - r - minW / sw);
+      if (op.dir.includes("e")) r = clamp(1 - ux / sw, 0, 1 - l - minW / sw);
+      if (op.dir.includes("n")) t = clamp(uy / sh, 0, 1 - b - minH / sh);
+      if (op.dir.includes("s")) b = clamp(1 - uy / sh, 0, 1 - t - minH / sh);
+    }
+    Object.assign(it, this.cropped(o, [l, t, r, b]));
+    op.moved = true;
+    store.live();
+  },
+  // A picture cropped to [l, t, r, b] (fractions of the file), keeping its scale and where the
+  // picture itself lies on the page: the frame follows the crop window. {crop, frame}
+  cropped(o, crop) {
+    const { m, sw, sh, scx, scy } = this.fullFrame(o);
+    const [l, t, r, b] = crop;
     const [x0, y0] = apply(m, l * sw, t * sh);
     const nw = sw * (1 - l - r) * scx, nh = sh * (1 - t - b) * scy;
     const rm = frameMatrix([0, 0, nw, nh], o.rot || 0, o.flip_h, o.flip_v);
     const [ox, oy] = apply(rm, 0, 0);
-    it.crop = [l, t, r, b];
-    it.frame = [x0 - ox, y0 - oy, nw, nh];
-    op.moved = true;
-    store.live();
+    return { crop: [l, t, r, b], frame: [x0 - ox, y0 - oy, nw, nh] };
   },
   startCropMove(it, p) {
     store.beginLive();
@@ -2414,6 +2406,9 @@ export const canvas = {
   // Text editing ------------------------------------------------------------------------
 
   startEdit(id, isNew = false) {
+    // (already typing in it: carry on, with what's typed; typing in another: that goes in first)
+    if (this.editing?.id === id) return;
+    if (this.editing) this.commitEdit();
     const it = store.item(id);
     if (!it || it.type !== "shape" || it.geom === "region") return;   // an area fill holds no text
     if (!it.text) it.text = { paragraphs: [{ align: "ctr", runs: [{ t: "", font: "Helvetica", size: 6, kern: true }] }],
@@ -2463,6 +2458,10 @@ export const canvas = {
       return div;
     }));
   },
+  // The editor over the shape, its text where it will be drawn: at the top, in the middle or at
+  // the bottom (the text's anchor; textlayout.py, AUTOFIT_EXTRA under it). A box that grows to
+  // fit its text grows downwards; otherwise text taller than the shape spills out both ways from
+  // the middle (or upwards from the bottom), as it's drawn
   positionEditor() {
     if (!this.editing) return;
     const it = store.item(this.editing.id);
@@ -2472,14 +2471,20 @@ export const canvas = {
     const k = this.k;
     const [sx, sy] = this.toScreen(x, y);
     const ed = this.editor;
+    const anchor = it.text.anchor || "t", sunk = anchor === "ctr" || anchor === "b";
+    const fixed = sunk && it.text.autofit !== "shape";
     Object.assign(ed.style, {
-      left: `${sx}px`, top: `${sy}px`, width: `${Math.max(w * k, 20)}px`, minHeight: `${hgt * k}px`,
-      padding: `${ins[1] * k}px ${ins[2] * k}px ${ins[3] * k}px ${ins[0] * k}px`,
+      left: `${sx}px`, top: `${sy}px`, width: `${Math.max(w * k, 20)}px`,
+      minHeight: fixed ? "" : `${hgt * k}px`, height: fixed ? `${hgt * k}px` : "",
+      padding: `${ins[1] * k}px ${ins[2] * k}px ${(ins[3] + (sunk ? AUTOFIT_EXTRA : 0)) * k}px ${ins[0] * k}px`,
       transform: `rotate(${it.rot || 0}deg)`, transformOrigin: `${(w * k) / 2}px ${(hgt * k) / 2}px`,
       fontSize: `${(it.text.paragraphs[0]?.runs?.[0]?.size || 6) * k}px`,
       whiteSpace: it.text.wrap === false ? "pre" : "pre-wrap",
     });
     ed.style.setProperty("--k", k);
+    // (the middle or the bottom by the stylesheet, which leaves the editor hidden when it's done
+    // with: a display set here would show it again)
+    ed.dataset.anchor = anchor;
     for (const span of ed.querySelectorAll("span[data-run]")) {
       const r = JSON.parse(span.dataset.run);
       span.style.fontSize = `${(r.size || 6) * k}px`;
@@ -2721,18 +2726,44 @@ export function shiftItem(it, orig, dx, dy) {
 }
 
 // Turn an object by `angle` degrees (clockwise) about (cx, cy): a framed object's middle goes
-// round and the object turns with it; a line's points turn; a group's parts each do
+// round and the object turns with it; a line's points turn; a group's parts each do, and the
+// group keeps count of how far it has turned as a whole (rot, shown in its Rotation field)
 export function rotateItem(it, angle, cx, cy) {
-  const r = (angle * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+  // (quarter turns exact, so a line turned upright stays exactly upright)
+  const q = ((angle % 360) + 360) % 360, r = (angle * Math.PI) / 180;
+  const [c, s] = { 0: [1, 0], 90: [0, 1], 180: [-1, 0], 270: [0, -1] }[q] || [Math.cos(r), Math.sin(r)];
   const turn = ([x, y]) => [cx + (x - cx) * c - (y - cy) * s, cy + (x - cx) * s + (y - cy) * c];
-  if (it.type === "group") it.items.forEach((k) => rotateItem(k, angle, cx, cy));
-  else if (it.type === "line") it.points = it.points.map(turn);
+  if (it.type === "group") {
+    it.items.forEach((k) => rotateItem(k, angle, cx, cy));
+    it.rot = turnedBy(it.rot, angle);
+  } else if (it.type === "line") it.points = it.points.map(turn);
   else {
     const [x, y, w, h] = it.frame;
     const [mx, my] = turn([x + w / 2, y + h / 2]);
     it.frame = [mx - w / 2, my - h / 2, w, h];
-    it.rot = ((((it.rot || 0) + angle) % 360) + 360) % 360;
+    it.rot = turnedBy(it.rot, angle);
   }
+}
+// An angle turned on by `angle` degrees, from 0 up to 360, to a millionth of a degree (so turns
+// that add up to 90 land on 90 exactly)
+function turnedBy(rot, angle) {
+  const v = ((((rot || 0) + angle) % 360) + 360) % 360;
+  const nice = Math.round(v * 1e6) / 1e6;
+  return nice >= 360 ? 0 : nice;
+}
+// A line's angle: the way from its start to its end, in degrees clockwise from pointing right
+// (0 to 360), or null when its ends meet
+export function lineAngle(it) {
+  const a = it.points?.[0], b = it.points?.[it.points.length - 1];
+  if (!a || !b || Math.hypot(b[0] - a[0], b[1] - a[1]) < 1e-6) return null;
+  return turnedBy((Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI, 0);
+}
+// The angle the Rotation (or a line's Angle) field shows for an object: a line's way from start
+// to end, anything else its rot; null for what doesn't turn (an area fill, a scale bar)
+export function angleOf(it) {
+  if (it.type === "line") return lineAngle(it);
+  if (it.geom === "region" || it.type === "scalebar") return null;
+  return it.rot || 0;
 }
 
 // Resize an object by (sx, sy), keeping the point at (fx, fy) of its own box where it is (a

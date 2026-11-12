@@ -78,7 +78,7 @@ export function placedItems(copy, sym) {
     return it;
   });
   const mirror = (it, axis) => {
-    if (it.type === "group") { it.items.forEach((c) => mirror(c, axis)); return; }
+    if (it.type === "group") { it.items.forEach((c) => mirror(c, axis)); if (it.rot) it.rot = 360 - it.rot; return; }
     if (it.points) it.points = it.points.map((p) => (axis ? [p[0], 2 * cy - p[1]] : [2 * cx - p[0], p[1]]));
     if (it.frame) {
       const f = it.frame;

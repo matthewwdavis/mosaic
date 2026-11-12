@@ -30,6 +30,7 @@ import { colourHolders, swatchById } from "./swatches.js";
 import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, setFormat } from "./textstyles.js";
 import { KEYS as LOOK, applyObjectStyle, formatOf as lookOf, restyle as restyleObjects } from "./objectstyles.js";
 import { canMove, containerAt, moveItems } from "./layers.js";
+import { cropToDrawnShape, drawnPair, ratioEntries, selectedPicture } from "./crop.js";
 import {
   MOD, UNIT_LABEL, announce, clone, describeItem, display, fmt, h, isMac, itemBBox, itemLabel, itemsBBox, lengthText, lineMidpoints,
   roundStep, shapeCatalog, toUnit, uid,
@@ -1648,6 +1649,8 @@ const app = {
       "-",
       one?.equation && { label: "Edit equation", keys: "Enter", run: () => this.editEquation(one.id) },
       one?.type === "picture" && { label: "Crop picture", keys: one.equation ? null : "Enter", run: () => canvas.startCrop(one.id) },
+      one?.type === "picture" && !one.inset && !one.equation && { label: "Crop to aspect ratio", items: ratioEntries(one.id, () => panels.askRatio()) },
+      drawnPair().pic && c("cropToDrawnShape", { label: "Crop to shape drawn over it" }),
       one?.type === "picture" && c("replacePicture", { label: "Replace picture…" }),
       asset?.variants[asset.primary]?.src && c("revealPicture"),
       one?.type === "picture" && hiddenOf(one).length > 0 && c("restorePlotText"),
@@ -2256,6 +2259,13 @@ app.commands = {
   addScaleBar: cmd("Scale bar: add one to the selected picture (it needs a scale)", () => app.addScaleBar(), null, null, "Scale bar"),
   measureScale: cmd("Measure a known length on the selected picture, to give it a scale", () => app.measureScale(), null, null,
     "Measure"),
+  crop: cmd("Crop the picture: drag its edges, or move it inside its frame (or double-click it, or press Enter)", () => {
+    const it = selectedPicture();
+    if (it) canvas.startCrop(it.id);
+    else announce("Select a picture to crop");
+  }, null, null, "Crop"),
+  cropToDrawnShape: cmd("Crop to shape drawn over it: select a picture and a shape on top of it", () => cropToDrawnShape(),
+    null, null, "Crop to drawn shape"),
   zoomInset: cmd("Zoom inset: drag a box on a picture to show that area enlarged beside it", () => canvas.startZoom(), null, null,
     "Zoom inset"),
   zoomInsetRound: cmd("Zoom inset, rounded rectangle: drag a box with rounded corners on a picture to show that area enlarged",

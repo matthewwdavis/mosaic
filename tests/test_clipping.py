@@ -88,3 +88,35 @@ def test_a_border_round_a_picture_or_the_shape_its_cropped_to(fixtures, cache):
     # Cropped to an ellipse: the border follows the ellipse, outside the clip so it isn't cut
     prims = Resolver(doc).resolve(pic | {"border": {"color": "#ff0000", "width": 2}}).prims
     assert isinstance(prims[0], DrawGroup) and any(s[0] == "C" for s in prims[-1].path.segs)
+
+
+def test_a_picture_cropped_to_a_shape_drawn_over_it(fixtures, cache, tmp_path):
+    # Crop to shape drawn over it (crop.js): the shape's outline, in the frame's own points, scaled
+    # with the frame like a preset shape; here a triangle pointing up
+    doc, pic = masked_picture(fixtures, cache)
+    x, y, w, h = pic["frame"]
+    pic["mask"] = {"geom": "custom", "path": {"subpaths": [{"w": 100, "h": 100, "cmds": [
+        ["M", 50, 0], ["L", 100, 100], ["L", 0, 100], ["Z"]]}]}}
+    prims = Resolver(doc).resolve(pic).prims
+    assert len(prims) == 1 and isinstance(prims[0], DrawGroup) and prims[0].clip
+    export_document(doc, str(tmp_path / "t"), ["png", "svg", "pdf"], dpi=144, transparent=True)
+    im = Image.open(tmp_path / "t.png").convert("RGBA")
+    px = lambda fx, fy: im.getpixel((int((x + fx * w) * 2), int((y + fy * h) * 2)))[3]
+    assert px(0.5, 0.8) == 255                       # inside the triangle
+    assert px(0.08, 0.2) == 0 and px(0.92, 0.2) == 0   # beside its top, inside the frame
+    assert etree.parse(str(tmp_path / "t.svg")).findall(f".//{SVG_NS}clipPath")
+    assert b"\nW\nn\n" in pdf_content(tmp_path / "t.pdf")
+    local = Api().area_path(pic, True)
+    assert local["d"].startswith(f"M{round(w / 2, 3):g} 0")
+
+
+def test_a_shapes_outline_in_a_pictures_own_points():
+    api = Api()
+    # A rounded rectangle turned a quarter: it lies 10 wide, 20 high about its middle; the matrix
+    # doubles everything (a picture at 50%, say)
+    out = api.outline_in({"type": "shape", "geom": "roundRect", "frame": [0, 0, 20, 10], "rot": 90}, [2, 0, 0, 2, 0, 0])
+    assert [round(v, 6) for v in out["bbox"]] == [10, -10, 30, 30]
+    assert out["subpaths"][0][0][0] == "M" and {s[0] for sub in out["subpaths"] for s in sub} <= {"M", "L", "C", "Z"}
+    star = api.outline_in({"type": "shape", "geom": "star5", "frame": [10, 10, 40, 40], "rot": 0}, [1, 0, 0, 1, -10, -10])
+    assert abs(star["bbox"][0]) < 1e-3 and abs(star["bbox"][2] - 40) < 1e-3 and not star["even_odd"]
+    assert api.outline_in({"type": "line", "points": [[0, 0], [5, 5]]}, [1, 0, 0, 1, 0, 0]) is None

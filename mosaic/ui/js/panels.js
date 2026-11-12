@@ -14,6 +14,7 @@ import { updates } from "./updates.js";
 import { intoPlace, locate, moveItems, moveToPage, slotPlaces, treeRows } from "./layers.js";
 import { zoomShapePicture } from "./pictures.js";
 import { ZOOM_SHAPES } from "./zoom.js";
+import { cropMenu } from "./crop.js";
 import { textRibbon } from "./textribbon.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon, s, shapeName, toUnit } from "./util.js";
 
@@ -41,7 +42,7 @@ const ICONS = {
   again: "M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3",
   sameWidth: "M5 6h14M5 4v4M19 4v4M5 15h14M5 13v4M19 13v4", sameHeight: "M6 5v14M4 5h4M4 19h4M15 5v14M13 5h4M13 19h4",
   scalebar: "M4 16h16v3H4zM7 9h10", measure: "M3 17L17 3l4 4L7 21zM7 13l2 2M10 10l2 2M13 7l2 2",
-  zoomInset: "M3 4h8v6H3zM13 9h8v11h-8zM11 4l2 5M11 10l2 10",
+  zoomInset: "M3 4h8v6H3zM13 9h8v11h-8zM11 4l2 5M11 10l2 10", crop: "M7 2v15h15M2 7h15v15",
   sigBracket: "M4 20v-6h16v6M10 9l2-4 2 4M8 7h8", stackBrackets: "M7 20v-3h10v3M4 13v-3h16v3M9 6h6",
   unite: "M4 4h10v6h6v10H10v-6H4z", minusFront: "M4 4h10v6h-4v4H4zM12 12h8v8h-8z",
   intersect: "M4 4h10v10H4zM10 10h10v10H10zM10 10h4v4h-4zM11 12h2M12 11v2", exclude: "M4 4h10v6h-4v4H4zM14 10h6v10H10v-6h4z",
@@ -254,6 +255,21 @@ export const panels = {
     });
     return h("div", { class: "tool-split" }, this.toolButton("zoomInset", "zoomInset"), more);
   },
+  // Crop (Figure tab): a click crops the selected picture by its edges; ▾ beside it offers an
+  // aspect ratio, a shape, the shape drawn over it, or the whole picture again (crop.js)
+  cropButton() {
+    const more = h("button", { type: "button", class: "tool tool-more", title: "More ways to crop", "aria-label": "More ways to crop",
+      "aria-haspopup": "menu", tabindex: -1 }, "▾");
+    more.addEventListener("click", () => {
+      const r = more.getBoundingClientRect();
+      contextMenu.show(cropMenu(() => this.askRatio()), r.left, r.bottom + 2, more, { label: "Crop" });
+    });
+    return h("div", { class: "tool-split" }, this.toolButton("crop", "crop"), more);
+  },
+  // A ratio to crop to, typed (Aspect ratio ▸ Custom…): the text, or null if cancelled
+  askRatio() {
+    return this.promptDialog("Crop to a ratio", "Width to height, such as 7:5 or 1.5", "", "7:5");
+  },
   // Custom size… (the Size menu): the page's width and height, as the Page panel has them
   customSizeDialog() {
     const page = store.page(), pu = inspector.pageUnits();
@@ -287,6 +303,7 @@ export const panels = {
       ]],
       ["arrange", "Arrange", this.arrangeGroups(group, t)],
       ["figure", "Figure", [
+        group("Picture", this.cropButton()),
         group("Scale", t("addScaleBar", "scalebar"), t("measureScale", "measure")),
         group("Zoom", this.zoomInsetButton()),
         group("Significance", t("toolSigBracket", "sigBracket"), t("stackBrackets", "stackBrackets")),
@@ -1153,7 +1170,6 @@ export const panels = {
         chk("show_tool_labels", "Show labels under toolbar buttons"),
         chk("text_home_tab", "Show the Home tab while text is selected, then the tab you were on"),
         chk("several_arrange_tab", "Show the Arrange tab while several objects are selected, then the tab you were on"),
-        chk("offpage_light", "In a dark theme, show black objects off the page in white (never exported)"),
         chk("reduced_motion", "Reduce motion")),
       h("fieldset", {}, h("legend", {}, "Rulers, grid and guides"),
         chk("show_rulers", `Show rulers (${keys("toggleRulers")})`),

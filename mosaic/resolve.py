@@ -408,8 +408,9 @@ def item_area(item: dict, local: bool = False) -> list | None:
     """What clips by an item: a picture's crop shape (mask), or a shape's area."""
     flips = (float(item.get("rot", 0.0)), bool(item.get("flip_h")), bool(item.get("flip_v")))
     if item.get("type") == "picture" and item.get("mask"):
-        mk = item["mask"]
-        return shape_area(mk.get("geom", "rect"), item["frame"], *flips, mk.get("adj"), mk.get("rounding", 0.0), local=local)
+        mk = item["mask"]   # (a preset, or "custom": the outline of a shape drawn over it, as path)
+        return shape_area(mk.get("geom", "rect"), item["frame"], *flips, mk.get("adj"), mk.get("rounding", 0.0),
+                          mk.get("path"), bool(mk.get("even_odd")), local=local)
     if item.get("type") == "shape" and item.get("geom") != "region" and item.get("frame"):
         return shape_area(item.get("geom", "rect"), item["frame"], *flips, item.get("adj"), item.get("rounding", 0.0),
                           item.get("path"), bool((item.get("fill") or {}).get("even_odd")), local=local)

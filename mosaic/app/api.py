@@ -50,8 +50,6 @@ PREFS_DEFAULTS = {
     "text_home_tab": True,
     # Selecting several objects shows the Arrange tab, and the tab before comes back after
     "several_arrange_tab": True,
-    # In a dark theme, black (and other too-dark colours) off the page show white (never exported)
-    "offpage_light": True,
     # The journal Check last compared a page's size with (a page with a journal size uses its own)
     "check_journal": "",
     # The page size new documents start at: {"standard": name} or {"journal": name, "type": figure type}
@@ -880,6 +878,25 @@ class Api:
             return None
         path, even_odd = clip_path(area)
         return {"d": path.to_svg(3), "even_odd": bool(even_odd)}
+
+    def outline_in(self, item: dict, matrix: list[float]) -> dict | None:
+        """A shape's area mapped through an affine matrix [a, b, c, d, e, f] (the page into a
+        picture's own points, for Crop to shape drawn over it): {subpaths: [[segment, ...]], with
+        segments as ["M", x, y], ["L", x, y], ["C", x1, y1, x2, y2, x, y] and ["Z"]; bbox; even_odd}."""
+        from ..geometry import Matrix
+        from ..resolve import item_area
+        area = item_area(item)
+        if not area:
+            return None
+        m = Matrix(*[float(v) for v in matrix])
+        paths = [p.transformed(m) for p, _ in area]
+        subs = [sub for p in paths for sub in p.subpaths() if not sub.is_empty]
+        boxes = [b for b in (sub.bbox() for sub in subs) if b]
+        if not boxes:
+            return None
+        return {"subpaths": [[list(s) for s in sub.segs] for sub in subs],
+                "bbox": [min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)],
+                "even_odd": any(eo for _, eo in area)}
 
     def pathfinder(self, items: list[dict], how: str) -> dict:
         """Shapes (bottom to top) combined into one freeform shape (pathfinder.combine)."""

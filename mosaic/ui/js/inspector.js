@@ -2,7 +2,7 @@
 // labelled form fields grouped in fieldsets, so they work with the keyboard and screen readers.
 
 import { rpc } from "./api.js";
-import { SUBSCRIPT, SUPERSCRIPT, canvas, findDeep, pageGuides, scaleItem, shiftItem } from "./canvas.js";
+import { SUBSCRIPT, SUPERSCRIPT, angleOf, canvas, detachMoved, findDeep, lineAngle, pageGuides, rotateItem, scaleItem, shiftItem } from "./canvas.js";
 import { icon } from "./panels.js";
 import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
@@ -17,6 +17,7 @@ import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePic
   routePicture, shapePicture, stylePicture, zoomShapePicture } from "./pictures.js";
 import { ZOOM_SHAPES, zoomShape } from "./zoom.js";
 import { hiddenOf, liftedFrom } from "./liftedtext.js";
+import { cropToSize, drawnShapePicture, resetCrop } from "./crop.js";
 import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, isMac, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, luminance,
@@ -129,7 +130,7 @@ export const inspector = {
     let parts;
     if (sel.length === 0) parts = this.pageSections();
     else if (sel.length === 1) parts = this.tabbed(kindKey(sel[0]), kindName(sel[0]), this.itemTabs(sel[0]), this.sizeStrip(sel[0]));
-    else parts = this.tabbed("multi", `${sel.length} objects`, this.multiTabs(sel));
+    else parts = this.tabbed("multi", `${sel.length} objects`, this.multiTabs(sel), this.multiStrip(sel));
     this.root.replaceChildren(...parts.filter(Boolean));
   },
   // Tabs (Arrange, Style, Text...) over folding sections, like PowerPoint's Format pane; the tab
@@ -181,6 +182,7 @@ export const inspector = {
   bound(it, key) {
     const u = this.units();
     if (key === "rot") return fmt(it.rot || 0, 2);
+    if (key === "angle") return fmt(lineAngle(it), 2);
     if (it.frame && "xywh".includes(key)) return fmt(toUnit(it.frame["xywh".indexOf(key)], u), digits(u));
     if (it.type === "group" && "xywh".includes(key)) {
       const b = itemsBBox(it.items);
@@ -526,32 +528,86 @@ export const inspector = {
           + "halfway along the line to bend it; double-click a point to remove it, or the line to add one."),
       ]);
     }
-    if (it.type === "group") return null;   // (its position and size: the strip above the tabs)
-    // Rotation and flips; X, Y, width and height are in the strip above the tabs (sizeStrip)
+    // (position, size, rotation and flips: the strip above the tabs)
+    if (it.type !== "picture") return null;
+    return section("Transparency", [
+      transparencyField("Transparency", it.opacity, (op) => this.edit("Transparency", (o) => { o.opacity = op; }))]);
+  },
+  // Turn objects together by `angle` degrees clockwise about the middle of their outline, as
+  // Transform Again does, as one undo step that Transform Again (⌘⇧D) then repeats: a line among
+  // them stays attached to what turns with it and lets go of anything else (detachMoved)
+  turnTogether(label, ids, angle) {
+    if (!angle) return;
+    this.app.noteTransform?.({ kind: "rotate", angle });
+    store.update(label, (doc) => {
+      const items = ids.map((id) => findDeep(doc.pages[store.pageIndex].items, id)).filter(Boolean);
+      const b = itemsBBox(items);
+      if (!b) return;
+      detachMoved(items);
+      for (const it of items) rotateItem(it, angle, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2);
+    });
+  },
+  // The Rotation row of the strip above the tabs: a shape, picture, text box, bracket or symbol
+  // turns about its own middle, with its flips beside it; a group turns as a whole about its
+  // middle (rot keeps count of how far)
+  rotationRow(it) {
     const now = () => store.item(it.id);
+    if (it.type === "group") {
+      const setRot = (v) => this.turnTogether("Rotate", [it.id], turnFrom(now().rot || 0, v));
+      return row(numField("Rotation", it.rot || 0, "deg", setRot, { bind: "rot", step: 1 }));
+    }
     const setRot = (v) => {
-      this.app.noteTransform?.({ kind: "rotate", angle: ((((v - (now().rot || 0)) % 360) + 540) % 360) - 180 });
+      this.app.noteTransform?.({ kind: "rotate", angle: turnFrom(now().rot || 0, v) });
       this.edit("Rotate", (o) => { o.rot = ((v % 360) + 360) % 360; });
     };
-    const kids = [
-      row(numField("Rotation", it.rot || 0, "deg", setRot, { bind: "rot", step: 1 }),
-        h("div", { class: "button-row inline" },
-          toggle("Flip horizontally", !!it.flip_h, (on) => this.edit("Flip", (o) => { o.flip_h = on; }), "⇋"),
-          toggle("Flip vertically", !!it.flip_v, (on) => this.edit("Flip", (o) => { o.flip_v = on; }), "⇵"))),
-    ];
-    if (it.type === "picture") {
-      kids.push(transparencyField("Transparency", it.opacity, (op) => this.edit("Transparency", (o) => { o.opacity = op; })));
-    }
-    return section(it.type === "picture" ? "Rotation and transparency" : "Rotation", kids);
+    return row(numField("Rotation", it.rot || 0, "deg", setRot, { bind: "rot", step: 1 }),
+      h("div", { class: "button-row inline" },
+        toggle("Flip horizontally", !!it.flip_h, (on) => this.edit("Flip", (o) => { o.flip_h = on; }), "⇋"),
+        toggle("Flip vertically", !!it.flip_v, (on) => this.edit("Flip", (o) => { o.flip_v = on; }), "⇵")));
   },
-  // Position and size, above the tabs so they're in view whatever tab is open, and while a handle
-  // is dragged (refreshValues): X, Y, width and height, typed to change them. A picture keeps its
-  // proportions; a group's are its outline's, and its width or height scales everything in it
-  // from the top-left corner, keeping its proportions (text sizes and line widths stay). Lines
-  // (their points), area fills and scale bars have none
+  // A line's strip: its Angle, the way from its start to its end in degrees clockwise from
+  // pointing right (90 points down, as rotation turns clockwise); a typed angle turns the whole
+  // line about its middle. None for a line whose ends meet, an elbow connector (its stretches
+  // stay level and upright) or a zoom inset's line (it follows its box)
+  lineStrip(it) {
+    const angle = lineAngle(it);
+    if (angle === null || it.route === "elbow" || it.zoomline) return null;
+    const setAngle = (v) => {
+      const was = lineAngle(store.item(it.id));
+      if (was !== null) this.turnTogether("Turn line", [it.id], turnFrom(was, v));
+    };
+    return h("div", { class: "insp-strip", role: "group", "aria-label": "Angle" },
+      row(numField("Angle", angle, "deg", setAngle, { bind: "angle", step: 1 })));
+  },
+  // Several objects: one Rotation for them all, turning them together about their middle. It
+  // shows the angle they share (a line's being its way from start to end); typed, they turn
+  // together until they're at it. At different angles it's blank (Mixed), and a typed angle turns
+  // them all by that much. Locked objects, area fills (they follow their lines) and scale bars
+  // (they follow their pictures) stay put
+  multiStrip(sel) {
+    const ids = sel.filter((it) => !it.locked && it.geom !== "region" && it.type !== "scalebar").map((it) => it.id);
+    if (!ids.length) return null;
+    const shared = () => {
+      const angles = ids.map((id) => angleOf(store.item(id))).filter((a) => a !== null);
+      return angles.length && angles.every((a) => sameAngle(a, angles[0])) ? angles[0] : null;
+    };
+    const at = shared();
+    const setRot = (v) => this.turnTogether("Rotate", ids, turnFrom(shared() ?? 0, v));
+    return h("div", { class: "insp-strip", role: "group", "aria-label": "Rotation" },
+      row(numField("Rotation", at ?? 0, "deg", setRot, { step: 1, mixed: at === null })),
+      at === null ? h("p", { class: "hint" }, "They're at different angles: a typed angle turns them all by that much, "
+        + "together about their middle.") : null);
+  },
+  // Position, size and rotation, above the tabs so they're in view whatever tab is open, and while
+  // a handle is dragged (refreshValues): X, Y, width, height and Rotation, typed to change them. A
+  // picture keeps its proportions; a group's are its outline's, and its width or height scales
+  // everything in it from the top-left corner, keeping its proportions (text sizes and line widths
+  // stay). A line has its Angle instead (lineStrip; its points are in Arrange); area fills and
+  // scale bars have none
   sizeStrip(it) {
+    if (it.type === "line") return this.lineStrip(it);
     const isGroup = it.type === "group";
-    if ((!it.frame && !isGroup) || it.type === "line" || it.geom === "region" || it.type === "scalebar") return null;
+    if ((!it.frame && !isGroup) || it.geom === "region" || it.type === "scalebar") return null;
     const u = this.units();
     const now = () => store.item(it.id);
     const note = (t) => this.app.noteTransform?.(t);
@@ -584,11 +640,12 @@ export const inspector = {
       });
     };
     const [x, y, w, hh] = box(it);
-    return h("div", { class: "insp-strip", role: "group", "aria-label": "Position and size" },
+    return h("div", { class: "insp-strip", role: "group", "aria-label": "Position, size and rotation" },
       row(numField("X", x, u, setPos(0), { bind: "x" }), numField("Y", y, u, setPos(1), { bind: "y" })),
       row(numField("Width", w, u, setSize(2), { bind: "w", min: 0.1 }), numField("Height", hh, u, setSize(3), { bind: "h", min: 0.1 })),
       lockAspect ? h("p", { class: "hint" }, isGroup ? "Width and height scale everything in the group together, keeping its proportions."
-        : it.zoom?.circle ? "Width and height stay equal, so the circle stays round." : "Width and height keep the picture's proportions.") : null);
+        : it.zoom?.circle ? "Width and height stay equal, so the circle stays round." : "Width and height keep the picture's proportions.") : null,
+      this.rotationRow(it));
   },
   // What a page's journal asks for besides its size (panel labels, text, lines, pictures, files),
   // folded under one line so the size fields stay in view; once opened it stays open
@@ -662,17 +719,17 @@ export const inspector = {
       h("p", { class: `scale ${uneven || Math.abs(scalePct - 100) > 0.05 ? "warn" : ""}` }, scaleText),
       h("div", { class: "button-row" },
         button("Crop picture", () => canvas.startCrop(it.id), "Crop"),
-        button("Reset crop", () => this.edit("Reset crop", (o) => {
-          const sc = o.frame[2] / (sw * (1 - o.crop[0] - o.crop[2]));
-          o.crop = [0, 0, 0, 0];
-          o.frame[2] = sw * sc;
-          o.frame[3] = sh * sc;
-        }), "Reset crop"),
+        button("Reset crop", () => resetCrop(it.id), "Reset crop"),
         // Both sides from the file's own size, so a stretched picture comes back to its proportions too
         button("Set to true size (100%)", () => this.edit("True size", (o) => {
           o.frame[2] = sw * (1 - o.crop[0] - o.crop[2]);
           o.frame[3] = sh * (1 - o.crop[1] - o.crop[3]);
         }), "100%")),
+      // A typed size for what shows: cropped from the middle, at the same scale (Width and Height
+      // above the tabs scale it instead)
+      ...(it.inset ? [] : [row(numField("Crop to width", it.frame[2], this.units(), (v) => cropToSize(it.id, 2, v), { bind: "w", min: 0.1 }),
+        numField("Crop to height", it.frame[3], this.units(), (v) => cropToSize(it.id, 3, v), { bind: "h", min: 0.1 })),
+      h("p", { class: "hint" }, "Crops equally from both sides, keeping the picture's scale. Width and Height at the top scale it instead.")]),
       ...(it.inset ? [] : this.cropShapeFields(it)),   // (an inset's shape is set in its Zoom inset section)
       selectField("Export from", it.source || "auto", exportKinds, (v) => this.edit("Export source", (o) => { o.source = v; })),
       kind, kind ? h("p", { class: "hint" }, "Journals ask for more dpi for line art than for photos; Check goes by this.") : null,
@@ -689,6 +746,8 @@ export const inspector = {
     const groups = shapeCatalog.groups.map((g) => [g.title, g.shapes.filter((geom) => shapeCatalog.shapes[geom]?.closed)])
       .filter(([, geoms]) => geoms.length);
     const options = [{ value: "", label: "None (the whole frame)", picture: () => shapePicture(null) },
+      // (a shape drawn over it and cropped to: Crop to shape drawn over it, crop.js)
+      ...(mk?.geom === "custom" ? [{ value: "custom", label: "The shape drawn over it", picture: () => drawnShapePicture(mk) }] : []),
       ...groups.flatMap(([heading, geoms]) => [{ heading }, ...geoms.map((geom) => ({ value: geom, label: shapeName(geom),
         picture: () => shapePicture(geom) }))])];
     const kids = [pictureField("Crop to shape", mk?.geom || "", options, (v) => this.edit(v ? "Crop to shape" : "No shape crop", (o) => {
@@ -1458,6 +1517,9 @@ function section(title, children) {
   return d;
 }
 function row(...children) { return h("div", { class: "row" }, ...children); }
+// The turn from angle `from` to angle `to`, the short way round (-180 to 180 degrees)
+function turnFrom(from, to) { return ((((to - from) % 360) + 540) % 360) - 180; }
+const sameAngle = (a, b) => Math.abs(turnFrom(a, b)) < 1e-6;
 function label(text, id) { return h("label", { for: id }, text); }
 
 // opts.mixed: the objects selected differ here, so it's blank ("Mixed") until a value is typed

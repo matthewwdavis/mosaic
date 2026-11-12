@@ -7,8 +7,9 @@ Every item has an `id` and a `type`:
 
 - picture  {asset, page_index, frame [x, y, w, h], crop [l, t, r, b] (fractions), rot,
             flip_h, flip_v, opacity, source: auto|pdf|svg|png, mask {geom, adj, rounding}: cropped to
-            that shape, fitted to the frame; border {color, width, swatch}; scale (see scalebar);
-            inset {box}: a zoom inset showing what's in that box (zoom.js); picture_kind:
+            that shape, fitted to the frame (geom custom: path {subpaths} and even_odd, the outline
+            of a shape drawn over it, in the frame's own points); border {color, width, swatch};
+            scale (see scalebar); inset {box}: a zoom inset showing what's in that box (zoom.js); picture_kind:
             photo|combination|line_art, for journals' resolution rules (guessed when absent,
             picturekind.py)}
             A zoom inset's box is a shape with zoom {picture, seen}, and its two lines have zoomline
@@ -25,8 +26,10 @@ Every item has an `id` and a `type`:
 - bracket  {frame, label, dir: up|down|left|right (the label's side), tick (upright ones), size, font,
             bold, color, swatch, line_width}: a significance bracket; across, its ticks are as long
             as the frame leaves below (or above) the label's room (resolve._bracket)
-- group    {items: [...], clip}   children keep page coordinates; with clip true it's a clipping
-            mask: its last item, a shape, clips the others and isn't drawn
+- group    {items: [...], clip, rot}   children keep page coordinates; with clip true it's a clipping
+            mask: its last item, a shape, clips the others and isn't drawn. rot: how far the group
+            has turned as a whole since it was made (degrees clockwise), for the editor's Rotation
+            field only; its children already carry the turn, so nothing draws it
 
 adj     {name: value}: a preset's adjust values as fractions, or degrees for angles (presets.py)
 rounding 0..1: corner rounding of a shape's straight-edged corners (1 = as round as fits)

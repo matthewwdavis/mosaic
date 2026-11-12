@@ -211,9 +211,22 @@ Matthew's choices are in brackets.
 - [x] Freeform tool (asked 2026-11-10): clicks for straight lines, drags drawn freehand and
       smoothed into curves, as in PowerPoint; beside the Pen, N [Matthew's choices]
 - [x] Black off the page shows white in a dark theme (asked 2026-11-10): near-black too, only the
-      part off the page, pictures included, never exported; a Settings switch [Matthew's choices]
+      part off the page, pictures included, never exported; a Settings switch [Matthew's choices];
+      taken out 2026-11-11 (slow), see below
 - [x] Area fills that vanished when a line was moved or an end dragged off a corner (reported
       2026-11-10): gaps up to 3.5 pt bridged; past that, a dashed outline and a note [Matthew's choices]
+- [x] Angle snapping and typed angles (asked 2026-11-11): the rotation handle pulls onto 0°, 45°,
+      90°… within 4° with the angle shown; Rotation above the tabs; a line's Angle; groups and
+      several objects turned by a typed angle [Matthew's choices]
+- [x] Typing in a shape starts in its middle (reported 2026-11-11): the editor's text sits where it
+      will be drawn, at the top, middle or bottom of the shape
+- [x] Slow in a dark theme (reported 2026-11-11): black off the page in white taken out; the dark
+      themes' area around the page is a dark grey instead (High contrast stays black) [Matthew's choice]
+- [x] Double-clicking to highlight while typing put back the text from before (reported 2026-11-11)
+- [x] Crop pictures to shapes and sizes (asked 2026-11-11): aspect ratios (PowerPoint's and
+      custom, corners keeping it), a typed width or height from the middle, a shape drawn over
+      the picture (used up, its line the border), and a Crop ▾ menu on the Figure tab [Matthew's
+      choices]
 
 ## Acceptance test (test slide)
 

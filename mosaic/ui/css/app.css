@@ -421,6 +421,12 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
   color: #000; font-family: Helvetica, Arial, sans-serif; line-height: 1.2117; cursor: text; overflow: visible;
   word-break: break-word; }
 .text-editor:focus-visible { outline: 2px dashed var(--sel); }
+/* Text in the middle or at the bottom of its shape is typed there (canvas.positionEditor); the
+   hidden rule comes after, so a finished editor goes away */
+.text-editor[data-anchor="ctr"], .text-editor[data-anchor="b"] { display: flex; flex-direction: column; }
+.text-editor[data-anchor="ctr"] { justify-content: center; }
+.text-editor[data-anchor="b"] { justify-content: flex-end; }
+.text-editor[hidden] { display: none; }
 .drop-hint { position: absolute; inset: 1rem; display: none; align-items: center; justify-content: center;
   border: 3px dashed var(--sel); border-radius: 0.6rem; font-size: 1.3rem; background: rgba(10, 99, 214, 0.06);
   pointer-events: none; color: var(--text); }

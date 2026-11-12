@@ -11,6 +11,7 @@ import { pageScale } from "./scalebar.js";
 import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog, toUnit } from "./util.js";
 import { sameCommand } from "./selectsame.js";
 import { ringsOf, toLocal, toPageOf } from "./pen.js";
+import { cropMenu, cropToDrawnShape, cropToRatio, cropToSize, parseRatio, resetCrop } from "./crop.js";
 
 const MMPT = 72 / 25.4;
 const gRectFor = (id, x, y, w, hh) => ({ id, type: "shape", geom: "rect", frame: [x, y, w, hh], rot: 0, flip_h: false, flip_v: false,
@@ -1556,45 +1557,143 @@ async function areaGapChecks(app) {
   store.select([]);
 }
 
-// In a dark theme, objects reaching off the page are drawn again over the pasteboard, clipped to
-// outside the page, through a filter that turns colours too dark to see there white; objects on
-// the page aren't; not in a light theme, nor with Settings' switch off
-async function offPageChecks(app) {
+// Crops besides dragging edges (crop.js): to an aspect ratio (then crop mode, corners keeping
+// it), to a typed width or height from the middle, to a shape drawn over the picture; never
+// rescaling the picture or moving what it shows
+async function cropChecks(app) {
   store.setDoc(await rpc("new_document"));
   canvas.fit();
-  const keep = { theme: app.prefs.theme, theme_day: app.prefs.theme_day, theme_night: app.prefs.theme_night };
-  const stageNow = () => getComputedStyle(document.documentElement).getPropertyValue("--stage").trim();
-  const black = { color: "#000000", width: 2, dash: "solid", cap: "round", join: "round", opacity: 1 };
-  store.update("Objects", (doc) => {
-    doc.pages[store.pageIndex].items.push(
-      { ...gRectFor("oHalf", -40, 100, 120, 60), stroke: black, fill: { color: "#000000", opacity: 1 } },
-      { id: "oLine", type: "line", points: [[-80, 300], [-20, 360]], arrow_start: null, arrow_end: null, stroke: black },
-      { ...gRectFor("oOn", 200, 200, 80, 40), stroke: black },
-      { ...gRectFor("oRed", 100, -60, 60, 30), stroke: { ...black, color: "#d55e00" } });
-  }, { select: [] });
   await settle();
-  const copies = () => [...canvas.offInner.children].map((u) => u.dataset.id).join(",");
-  await app.savePrefs({ theme: "dark" });
-  await until(() => stageNow() === (app.info.themes || []).find((t) => t.id === "dark")?.colors.stage, 4000);
+  const plot = btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200pt" height="120pt" viewBox="0 0 200 120">'
+    + '<rect x="0" y="0" width="200" height="120" fill="#336699"/><circle cx="100" cy="60" r="30" fill="#e69f00"/></svg>');
+  const path = await rpc("selftest_scratch", "crop_plot.svg", plot);
+  await app.placeFiles([path], [60, 80], false);
+  const id = store.items().find((it) => it.type === "picture")?.id;
+  if (!id) return log(false, "a picture is placed for the crops", path);
+  const pic = () => store.item(id);
+  const placement = () => canvas.fullFrame(pic()).m.map((v) => +v.toFixed(6)).join(",");
+  const scale = () => pic().frame[2] / (200 * (1 - pic().crop[0] - pic().crop[2]));
+  const mid = () => [pic().frame[0] + pic().frame[2] / 2, pic().frame[1] + pic().frame[3] / 2];
+  const placed = placement(), [x0, y0] = pic().frame;
+  store.select([id]);
+
+  // Aspect ratio: the largest square the picture holds, about its middle, then crop mode
+  cropToRatio(id, 1, 1);
   await settle();
-  const darkCopies = copies(), slope = Number(canvas.offRamps[0].getAttribute("slope"));
-  check(darkCopies === "oHalf,oLine,oRed" && slope < 0 && canvas.offLayer.getAttribute("clip-path") === "url(#fa-offpage-clip)",
-    "in a dark theme, each object reaching off the page is drawn again outside it, through the dark-to-white filter", darkCopies);
-  const href = canvas.offInner.firstChild?.getAttribute("href");
-  check(href && document.querySelector(href) === canvas.els.get("oHalf").g, "the copy is of the object itself, so it follows every change");
-  store.update("Onto the page", (doc) => { findItem(doc, "oHalf").frame[0] = 40; });
+  let f = pic().frame, c = pic().crop;
+  check(near(f[2], 120, 1e-6) && near(f[3], 120, 1e-6) && near(c[0], c[2], 1e-9) && near(c[0], 0.2, 1e-9) && placement() === placed
+    && near(scale(), 1, 1e-9) && canvas.cropping === id && canvas.cropRatio === 1,
+  "1:1 crops to the largest square, from the middle, at the same scale and place, and opens crop mode", JSON.stringify([f, c]));
+  // A corner keeps the ratio while cropping; Shift crops freely
+  await drag([f[0] + f[2], f[1] + f[3]], [f[0] + f[2] - 30, f[1] + f[3] - 10]);
+  f = pic().frame;
+  check(near(f[2], 90, 1e-6) && near(f[3], 90, 1e-6) && near(f[0], x0 + 40, 1e-6) && placement() === placed,
+    "dragging a corner keeps the square, following the way the pointer changed it more", JSON.stringify(f));
+  await drag([f[0] + f[2], f[1] + f[3]], [f[0] + f[2] - 30, f[1] + f[3] - 10], { shiftKey: true });
+  f = pic().frame;
+  check(near(f[2], 60, 1e-6) && near(f[3], 80, 1e-6), "with Shift, a corner crops freely", JSON.stringify(f));
+  await drag([f[0] + f[2], f[1] + f[3] / 2], [f[0] + f[2] + 20, f[1] + f[3] / 2]);
+  check(near(pic().frame[2], 80, 1e-6) && near(pic().frame[3], 80, 1e-6), "a side crops freely", JSON.stringify(pic().frame));
+  app.run("crop");   // (Enter, or the Crop button: already cropping, it stays so)
+  canvas.endCrop();
+  check(canvas.cropRatio === null && !canvas.cropping, "finishing the crop lets the ratio go");
+  // Landscape 16:9 on a 5:3 picture: as wide as it is, centred on what showed
+  cropToRatio(id, 16, 9);
   await settle();
-  check(copies() === "oLine,oRed", "an object moved onto the page has no copy any more", copies());
-  await app.savePrefs({ offpage_light: false });
+  f = pic().frame;
+  check(near(f[2], 200, 1e-6) && near(f[3], 112.5, 1e-6) && near(f[2] / f[3], 16 / 9, 1e-9) && placement() === placed,
+    "16:9 on a wider-than-tall picture takes its whole width", JSON.stringify(f));
+  canvas.endCrop();
+  check(JSON.stringify(parseRatio("7:5")) === "[7,5]" && JSON.stringify(parseRatio(" 1.5 ")) === "[1.5,1]"
+    && JSON.stringify(parseRatio("16 x 10")) === "[16,10]" && parseRatio("wide") === null && parseRatio("0:3") === null,
+  "a typed ratio reads 7:5, 1.5 and 16 x 10, and nothing else");
+
+  // A typed width or height: from the middle, the same scale and place; past the picture, all of it
+  resetCrop(id);
   await settle();
-  const offSwitch = copies();
-  await app.savePrefs({ offpage_light: true });
-  await app.savePrefs({ theme: "light" });
-  await until(() => stageNow() === (app.info.themes || []).find((t) => t.id === "light")?.colors.stage, 4000);
+  check(JSON.stringify(pic().crop) === "[0,0,0,0]" && near(pic().frame[2], 200, 1e-6), "Reset crop shows all of it again");
+  const before = mid();
+  const width = fieldByLabel("Crop to width");
+  width.value = toUnit(100, inspector.units());
+  width.dispatchEvent(new Event("change"));
   await settle();
-  check(offSwitch === "" && copies() === "", "not with Settings' switch off, nor in a light theme", `${offSwitch} | ${copies()}`);
-  await app.savePrefs(keep);
+  f = pic().frame;
+  check(near(f[2], 100, 1e-3) && near(f[3], 120, 1e-6) && near(mid()[0], before[0], 1e-3) && near(mid()[1], before[1], 1e-6)
+    && placement() === placed && near(scale(), 1, 1e-9),
+  "the Picture tab's Crop to width crops from the middle, at the same scale and place", JSON.stringify(f));
+  cropToSize(id, 3, 500);
   await settle();
+  check(near(pic().frame[3], 120, 1e-6) && placement() === placed, "a height past the picture's shows all of it that way");
+  cropToSize(id, 2, 190);   // (from the middle, 150 → 190 runs into no edge; then 100 off-centre at the left edge)
+  await settle();
+  store.update("Off-centre", (doc) => { const o = findDeep(doc.pages[store.pageIndex].items, id); Object.assign(o, canvas.cropped(o, [0, 0, 0.6, 0])); });
+  await settle();
+  cropToSize(id, 2, 120);
+  await settle();
+  check(near(pic().crop[0], 0, 1e-9) && near(pic().frame[2], 120, 1e-6) && placement() === placed,
+    "at the picture's edge, the rest comes from the other side", JSON.stringify(pic().crop));
+  resetCrop(id);
+  await settle();
+
+  // The ribbon's Crop button and menu
+  const menu = () => cropMenu(async () => null).filter((e) => e !== "-").map((e) => `${e.label}${e.disabled ? " (off)" : ""}`).join(", ");
+  store.select([id]);
+  const withPic = menu();
+  store.select([]);
+  const without = menu();
+  check(document.querySelector('#rpanel-figure [data-cmd="crop"]') && withPic === "Crop, Aspect ratio, Crop to shape, "
+    + "Crop to shape drawn over it (off), Reset crop" && without.startsWith("Crop (off), Aspect ratio (off)"),
+  "the Figure tab has Crop, and ▾ beside it offers aspect ratios, shapes, a shape drawn over it and Reset crop", `${withPic} | ${without}`);
+
+  // A shape drawn over it: a preset square to the picture and wholly over it becomes its crop
+  // shape (adjustments and all), its line the picture's border, and it's used up
+  const red = { color: "#d55e00", width: 1.5, dash: "solid", cap: "round", join: "round", opacity: 1 };
+  store.update("Ellipse", (doc) => doc.pages[store.pageIndex].items.push({ ...gRectFor("cE", x0 + 50, y0 + 30, 70, 50),
+    geom: "roundRect", adj: { adj: 0.3 }, stroke: red }), { select: [id, "cE"] });
+  await settle();
+  check(menu().includes("Crop to shape drawn over it,") && !menu().includes("drawn over it (off)"),
+    "with a picture and a shape selected, Crop to shape drawn over it is offered");
+  await cropToDrawnShape();
+  await settle();
+  f = pic().frame;
+  check(near(f[0], x0 + 50, 1e-6) && near(f[1], y0 + 30, 1e-6) && near(f[2], 70, 1e-6) && near(f[3], 50, 1e-6)
+    && pic().mask?.geom === "roundRect" && pic().mask.adj?.adj === 0.3 && pic().border?.color === "#d55e00" && pic().border.width === 1.5
+    && !store.item("cE") && placement() === placed && JSON.stringify(store.selection) === JSON.stringify([id]),
+  "a rounded rectangle over it: the picture cropped to it where it lies, its corners and line kept, the shape used up",
+  JSON.stringify([f, pic().mask, pic().border]));
+  const clipped = !!canvas.els.get(id)?.g.querySelector("[clip-path]");
+  check(clipped, "and the picture is drawn clipped to it");
+  app.run("undo");
+  await settle();
+  check(store.item("cE") && !pic().mask && near(pic().frame[2], 200, 1e-6), "Undo brings the shape back and the picture whole");
+  // Turned, and reaching past the picture: its outline, where the two overlap
+  store.update("Star", (doc) => {
+    doc.pages[store.pageIndex].items = doc.pages[store.pageIndex].items.filter((it) => it.id !== "cE");
+    doc.pages[store.pageIndex].items.push({ ...gRectFor("cS", x0 + 150, y0 + 20, 80, 80), geom: "star5", rot: 20, stroke: null });
+  }, { select: [id, "cS"] });
+  await settle();
+  await cropToDrawnShape();
+  await settle();
+  f = pic().frame;
+  const sub = pic().mask?.path?.subpaths?.[0];
+  check(pic().mask?.geom === "custom" && sub && near(sub.w, f[2], 1e-9) && near(f[0] + f[2], x0 + 200, 1e-6) && f[0] > x0 + 140
+    && f[1] >= y0 && f[1] + f[3] <= y0 + 120 + 1e-6 && !pic().border && !store.item("cS") && placement() === placed,
+  "a turned star past the picture's right edge: its outline, the frame where it and the picture overlap", JSON.stringify([f, sub?.w]));
+  const drawnD = (await rpc("area_path", pic(), true))?.d || "";
+  check(drawnD.length > 20 && !!canvas.els.get(id)?.g.querySelector("[clip-path]"), "and the picture is clipped to that outline", drawnD.slice(0, 40));
+  inspector.render();
+  const shapeField = fieldByLabel("Crop to shape");
+  check(shapeField && /drawn over it/.test(shapeField.textContent + (shapeField.getAttribute("aria-label") || "") + (shapeField.title || "")),
+    "the Picture tab's Crop to shape names it as the shape drawn over it", shapeField?.textContent);
+  // A shape away from the picture changes nothing
+  store.update("Away", (doc) => { const o = findDeep(doc.pages[store.pageIndex].items, id); delete o.mask; Object.assign(o, canvas.cropped(o, [0, 0, 0, 0]));
+    doc.pages[store.pageIndex].items.push({ ...gRectFor("cA", o.frame[0] + o.frame[2] + 60, o.frame[1], 40, 40), geom: "ellipse" }); },
+  { select: [id, "cA"] });
+  await settle();
+  const was = JSON.stringify(pic());
+  await cropToDrawnShape();
+  await settle();
+  check(JSON.stringify(pic()) === was && !!store.item("cA"), "a shape that isn't over the picture changes nothing", Object.keys(pic()).filter((k) => JSON.stringify(pic()[k]) !== JSON.stringify(JSON.parse(was)[k])).map((k) => `${k}: ${JSON.stringify(JSON.parse(was)[k])} to ${JSON.stringify(pic()[k])}`).join("; ").replace(/"/g, "'"));
   store.select([]);
 }
 
@@ -1835,7 +1934,282 @@ async function sizeStripChecks(app) {
   store.select(["sLn"]);
   await settle();
   inspector.render();
-  check(!document.querySelector("#inspector .insp-strip"), "a line has no size strip (its points are in the Arrange tab)");
+  check(!field("x") && !field("w") && field("angle"), "a line's strip has its angle, no position or size (its points are in the Arrange tab)");
+  store.select([]);
+}
+
+// Typing in a duplicated text box, then double-clicking in it to highlight words: what's typed
+// stays (the canvas's double-click started typing in the box again, from its text before)
+async function dupTypeChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  store.update("Text", (doc) => doc.pages[store.pageIndex].items.push({ id: "dT", type: "shape", geom: "rect", textbox: true,
+    frame: [60, 60, 160, 24], rot: 0, flip_h: false, flip_v: false, stroke: null, fill: null, text: { paragraphs: [{ align: "l",
+      runs: [{ t: "Hello", font: "Helvetica", size: 12, kern: true }] }], insets: [7.2, 3.6, 7.2, 3.6], wrap: true, anchor: "t",
+      autofit: "shape" } }), { select: ["dT"] });
+  await settle();
+  app.duplicate();
+  await settle();
+  const copy = store.selection[0];
+  canvas.startEdit(copy);
+  await settle();
+  document.execCommand("selectAll");
+  document.execCommand("insertText", false, "World");
+  await settle();
+  const typed = canvas.editor.textContent;
+  // (a double-click on a word, then a third click: the browser highlights it, and the line)
+  const r = canvas.editor.firstChild.getBoundingClientRect(), at = { bubbles: true, clientX: r.left + 8, clientY: (r.top + r.bottom) / 2 };
+  const target = canvas.editor.querySelector("span") || canvas.editor.firstChild;
+  for (const detail of [1, 2]) {
+    target.dispatchEvent(new PointerEvent("pointerdown", { ...at, detail, pointerId: 1, button: 0, buttons: 1 }));
+    target.dispatchEvent(new PointerEvent("pointerup", { ...at, detail, pointerId: 1, button: 0 }));
+  }
+  target.dispatchEvent(new MouseEvent("dblclick", { ...at, detail: 2 }));
+  document.execCommand("selectAll");
+  await settle();
+  const after = canvas.editor.textContent;
+  check(typed === "World" && after === "World" && canvas.editing?.id === copy,
+    "typing in a duplicated text box, then double-clicking in it to highlight, keeps what was typed", `${typed} → ${after}`);
+  canvas.commitEdit();
+  await settle();
+  check(store.item(copy).text.paragraphs[0].runs.map((r) => r.t).join("") === "World" &&
+    store.item("dT").text.paragraphs[0].runs.map((r) => r.t).join("") === "Hello", "and the copy keeps it, the original its own");
+  store.select([]);
+}
+
+// Typing in a shape: the text being typed sits where it will be drawn, in the middle of the shape
+// for text in the middle (a new shape's text too), at the top or bottom for text there; text
+// taller than its shape spills out both ways from the middle, as it's drawn
+async function editAnchorChecks() {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const para = (s) => ({ align: "ctr", runs: [{ t: s, font: "Helvetica", size: 12, kern: true }] });
+  const boxed = (id, y, hgt, anchor, lines = ["Middle"]) => ({ ...gRectFor(id, 100, y, 160, hgt), text: {
+    paragraphs: lines.map(para), insets: [7.2, 3.6, 7.2, 3.6], wrap: true, anchor, autofit: "none" } });
+  store.update("Shapes", (doc) => doc.pages[store.pageIndex].items.push(boxed("eC", 60, 80, "ctr"), boxed("eT", 160, 80, "t"),
+    boxed("eB", 260, 80, "b"), boxed("eO", 400, 20, "ctr", ["One", "Two", "Three"]), gRectFor("eN", 100, 460, 160, 80)), { select: [] });
+  await settle();
+  const k = canvas.k;
+  const frameAt = (id) => {
+    const f = store.item(id).frame, a = screenOf(f[0], f[1]), b = screenOf(f[0] + f[2], f[1] + f[3]);
+    return { top: a[1], bottom: b[1], mid: (a[1] + b[1]) / 2 };
+  };
+  const typed = () => {
+    const divs = [...canvas.editor.children], top = divs[0].getBoundingClientRect().top, bottom = divs.at(-1).getBoundingClientRect().bottom;
+    return { top, bottom, mid: (top + bottom) / 2 };
+  };
+  const editing = async (id, fn) => {
+    store.select([id]);
+    canvas.startEdit(id);
+    await settle();
+    const out = fn();
+    canvas.commitEdit();
+    await settle();
+    return out;
+  };
+  // (the drawn words, before typing starts)
+  const drawn = [...(canvas.els.get("eC")?.g.querySelectorAll("text") || [])].map((x) => x.getBoundingClientRect());
+  const drawnMid = drawn.length ? (Math.min(...drawn.map((r) => r.top)) + Math.max(...drawn.map((r) => r.bottom))) / 2 : NaN;
+  const [c, f] = await editing("eC", () => [typed(), frameAt("eC")]);
+  check(near(c.mid, f.mid, 1), "typing in a shape whose text is in the middle, the text sits in its middle",
+    `${c.mid} vs ${f.mid}`);
+  check(near(c.mid, drawnMid, 2), "where it's drawn once typing stops", `${c.mid} vs drawn ${drawnMid}`);
+  const [tt, ft] = await editing("eT", () => [typed(), frameAt("eT")]);
+  check(near(tt.top, ft.top + 3.6 * k, 1), "text at the top is typed at the top", `${tt.top} vs ${ft.top + 3.6 * k}`);
+  const [tb, fb] = await editing("eB", () => [typed(), frameAt("eB")]);
+  check(near(tb.bottom, fb.bottom - (3.6 + 9 / 128) * k, 1), "text at the bottom is typed at the bottom",
+    `${tb.bottom} vs ${fb.bottom - 3.6 * k}`);
+  const [to, fo] = await editing("eO", () => [typed(), frameAt("eO")]);
+  check(to.bottom - to.top > fo.bottom - fo.top && near(to.mid, fo.mid, 1) && to.top < fo.top,
+    "text taller than its shape spills out both ways from the middle while typing, as it's drawn", `${JSON.stringify(to)} vs ${JSON.stringify(fo)}`);
+  const [tn, fn] = await editing("eN", () => [typed(), frameAt("eN")]);
+  check(near(tn.mid, fn.mid, 1), "typing into a shape with no text yet starts in its middle", `${tn.mid} vs ${fn.mid}`);
+  // Clicking off finishes it and the editor goes (it lays out middle text, and must still hide)
+  store.select(["eC"]);
+  canvas.startEdit("eC");
+  await settle();
+  const shownWhileTyping = getComputedStyle(canvas.editor).display !== "none";
+  pointer("pointerdown", screenOf(400, 700));
+  pointer("pointerup", screenOf(400, 700));
+  await settle();
+  check(shownWhileTyping && !canvas.editing && getComputedStyle(canvas.editor).display === "none"
+    && canvas.els.get("eC")?.g.style.visibility !== "hidden",
+    "clicking off a shape being typed in finishes it, and the editor goes away", getComputedStyle(canvas.editor).display);
+  store.select([]);
+}
+
+// Turning: the rotation handle pulls onto 0°, 45°, 90°… within 4° (not with ⌘, Shift's 15° steps
+// or the Snap button off), with the angle beside the pointer; Rotation typed in the strip above
+// the tabs, for a shape (with its flips), a group as a whole, a line (its Angle) and several
+// objects together
+async function angleChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const ln = (id, points, more = {}) => ({ id, type: "line", points, arrow_start: null, arrow_end: null,
+    stroke: { color: "#000000", width: 1, dash: "solid", cap: "flat", join: "miter", opacity: 1 }, ...more });
+  store.update("Objects", (doc) => {
+    doc.pages[store.pageIndex].items.push(gRectFor("aR", 120, 120, 100, 50),
+      { id: "aG", type: "group", items: [gRectFor("aG1", 300, 100, 40, 20), gRectFor("aG2", 360, 140, 40, 40)] },
+      gRectFor("aT", 20, 280, 40, 40), ln("aLn", [[60, 300], [160, 300]]),
+      ln("aEl", [[300, 300], [360, 300], [360, 360], [420, 360]], { route: "elbow" }),
+      gRectFor("aM1", 300, 500, 40, 20), gRectFor("aM2", 380, 500, 40, 20));
+  }, { select: [] });
+  await settle();
+  // (the line's start on the square's right side's middle, once the engine has given its points)
+  store.update("Attach", (doc) => { findItem(doc, "aLn").start_link = { item: "aT", site: "m1" }; });
+  await settle();
+  // The handle dragged round to `deg` (what the frame's top would point to), letting go or not
+  const turnTo = async (deg, opts = {}, letGo = true) => {
+    store.select(["aR"]);
+    await settle();
+    const it = store.item("aR"), hd = canvas.handlesFor(it).find((x) => x.kind === "rotate");
+    const sr = canvas.stage.getBoundingClientRect(), [x, y, w, h] = it.frame;
+    const a = ((deg - 90) * Math.PI) / 180, r = 80;
+    pointer("pointerdown", [hd.at[0] + sr.left, hd.at[1] + sr.top]);
+    for (const k of [0.5, 1]) {
+      const d = ((deg * k - 90) * Math.PI) / 180;
+      pointer("pointermove", screenOf(x + w / 2 + Math.cos(k === 1 ? a : d) * r, y + h / 2 + Math.sin(k === 1 ? a : d) * r), opts);
+    }
+    if (letGo) {
+      pointer("pointerup", screenOf(x + w / 2 + Math.cos(a) * r, y + h / 2 + Math.sin(a) * r), opts);
+      await settle();
+    }
+    return store.item("aR").rot;
+  };
+  const unturn = () => store.update("Unturn", (doc) => { findItem(doc, "aR").rot = 0; });
+  let rot = await turnTo(47, {}, false);
+  const label = canvas.overlay.querySelector(".guide-label")?.textContent, guide = !!canvas.overlay.querySelector(".snap-guide");
+  pointer("pointerup", screenOf(0, 0));
+  await settle();
+  check(near(rot, 45, 1e-9) && label === "45°" && guide,
+    "turning by the handle pulls onto 45° from 2° off, with the angle beside the pointer and a guide", `${rot} ${label} ${guide}`);
+  unturn();
+  rot = await turnTo(52);
+  check(near(rot, 52, 0.01), "and turns freely more than 4° from one", `${rot}`);
+  unturn();
+  rot = await turnTo(-3);
+  check(near(rot, 0, 1e-9), "it pulls onto 0° from either side", `${rot}`);
+  unturn();
+  rot = await turnTo(93);
+  check(near(rot, 90, 1e-9), "and onto 90°", `${rot}`);
+  unturn();
+  rot = await turnTo(47, { metaKey: true, ctrlKey: true });
+  check(near(rot, 47, 0.01), "holding ⌘ turns it freely for that drag", `${rot}`);
+  unturn();
+  rot = await turnTo(58, { shiftKey: true });
+  check(near(rot, 60, 1e-9), "Shift still keeps to 15° steps", `${rot}`);
+  unturn();
+  await app.run("toggleSnap");
+  rot = await turnTo(47);
+  await app.run("toggleSnap");
+  check(near(rot, 47, 0.01) && app.prefs.snap, "with the Snap button off it turns freely", `${rot}`);
+  unturn();
+  store.select(["aR"]);
+  await turnTo(47, {}, false);
+  key("Escape");
+  await settle();
+  check(near(store.item("aR").rot || 0, 0, 1e-9) && !canvas.overlay.querySelector(".guide-label"),
+    "Escape puts it back and the angle goes", `${store.item("aR").rot}`);
+  if (canvas.op) { pointer("pointerup", screenOf(0, 0)); await settle(); }
+
+  // Typed in the strip above the tabs, whatever tab is open
+  const field = (key) => document.querySelector(`#inspector .insp-strip [data-bind="${key}"]`);
+  const typeIn = async (input, v) => {
+    input.value = String(v);
+    input.dispatchEvent(new Event("change"));
+    await settle();
+    inspector.render();
+  };
+  store.select(["aR"]);
+  await settle();
+  inspector.render();
+  document.getElementById("itab-style")?.click();
+  const rf = field("rot");
+  check(rf && rf.getBoundingClientRect().height > 0 && document.querySelectorAll('#inspector [data-bind="rot"]').length === 1
+    && document.querySelector('#inspector .insp-strip [aria-label="Flip horizontally"]'),
+    "a shape's Rotation and flips show above the tabs with its Style tab open (and only there)");
+  await typeIn(rf, 30);
+  check(near(store.item("aR").rot, 30, 1e-9), "a typed Rotation turns it", `${store.item("aR").rot}`);
+  store.beginLive();
+  store.item("aR").rot = 75;
+  store.live();
+  const during = field("rot").value;
+  store.cancelLive();
+  await settle();
+  check(during === "75", "the Rotation follows a drag as it happens", during);
+
+  // A group remembers its angle and turns as a whole about its middle
+  store.select(["aG"]);
+  await settle();
+  inspector.render();
+  const gf = field("rot");
+  check(gf && gf.value === "0", "a group shows a Rotation of 0 to start with", gf?.value);
+  const gb = itemsBBox(store.item("aG").items), gc = [(gb[0] + gb[2]) / 2, (gb[1] + gb[3]) / 2];
+  await typeIn(gf, 90);
+  const [g1, g2] = store.item("aG").items, mid1 = [g1.frame[0] + 20, g1.frame[1] + 10];
+  check(near(store.item("aG").rot, 90, 1e-9) && near(g1.rot, 90, 1e-9) && near(g2.rot, 90, 1e-9)
+    && near(mid1[0], gc[0] - (110 - gc[1]), 1e-6) && near(mid1[1], gc[1] + (320 - gc[0]), 1e-6) && field("rot").value === "90",
+    "a typed Rotation turns a group as a whole about its middle, and it shows the new angle",
+    `${store.item("aG").rot} ${JSON.stringify(mid1)} vs ${gc}`);
+  await app.run("transformAgain");
+  check(near(store.item("aG").rot, 180, 1e-9) && near(store.item("aG").items[0].rot, 180, 1e-9),
+    "Transform Again turns it on by as much and its angle keeps count", `${store.item("aG").rot}`);
+  store.undo();
+  await settle();
+  check(near(store.item("aG").rot, 90, 1e-9), "one undo step takes the turn back", `${store.item("aG").rot}`);
+
+  // A line's Angle: start to end, clockwise from pointing right; typed, it turns about its middle
+  store.select(["aLn"]);
+  await settle();
+  inspector.render();
+  const lf = field("angle");
+  const lineNow = () => store.item("aLn").points;
+  check(lf && lf.value === "0" && store.item("aLn").start_link, "a line's Angle shows the way from its start to its end", lf?.value);
+  const lmid = [(lineNow()[0][0] + lineNow()[1][0]) / 2, (lineNow()[0][1] + lineNow()[1][1]) / 2];
+  await typeIn(lf, 90);
+  const lp = lineNow();
+  check(near(lp[0][0], lmid[0], 1e-9) && near(lp[1][0], lmid[0], 1e-9) && near(lp[1][1] - lp[0][1], 100, 1e-9)
+    && near((lp[0][1] + lp[1][1]) / 2, lmid[1], 1e-9) && field("angle").value === "90",
+    "a typed Angle of 90 turns the line about its middle to point straight down", JSON.stringify(lp));
+  check(!store.item("aLn").start_link, "and its end attached to a shape that didn't turn lets go", JSON.stringify(store.item("aLn").start_link));
+  await typeIn(field("angle"), 45);
+  const lq = lineNow();
+  check(near(Math.atan2(lq[1][1] - lq[0][1], lq[1][0] - lq[0][0]) * 180 / Math.PI, 45, 1e-6), "and 45 points it down and right",
+    JSON.stringify(lq));
+  store.select(["aEl"]);
+  await settle();
+  inspector.render();
+  check(!field("angle"), "an elbow connector has no Angle (its stretches stay level and upright)");
+
+  // Several objects: their shared angle, turning together; blank when they differ
+  store.select(["aM1", "aM2"]);
+  await settle();
+  inspector.render();
+  const mf = () => fieldByLabel("Rotation");
+  check(mf() && mf().value === "0" && mf().closest(".insp-strip"), "several objects show the angle they share above the tabs", mf()?.value);
+  const mb = itemsBBox([store.item("aM1"), store.item("aM2")]), mc = [(mb[0] + mb[2]) / 2, (mb[1] + mb[3]) / 2];
+  await typeIn(mf(), 90);
+  const m1 = store.item("aM1"), m1mid = [m1.frame[0] + 20, m1.frame[1] + 10];
+  check(near(m1.rot, 90, 1e-9) && near(store.item("aM2").rot, 90, 1e-9) && near(m1mid[0], mc[0] - (510 - mc[1]), 1e-6)
+    && near(m1mid[1], mc[1] + (320 - mc[0]), 1e-6) && mf().value === "90",
+    "a typed Rotation turns them together about their middle", `${m1.rot} ${JSON.stringify(m1mid)} vs ${mc}`);
+  store.update("Turn one", (doc) => { findItem(doc, "aM2").rot = 120; });
+  await settle();
+  inspector.render();
+  check(mf().value === "" && mf().placeholder === "Mixed" && /different angles/.test(document.querySelector("#inspector .insp-strip").textContent),
+    "at different angles it's blank (Mixed) and says what typing does", mf().value);
+  await typeIn(mf(), 10);
+  check(near(store.item("aM1").rot, 100, 1e-9) && near(store.item("aM2").rot, 130, 1e-9),
+    "and a typed angle turns them all by that much", `${store.item("aM1").rot} ${store.item("aM2").rot}`);
+  store.update("Lock one", (doc) => { findItem(doc, "aM2").locked = true; });
+  store.select(["aM1", "aM2"]);
+  await settle();
+  inspector.render();
+  await typeIn(mf(), 0);
+  check(near(store.item("aM1").rot, 0, 1e-9) && near(store.item("aM2").rot, 130, 1e-9), "a locked one stays put",
+    `${store.item("aM1").rot} ${store.item("aM2").rot}`);
   store.select([]);
 }
 
@@ -2433,7 +2807,7 @@ async function zoomShapeChecks(app) {
     });
   };
   const fromMenu = async (label) => {
-    document.querySelector('#rpanel-figure .tool-split .tool-more').click();
+    document.querySelector('#rpanel-figure .tool-more[aria-label="Zoom inset shapes"]').click();
     const items = [...document.querySelectorAll(".context-menu .menu-item")];
     const shown = items.map((b) => b.textContent.trim()).join(", "), pictured = items.every((b) => b.querySelector(".menu-pic svg"));
     items.find((b) => b.textContent.trim().endsWith(label))?.click();
@@ -2691,10 +3065,13 @@ export async function run(app, params) {
     if (params.get("only") === "refresh") { await refreshAllChecks(app); throw ONLY; }
     if (params.get("only") === "arrangetab") { await arrangeTabChecks(app); throw ONLY; }
     if (params.get("only") === "sizestrip") { await sizeStripChecks(app); throw ONLY; }
+    if (params.get("only") === "angles") { await angleChecks(app); throw ONLY; }
+    if (params.get("only") === "editanchor") { await editAnchorChecks(); throw ONLY; }
+    if (params.get("only") === "duptype") { await dupTypeChecks(app); throw ONLY; }
+    if (params.get("only") === "crops") { await cropChecks(app); throw ONLY; }
     if (params.get("only") === "dashspacing") { await dashSpacingChecks(app); throw ONLY; }
     if (params.get("only") === "multilook") { await multiLookChecks(app); throw ONLY; }
     if (params.get("only") === "freeform") { await freeformChecks(app); throw ONLY; }
-    if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
     if (params.get("only") === "areagap") { await areaGapChecks(app); throw ONLY; }
     // In a 1440 px window (the app's own size) each ribbon tab is one row, the drawing tools fit
     // down the side without scrolling, and nothing spills off the window
@@ -3957,10 +4334,13 @@ export async function run(app, params) {
     await refreshAllChecks(app);
     await arrangeTabChecks(app);
     await sizeStripChecks(app);
+    await angleChecks(app);
+    await editAnchorChecks();
+    await dupTypeChecks(app);
+    await cropChecks(app);
     await dashSpacingChecks(app);
     await multiLookChecks(app);
     await freeformChecks(app);
-    await offPageChecks(app);
     await areaGapChecks(app);
     store.setDoc(keepDoc);
     store.autosaveKey = keepKey;

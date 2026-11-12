@@ -41,9 +41,9 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
      Again, Delete; Add page, Size, Fit page; Swatches, Text styles, Object styles, Fonts.
    - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group and Grid, Order (see
      [Align and distribute](#align-and-distribute)).
-   - **Figure**: scale bars (Scale bar, Measure), zoom insets, significance brackets (Bracket,
-     Stack), [symbols](#symbols) (Make symbol, Symbols…), [equations](#equations) and the
-     [figure report](#checking-and-exporting).
+   - **Figure**: [cropping pictures](#cropping-a-picture) (Crop ▾), scale bars (Scale bar,
+     Measure), zoom insets, significance brackets (Bracket, Stack), [symbols](#symbols) (Make
+     symbol, Symbols…), [equations](#equations) and the [figure report](#checking-and-exporting).
    - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
      Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
@@ -55,8 +55,8 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
    others (see [The Objects list](#the-objects-list)).
 5. **Drawing tools**, beside the page.
 6. **The page**, with rulers along the top and left.
-7. **Properties** of the selection: its **X, Y, Width and Height** at the top, in view whatever
-   tab is open, then tabs: **Arrange** (rotation, alignment, connections), **Style** (shape,
+7. **Properties** of the selection: its **X, Y, Width, Height and Rotation** (a line's **Angle**)
+   at the top, in view whatever tab is open, then tabs: **Arrange** (alignment, connections), **Style** (shape,
    fill, line, arrowheads, outline), **Text**, **Picture**. With nothing
    selected, it shows the page, its guides and the document. Click a section heading to fold it;
    folded sections stay folded, and each kind of object opens on the tab you used last.
@@ -138,12 +138,8 @@ saves with the document. Exports show only the page: anything past its edges is 
 and objects wholly off the page are left out (PowerPoint export too). A click picks an object
 anywhere it shows, its line's or border's outer half included.
 
-In a dark theme, black off the page shows **white**, so it stands out against the dark area
-around the page. This covers black lines, text and shapes, a plot's axes and labels, and any
-colour too dark to see there. Only the part off the page changes; on the page, and in every
-export, the colours are what they are. Black that sits on something light, such as text in a
-white box or in a plot with a white background, stays black. Settings turns this off (**In a
-dark theme, show black objects off the page in white**).
+In a dark theme, the area around the page is a dark grey rather than near-black, so black
+objects there can still be seen (High contrast keeps it black).
 
 **Pages:** the + button above the Pages list adds a page with the same size, background and
 guides. The other buttons duplicate or delete the current page. Deleting the only page leaves an
@@ -218,8 +214,34 @@ warning that its text and curves are distorted. Its buttons:
   shape clips the picture in every export, which still uses the picture's own PDF or SVG.
 
   ![A plot cropped to a rounded rectangle, with its Picture tab](images/cropshape.png)
+- **Crop to width** and **Crop to height**: type the size of the part that shows. It's cropped
+  equally from both sides (or uncropped, up to the whole picture), at the same scale. **Width** and
+  **Height** at the top of the panel scale the picture instead.
 - **Border** draws a line round the picture (round its crop shape, if it has one), in any colour
   and thickness.
+
+### Cropping a picture
+
+**Crop** on the Figure tab crops the selected picture by its edges, as a double-click does. The
+**▾** beside it has the other ways:
+
+- **Aspect ratio**: 1:1; portrait 2:3, 3:4, 3:5, 4:5, 9:16; landscape 3:2, 4:3, 5:3, 5:4, 16:9,
+  16:10; or **Custom…** (type 7:5, say, or 1.5). The picture is cropped to the largest window of
+  that shape it holds, about the middle of what showed, and crop mode opens. Dragging a corner
+  keeps the ratio until you finish; a side, or a corner with Shift, crops freely. Right-click a
+  picture for the same list (**Crop to aspect ratio**).
+- **Crop to shape**: the shape gallery, as in the Picture tab.
+- **Crop to shape drawn over it**: draw any shape over the picture (a circle, a star, a freeform
+  outline), select the picture and the shape, and choose this (or right-click). The picture shows
+  only inside the shape, where the two overlap, and the shape is used up; if it had a line, the
+  picture gets a border of the same colour and thickness. A shape square to the picture and wholly
+  over it stays editable in the Picture tab (a rounded rectangle's corners, say); a turned one, a
+  freeform one or one reaching past the picture keeps its outline as drawn. Undo brings the shape
+  back.
+- **Reset crop** shows the whole picture again.
+
+A crop never rescales a picture: what shows stays where it was on the page, at the same scale, and
+the frame shrinks to it.
 - **Export from** forces one copy (always the PDF, say) instead of the best copy for each format.
 - **Kind** (a PNG, TIFF or JPEG with no PDF or SVG copy): **Photo**, **Photo with text or lines**
   or **Line art (graphs, drawings)**. Journals ask for more resolution for line art than for
@@ -232,8 +254,8 @@ warning that its text and curves are distorted. Its buttons:
 - **Show file** reveals the linked file in Finder or Explorer.
 - **Unlink** stops following the file and keeps the stored copy.
 
-Its position and size (proportions kept) are at the top of the properties panel; the Arrange tab
-has its rotation, flips and **Transparency**.
+Its position, size (proportions kept), rotation and flips are at the top of the properties panel;
+the Arrange tab has its **Transparency**.
 For screen readers, give each picture a **Description** in the Object section.
 
 ### Dangerous mode: editing a plot's own text
@@ -350,6 +372,9 @@ height you drag at, with the label above. Drag upright instead for one with its 
   ⌘I and ⌘U make the selected words bold, italic or underlined, and ⌘⇧= and ⌘= superscript or
   subscript (as in PowerPoint); Shift+Return starts a new line. With text boxes selected rather
   than typed in, ⌘B, ⌘I and ⌘U change all their text.
+- **Typing in a shape:** double-click it (or select it and press Enter). What you type sits where
+  it will be drawn: in the middle of the shape for a new shape's text, or at the top or bottom
+  when its vertical position says so. Text taller than the shape spills out above and below.
 - **Text** in the Home tab, two rows like PowerPoint's: text style, font, size, **Bigger** and
   **Smaller** (⌘⇧> and ⌘⇧<, through 5, 5.5, 6, 6.5… pt), line spacing; bold, italic,
   underline, superscript, subscript, colour (swatches, or any colour), left, centre or right, and
@@ -697,16 +722,26 @@ PowerPoint and Visio:
   Duplicate again: the next copy goes at that same offset, as in PowerPoint. Keep pressing ⌘D
   for a row of evenly spaced copies.
 - **Transform again (⌘⇧D)**, as in Illustrator, repeats your last move, resize or turn on whatever
-  is selected: a drag, arrow-key nudges, or numbers typed in the Arrange tab. If the last move was
+  is selected: a drag, arrow-key nudges, or numbers typed at the top of the properties panel. If the last move was
   an Option-drag (Alt-drag) copy, it makes another copy the same distance on.
 - **Resize:** drag a handle. Corners keep a picture's proportions (Shift does the opposite).
   Option (Alt) resizes from the centre. Option+Shift+arrows change the size by one step.
-- **Rotate:** drag the round handle above the object; Shift keeps to 15° steps.
+- **Rotate:** drag the round handle above the object. With snapping on, it clicks onto 0°, 45°,
+  90°, 135° and so on when it comes within 4° of one, and turns freely in between; the angle shows
+  beside the pointer, with a dashed guide when it's on one of those. Hold ⌘ (Ctrl) to turn freely
+  for one drag, or Shift to keep to 15° steps.
 - **Exact values:** X, Y, Width and Height at the top of the properties panel, whatever tab is
   open. They follow a drag as it happens; type a number and press Enter to set it. They're in
   centimetres (change the unit in Settings). A group's are its outline's: typing its width or
   height scales everything in it from its top-left corner, keeping its proportions (text sizes
-  and line widths stay as they are). Rotation and flips are in the Arrange tab.
+  and line widths stay as they are). **Rotation** (degrees, clockwise) and the flips are there
+  too. A group remembers how far it has turned as a whole: type an angle and everything in it
+  turns together about its middle. With several objects selected, Rotation shows the angle they
+  share and turns them all together; when their angles differ it's blank, and a typed number
+  turns them all by that much. Locked objects stay put.
+- **A line's angle:** a selected line has **Angle** at the top of the properties panel: the way
+  from its start to its end, clockwise from pointing right (0° points right, 90° down). Type an
+  angle and the line turns about its middle; an end attached to an object lets go.
 - **Distances:** with something selected, hold **Option** (Alt) and point at another object to see
   the gap between them (or, when one is inside the other, the four distances between their
   edges); point at empty space for the distances to the page's edges. They're in your position
@@ -849,8 +884,9 @@ Right-click (or Control-click on a Mac) for a menu of what you can do, with each
 shortcut beside it:
 
 - **An object:** Cut, Copy, Paste, Duplicate, Delete; Select same, Copy style, Paste style;
-  Group, Ungroup, Grid layout; the four Order commands; Lock position, Hide. A picture adds Crop, Replace and Show the
-  picture's file, and Restore plot text once text has been lifted out of it in
+  Group, Ungroup, Grid layout; the four Order commands; Lock position, Hide. A picture adds Crop,
+  Crop to aspect ratio, Replace and Show the picture's file, and Restore plot text once text has
+  been lifted out of it in
   [dangerous mode](#dangerous-mode-editing-a-plots-own-text); a text box or shape adds Edit text,
   and a lifted text box Put back in plot; a line attached to objects adds Detach the ends; a
   group adds Edit inside the group.
@@ -1179,7 +1215,8 @@ The gear button (⌘,):
   **Match the system** (the default) follows your computer's light and dark mode, using the
   themes you pick for **By day** and **At night**. Themes colour the interface only: the page
   stays white, so a figure looks the way it will print. Every theme keeps text readable (WCAG AA
-  contrast).
+  contrast). In the dark themes the area around the page is a dark grey, so black objects off the
+  page still show.
 - **Measurements:** the unit for positions and sizes (cm by default; mm, points or inches) and for
   page sizes (mm). Font sizes and line widths are always in points.
 - **Interface:** text size, labels under toolbar buttons, showing the Home tab while text is

@@ -171,6 +171,61 @@ pre-export check says so.
     selected. Now an Option-click makes the key (a plain click can't), and it lasts for that
     selection only (`app.keySel`), never saved: once the selection changes, Align to goes back to
     the saved Selection or Page. Same width / Same height with no key match the widest / tallest.
+  - *Angle snapping and typed angles (2026-11-11, Matthew's choices):* the rotation handle pulls
+    onto multiples of 45° within ROT_SNAP (4°) and turns freely between, under the Snap button
+    (⌘ ignores it for one drag); Shift still keeps to 15° steps. While turning, the angle shows
+    beside the pointer, with a dashed guide along the object's up when it's on a multiple of 45°
+    (`canvas.drawRotateLabel`). Only the handle snaps: drawing lines and dragging their points keep
+    Shift for 45°. Rotation (with the flips) moved from the Arrange tab into the strip above the
+    tabs (`inspector.rotationRow`); a picture's Transparency stays in Arrange. A line's strip has
+    Angle: start to end, clockwise from pointing right like Rotation, turning about its middle
+    (none for elbow connectors, zoom inset lines or ends that meet). Groups got Rotation: `group.rot`
+    keeps count of turns as a whole (`rotateItem` adds to it, so Transform Again does too; nothing
+    draws it). Several objects get a strip with Rotation: their shared angle, or blank (Mixed) with a
+    typed angle turning them all by that much; locked objects, area fills and scale bars stay out.
+    Typed turns of lines, groups and selections go through `inspector.turnTogether` (as Transform
+    Again: about the outline's middle, `detachMoved` first). `rotateItem` turns quarter turns
+    exactly.
+  - *Typing in a shape at its text's place (2026-11-11, Matthew's report):* the editor had always
+    started its text at the top of the shape, so a shape's centred text (new shapes' default)
+    jumped to the middle when typing stopped. `canvas.positionEditor` now follows the anchor
+    (data-anchor): a flex column in app.css, centred or at the end, with AUTOFIT_EXTRA under it as
+    textlayout.py has; a fixed height unless the box grows to fit (autofit shape), so taller text
+    spills out both ways as it's drawn. The flex is in the stylesheet, before `.text-editor[hidden]`:
+    set inline at first, it outranked the hidden attribute and the editor stayed after a click off.
+  - *A dark grey around the page instead of black off the page in white (2026-11-11, Matthew's
+    choice):* the off-page filter (2026-11-10 above) made the editor very slow in a dark theme. The
+    `<use>` copy took a whole object whenever any of it reached the edge (a full-page picture 4 pt
+    over it), and WebKit ran the filter, blur included, over its full area on every repaint. It's
+    gone, with its Settings switch (offpage_light). Every dark theme but High contrast now has a
+    dark grey --stage instead, its own tint at the luminance of the Dark theme's #3a3b3e (OKLCH,
+    chroma at most 0.03), so black off the page shows at about 1.9:1. That's as light as it can be
+    while selection and guide colours keep 3:1 on both the white page and the stage
+    (themes.RULES); the selection, guide and guide-line colours that fell short were made a little
+    lighter.
+  - *Crops to a ratio, a typed size and a drawn shape (2026-11-11, Matthew's choices):* crop.js,
+    with a Crop button and ▾ menu at the start of the Figure tab (Picture group) and right-click
+    entries. Every crop goes through `canvas.cropped(o, [l, t, r, b])`, which keeps the picture's
+    scale and where it lies (the full-picture matrix) and fits the frame to the window; cropTo
+    uses it too. Aspect ratio (PowerPoint's list and Custom…): the largest window of that ratio in
+    the whole picture, centred on what showed, so choices don't shrink each other; crop mode then
+    has `canvas.cropRatio`, and a corner keeps it (the opposite corner fixed, following whichever
+    side the pointer changed more for its size) until endCrop; sides and Shift crop freely. Typed
+    Crop to width or height (Picture tab): about the middle, the rest from the other side at an
+    edge. Crop to shape drawn over it: `api.outline_in` maps the shape's area into the picture's
+    own points; the window is its box within the picture (only where they overlap). A preset
+    shape at the picture's turn and flips, wholly over it, becomes mask {geom, adj, rounding}; any
+    other becomes mask geom custom with path {subpaths} in the new frame's points (each subpath's
+    w and h the frame's, so it stretches with it as presets do) and even_odd; `resolve.item_area`
+    now passes a mask's path. The shape is removed and its line becomes the border.
+    `canvas.fullFrame` now takes a page's own size (page_sizes), as renderPicture draws it.
+  - *Double-clicking in the text being typed (2026-11-11, Matthew's report):* retyping a
+    duplicated text box, then double- or triple-clicking to highlight, put the duplicated text
+    back. The stage's dblclick handler hit-tested the box under the editor and called startEdit
+    again, which refilled the editor from the document, where nothing typed had gone yet.
+    `canvas.doubleClick` now leaves a double-click inside the editor to the browser, and
+    `startEdit` carries on when it's already typing in that box (and commits typing in another
+    first).
 - **Connectors (2026-10-31):** line and arrow ends attach to connection points and follow them
   (`start_link` / `end_link`: {item, site}). Points come from each shape's own outline (Matthew's
   choice): corners (sharp ones and rounded corners' middles) and side middles; 8 points round
