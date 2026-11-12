@@ -227,6 +227,8 @@ Matthew's choices are in brackets.
       custom, corners keeping it), a typed width or height from the middle, a shape drawn over
       the picture (used up, its line the border), and a Crop ▾ menu on the Figure tab [Matthew's
       choices]
+- [x] Guides can be grabbed over objects (reported 2026-11-12); Shift, ⌘ and Option still reach
+      the object, and a rule lying along a guide is picked first [Matthew's choices]
 
 ## Acceptance test (test slide)
 

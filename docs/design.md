@@ -226,6 +226,13 @@ pre-export check says so.
     `canvas.doubleClick` now leaves a double-click inside the editor to the browser, and
     `startEdit` carries on when it's already typing in that box (and commits typing in another
     first).
+  - *Guides over objects (2026-11-12, Matthew's report and choices):* a guide could only be
+    grabbed where no object covered it. `canvas.guideOver(pt, hit, e)` now decides for a press,
+    the hover cursor and the right-click menu: the guide wins within GUIDE_HIT px, except when
+    the object lies along it (its box across the guide within 2 × GUIDE_HIT px either side, so a
+    rule or thin box on a guide can still be picked) or the press has Shift, ⌘ (Ctrl) or Option,
+    which only act on objects. A selected object's handles still come first, and so does crop
+    mode and point editing. Inside a selected empty shape, that shape counts as the object.
 - **Connectors (2026-10-31):** line and arrow ends attach to connection points and follow them
   (`start_link` / `end_link`: {item, site}). Points come from each shape's own outline (Matthew's
   choice): corners (sharp ones and rounded corners' middles) and side middles; 8 points round

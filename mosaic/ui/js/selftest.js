@@ -277,15 +277,16 @@ async function selectionChecks(app) {
   check(sel() === "sA,sB", "⌘-click (Ctrl-click) adds an object to the selection", sel());
   clickAt(mid("sA"), add);
   check(sel() === "sB", "⌘-click on a selected object takes it away", sel());
-  // A guide 1 pt beside where they land catches a plain drag, not a ⌘-drag
-  const dx = 30.3, [a0, b0] = [left("sA"), left("sB")];
+  // A guide 1 pt beside where they land catches a plain drag, not a ⌘-drag (each pressed on sA
+  // away from the guide, which lies over its middle: there a plain press would take the guide)
+  const dx = 30.3, [a0, b0] = [left("sA"), left("sB")], grab = () => [left("sA") + 10, mid("sA")[1]];
   store.update("A guide", (doc) => { doc.pages[page].guides = { x: [a0 + dx + 1], y: [] }; });
   await settle();
-  await drag(mid("sA"), [mid("sA")[0] + dx, mid("sA")[1]], add);
+  await drag(grab(), [grab()[0] + dx, grab()[1]], add);
   check(sel() === "sB,sA" && near(left("sA"), a0 + dx, 0.01) && near(left("sB"), b0 + dx, 0.01),
     "⌘-drag on another object adds it and moves them together, without snapping", `${sel()} ${left("sA")} ${left("sB")}`);
   await app.run("undo");
-  await drag(mid("sA"), [mid("sA")[0] + dx, mid("sA")[1]]);
+  await drag(grab(), [grab()[0] + dx, grab()[1]]);
   check(sel() === "sB,sA" && near(left("sA"), a0 + dx + 1, 0.01) && near(left("sB"), b0 + dx + 1, 0.01),
     "the same drag without ⌘ snaps to the guide", `${sel()} ${left("sA")} ${left("sB")}`);
   await app.run("undo");
@@ -2960,8 +2961,10 @@ async function rulerGuideChecks(app) {
     fill: { color: "#dddddd", opacity: 1 } }));   // (filled: an empty one lets clicks through to the guide)
   await settle();
   const covered = await rightClick(canvas.stage, ...screenOf(52 * MM, 120));
-  check(!covered.includes("Remove guide"), "where an object covers the guide, the object's menu comes instead", covered.join());
+  check(covered.join() === "Remove guide,Remove all guides,Hide guides", "where an object covers the guide, right-clicking it still gives the guide's menu",
+    covered.join());
   document.querySelector(".context-menu") && document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  await guideOverChecks(app, { MM, pg, ptr, rightClick });
   store.select([]);
   await rightClick(canvas.stage, ...screenOf(52 * MM, 300));
   menuItem("Hide guides").click();
@@ -2969,6 +2972,68 @@ async function rulerGuideChecks(app) {
   check(app.prefs.show_guides === false && !document.querySelector(".guides line"), "Hide guides hides them", app.prefs.show_guides);
   await app.savePrefs({ show_guides: true, units: keepUnits || "cm" });
   canvas.setGuidePreview(null);
+}
+
+// A guide lies over the objects (from rulerGuideChecks: a vertical guide at 52 mm across the filled
+// box gBox, horizontal ones at 32 mm and 150 pt): on it the pointer shows the guide's cursor and a
+// drag moves the guide, not the box. Shift, ⌘ or Option on it go to the object, and so does a rule
+// lying along a guide (no room to grab it beside the guide)
+async function guideOverChecks(app, { MM, pg, ptr, rightClick }) {
+  const on = screenOf(52 * MM, 120), boxFrame = () => store.item("gBox").frame.join();
+  const frame0 = boxFrame(), guides0 = JSON.stringify(pg().guides);
+  store.select([]);
+  ptr(canvas.stage, "pointermove", ...on);
+  const cursorOn = canvas.stage.style.cursor;
+  ptr(canvas.stage, "pointermove", on[0] + 20, on[1]);
+  const cursorBox = canvas.stage.style.cursor;
+  check(cursorOn === "col-resize" && cursorBox === "move", "over a box, the pointer on a guide shows the guide's cursor, beside it the box's",
+    `${cursorOn} ${cursorBox}`);
+  const to = screenOf(60 * MM, 120);
+  ptr(canvas.stage, "pointerdown", ...on);
+  ptr(canvas.stage, "pointermove", on[0] + 3, on[1], { held: true });
+  ptr(canvas.stage, "pointermove", ...to, { held: true });
+  ptr(canvas.stage, "pointerup", ...to);
+  await settle();
+  check(near(pg().guides.x[0], 60 * MM, 0.6) && boxFrame() === frame0 && !store.selection.length,
+    "a drag on a guide over a box moves the guide; the box stays put and unselected", `${pg().guides.x[0] / MM} mm; ${boxFrame()}`);
+  await app.undo();
+  check(JSON.stringify(pg().guides) === guides0, "and undo puts the guide back", JSON.stringify(pg().guides));
+
+  // Shift-click and ⌘-drag there are for the box
+  ptr(canvas.stage, "pointerdown", ...on, { shiftKey: true });
+  ptr(canvas.stage, "pointerup", ...on, { shiftKey: true });
+  await settle();
+  check(store.selection.join() === "gBox" && JSON.stringify(pg().guides) === guides0, "Shift-click on the guide over the box selects the box",
+    store.selection.join());
+  const cmd = { metaKey: true, ctrlKey: !isMac };
+  ptr(canvas.stage, "pointerdown", ...on, cmd);
+  ptr(canvas.stage, "pointermove", on[0] + 3, on[1], { held: true, ...cmd });
+  ptr(canvas.stage, "pointermove", on[0] + 30, on[1], { held: true, ...cmd });
+  ptr(canvas.stage, "pointerup", on[0] + 30, on[1], cmd);
+  await settle();
+  check(boxFrame() !== frame0 && JSON.stringify(pg().guides) === guides0, "a ⌘-drag on the guide moves the box, not the guide",
+    `${boxFrame()} ${JSON.stringify(pg().guides)}`);
+  await app.undo();
+  store.select([]);
+
+  // A 0.25 pt rule lying along the 32 mm guide: a click on it picks the rule, and so does a right-click
+  store.update("A rule on the guide", (doc) => doc.pages[store.pageIndex].items.push({ id: "gRule", type: "line",
+    points: [[150, 32 * MM], [210, 32 * MM]], arrow_start: null, arrow_end: null,
+    stroke: { color: "#000000", width: 0.25, dash: "solid", cap: "flat", join: "miter", opacity: 1 } }));
+  await settle();
+  const onRule = screenOf(180, 32 * MM);
+  ptr(canvas.stage, "pointermove", ...onRule);
+  const cursorRule = canvas.stage.style.cursor;
+  ptr(canvas.stage, "pointerdown", ...onRule);
+  ptr(canvas.stage, "pointerup", ...onRule);
+  await settle();
+  check(store.selection.join() === "gRule" && cursorRule === "move" && JSON.stringify(pg().guides) === guides0,
+    "a click on a rule lying along a guide picks the rule", `${store.selection.join()} ${cursorRule}`);
+  const ruleMenu = await rightClick(canvas.stage, ...onRule);
+  check(!ruleMenu.includes("Remove guide"), "and right-clicking it gives the rule's menu", ruleMenu.join());
+  document.querySelector(".context-menu") && document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  await app.undo();
+  check(!store.item("gRule"), "(the rule taken away again)");
 }
 
 // Colour vision side by side: the page five ways at once, each view through its own filter over a

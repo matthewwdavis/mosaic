@@ -895,8 +895,8 @@ shortcut beside it:
     the lot.
 - **Empty page:** Paste, Select all, Refresh all pictures, Insert picture, Fit page to content,
   and the Rulers, Grid, Guides and Snap switches; Leave the group while editing inside one.
-- **A guide** (on the page where no object covers it, or its mark on a ruler): Remove guide,
-  Remove all guides, Hide guides.
+- **A guide** (on the page, over objects too, or its mark on a ruler): Remove guide, Remove all
+  guides, Hide guides.
 - **Paste** from a right-click puts things where you clicked. When the clipboard holds both text
   and a picture, **Paste as picture** appears beside it (see [Pictures](#pictures)).
 - **A page in the Pages list:** Add, Duplicate, Delete, Move up or down, Rename.
@@ -965,7 +965,12 @@ meanwhile. Settings turns this off (**Show the Arrange tab while several objects
   position. A click rounds to a fine step of the ruler's ticks (1 mm at 100%, finer zoomed in), so
   clicking a tick puts the guide on it; hold **⌘** while clicking, or turn Snap off, for exactly
   where you click. Or drag one out of a ruler onto the page, where it follows the pointer.
-  - Drag a guide to move it, or drag its mark on the ruler if objects cover it.
+  - Drag a guide to move it. Guides lie over objects: on a guide, the pointer turns to ↔ and a
+    drag takes the guide, not the object under it. To reach the object there instead, hold
+    **Shift**, **⌘** or **Option** (to add it to the selection, drag it, or duplicate it), or
+    press it away from the guide. A line or thin box lying along a guide is picked first, since
+    there's nowhere else to grab it; a guide covered that way can be dragged by its mark on the
+    ruler.
   - **Right-click** a guide (or its mark on the ruler) for **Remove guide**, **Remove all guides**
     and **Hide guides**. Dragging it back onto a ruler removes it too.
   - With nothing selected, the **Guides** section of the right panel lists them, to add one, type

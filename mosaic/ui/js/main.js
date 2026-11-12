@@ -1697,8 +1697,8 @@ const app = {
     const r = canvas.stage.getBoundingClientRect();
     const p = canvas.toPage(x - r.left, y - r.top);
     const hit = canvas.itemAt(p);
-    // A guide where no object covers it has a menu of its own
-    const guide = hit ? null : canvas.guideAt([x - r.left, y - r.top]);
+    // A guide has a menu of its own, over objects too (canvas.guideOver)
+    const guide = canvas.guideOver([x - r.left, y - r.top], hit);
     if (guide) return this.guideMenu(guide.axis, guide.index, x, y);
     if (!hit) store.select([]);
     else if (!store.selection.includes(hit.id)) store.select([hit.id]);

@@ -878,15 +878,15 @@ export const canvas = {
     }
     // Inside a selected empty shape, a press without Shift: a drag moves the selection (with ⌘,
     // unsnapped, as for any ⌘-drag), and a click without one picks what's under it (⌘: adds it)
-    const holder = !e.shiftKey && store.selected().find((it) => emptyShape(it) && !it.locked && this.inside(it, p));
+    const holder = (!e.shiftKey && store.selected().find((it) => emptyShape(it) && !it.locked && this.inside(it, p))) || null;
+    // A guide lies over the objects, except where guideOver says the object comes first
+    const guide = this.guideOver(pt, hit ?? holder, e);
+    if (guide) return this.startGuide(guide.axis, guide.index);
     if (holder && hit?.id !== holder.id) {
       this.startMove(p, e);
       if (this.op?.type === "move") this.op.through = { id: hit?.id ?? null, add: addKey(e) };
       return;
     }
-    // Objects come first; a guide can be dragged where nothing covers it, or by its mark on a ruler
-    const guide = hit ? null : this.guideAt(pt);
-    if (guide) return this.startGuide(guide.axis, guide.index);
     if (hit) {
       let sel = store.selection;
       const was = sel.includes(hit.id), oneOfSeveral = sel.length > 1 && was, add = addKey(e);
@@ -918,7 +918,7 @@ export const canvas = {
     const op = this.op;
     if (!op && e.altKey !== !!this.altDown) this.setMeasureKey(e.altKey);   // a key let go elsewhere
     if (!op && this.pen) { this.penHover = this.snapPoint(p, this.penTargets, e); return this.drawOverlay(); }
-    if (!op) return this.hover(pt, p);
+    if (!op) return this.hover(pt, p, e);
     if (op.type === "pen") return this.penDrag(p);
     if (op.type === "pointdrag") return this.pointDragTo(p, e);
     if (op.type === "pan") {
@@ -1036,7 +1036,7 @@ export const canvas = {
       this.onTransform?.({ kind: "rotate", angle: ((((it.rot || 0) - (o.rot || 0)) % 360) + 540) % 360 - 180 });
     }
   },
-  hover(pt, p) {
+  hover(pt, p, e = null) {
     this.hoverAt = p;
     if (this.dangerous) this.hoverPlotText(p);
     if (this.altDown && store.selection.length) this.drawOverlay();
@@ -1056,10 +1056,10 @@ export const canvas = {
         cursor = hd.kind === "rotate" ? "grab" : (hd.kind === "mid" || hd.kind === "adjust") ? "pointer"
           : (hd.kind === "end" || hd.kind === "point") ? "move" : resizeCursor(hd.dir, store.selected()[0]);
       }
-      else if (this.itemAt(p)) cursor = "move";
       else {
-        const guide = this.guideAt(pt);
+        const hit = this.itemAt(p), guide = this.guideOver(pt, hit, e);
         if (guide) cursor = guide.axis === "x" ? "col-resize" : "row-resize";
+        else if (hit) cursor = "move";
       }
     }
     this.stage.style.cursor = cursor;
@@ -1500,6 +1500,19 @@ export const canvas = {
       if (d <= GUIDE_HIT && (!best || d < best.d)) best = { axis, index, d };
     }));
     return best;
+  },
+  // The guide a press at pt takes (also its right-click menu and the hover cursor), with `hit` the
+  // object under the pointer. Guides lie over objects, but the object still comes first when it
+  // lies along the guide (a rule or thin box on it, within 2 × GUIDE_HIT px either side: it would
+  // leave no room to grab it beside the guide), or with Shift, ⌘ (Ctrl) or Option held, which
+  // only ever act on objects. A guide covered that way can still be dragged by its mark on a ruler
+  guideOver(pt, hit, e = null) {
+    if (hit && e && (e.shiftKey || addKey(e) || e.altKey)) return null;
+    const guide = this.guideAt(pt);
+    if (!guide || !hit) return guide;
+    const i = guide.axis === "x" ? 0 : 1, b = itemBBox(hit), reach = (2 * GUIDE_HIT) / this.k;
+    const v = store.page().guides[guide.axis][guide.index];
+    return b[i] > v - reach && b[i + 2] < v + reach ? null : guide;
   },
   // axis "x" is a vertical guide (its x position), "y" a horizontal one; index null for a new guide
   startGuide(axis, index) {
