@@ -233,6 +233,51 @@ pre-export check says so.
     rule or thin box on a guide can still be picked) or the press has Shift, ⌘ (Ctrl) or Option,
     which only act on objects. A selected object's handles still come first, and so does crop
     mode and point editing. Inside a selected empty shape, that shape counts as the object.
+  - *Where line ends attach (2026-11-12, Matthew's reports and choices):* an end dropped near a
+    dashed shape's corner usually took a dash's point beside it (about 70% of drops 2-4 px off),
+    and links name a dash by number ("d55e"), which is another dash once the dashes change: a
+    new dash style sent ends 80-110 pt round the shape, and solid quietly detached them.
+    `siteNear` now ranks main points (corners, side middles, ellipse points, ends) before dash
+    points, which count only where no main point is in reach, and at one spot (within 1 px) a
+    shape's point before a line's, so lines meeting at a corner each attach to the shape. A link
+    to a dash's point keeps `at`, its place in the object's own terms (frame fractions; a line's
+    offset from its first point), set as it attaches (`linkTo`); `linkSite` then takes the dash
+    point of the same kind nearest there, or the nearest main point with no dashes, and old links
+    without `at` start from the end as drawn. followLinks also waits for a shape's own points
+    (`sitesKnown`): before the engine sends them, sitesOf stands in the frame's corners, whose
+    numbering differs (a triangle's c0 isn't the frame's), so a change right after opening a file
+    or showing a page could move ends there.
+  - *Extra small and extra large line ends (2026-11-12, Matthew's choices):* sizes xs and xl beside
+    DrawingML's sm / med / lg, at 1.5 and 8 times the base (the line's width, at least 2 pt): 3 and
+    16 pt on a thin line, against 4, 6 and 10. One size still sets w and len together. PowerPoint
+    has neither, so pptxwriter puts a line with one in as an exact picture ("an extra small or
+    extra large arrowhead"). The arrowhead pictures are 18 pt tall (HEAD_BOX) to hold an extra
+    large head whole; a picture list's name now wraps onto a second line rather than being cut
+    off, and two picture lists side by side stretch to the same height.
+  - *Rotate 90° and flip for every object (2026-11-12, Matthew's choices):* Rotate right / left 90°
+    and Flip horizontally / vertically (`rotateRight90`, `rotateLeft90`, `flipHorizontal`,
+    `flipVertical`) in the Arrange tab (Rotate: four small buttons in two rows, `panels.turnFlipGroup`,
+    so the tab stays one row at 1440 px in WebKit, whose text is wider than Chrome's), the right-click menu (Rotate and flip) and the strip above
+    the panel's tabs, for lines, groups and several objects too (`inspector.turnFlipButtons`). The
+    selection goes as a whole about its outline's middle: `app.turnItems` (also behind typed
+    Rotation and Angle, which `inspector.turnTogether` now hands to it) and `app.flipItems` with
+    `flipItem`, which mirrors as seen on the page: a framed object's middle mirrors, its flip
+    toggles and its turn reverses (`frameMatrix` flips before turning, so mirror · R(θ) · F =
+    R(-θ) · mirror · F), so the panel's flip toggles changed from flipping along a turned shape's
+    own sides to this. Text boxes keep reading the right way: they move and their turn reverses but
+    they never take a flip (the engine turns a vertically flipped shape's text upside down, as
+    PowerPoint does); a flip that changes nothing (a level text box alone, a bracket along its bar)
+    says so and leaves no undo step. Brackets, which the engine draws level or upright whatever
+    their rot, no longer take a turn: a quarter turn moves dir to the next side round with the
+    frame turned about its middle (upright to across, as tall as the label's room and the ticks,
+    from where the ticks end; across to upright, `tick` keeps their length), a flip swaps up/down or
+    left/right, and their strip has no Rotation. A grid layout keeps its order, each part mirrored
+    in its cell. Lines among the objects keep their links to what moves with them (`detachMoved`);
+    `canvas.keepEnds` then keeps a left-out line's end where the object still has a point of the
+    same kind (within 0.01 pt), else it follows its point, and turns or mirrors `at` for ends on a
+    moved line's dashes (held from its first point). `sitesKnown` now also waits for a line's dashes
+    to be drawn for its current shape (`geomKey`): turned or flipped, the old ones (only shifted
+    along) sent such an end to the wrong dash.
 - **Connectors (2026-10-31):** line and arrow ends attach to connection points and follow them
   (`start_link` / `end_link`: {item, site}). Points come from each shape's own outline (Matthew's
   choice): corners (sharp ones and rounded corners' middles) and side middles; 8 points round

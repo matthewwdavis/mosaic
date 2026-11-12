@@ -58,6 +58,23 @@ def test_native_objects_and_exact_pictures(fixtures, cache, tmp_path):
     assert next(it for it in items if it.get("geom") == "custom")["frame"] == [210.0, 10.0, 60.0, 30.0]
 
 
+def test_extra_small_and_extra_large_arrowheads_go_in_as_pictures(cache, tmp_path):
+    # PowerPoint has only small, medium and large ends: a line with mosaic's extra small or extra
+    # large goes in as an exact picture of itself; one with PowerPoint's sizes stays a line
+    doc = model.new_document("deck")
+    page = doc["pages"][0]
+    page["width"], page["height"] = 300.0, 200.0
+    arrow = lambda i, y, size: {"id": i, "type": "line", "points": [[20, y], [200, y]], "stroke": stroke(width=0.25),
+                                "arrow_start": None, "arrow_end": {"type": "triangle", "w": size, "len": size}}
+    page["items"] = [arrow("xs", 40, "xs"), arrow("lg", 80, "lg"), arrow("xl", 140, "xl")]
+    res = export_document(doc, str(tmp_path / "deck"), ["pptx"], cache=cache)
+    assert any("an extra small or extra large arrowhead went in as exact pictures" in w for w in res["warnings"]), res["warnings"]
+    kinds = [sh.shape_type for sh in Presentation(str(tmp_path / "deck.pptx")).slides[0].shapes]
+    assert kinds == [MSO_SHAPE_TYPE.PICTURE, MSO_SHAPE_TYPE.LINE, MSO_SHAPE_TYPE.PICTURE]
+    slide_xml = zipfile.ZipFile(tmp_path / "deck.pptx").read("ppt/slides/slide1.xml").decode()
+    assert 'w="lg" len="lg"' in slide_xml and 'w="xs"' not in slide_xml and 'w="xl"' not in slide_xml
+
+
 def test_objects_parked_off_the_page_are_left_out_of_every_export(cache, tmp_path):
     """Wholly off the page (kept there, like PowerPoint's pasteboard), an object isn't exported;
     one partly on the page is, cut at the page's edge."""

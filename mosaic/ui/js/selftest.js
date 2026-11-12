@@ -1417,6 +1417,25 @@ async function pictureMenuChecks(app) {
   await until(() => items().length && items().every((b) => drawnIn(b)), 4000);
   check(items().length === 10 && items().every((b) => drawnIn(b)), "the arrowheads have pictures too", `${items().length}`);
   closeMenu();
+  // Five sizes, extra small to extra large, each pictured whole (an extra large head is 16 pt across)
+  fieldByLabel("End size").click();
+  await until(() => items().length && items().every((b) => drawnIn(b)), 4000);
+  const fits = (b) => {
+    const svg = b.querySelector(".pic-svg"), box = svg.querySelector("g").getBBox(), [, , w, ht] = svg.getAttribute("viewBox").split(" ").map(Number);
+    return box.height > 0 && box.x >= 0 && box.y >= 0 && box.x + box.width <= w && box.y + box.height <= ht;
+  };
+  const sizes = items().map((b) => b.dataset.value);
+  const heights = items().map((b) => Math.round(b.querySelector(".pic-svg g").getBBox().height * 10) / 10);
+  check(sizes.join() === "xs,sm,med,lg,xl" && items().every((b) => drawnIn(b) && fits(b)) && heights.every((v, i) => !i || v > heights[i - 1]),
+    "the End size list goes from Extra small to Extra large, each pictured whole and bigger than the last",
+    `${sizes.join()} heights ${heights.join()} fit ${items().map(fits).join()}`);
+  items().find((b) => b.dataset.value === "xl")?.click();
+  await settle();
+  const xl = store.item("pmLine").arrow_end;
+  check(xl.w === "xl" && xl.len === "xl" && fieldByLabel("End size").textContent.includes("Extra large"),
+    "choosing Extra large sets the head's width and length", JSON.stringify(xl));
+  await app.undo();
+  closeMenu();
   fieldByLabel("Outline around it")?.click();
   await settle();
   fieldByLabel("Sides").click();
@@ -2129,7 +2148,7 @@ async function angleChecks(app) {
   document.getElementById("itab-style")?.click();
   const rf = field("rot");
   check(rf && rf.getBoundingClientRect().height > 0 && document.querySelectorAll('#inspector [data-bind="rot"]').length === 1
-    && document.querySelector('#inspector .insp-strip [aria-label="Flip horizontally"]'),
+    && document.querySelector('#inspector .insp-strip [aria-label^="Flip horizontally"]'),
     "a shape's Rotation and flips show above the tabs with its Style tab open (and only there)");
   await typeIn(rf, 30);
   check(near(store.item("aR").rot, 30, 1e-9), "a typed Rotation turns it", `${store.item("aR").rot}`);
@@ -3036,6 +3055,360 @@ async function guideOverChecks(app, { MM, pg, ptr, rightClick }) {
   check(!store.item("gRule"), "(the rule taken away again)");
 }
 
+// Rotate right or left 90° and Flip horizontally or vertically, for every kind of object: in the
+// Arrange tab (one row still), the right-click menu and the strip above the panel's tabs. The
+// selection turns or flips as a whole, flips as it looks on the page, text boxes keep reading the
+// right way, brackets stay level or upright, and lines left out keep their ends where the objects
+// still have a point
+async function turnFlipChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.zoom = 1;
+  canvas.panX = 40;
+  canvas.panY = 40;
+  canvas.applyView();
+  const ready = async () => { await settle(); await wait(250); await settle(); };
+  const clone = (v) => JSON.parse(JSON.stringify(v));
+  const run = async (cmd, ids) => { store.select(ids); await settle(); await app.run(cmd); await ready(); };
+  const said = async () => { await wait(120); return document.getElementById("live")?.textContent || ""; };
+  const eq = (a, b, tol = 1e-6) => a.length === b.length && a.every((v, i) => (Array.isArray(v) ? eq(v, b[i], tol) : Math.abs(v - b[i]) < tol));
+  const stroke = (dash = "solid") => ({ color: "#000000", width: 1, dash, cap: "flat", join: "miter", opacity: 1 });
+  const ln = (id, pts, extra = {}) => ({ id, type: "line", points: pts, arrow_start: null, arrow_end: null, stroke: stroke(), ...extra });
+  const text = (id, x, y, rot = 0) => ({ id, type: "shape", geom: "rect", textbox: true, frame: [x, y, 40, 10], rot, stroke: null, fill: null,
+    text: { paragraphs: [{ align: "l", runs: [{ t: "Label", font: "Helvetica", size: 6, bold: false, italic: false, color: "#000000" }] }],
+      insets: [0, 0, 0, 0], wrap: false, anchor: "t", autofit: "none" } });
+  store.update("Objects", (doc) => doc.pages[0].items.push(
+    { ...gRectFor("tfT", 60, 60, 60, 40), geom: "rtTriangle", rot: 30 },
+    ln("tfL", [[200, 60], [260, 90], [240, 120]]),
+    gRectFor("tfA", 60, 200, 40, 30), gRectFor("tfB", 160, 220, 20, 20),
+    text("tfX", 300, 60), text("tfY", 300, 100, 30),
+    { id: "tfG", type: "group", rot: 20, items: [gRectFor("tfG1", 60, 320, 40, 20), ln("tfG2", [[110, 320], [150, 350]])] },
+    { id: "tfK", type: "bracket", label: "*", size: 6, bold: false, line_width: 0.75, color: "#000000", rot: 0, dir: "up", tick: 4,
+      frame: [300, 200, 60, 6 * 1.5 + 4] }), { select: [] });
+  await ready();
+
+  // 1. The Arrange tab has the four, still in one row; the right-click menu has them under Rotate and flip
+  const arrange = document.getElementById("rpanel-arrange"), cmds = ["rotateLeft90", "rotateRight90", "flipHorizontal", "flipVertical"];
+  document.getElementById("rtab-arrange")?.click();
+  const tops = new Set([...arrange.children].map((g) => Math.round(g.getBoundingClientRect().top)));
+  check(cmds.every((c) => arrange.querySelector(`[data-cmd="${c}"]`)) && tops.size === 1,
+    "the Arrange tab has Rotate right and left 90° and Flip horizontally and vertically, and stays one row",
+    `${tops.size} rows; groups ${[...arrange.children].map((g) => Math.round(g.getBoundingClientRect().width)).join(" ")} in ${arrange.clientWidth} px`);
+  store.select(["tfA"]);
+  const entry = app.objectMenu({}).find((e) => e?.label === "Rotate and flip");
+  check(entry && !entry.disabled && entry.items.filter((e) => e !== "-").map((e) => e.label).join(", ")
+    === "Rotate right 90°, Rotate left 90°, Flip horizontally, Flip vertically", "the right-click menu has them under Rotate and flip",
+  JSON.stringify(entry?.items?.map((e) => e.label)));
+
+  // 2. A turned shape flips as it looks on the page: flipped, its turn reversed, in the same place;
+  // the panel's flip shows it, and flipping again puts it back
+  const t0 = clone(store.item("tfT"));
+  await run("flipHorizontal", ["tfT"]);
+  let t = store.item("tfT");
+  check(t.flip_h === true && !t.flip_v && near(t.rot, 330, 1e-6) && eq(t.frame, t0.frame),
+    "a shape turned 30° flips horizontally as it looks on the page: flipped, at 330°, where it was", `${t.flip_h} ${t.rot} ${t.frame}`);
+  inspector.render();
+  const panelFlip = document.querySelector('#inspector .turn-flip [aria-label^="Flip horizontally"]');
+  check(panelFlip?.getAttribute("aria-pressed") === "true" && document.querySelectorAll("#inspector .turn-flip button").length === 4,
+    "the panel's strip has the four buttons, its flip showing the shape is flipped", panelFlip?.outerHTML);
+  panelFlip?.click();
+  await ready();
+  t = store.item("tfT");
+  check(!t.flip_h && near(t.rot, 30, 1e-6) && eq(t.frame, t0.frame), "flipped again from the panel, it's back as it was", `${t.flip_h} ${t.rot}`);
+  await run("flipVertical", ["tfT"]);
+  t = store.item("tfT");
+  check(t.flip_v === true && near(t.rot, 330, 1e-6), "flipped vertically: flipped, its turn reversed", `${t.flip_v} ${t.rot}`);
+  await app.undo();
+  await ready();
+
+  // 3. A line: its points mirror about its middle, and turn a quarter exactly; one undo step each
+  const l0 = clone(store.item("tfL").points), depth = store.history.length;
+  await run("flipHorizontal", ["tfL"]);
+  check(eq(store.item("tfL").points, l0.map(([x, y]) => [460 - x, y])) && store.history.length === depth + 1,
+    "a line flips horizontally about its middle, one undo step", JSON.stringify(store.item("tfL").points));
+  await app.undo();
+  await run("rotateRight90", ["tfL"]);
+  check(eq(store.item("tfL").points, l0.map(([x, y]) => [230 - (y - 90), 90 + (x - 230)])),
+    "a line turns right 90° about its middle, exactly", JSON.stringify(store.item("tfL").points));
+  await app.undo();
+  await ready();
+  store.select(["tfL"]);
+  inspector.render();
+  check(document.querySelectorAll("#inspector .turn-flip button").length === 4 && !document.querySelector("#inspector .turn-flip [aria-pressed]"),
+    "a line's strip has the four buttons beside its Angle, the flips with nothing to show");
+
+  // 4. Several objects flip and turn as a whole: their places mirror (or swing round) about their middle
+  const a0 = clone(store.item("tfA").frame), b0 = clone(store.item("tfB").frame);
+  await run("flipHorizontal", ["tfA", "tfB"]);
+  check(eq(store.item("tfA").frame, [140, 200, 40, 30]) && eq(store.item("tfB").frame, [60, 220, 20, 20])
+    && store.item("tfA").flip_h && store.item("tfB").flip_h, "two objects flip horizontally as a whole: they swap sides, each flipped",
+  `${store.item("tfA").frame} ${store.item("tfB").frame}`);
+  await app.undo();
+  await run("rotateRight90", ["tfA", "tfB"]);
+  // (their outline is 60..180 × 200..240, its middle 120, 220: tfA's middle (80, 215) goes to (125, 180))
+  const fa = store.item("tfA").frame;
+  check(eq([fa[0] + fa[2] / 2, fa[1] + fa[3] / 2], [125, 180]) && near(store.item("tfA").rot, 90, 1e-6) && near(store.item("tfB").rot, 90, 1e-6),
+    "two objects turn right 90° together about their middle", `${fa} ${store.item("tfA").rot}`);
+  await app.undo();
+  await ready();
+  check(eq(store.item("tfA").frame, a0) && eq(store.item("tfB").frame, b0), "(undone)");
+  store.select(["tfA", "tfB"]);
+  inspector.render();
+  check(document.querySelectorAll("#inspector .turn-flip button").length === 4, "several objects' strip has the four buttons beside Rotation");
+
+  // 5. Text boxes keep reading the right way: a level one alone is the same flipped (no undo step, and
+  // why); a slanted one among others takes the mirrored slant, unflipped
+  const d0 = store.history.length;
+  await run("flipVertical", ["tfX"]);
+  const why = await said();
+  check(store.history.length === d0 && !store.item("tfX").flip_v && /keep reading the right way/.test(why),
+    "a level text box flipped on its own stays as it is, and says why", why);
+  await run("flipHorizontal", ["tfX", "tfY"]);
+  const y1 = store.item("tfY");
+  check(!y1.flip_h && !y1.flip_v && near(y1.rot, 330, 1e-6) && !store.item("tfX").flip_h,
+    "text boxes flipped with others move and mirror their slant but don't flip", `${y1.flip_h} ${y1.rot}`);
+  await app.undo();
+  await ready();
+
+  // 6. A group: its parts mirror about the middle of its outline (60 to 150.5 across, its line's
+  // stroke included, so it stays where it was), and its turn reverses
+  const g0 = clone(store.item("tfG"));
+  await run("flipHorizontal", ["tfG"]);
+  const g = store.item("tfG");
+  check(near(g.rot, 340, 1e-6) && g.items[0].flip_h && eq(g.items[0].frame, [110.5, 320, 40, 20])
+    && eq(g.items[1].points, [[100.5, 320], [60.5, 350]]) && eq(itemsBBox(g.items), itemsBBox(g0.items)),
+  "a group flips: its parts mirror about its middle, its outline where it was, its turn reverses",
+  `${g.rot} ${g.items[0].frame} ${JSON.stringify(g.items[1].points)}`);
+  store.select(["tfG"]);
+  inspector.render();
+  check(document.querySelectorAll("#inspector .turn-flip button").length === 4, "a group's strip has the four buttons");
+  await app.undo();
+  await ready();
+  check(eq(store.item("tfG").items[0].frame, g0.items[0].frame), "(undone)");
+
+  // 7. A bracket stays level or upright: a flip along its bar changes nothing, across it the label
+  // changes side; a quarter turn takes the label to the next side round, the ticks as long
+  const room = 6 * 1.5, k0 = clone(store.item("tfK"));
+  await run("flipHorizontal", ["tfK"]);
+  check(eq(store.item("tfK").frame, k0.frame) && store.item("tfK").dir === "up", "a bracket flipped along its bar is the same");
+  await run("flipVertical", ["tfK"]);
+  check(eq(store.item("tfK").frame, k0.frame) && store.item("tfK").dir === "down", "flipped across its bar, its label goes below",
+    store.item("tfK").dir);
+  await app.undo();
+  await run("rotateRight90", ["tfK"]);
+  let k = store.item("tfK");
+  check(k.dir === "right" && eq(k.frame, [330 - 6.5, 206.5 - 30, 13, 60]) && near(k.tick, 4, 1e-6),
+    "turned right 90°, its label goes to the right, its ticks 4 pt", `${k.dir} ${k.frame} ${k.tick}`);
+  await run("rotateRight90", ["tfK"]);
+  k = store.item("tfK");
+  check(k.dir === "down" && near(k.frame[2], 60) && near(k.frame[3], room + 4, 1e-6) && near(k.frame[1], 206.5 - 6.5, 1e-6),
+    "turned right again: label below, ticks still 4 pt, from where they end", `${k.dir} ${k.frame}`);
+  store.select(["tfK"]);
+  inspector.render();
+  check(!fieldByLabel("Rotation") && document.querySelectorAll("#inspector .turn-flip button").length === 4,
+    "a bracket's strip has the four buttons and no Rotation (it stays level or upright)");
+  await app.undo();
+  await app.undo();
+  await ready();
+  // (one drawn upright, label right, is as wide as its ticks and label: turned right it's as tall as
+  // the label's room and its ticks, from the top, where they end)
+  store.update("Upright bracket", (doc) => doc.pages[0].items.push({ ...clone(k0), id: "tfK2", dir: "right", frame: [400, 200, 19, 50] }));
+  await run("rotateRight90", ["tfK2"]);
+  const k2 = store.item("tfK2");
+  check(k2.dir === "down" && eq(k2.frame, [384.5, 215.5, 50, room + 4]), "an upright bracket turned right: label below, ticks 4 pt from the top",
+    `${k2.dir} ${k2.frame}`);
+  await app.undo();
+  await app.undo();
+  await ready();
+
+  // 8. Lines left out: where the flipped object still has a point there, their end stays, attached;
+  // otherwise it goes with its point. A line flipped with the object keeps its end on it; one
+  // flipped without it lets go
+  store.update("Level", (doc) => { findDeep(doc.pages[0].items, "tfT").rot = 0; });
+  await ready();
+  const sites = () => canvas.sitesOf(store.item("tfT"));
+  const at = (key) => sites().find((x) => x.key === key)?.at;
+  const cornerAt = (p) => sites().find((x) => /^c\d+$/.test(x.key) && eq(x.at, p, 1e-6))?.key;
+  store.update("Corner lines", (doc) => doc.pages[0].items.push(
+    ln("tfE1", [[20, 40], [60, 60]], { end_link: { item: "tfT", site: cornerAt([60, 60]) } }),
+    ln("tfE2", [[20, 120], [60, 100]], { end_link: { item: "tfT", site: cornerAt([60, 100]) } }),
+    ln("tfE3", [[200, 160], [200, 200]], { end_link: { item: "tfA", site: "c0" } })));
+  await ready();
+  const e1 = clone(store.item("tfE1").points.at(-1)), e2 = clone(store.item("tfE2").points.at(-1));
+  check(cornerAt([60, 60]) && cornerAt([60, 100]) && eq(e1, [60, 60]) && eq(e2, [60, 100]),
+    "(two lines on the right triangle's top-left and bottom-left corners)", `${e1} ${e2} ${JSON.stringify(sites())}`);
+  await run("flipHorizontal", ["tfT"]);
+  const s1 = store.item("tfE1").end_link, s2 = store.item("tfE2").end_link;
+  check(s2?.item === "tfT" && eq(store.item("tfE2").points.at(-1), e2) && eq(at(s2.site), e2),
+    "flipped, the triangle still has a corner at the bottom left: that line's end stays there, attached",
+    `${JSON.stringify(s2)} ${store.item("tfE2").points.at(-1)}`);
+  check(s1?.item === "tfT" && eq(store.item("tfE1").points.at(-1), [120, 60]),
+    "its top-left corner went to the top right: that line's end goes with it", `${JSON.stringify(s1)} ${store.item("tfE1").points.at(-1)}`);
+  await app.undo();
+  await ready();
+  const both = itemsBBox([store.item("tfT"), store.item("tfE1")]), mid = (both[0] + both[2]) / 2;
+  await run("flipHorizontal", ["tfT", "tfE1"]);
+  const end1 = store.item("tfE1").points.at(-1), link1 = store.item("tfE1").end_link;
+  check(link1?.item === "tfT" && eq(end1, [2 * mid - 60, 60]) && eq(end1, at(link1.site)),
+    "a line flipped with the shape stays attached to it, at the mirrored corner", `${link1?.site} ${end1} mid ${mid}`);
+  await app.undo();
+  await run("flipVertical", ["tfE3"]);
+  check(!store.item("tfE3").end_link, "a line flipped without the shape it's attached to lets go of it");
+  await app.undo();
+  await ready();
+  // An end on a dashed line's dash: the line flipped, the end goes to the mirrored dash point
+  store.update("Dashed line", (doc) => doc.pages[0].items.push({ ...ln("tfD", [[60, 420], [260, 470]]), stroke: stroke("dash") }));
+  await ready();
+  const dashes = canvas.sitesOf(store.item("tfD")).filter((x) => /^d\d+m$/.test(x.key));
+  const pick = dashes[Math.floor(dashes.length / 4)];
+  store.update("On a dash", (doc) => doc.pages[0].items.push(ln("tfH", [[40, 380], pick.at.slice()],
+    { end_link: { item: "tfD", site: pick.key, at: canvas.linkLocal(store.item("tfD"), pick.at) } })));
+  await ready();
+  await run("flipVertical", ["tfD"]);
+  const hEnd = store.item("tfH").points.at(-1);
+  check(dashes.length > 4 && store.item("tfH").end_link?.item === "tfD" && eq(hEnd, [pick.at[0], 890 - pick.at[1]], 1e-6),
+    "an end on a dashed line's dash goes to the mirrored dash point when the line flips", `${pick.key} ${pick.at} -> ${hEnd}`);
+  await app.undo();
+  await app.undo();
+  await app.undo();
+  await ready();
+
+  // 9. Locked objects stay put; with only them selected the menu's entry is greyed out
+  store.update("Lock", (doc) => { findDeep(doc.pages[0].items, "tfB").locked = true; });
+  await run("flipHorizontal", ["tfA", "tfB"]);
+  check(store.item("tfA").flip_h && !store.item("tfB").flip_h && eq(store.item("tfB").frame, b0) && eq(store.item("tfA").frame, a0),
+    "a locked object stays put while the others flip (here about their own middle)", `${store.item("tfA").frame}`);
+  store.select(["tfB"]);
+  check(app.objectMenu({}).find((e) => e?.label === "Rotate and flip")?.disabled === true, "with only a locked object selected, Rotate and flip is greyed out");
+  await app.undo();
+  await app.undo();
+  await ready();
+
+  // 10. The Rotation field still turns a shape about its middle, and Transform Again repeats a quarter turn
+  store.select(["tfA"]);
+  inspector.render();
+  const rotField = fieldByLabel("Rotation");
+  rotField.value = "45";
+  rotField.dispatchEvent(new Event("change", { bubbles: true }));
+  await ready();
+  check(near(store.item("tfA").rot, 45, 1e-6) && eq(store.item("tfA").frame, a0), "the Rotation field turns a shape about its middle",
+    `${store.item("tfA").rot} ${store.item("tfA").frame}`);
+  await run("rotateRight90", ["tfA"]);
+  await app.run("transformAgain");
+  await ready();
+  check(near(store.item("tfA").rot, 225, 1e-6), "Rotate right 90° counts for Transform Again", store.item("tfA").rot);
+}
+
+// Where line ends attach. Near a corner of a dashed shape an end takes the corner, not a dash's
+// point beside it; where two lines meet at a shape's corner each attaches to the shape (moving one
+// doesn't carry the other). An end on a dash's point is held by place: when the dashes change it
+// takes the dash point nearest where it was (with no dashes, the nearest main point), old links
+// without a place included. Until a shape's own points are back from the engine, ends wait rather
+// than going to its frame's corners
+async function linkChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.zoom = 1;
+  canvas.panX = 40;
+  canvas.panY = 40;
+  canvas.applyView();
+  const pg = () => store.doc.pages[store.pageIndex].items;
+  const stroke = (dash, width = 1) => ({ color: "#000000", width, dash, cap: "flat", join: "miter", opacity: 1 });
+  const line = (id, y) => ({ id, type: "line", points: [[20, y], [60, y]], arrow_start: null, arrow_end: null, stroke: stroke("solid", 0.5) });
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const endOf = (id) => store.item(id).points.at(-1).slice();
+  const px = 1 / canvas.k;
+  const ready = async () => { await settle(); await wait(250); await settle(); };
+  store.update("Shapes", (doc) => doc.pages[0].items.push(
+    { ...gRectFor("lkD", 150, 120, 160, 100), stroke: stroke("dash") },
+    { ...gRectFor("lkS", 400, 120, 100, 80), stroke: stroke("solid") },
+    line("lkA", 20), line("lkB", 30), line("lkC", 40), line("lkE", 50)), { select: [] });
+  await ready();
+  const sitesD = () => canvas.sitesOf(store.item("lkD"));
+  const mains = (sites) => sites.filter((x) => !/^d\d+[sme]$/.test(x.key));
+  const dragEnd = async (id, to, opts = {}) => { store.select([id]); await settle(); await drag(endOf(id), to, opts, 8); await ready(); };
+
+  // 1. Dropped 3 px along the top from a dashed rectangle's corner, nearer a dash's end there: the
+  // corner, not the dash's point
+  const corner = sitesD().find((x) => x.key === "c1"), drop = [corner.at[0] - 3 * px, corner.at[1] + 0.3 * px];
+  const nearer = sitesD().filter((x) => /^d\d+[sme]$/.test(x.key) && dist(x.at, drop) < dist(corner.at, drop));
+  await dragEnd("lkA", drop);
+  check(store.item("lkA").end_link?.site === "c1" && dist(endOf("lkA"), corner.at) < 1e-6,
+    "an end dropped near a dashed shape's corner attaches to the corner, though a dash's point is nearer",
+    `${store.item("lkA").end_link?.site}; nearer dash points ${nearer.map((x) => x.key).join(" ") || "none"}`);
+  check(nearer.length > 0, "(the drop was nearer a dash's point than the corner)");
+
+  // 2. On a dash's middle partway along a side, then other dashes: the nearest dash middle, not dash N
+  const far = (x) => mains(sitesD()).every((m) => dist(m.at, x.at) > 20 * px);
+  const dashMid = sitesD().find((x) => /^d\d+m$/.test(x.key) && far(x) && x.at[1] < 125);
+  await dragEnd("lkB", [dashMid.at[0] + 0.5 * px, dashMid.at[1] + 0.5 * px]);
+  const onDash = endOf("lkB"), linkB = { ...store.item("lkB").end_link };
+  check(/^d\d+m$/.test(linkB.site) && dist(onDash, dashMid.at) < 1e-6 && linkB.at?.length === 2,
+    "away from the main points an end attaches to a dash's middle, keeping where it is on the shape",
+    `${linkB.site} at ${linkB.at}; end ${onDash.map((v) => v.toFixed(2))} vs ${dashMid.key} ${dashMid.at.map((v) => v.toFixed(2))}`);
+  store.update("Move it", (doc) => { const f = findDeep(doc.pages[0].items, "lkD").frame; f[0] += 37; f[1] += 23; });
+  await ready();
+  const moved = endOf("lkB");
+  check(near(moved[0] - onDash[0], 37, 1e-6) && near(moved[1] - onDash[1], 23, 1e-6) && store.item("lkB").end_link.site === linkB.site,
+    "moved further than a dash's length, the shape takes the end with it on the same dash", `${moved[0] - onDash[0]}, ${moved[1] - onDash[1]}`);
+  await app.undo();
+  await ready();
+  store.update("Long dashes", (doc) => { findDeep(doc.pages[0].items, "lkD").stroke.dash = "lgDash"; });
+  await ready();
+  const afterDash = endOf("lkB"), linkB2 = store.item("lkB").end_link;
+  check(/^d\d+m$/.test(linkB2?.site || "") && dist(afterDash, onDash) < 6 && linkB2.item === "lkD",
+    "when the dashes change it moves to the dash middle nearest where it was, not to dash N's new place",
+    `${linkB.site} → ${linkB2?.site}, moved ${dist(afterDash, onDash).toFixed(2)} pt`);
+  store.update("Solid", (doc) => { findDeep(doc.pages[0].items, "lkD").stroke.dash = "solid"; });
+  await ready();
+  const linkB3 = store.item("lkB").end_link, nearestMain = mains(sitesD()).reduce((a, b) => (dist(b.at, afterDash) < dist(a.at, afterDash) ? b : a));
+  check(linkB3?.item === "lkD" && linkB3.site === nearestMain.key && !linkB3.at && dist(endOf("lkB"), nearestMain.at) < 1e-6,
+    "made solid, it takes the nearest main point and stays attached", `${JSON.stringify(linkB3)} nearest ${nearestMain.key}`);
+  await app.undo();
+  await app.undo();
+  await ready();
+
+  // 3. Two lines meeting at a corner, the first behind the shape: the second attaches to the shape,
+  // and moving the first one's end doesn't carry it along
+  const cS = canvas.sitesOf(store.item("lkS")).find((x) => x.key === "c0");
+  await dragEnd("lkC", cS.at);
+  store.update("Behind", (doc) => { const items = doc.pages[0].items, i = items.findIndex((x) => x.id === "lkC"); items.unshift(...items.splice(i, 1)); });
+  await ready();
+  await dragEnd("lkE", [cS.at[0] + 0.3 * px, cS.at[1] + 0.3 * px]);
+  check(store.item("lkE").end_link?.item === "lkS" && store.item("lkE").end_link.site === "c0",
+    "where a line's end and a shape's corner are one spot, a new end attaches to the shape", JSON.stringify(store.item("lkE").end_link));
+  const eWas = endOf("lkE");
+  await dragEnd("lkC", [cS.at[0] - 60, cS.at[1] - 40], { metaKey: true, ctrlKey: !isMac });
+  check(dist(endOf("lkE"), eWas) < 1e-6 && dist(endOf("lkC"), eWas) > 30, "and dragging the other line's end away leaves it be",
+    `${JSON.stringify(endOf("lkE"))} ${JSON.stringify(endOf("lkC"))}`);
+
+  // 4. A link from before (a dash's point by number, no place): it stays where it's drawn, then
+  // holds by place
+  const old = sitesD().find((x) => /^d\d+s$/.test(x.key) && far(x) && x.at[1] > 210);
+  store.update("Old link", (doc) => { const l = findDeep(doc.pages[0].items, "lkA"); l.points[1] = old.at.slice(); l.end_link = { item: "lkD", site: old.key }; });
+  await ready();
+  const oldLink = store.item("lkA").end_link;
+  check(oldLink.site === old.key && oldLink.at?.length === 2 && dist(endOf("lkA"), old.at) < 1e-6,
+    "a dash link from an older file stays where it's drawn, and takes its place on the shape", JSON.stringify(oldLink));
+  store.update("Long dashes", (doc) => { findDeep(doc.pages[0].items, "lkD").stroke.dash = "lgDash"; });
+  await ready();
+  check(dist(endOf("lkA"), old.at) < 6, "then follows the dashes by place too", `${dist(endOf("lkA"), old.at).toFixed(2)} pt`);
+
+  // 5. Before a shape's own points are back (just opened, or a page just shown), a change leaves
+  // its ends alone: a triangle's corner isn't its frame's corner
+  store.update("Triangle", (doc) => doc.pages[0].items.push({ ...gRectFor("lkT", 150, 300, 100, 80), geom: "triangle" },
+    { ...line("lkF", 60), end_link: { item: "lkT", site: "c0" } }));
+  await ready();
+  const apex = endOf("lkF");
+  canvas.els.clear();
+  canvas.itemsLayer.replaceChildren();
+  canvas.render();
+  store.update("A change at once", () => {});
+  const atOnce = endOf("lkF");
+  await ready();
+  check(dist(atOnce, apex) < 1e-6 && dist(endOf("lkF"), apex) < 1e-6 && store.item("lkF").end_link?.site === "c0",
+    "a change before a shape's points are back leaves its ends where they are", `${JSON.stringify(apex)} → ${JSON.stringify(atOnce)}`);
+  store.select([]);
+}
+
 // Colour vision side by side: the page five ways at once, each view through its own filter over a
 // copy of the page's objects (not the page's own preview, no ids), and a click keeps one on the
 // page. Command search finds the views by "colour blind", "color blind" or a kind's name
@@ -3134,6 +3507,8 @@ export async function run(app, params) {
     if (params.get("only") === "editanchor") { await editAnchorChecks(); throw ONLY; }
     if (params.get("only") === "duptype") { await dupTypeChecks(app); throw ONLY; }
     if (params.get("only") === "crops") { await cropChecks(app); throw ONLY; }
+    if (params.get("only") === "attach") { await linkChecks(app); throw ONLY; }
+    if (params.get("only") === "turnflip") { await turnFlipChecks(app); throw ONLY; }
     if (params.get("only") === "dashspacing") { await dashSpacingChecks(app); throw ONLY; }
     if (params.get("only") === "multilook") { await multiLookChecks(app); throw ONLY; }
     if (params.get("only") === "freeform") { await freeformChecks(app); throw ONLY; }
@@ -4403,6 +4778,8 @@ export async function run(app, params) {
     await editAnchorChecks();
     await dupTypeChecks(app);
     await cropChecks(app);
+    await linkChecks(app);
+    await turnFlipChecks(app);
     await dashSpacingChecks(app);
     await multiLookChecks(app);
     await freeformChecks(app);
@@ -5078,11 +5455,18 @@ export async function run(app, params) {
     check(!store.item(cn.id).start_link && !store.item(cn.id).end_link, "moving the arrow on its own detaches it");
     app.run("undo");
     check(store.item(cn.id).start_link && store.item(cn.id).end_link, "undo attaches it again");
-    // Dashed outlines: an end can attach to a dot
-    const dot = canvas.sitesOf(store.item("cnD")).find((x) => x.key.startsWith("d") && x.key !== "d0m");
+    // Dashed outlines: an end can attach to a dot (the one furthest from the corners and side
+    // middles, which come first where they're in reach; zoomed in so it's out of their reach)
+    canvas.setZoom(4, ...canvas.toScreen(150, 330));
+    await settle();
+    const cnSites = canvas.sitesOf(store.item("cnD")), cnMains = cnSites.filter((x) => !/^d\d+[sme]$/.test(x.key));
+    const clear = (x) => Math.min(...cnMains.map((m) => Math.hypot(m.at[0] - x.at[0], m.at[1] - x.at[1])));
+    const dot = cnSites.filter((x) => /^d\d+m$/.test(x.key)).reduce((a, b) => (clear(b) > clear(a) ? b : a));
     await drag(cnAt(1), [dot.at[0] + 0.5, dot.at[1] + 0.5]);
     check(store.item(cn.id).end_link?.item === "cnD" && /^d\d+m$/.test(store.item(cn.id).end_link.site)
-      && near(cnAt(1)[0], dot.at[0], 1e-6), "an end attaches to a dot of a dotted outline", JSON.stringify(store.item(cn.id).end_link));
+      && near(cnAt(1)[0], dot.at[0], 1e-6), "an end attaches to a dot of a dotted outline",
+    `${store.item(cn.id).end_link?.site}; the dot ${clear(dot).toFixed(1)} pt from a main point, reach ${(8 / canvas.k).toFixed(1)} pt`);
+    canvas.fit();
     // Copies: alone, a copied arrow lets go; copied with its object, it holds the copy
     app.run("duplicate");
     const lone = store.selected()[0];

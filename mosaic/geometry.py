@@ -734,8 +734,9 @@ def flatten(path: Path, per_curve: int = 16) -> list[list[tuple[float, float]]]:
 # Line ends (arrowheads)
 # ---------------------------------------------------------------------------
 
-# Arrowhead width and length as multiples of the line width (DrawingML sm / med / lg)
-ARROW_SIZE = {"sm": 2.0, "med": 3.0, "lg": 5.0}
+# Arrowhead width and length as multiples of the line width: DrawingML's sm / med / lg, and
+# mosaic's own extra small and extra large a step either side (PowerPoint has neither)
+ARROW_SIZE = {"xs": 1.5, "sm": 2.0, "med": 3.0, "lg": 5.0, "xl": 8.0}
 # Thin lines get arrowheads sized as if the line were at least this wide (points);
 # measured from PowerPoint: a small head on a 1 pt line is 4 x 4 pt
 ARROW_MIN_BASE_WIDTH = 2.0

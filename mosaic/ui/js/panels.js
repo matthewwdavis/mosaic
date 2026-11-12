@@ -85,6 +85,9 @@ const ICONS = {
   magnet: "M5 4h4.5v7.5a2.5 2.5 0 005 0V4H19v7.5a7 7 0 01-14 0zM5 8h4.5M14.5 8H19",
   closed: "M9 6l6 6-6 6", open: "M6 9l6 6 6-6",
   pagesize: "M5 3h14v18H5zM9 15l6-6M11 9h4v4M9 11v4h4", compare: "M2 6h6v12H2zM9 6h6v12H9zM16 6h6v12h-6z",
+  rotateRight: "M4.5 13a7.5 7.5 0 0115 0M16.8 10.5l2.7 2.7 2.7-2.7M6.5 21L12 15.5l5.5 5.5z",
+  rotateLeft: "M19.5 13a7.5 7.5 0 00-15 0M7.2 10.5l-2.7 2.7-2.7-2.7M6.5 21L12 15.5l5.5 5.5z",
+  flipH: "M12 2.5v19M9.5 5L3 19h6.5zM14.5 5L21 19h-6.5z", flipV: "M2.5 12h19M5 9.5L19 3v6.5zM5 14.5l14 6.5v-6.5z",
 };
 
 // Files by name: "a.pdf", "a.pdf and a.png", "a.pdf, a.png and a.tif", "a-1.png, a-2.png and 3 more"
@@ -371,11 +374,29 @@ export const panels = {
         t("distributeTop", "distTop"), t("distributeMiddle", "distMiddle"), t("distributeBottom", "distBottom")),
       group("Spacing", t("distributeH", "spaceH"), t("distributeV", "spaceV"), gapField(this.app)),
       group("Align to", alignToField(this.app)),
+      this.turnFlipGroup(group),
       group("Match size", t("sameWidth", "sameWidth"), t("sameHeight", "sameHeight")),
       group("Group", t("group", "group"), t("ungroup", "ungroup"), t("gridLayout", "cells")),
       group("Order", t("bringToFront", "front"), t("bringForward", "forward"), t("sendBackward", "backward"),
         t("sendToBack", "back")),
     ];
+  },
+  // Rotate right or left 90° and flip: four small buttons in two rows (as in the Text section),
+  // under PowerPoint's name for them, so the Arrange tab stays one row in the app's window (WebKit's
+  // text is wider than Chrome's); their names are in their tooltips
+  turnFlipGroup(group) {
+    const mini = (cmd, iconName) => {
+      const c = this.app.commands[cmd];
+      const b = h("button", { type: "button", class: "tool mini", title: c.label, "aria-label": c.label, "data-cmd": cmd, tabindex: -1 },
+        icon(iconName));
+      b.addEventListener("click", () => this.app.run(cmd));
+      return b;
+    };
+    const g = group("Rotate",
+      h("div", { class: "text-row" }, mini("rotateLeft90", "rotateLeft"), mini("rotateRight90", "rotateRight")),
+      h("div", { class: "text-row" }, mini("flipHorizontal", "flipH"), mini("flipVertical", "flipV")));
+    g.querySelector(".rgroup-items").classList.add("text-rows");
+    return g;
   },
   // (remember: picked by hand, which also keeps it once the selection that showed a tab is gone;
   // followSelection's own switches don't)

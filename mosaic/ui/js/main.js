@@ -7,7 +7,7 @@ window.addEventListener("unhandledrejection", (e) => window.__faErrors.push(Stri
 
 import { rpc } from "./api.js";
 import {
-  canvas, copyItems, detachMoved, detachRegion, findDeep, rotateItem, scaleItem, shiftGuides, shiftItem, withRegionLines,
+  canvas, copyItems, detachMoved, detachRegion, findDeep, flipItem, rotateItem, scaleItem, shiftGuides, shiftItem, withRegionLines,
 } from "./canvas.js";
 import { contextMenu } from "./contextmenu.js";
 import { gridFor } from "./gridlayout.js";
@@ -1275,6 +1275,63 @@ const app = {
     const words = { left: "left edges", center: "centres", right: "right edges", top: "tops", middle: "middles", bottom: "bottoms" }[how];
     announce(sel.length === 1 ? `Aligned to the page: ${how}` : `Aligned ${sel.length} objects' ${words} to the ${mode === "key" ? "key object" : mode}`);
   },
+  // What Rotate and flip moves of the selection: not locked objects, area fills (they follow their
+  // lines), scale bars (their pictures) or a zoom inset's lines (its box)
+  turnable(sel = store.selected()) {
+    return sel.filter((it) => !it.locked && it.geom !== "region" && it.type !== "scalebar" && !it.zoomline);
+  },
+  // Turn objects together by `angle` degrees clockwise about the middle of their outline, as one
+  // undo step that Transform Again (⌘⇧D) then repeats. A line among them stays attached to what
+  // turns with it and lets go of anything else (detachMoved); a line left out keeps its end where
+  // the objects still have a point of that kind (canvas.keepEnds)
+  turnItems(label, ids, angle) {
+    if (!angle || !ids.length) return;
+    this.noteTransform({ kind: "rotate", angle });
+    const q = ((angle % 360) + 360) % 360, r = (angle * Math.PI) / 180;
+    const [c, s] = { 90: [0, 1], 180: [-1, 0], 270: [0, -1] }[q] || [Math.cos(r), Math.sin(r)];
+    store.update(label, (doc) => {
+      const page = doc.pages[store.pageIndex].items;
+      const items = ids.map((id) => findDeep(page, id)).filter(Boolean), b = itemsBBox(items);
+      if (!b) return;
+      detachMoved(items);
+      for (const it of items) rotateItem(it, angle, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2);
+      canvas.keepEnds(page, idsWithin(items), ([x, y]) => [x * c - y * s, x * s + y * c]);
+    });
+  },
+  // Mirror objects as a whole, left to right (axis 0) or top to bottom (1), across the middle of
+  // their outline, as it looks on the page (flipItem), with their lines as turnItems keeps them
+  flipItems(label, ids, axis) {
+    store.update(label, (doc) => {
+      const page = doc.pages[store.pageIndex].items;
+      const items = ids.map((id) => findDeep(page, id)).filter(Boolean), b = itemsBBox(items);
+      if (!b) return;
+      detachMoved(items);
+      for (const it of items) flipItem(it, axis, axis ? (b[1] + b[3]) / 2 : (b[0] + b[2]) / 2);
+      canvas.keepEnds(page, idsWithin(items), ([x, y]) => (axis ? [x, -y] : [-x, y]));
+    });
+  },
+  // Rotate right or left 90° and Flip (ribbon, right-click menu, the strip above the panel's tabs):
+  // the selection as a whole, about its middle
+  turnSelection(angle) {
+    const sel = store.selected(), items = this.turnable(sel);
+    if (!items.length) return announce(sel.length ? "Locked objects, area fills and scale bars stay put" : "Select something to rotate first");
+    this.turnItems(angle > 0 ? "Rotate right" : "Rotate left", items.map((it) => it.id), angle);
+    const way = `${angle > 0 ? "right" : "left"} 90°`;
+    announce((items.length === 1 ? `Turned ${way}` : `Turned ${items.length} objects ${way}, together`) + leftOut(sel, items));
+  },
+  flipSelection(axis) {
+    const sel = store.selected(), items = this.turnable(sel), way = axis ? "vertically" : "horizontally";
+    if (!items.length) return announce(sel.length ? "Locked objects, area fills and scale bars stay put" : "Select something to flip first");
+    // (a level text box, or a bracket flipped along its bar, is the same flipped: no undo step)
+    const b = itemsBBox(items), probe = clone(items);
+    probe.forEach((it) => flipItem(it, axis, axis ? (b[1] + b[3]) / 2 : (b[0] + b[2]) / 2));
+    if (sameShape(probe, items)) {
+      return announce(items.every((it) => it.textbox) ? "Text boxes keep reading the right way, so a level one is the same flipped"
+        : `It's the same flipped ${way}`);
+    }
+    this.flipItems(axis ? "Flip vertically" : "Flip horizontally", items.map((it) => it.id), axis);
+    announce((items.length === 1 ? `Flipped ${way}` : `Flipped ${items.length} objects ${way}, as a whole`) + leftOut(sel, items));
+  },
   // Spread objects so their left edges (centres, right edges, tops...) are evenly spaced; the
   // outer two stay put, or move to the page's edges when aligning to the page
   distributeBy(edge) {
@@ -1643,6 +1700,8 @@ const app = {
       c("gridLayout", { disabled: sel.filter((it) => !it.attach).length < 2 }),
       "-",
       c("bringToFront"), c("bringForward"), c("sendBackward"), c("sendToBack"),
+      { label: "Rotate and flip", disabled: !this.turnable(sel).length,
+        items: [c("rotateRight90"), c("rotateLeft90"), "-", c("flipHorizontal"), c("flipVertical")] },
       "-",
       { label: "Lock position", checked: locked, run: () => this.setFlag("locked", !locked) },
       { label: "Hide", run: () => this.setFlag("hidden", true) },
@@ -2208,6 +2267,18 @@ const REPO = "https://github.com/matthewwdavis/mosaic";
 const VISION = [["normal", "Normal Vision"], ["deuteranopia", "Red-Green: Deuteranopia"], ["protanopia", "Red-Green: Protanopia"],
   ["tritanopia", "Blue-Yellow: Tritanopia"], ["greyscale", "Greyscale"]];
 function cmd(label, run, keys = null, match = null, short = null) { return { label, run, keys, match, short }; }
+// The ids of objects and of everything in them
+function idsWithin(items, out = new Set()) {
+  for (const it of items) { out.add(it.id); if (it.type === "group") idsWithin(it.items, out); }
+  return out;
+}
+// Whether objects are the same to a millionth of a point (a frame mirrored about its own middle)
+const sameShape = (a, b) => {
+  const round = (k, v) => (typeof v === "number" ? Math.round(v * 1e6) / 1e6 : v);
+  return JSON.stringify(a, round) === JSON.stringify(b, round);
+};
+// What a turn or flip of the selection left as it was, for its announcement
+const leftOut = (sel, moved) => (moved.length < sel.length ? "; locked objects, area fills and scale bars stayed put" : "");
 const mod = (e) => (isMac ? e.metaKey : e.ctrlKey);
 const plain = (e) => !e.metaKey && !e.ctrlKey && !e.altKey;
 const key = (k, { shift = false } = {}) => (e) => mod(e) && e.shiftKey === shift && !e.altKey && e.key.toLowerCase() === k;
@@ -2253,9 +2324,9 @@ app.commands = {
   textMiddle: cmd("Text in the middle of its box", () => textRibbon.anchor("ctr"), null, null, "Middle"),
   textBottom: cmd("Text at the bottom of its box", () => textRibbon.anchor("b"), null, null, "Bottom"),
   sameWidth: cmd("Same width: make the selected objects as wide as the key object (or the widest), keeping "
-    + "their proportions", () => app.matchSize("w"), null, null, "Same width"),
+    + "their proportions", () => app.matchSize("w"), null, null, "Width"),
   sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the tallest), keeping "
-    + "their proportions", () => app.matchSize("h"), null, null, "Same height"),
+    + "their proportions", () => app.matchSize("h"), null, null, "Height"),
   addScaleBar: cmd("Scale bar: add one to the selected picture (it needs a scale)", () => app.addScaleBar(), null, null, "Scale bar"),
   measureScale: cmd("Measure a known length on the selected picture, to give it a scale", () => app.measureScale(), null, null,
     "Measure"),
@@ -2328,6 +2399,10 @@ app.commands = {
   distributeTop: cmd("Distribute top edges", () => app.distributeBy("top"), null, null, "Top"),
   distributeMiddle: cmd("Distribute middles", () => app.distributeBy("middle"), null, null, "Middle"),
   distributeBottom: cmd("Distribute bottom edges", () => app.distributeBy("bottom"), null, null, "Bottom"),
+  rotateRight90: cmd("Rotate right 90°", () => app.turnSelection(90), null, null, "Right 90°"),
+  rotateLeft90: cmd("Rotate left 90°", () => app.turnSelection(-90), null, null, "Left 90°"),
+  flipHorizontal: cmd("Flip horizontally: mirror left to right, as a whole", () => app.flipSelection(0), null, null, "Horizontal"),
+  flipVertical: cmd("Flip vertically: mirror top to bottom, as a whole", () => app.flipSelection(1), null, null, "Vertical"),
   distributeH: cmd("Space evenly across", () => app.distribute("h"), null, null, "Across"),
   distributeV: cmd("Space evenly down", () => app.distribute("v"), null, null, "Down"),
   zoomIn: cmd("Zoom in", () => canvas.setZoom(canvas.zoom * 1.25), `${M}+`, (e) => mod(e) && (e.key === "=" || e.key === "+"), "Zoom in"),

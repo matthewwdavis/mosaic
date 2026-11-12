@@ -229,6 +229,14 @@ Matthew's choices are in brackets.
       choices]
 - [x] Guides can be grabbed over objects (reported 2026-11-12); Shift, ⌘ and Option still reach
       the object, and a rule lying along a guide is picked first [Matthew's choices]
+- [x] Line ends attach where meant (reported 2026-11-12): corners before dash points, shapes before
+      other lines' ends at one spot, ends on dashes kept by place when the dashes change, and no
+      moves before a shape's own points are known [Matthew's choices]
+- [x] Extra small and extra large line ends (asked 2026-11-12): 3 and 16 pt on a thin line; a
+      picture in PowerPoint exports [Matthew's choices]
+- [x] Rotate 90° and flip for every object (asked 2026-11-12), lines, groups and several objects
+      included: in the Arrange tab, the right-click menu and the properties panel; the selection as
+      a whole, flips as seen on the page, text boxes kept readable [Matthew's choices]
 
 ## Acceptance test (test slide)
 

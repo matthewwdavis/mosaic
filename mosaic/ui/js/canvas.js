@@ -10,7 +10,7 @@ import { fitFreehand, moveHandle, moveNode, nearestOn, ringsOf, segments, splitA
 import { followScaleBars } from "./scalebar.js";
 import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
 import { followLifted, isLifted, isPlot, lift, plotTexts, plotTextsNow, quadOnPage, remapCopies, shownVariants, textAt } from "./liftedtext.js";
-import { labelRoom } from "./brackets.js";
+import { across, labelRoom } from "./brackets.js";
 import { applyTextStyle } from "./textstyles.js";
 import { collapsed, formatText, ordered, paraLength } from "./textformat.js";
 import {
@@ -1718,7 +1718,7 @@ export const canvas = {
     const isEnd = op.index === 0 || op.index === it.points.length - 1;
     // An end near a connection point attaches to it (hold ⌘/Ctrl to place it freely)
     const near = isEnd && !(e.metaKey || e.ctrlKey) ? this.siteNear(p, it.id) : null;
-    op.link = near && { item: near.item, site: near.site };
+    op.link = near && this.linkTo(near);
     this.sitePointer = isEnd ? p : null;
     this.siteActive = near;
     let q = near ? near.at.slice() : this.snapPoint(p, op.targets, e);
@@ -1789,16 +1789,24 @@ export const canvas = {
     }
     return boxSites(it);
   },
-  // The connection point nearest p, within reach, on any object but `exceptId`
+  // The connection point nearest p, within reach, on any object but `exceptId`. Main points
+  // (corners, side middles, a circle's 8 points, ends) come first: a dash's points, which sit
+  // right beside a corner's, count only where no main point is in reach. At the same spot (within
+  // a pixel) a shape's point comes before a line's, so lines meeting at a corner each attach to the
+  // shape, not one to the other's end
   siteNear(p, exceptId = null) {
-    const reach = SITE_PX / this.k;
+    const reach = SITE_PX / this.k, same = 1 / this.k;
     let best = null;
     const visit = (items) => items.forEach((it) => {
       if (it.hidden || it.id === exceptId) return;
       if (it.type === "group") visit(it.items);
       for (const site of this.sitesOf(it)) {
         const d = Math.hypot(site.at[0] - p[0], site.at[1] - p[1]);
-        if (d <= reach && (!best || d < best.d)) best = { item: it.id, site: site.key, at: site.at, d };
+        if (d > reach) continue;
+        const rank = isDashSite(site.key) ? 1 : 0, score = d + (it.type === "line" ? same : 0);
+        if (!best || rank < best.rank || (rank === best.rank && score < best.score)) {
+          best = { item: it.id, site: site.key, at: site.at, d, rank, score };
+        }
       }
     });
     visit(store.items());
@@ -1827,15 +1835,11 @@ export const canvas = {
           if (!link) continue;
           const target = findDeep(items, link.item);
           if (!target || target === line) { delete line[key]; continue; }
-          const sites = this.sitesOf(target), p = line.points[idx];
-          let site = sites.find((x) => x.key === link.site);
-          if (!site) {
-            const kind = link.site.replace(/\d.*$/, "");
-            site = sites.filter((x) => x.key.replace(/\d.*$/, "") === kind)
-              .sort((a, b) => Math.hypot(a.at[0] - p[0], a.at[1] - p[1]) - Math.hypot(b.at[0] - p[0], b.at[1] - p[1]))[0];
-            if (!site) { delete line[key]; continue; }
-            link.site = site.key;
-          }
+          // (until a shape's own points, or a line's dashes, are back from the engine, wait: the
+          // stand-in frame points number a shape's corners differently)
+          if (!this.sitesKnown(target, link.site)) continue;
+          const p = line.points[idx], site = this.linkSite(target, link, this.sitesOf(target), p);
+          if (!site) { delete line[key]; continue; }
           if (Math.abs(p[0] - site.at[0]) > 1e-9 || Math.abs(p[1] - site.at[1]) > 1e-9) {
             line.points[idx] = [site.at[0], site.at[1]];
             moved = true;
@@ -1850,6 +1854,86 @@ export const canvas = {
       const pts = elbowRoute(a, b, this.attachedSide(line.start_link, items, a), this.attachedSide(line.end_link, items, b), line.elbow ?? 0.5);
       if (pts.length !== line.points.length || pts.some((q, i) => Math.abs(q[0] - line.points[i][0]) > 1e-9 || Math.abs(q[1] - line.points[i][1]) > 1e-9)) {
         line.points = pts;
+      }
+    }
+  },
+  // Whether the points a link needs are the object's own yet: a shape's come from the engine
+  // (sitesOf stands in its frame's corners and side middles till then), and so do a line's dashes,
+  // drawn for the line as it is (only moved since; turned, flipped or reshaped, they're the old
+  // line's until it's drawn again, which follows the links once more)
+  sitesKnown(target, key) {
+    const e = this.els.get(target.id);
+    if (target.type === "shape") return !!e?.sites;
+    if (target.type === "line" && isDashSite(key)) return !!(e?.sites && e.origin && e.geomKey === this.geomKey(target)[0]);
+    return true;
+  },
+  // The point a link is attached at, among the object's points now (p: the line's end as it is).
+  // A main point keeps its name (a corner stays that corner through a resize). A dash's point is
+  // held by where it was, not its number, which means another dash once the dashes change
+  // (pattern, width, spacing, or a resize that refits them): it takes the dash point of its kind
+  // (start, middle or end) nearest where it was, or, with no dashes now, the nearest main point.
+  // Where it was is link.at, in the object's own terms (set as it attaches, linkTo); a link
+  // without one (from an older file) starts from where the line's end is. Links are updated in place
+  linkSite(target, link, sites, p) {
+    const dist = (q, r) => Math.hypot(q.at[0] - r[0], q.at[1] - r[1]);
+    const nearest = (list, r) => list.reduce((a, b) => (!a || dist(b, r) < dist(a, r) ? b : a), null);
+    if (!isDashSite(link.site)) {
+      const named = sites.find((x) => x.key === link.site);
+      if (named) return named;
+      const kind = link.site.replace(/\d.*$/, "");
+      const site = nearest(sites.filter((x) => x.key.replace(/\d.*$/, "") === kind), p);
+      if (site) link.site = site.key;
+      return site;
+    }
+    const was = link.at ? this.linkPage(target, link.at) : p, end = link.site.slice(-1);
+    const dashes = sites.filter((x) => isDashSite(x.key) && x.key.endsWith(end));
+    const site = nearest(dashes.length ? dashes : sites.filter((x) => !isDashSite(x.key)), was);
+    if (!site) return null;
+    link.site = site.key;
+    if (isDashSite(site.key)) link.at = this.linkLocal(target, site.at);
+    else delete link.at;
+    return site;
+  },
+  // A link to the connection point siteNear found; on a dash's point, with where it is (link.at)
+  linkTo(near) {
+    const link = { item: near.item, site: near.site }, target = isDashSite(near.site) && findDeep(store.items(), near.item);
+    if (target) link.at = this.linkLocal(target, near.at);
+    return link;
+  },
+  // A point in an object's own terms, so it moves with the object: a shape's as fractions of its
+  // frame (before turning and flipping, as its points are given), a line's from its first point
+  linkLocal(target, at) {
+    const r = (v) => Math.round(v * 1e6) / 1e6;
+    if (target.type === "line") return [r(at[0] - target.points[0][0]), r(at[1] - target.points[0][1])];
+    const [, , w, h] = target.frame, q = apply(invert(frameMatrix(target.frame, target.rot || 0, target.flip_h, target.flip_v)), ...at);
+    return [r(q[0] / (w || 1)), r(q[1] / (h || 1))];
+  },
+  linkPage(target, local) {
+    if (target.type === "line") return [target.points[0][0] + local[0], target.points[0][1] + local[1]];
+    const [, , w, h] = target.frame;
+    return apply(frameMatrix(target.frame, target.rot || 0, target.flip_h, target.flip_v), local[0] * w, local[1] * h);
+  },
+  // After objects turn or flip (moved: their ids, their parts' too), the ends attached to them.
+  // An end on a line that stayed put stays put where the object still has a point of the same
+  // kind (a circle or rectangle flipped, a square turned a quarter: it looks the same, so its lines
+  // shouldn't swing round it), attached to that point; otherwise it goes with its own point
+  // (followLinks). An end on a line's dash is held from the line's first point (linkLocal), so
+  // that place turns or mirrors with the line (linear: what the turn or flip does to a direction)
+  keepEnds(items, moved, linear) {
+    const kind = (key) => (isDashSite(key) ? `d${key.slice(-1)}` : key.replace(/\d.*$/, ""));
+    for (const line of allLines(items)) {
+      for (const [key, idx] of [["start_link", 0], ["end_link", line.points.length - 1]]) {
+        const link = line[key], target = link && moved.has(link.item) && findDeep(items, link.item);
+        if (!target || target.type === "group") continue;
+        if (target.type === "line" && link.at) link.at = linear(link.at);
+        if (moved.has(line.id) || !this.sitesKnown(target, link.site)) continue;
+        // (a line's dashes are as drawn before it moved, so only its ends and middle count)
+        const p = line.points[idx], here = this.sitesOf(target).find((x) => kind(x.key) === kind(link.site)
+          && !(target.type === "line" && isDashSite(x.key)) && Math.hypot(x.at[0] - p[0], x.at[1] - p[1]) < 0.01);
+        if (!here) continue;
+        link.site = here.key;
+        if (isDashSite(here.key)) link.at = this.linkLocal(target, here.at);
+        else delete link.at;
       }
     }
   },
@@ -1906,13 +1990,13 @@ export const canvas = {
     const near = lineTool && !(e.metaKey || e.ctrlKey) ? this.siteNear(p) : null;
     const start = near ? near.at.slice() : this.snapPoint(p, targets, e);
     this.op = { type: "draw", tool: this.tool, start, cur: start, targets, moved: false,
-      startLink: near && { item: near.item, site: near.site } };
+      startLink: near && this.linkTo(near) };
   },
   drawTo(p, e) {
     const op = this.op;
     const lineTool = ["line", "arrow"].includes(op.tool);
     const near = lineTool && !(e.metaKey || e.ctrlKey) ? this.siteNear(p) : null;
-    op.endLink = near && { item: near.item, site: near.site };
+    op.endLink = near && this.linkTo(near);
     this.sitePointer = lineTool ? p : null;
     this.siteActive = near;
     let q = near ? near.at.slice() : this.snapPoint(p, op.targets, e);
@@ -2740,7 +2824,9 @@ export function shiftItem(it, orig, dx, dy) {
 
 // Turn an object by `angle` degrees (clockwise) about (cx, cy): a framed object's middle goes
 // round and the object turns with it; a line's points turn; a group's parts each do, and the
-// group keeps count of how far it has turned as a whole (rot, shown in its Rotation field)
+// group keeps count of how far it has turned as a whole (rot, shown in its Rotation field). A
+// significance bracket stays level or upright (the engine draws it so): a quarter turn moves its
+// label to the next side round, any other turn just carries its middle round
 export function rotateItem(it, angle, cx, cy) {
   // (quarter turns exact, so a line turned upright stays exactly upright)
   const q = ((angle % 360) + 360) % 360, r = (angle * Math.PI) / 180;
@@ -2750,12 +2836,61 @@ export function rotateItem(it, angle, cx, cy) {
     it.items.forEach((k) => rotateItem(k, angle, cx, cy));
     it.rot = turnedBy(it.rot, angle);
   } else if (it.type === "line") it.points = it.points.map(turn);
+  else if (it.type === "bracket") turnBracket(it, q % 90 ? 0 : q / 90, turn);
   else {
     const [x, y, w, h] = it.frame;
     const [mx, my] = turn([x + w / 2, y + h / 2]);
     it.frame = [mx - w / 2, my - h / 2, w, h];
     it.rot = turnedBy(it.rot, angle);
   }
+}
+// A bracket turned `quarters` quarter turns clockwise (turn: where a point goes). Its frame turns
+// about its middle; across to upright, the ticks keep their length (tick); upright to across, the
+// frame is as tall as the label's room and the ticks, from where the ticks end (resolve._bracket)
+const NEXT_SIDE = { up: "right", right: "down", down: "left", left: "up" };
+function turnBracket(it, quarters, turn) {
+  const [x, y, w, h] = it.frame, [mx, my] = turn([x + w / 2, y + h / 2]), wasAcross = across(it);
+  const [nw, nh] = quarters % 2 ? [h, w] : [w, h];
+  it.frame = [mx - nw / 2, my - nh / 2, nw, nh];
+  for (let i = 0; i < quarters; i++) it.dir = NEXT_SIDE[it.dir || "up"];
+  if (quarters % 2 === 0) return;
+  if (wasAcross) { it.tick = Math.max(h - labelRoom(it), 0); return; }
+  const tall = labelRoom(it) + Math.min(it.tick ?? 4, w);
+  it.frame = [it.frame[0], it.dir === "down" ? it.frame[1] : it.frame[1] + nh - tall, nw, tall];
+}
+// Mirror an object across the upright line x = at (axis 0: left to right) or the level line
+// y = at (axis 1: top to bottom), as it looks on the page. A line's points mirror; a framed
+// object's middle mirrors and it flips, its turn reversed (flips come before the turn,
+// frameMatrix); a group's parts each do, and its count of turn reverses. Text boxes keep reading
+// the right way: they move, and a slanted one takes the mirrored slant, but they don't flip. A
+// significance bracket's label changes side (it stays level or upright), and a grid layout keeps
+// its order, each part mirrored in its cell
+export function flipItem(it, axis, at) {
+  if (it.type === "group") {
+    it.items.forEach((k) => flipItem(k, axis, at));
+    if (it.rot) it.rot = turnedBy(-it.rot, 0);
+    if (it.grid && it.items.length) {
+      it.grid.origin = itemsBBox(it.items).slice(0, 2);
+      delete it.grid.seen;
+    }
+    return;
+  }
+  if (it.type === "line") {
+    it.points = it.points.map(([x, y]) => (axis ? [x, 2 * at - y] : [2 * at - x, y]));
+    return;
+  }
+  const [x, y, w, h] = it.frame;
+  it.frame = axis ? [x, 2 * at - y - h, w, h] : [2 * at - x - w, y, w, h];
+  if (it.type === "bracket") {
+    const swap = axis ? { up: "down", down: "up" } : { left: "right", right: "left" };
+    it.dir = swap[it.dir || "up"] || it.dir || "up";
+    return;
+  }
+  if (!it.textbox) {
+    const key = axis ? "flip_v" : "flip_h";
+    it[key] = !it[key];
+  }
+  it.rot = turnedBy(-(it.rot || 0), 0);
 }
 // An angle turned on by `angle` degrees, from 0 up to 360, to a millionth of a degree (so turns
 // that add up to 90 land on 90 exactly)
@@ -2919,6 +3054,8 @@ function pointAlong(pts, f) {
   return pts[pts.length - 1].slice();
 }
 // A frame's (or a group's box's) corners c0-c3 and side middles m0-m3, as for a rectangle
+// A dash's start, middle or end ("d12s", "d12m", "d12e": dash 13's), as opposed to a main point
+const isDashSite = (key) => /^d\d+[sme]$/.test(key || "");
 function boxSites(it) {
   let corners;
   if (it.frame) {

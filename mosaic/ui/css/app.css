@@ -263,6 +263,10 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .button-row.icons { gap: 0.2rem; }
 .button-row.icons .icon-btn { min-width: 2.1rem; min-height: 2.1rem; }
 .button-row.icons .icon-btn .icon { width: 1.25rem; height: 1.25rem; }
+/* Turn and flip beside Rotation (or a line's Angle): the field takes what the four buttons leave */
+.row:has(> .turn-flip) { grid-template-columns: minmax(0, 1fr) auto; }
+.row:has(> .turn-flip:only-child) { grid-template-columns: auto; }
+.button-row.turn-flip { flex-wrap: nowrap; }
 .field.gap input[type=text] { width: 4.2rem; flex: none; }
 .rgroup .field.gap, .rgroup .field { justify-content: center; }
 .rgroup .field > label { font-size: 0.72rem; }
@@ -324,13 +328,16 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .pic-select:hover { background: var(--hover); }
 .pic-select[aria-disabled="true"] { opacity: 0.5; cursor: default; }
 .pic-select[aria-disabled="true"]:hover { background: var(--panel); }
-.pic-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pic-label { flex: 1; min-width: 0; overflow: hidden; line-height: 1.15; overflow-wrap: break-word; }   /* (a long name, "Extra large" beside its picture, wraps rather than being cut off) */
 .pic-arrow { color: var(--muted); font-size: 0.75rem; }
 .pic { display: inline-flex; align-items: center; flex: none; }
 .pic svg, .menu-pic svg { display: block; forced-color-adjust: none; }
 .pic-select .pic-svg { max-width: 30px; height: auto; }   /* (full size in the menu; room for the name here) */
 .pic .icon, .menu-pic .icon { width: 1.25rem; height: 1.25rem; }
 .row:has(.why) { align-items: start; }
+/* Two picture lists side by side are as tall as each other (one name on two lines, say), labels level */
+.row:has(> .field > .pic-select):not(:has(.why)) { align-items: stretch; }
+.row:has(> .field > .pic-select):not(:has(.why)) > .field > .pic-select { flex: 1; }
 .field .why { margin: 0.1rem 0 0; }
 .menu-pic { display: inline-flex; vertical-align: middle; margin-right: 0.55rem; }
 .menu-heading { padding: 0.45rem 0.5rem 0.15rem 2rem; font-size: 0.74rem; font-weight: 600; color: var(--muted); }

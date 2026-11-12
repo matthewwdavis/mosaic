@@ -31,6 +31,7 @@ NS = ('xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
 SVG_EXT = "{96DAC541-7B7A-43D3-8B79-37D633B846F1}"
 SVG_NS = "http://schemas.microsoft.com/office/drawing/2016/SVG/main"
 HEADS = {"triangle", "stealth", "diamond", "oval", "arrow"}
+HEAD_SIZES = {"sm", "med", "lg"}   # PowerPoint's; extra small and large (xs, xl) are mosaic's
 CAPS = {"round": "rnd", "square": "sq", "flat": "flat"}
 SLIDE_MIN, SLIDE_MAX = 914400, 51206400   # EMU: PowerPoint's smallest and largest slide sides
 FALLBACK_DPI = 300.0
@@ -228,6 +229,8 @@ class PptxWriter:
             a = it.get(k)
             if a and (a.get("type") not in HEADS or float(a.get("rounding") or 0) > 0):
                 return "a pathway or rounded arrowhead"
+            if a and not {a.get("w", "med"), a.get("len", "med")} <= HEAD_SIZES:
+                return "an extra small or extra large arrowhead"
         return None
 
     def item(self, it: dict) -> list[str]:

@@ -39,8 +39,8 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
    - **Home**: New, Open, Save; Undo, Redo; **Text** (font, size, colour, alignment and more: see
      [Text and panel labels](#text-and-panel-labels)); Cut, Copy, Paste, Painter; Duplicate,
      Again, Delete; Add page, Size, Fit page; Swatches, Text styles, Object styles, Fonts.
-   - **Arrange**: Align, Distribute, Spacing, Align to, Match size, Group and Grid, Order (see
-     [Align and distribute](#align-and-distribute)).
+   - **Arrange**: Align, Distribute, Spacing, Align to, Rotate, Match size, Group and
+     Grid, Order (see [Align and distribute](#align-and-distribute)).
    - **Figure**: [cropping pictures](#cropping-a-picture) (Crop ▾), scale bars (Scale bar,
      Measure), zoom insets, significance brackets (Bracket, Stack), [symbols](#symbols) (Make
      symbol, Symbols…), [equations](#equations) and the [figure report](#checking-and-exporting).
@@ -489,8 +489,11 @@ LaTeX's maths, not whole LaTeX documents).
   take it, those inside groups too: a fill to the shapes, arrowheads to the lines, line settings
   to the ones that have a line. **No line** takes the shapes' lines away and leaves lines theirs.
   It's one undo step.
-- **Arrowheads:** each end can be none, triangle, stealth, open arrow, circle or diamond, small
-  to large. **Rounding** (0-100%) rounds a pointed head's tip, which still ends exactly on the
+- **Arrowheads:** each end can be none, triangle, stealth, open arrow, circle or diamond, extra
+  small to extra large. Sizes go with the line's width, taking any line thinner than 2 pt as 2 pt:
+  on such a line a head is 3 pt across (Extra small), 4, 6, 10 or 16 pt (Extra large). PowerPoint
+  has no extra small or extra large, so a line with either goes into a PowerPoint export as a
+  picture. **Rounding** (0-100%) rounds a pointed head's tip, which still ends exactly on the
   line's end. **Swap ends** swaps them.
 - **Pathway ends:** **Bar** (inhibition, ⊣), **Half arrow** (one barb, on the left of the way the
   line goes, so two lines in opposite directions make ⇌), **Open circle** and **Open triangle**
@@ -667,6 +670,14 @@ the object when it moves, resizes or rotates.
   - a picture's or text box's corners and side middles;
   - a line's ends and middle;
   - on dashed or dotted outlines, both ends and the middle of every dash.
+- **Which point an end takes:** the corners, side middles, a circle's 8 points and ends come
+  first. A dash's points count only where none of those is in reach, so an end dropped near a
+  dashed shape's corner takes the corner, not a dash beside it. Where a shape's point and another
+  line's end are in the same spot, an end attaches to the shape, so two lines meeting at a corner
+  each hang on the shape, and moving one never carries the other along.
+- **An end on a dash** stays with that place on the outline: when the dashes change (another
+  dash style, line width or spacing, or a resize that refits them) it moves to the dash point
+  nearest where it was, and if the outline becomes solid, to the nearest corner or side middle.
 - An attached end is a **green** dot. The arrow's Arrange tab lists what each end is attached to,
   with **Detach** buttons.
 - Hold **⌘** while dropping an end to leave it unattached. Moving the line on its own (dragging
@@ -734,14 +745,34 @@ PowerPoint and Visio:
   open. They follow a drag as it happens; type a number and press Enter to set it. They're in
   centimetres (change the unit in Settings). A group's are its outline's: typing its width or
   height scales everything in it from its top-left corner, keeping its proportions (text sizes
-  and line widths stay as they are). **Rotation** (degrees, clockwise) and the flips are there
-  too. A group remembers how far it has turned as a whole: type an angle and everything in it
+  and line widths stay as they are). **Rotation** (degrees, clockwise) is there too, with buttons
+  to rotate 90° and flip (below). A group remembers how far it has turned as a whole: type an angle and everything in it
   turns together about its middle. With several objects selected, Rotation shows the angle they
   share and turns them all together; when their angles differ it's blank, and a typed number
   turns them all by that much. Locked objects stay put.
 - **A line's angle:** a selected line has **Angle** at the top of the properties panel: the way
   from its start to its end, clockwise from pointing right (0° points right, 90° down). Type an
   angle and the line turns about its middle; an end attached to an object lets go.
+- **Rotate 90° and flip:** **Rotate right 90°**, **Rotate left 90°**, **Flip horizontally** and
+  **Flip vertically** are in the Arrange tab's **Rotate** group, in the right-click menu
+  under **Rotate and flip**, and beside Rotation (or a line's Angle) at the top of the properties
+  panel. They work on anything: shapes, pictures, text boxes, lines, brackets, symbols, groups,
+  and several objects at once, which turn or flip as a whole about their middle (their places
+  mirror too, as if they were grouped). A flip mirrors an object as it looks on the page: a shape
+  turned 30° flipped horizontally is a mirrored shape at 330°. A shape's or picture's flip button
+  shows when it's flipped; click it again to flip it back.
+  - Text boxes keep reading the right way: flipped with other objects they move to their mirrored
+    place (a slanted one takes the mirrored slant) but their text isn't mirrored, so a level text
+    box flipped on its own stays as it is. Text in a shape (an arrow with words in it) is never
+    mirrored either; a vertical flip turns it upside down, as in PowerPoint.
+  - A significance bracket stays level or upright: a quarter turn moves its label to the next
+    side round and a flip across its bar moves it to the other side, with its ticks as long.
+  - Lines that turn or flip with an object stay attached to it; a line that turns or flips
+    without the object it's attached to lets go. A line left out keeps its end where it is when
+    the object still has a point of that kind there (a circle or rectangle flipped looks the
+    same, so its lines don't swing round it); otherwise the end goes with its point.
+  - Locked objects, area fills (they follow their lines) and scale bars (they follow their
+    pictures) stay put. Rotate right or left counts for Transform again (⌘⇧D).
 - **Distances:** with something selected, hold **Option** (Alt) and point at another object to see
   the gap between them (or, when one is inside the other, the four distances between their
   edges); point at empty space for the distances to the page's edges. They're in your position
@@ -934,9 +965,9 @@ meanwhile. Settings turns this off (**Show the Arrange tab while several objects
     Option-click it again to stop. Choosing Key object here makes the first selected the key. A
     key lasts only while the same objects are selected: select anything else and Align to goes
     back to Selection (or Page, if that was chosen).
-- **Match size**: **Same width** or **Same height** makes the selected objects as wide (or as
-  tall) as the key object, or with no key as the widest (or tallest), keeping their proportions
-  and their top-left corners. Use it for panels of equal height in a row. Line widths and text
+- **Match size**: **Width** (Same width) or **Height** (Same height) makes the selected objects
+  as wide (or as tall) as the key object, or with no key as the widest (or tallest), keeping
+  their proportions and their top-left corners. Use it for panels of equal height in a row. Line widths and text
   sizes stay as they are.
 - **Grid layout** (Arrange tab → **Grid**, or right-click): puts the selected panels in rows and
   columns, in the order they lie (rows from the top, each left to right), and keeps them there.
@@ -1077,9 +1108,9 @@ PowerPoint or a talk:
   versions (as PowerPoint itself stores pictures), cropped, turned and faded as placed. Corner
   rounding is built into a freeform outline; an area fill becomes a freeform of its area.
 - Anything PowerPoint can't draw exactly goes in as an exact picture of itself (an SVG with a
-  PNG copy), named like the object: outlines, even dashes, the pathway and rounded arrowheads,
-  scale bars, brackets, symbols' copies, clipping masks, and pictures cropped to a shape or with
-  a border. The export's notes say how many went in that way, and why.
+  PNG copy), named like the object: outlines, even dashes, the pathway, rounded, extra small and
+  extra large arrowheads, scale bars, brackets, symbols' copies, clipping masks, and pictures
+  cropped to a shape or with a border. The export's notes say how many went in that way, and why.
 - PowerPoint has one slide size, so every page sits at the top left of a slide the size of the
   largest page.
 

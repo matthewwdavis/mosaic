@@ -68,6 +68,14 @@ def test_small_triangle_arrowhead_is_4pt_on_1pt_line():
     assert y1 - y0 == pytest.approx(4.0)
 
 
+@pytest.mark.parametrize("size, across", [("xs", 3.0), ("sm", 4.0), ("med", 6.0), ("lg", 10.0), ("xl", 16.0)])
+def test_arrowhead_sizes_extra_small_to_extra_large_on_a_thin_line(size, across):
+    # A line thinner than 2 pt has heads sized as if it were 2 pt: extra small 3 pt to extra large 16 pt
+    paths, _ = arrowhead((0, 0), (1, 0), 0.25, {"type": "triangle", "w": size, "len": size})
+    x0, y0, x1, y1 = paths[0].path.bbox()
+    assert (x1 - x0, y1 - y0) == (pytest.approx(across), pytest.approx(across))
+
+
 def test_trim_line_end():
     p = Path().move_to(0, 0).line_to(10, 0)
     assert p.trimmed(0, 3).end_tangent()[0] == pytest.approx((7, 0))

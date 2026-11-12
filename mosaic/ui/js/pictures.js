@@ -9,6 +9,7 @@ import { luminance, parseHex, pathIcon, s, shapeCatalog } from "./util.js";
 
 const LINE_BOX = [44, 14];       // a line's picture, points (shown at 1 px a point)
 const SHAPE_BOX = [44, 18];
+const HEAD_BOX = [44, 18];       // an arrowhead's picture: room for an extra large head (16 pt across)
 const FAINT = 2;                 // contrast with the menu below which a colour is too faint to see (white on white 1, black on white 21)
 const FAINT_INK = "#fe01fd";     // stands in for currentColor in what the engine draws
 const cache = new Map();         // what an engine picture draws (its item as JSON) -> its SVG
@@ -69,7 +70,7 @@ function inkDrawing(box, ...parts) {
 const pictureStroke = (st, extra = {}) => ({ cap: "round", join: "round", ...(st || {}), opacity: 1,
   width: Math.min(Math.max(st?.width ?? 1, 0.75), 2.5), ...extra, color: ink(st?.color || "#000000", FAINT_INK) });
 const colourOf = (st) => ink(st?.color || "#000000");
-const across = () => ({ type: "line", points: [[4, LINE_BOX[1] / 2], [LINE_BOX[0] - 4, LINE_BOX[1] / 2]] });
+const across = (box = LINE_BOX) => ({ type: "line", points: [[4, box[1] / 2], [box[0] - 4, box[1] / 2]] });
 
 // Each dash style at 2 pt, whatever the line's width, so dots show (at 1 pt they all but vanish)
 // and the styles are easy to tell apart; at the style's own spacing
@@ -95,8 +96,8 @@ export function joinPicture(st, join) {
 // A line with an arrowhead at the end the list is for, of the kind and size given
 export function headPicture(it, end, type, size) {
   const head = type && type !== "none" ? { type, w: size, len: size, ...(it[end]?.rounding ? { rounding: it[end].rounding } : {}) } : null;
-  return enginePicture({ ...across(), stroke: pictureStroke(it.stroke, { dash: "solid", width: 1.25 }),
-    [end]: head, [end === "arrow_end" ? "arrow_start" : "arrow_end"]: null }, LINE_BOX);
+  return enginePicture({ ...across(HEAD_BOX), stroke: pictureStroke(it.stroke, { dash: "solid", width: 1.25 }),
+    [end]: head, [end === "arrow_end" ? "arrow_start" : "arrow_end"]: null }, HEAD_BOX);
 }
 // A small copy of the object wearing a look ({stroke, fill, outline, arrow_start, arrow_end}): a
 // line across for something with no inside, else its own shape (a rounded box for a freeform)

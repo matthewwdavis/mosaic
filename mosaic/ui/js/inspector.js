@@ -2,7 +2,7 @@
 // labelled form fields grouped in fieldsets, so they work with the keyboard and screen readers.
 
 import { rpc } from "./api.js";
-import { SUBSCRIPT, SUPERSCRIPT, angleOf, canvas, detachMoved, findDeep, lineAngle, pageGuides, rotateItem, scaleItem, shiftItem } from "./canvas.js";
+import { SUBSCRIPT, SUPERSCRIPT, angleOf, canvas, findDeep, lineAngle, pageGuides, scaleItem, shiftItem } from "./canvas.js";
 import { icon } from "./panels.js";
 import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
@@ -30,7 +30,7 @@ const DASHES = [["solid", "Solid"], ["sysDot", "Round dot"], ["sysDash", "Short 
 const HEADS = [["none", "None"], ["triangle", "Triangle"], ["stealth", "Stealth"], ["arrow", "Open arrow"],
   ["oval", "Circle"], ["diamond", "Diamond"], ["bar", "Bar (inhibition)"], ["half", "Half arrow"], ["open_circle", "Open circle"],
   ["open_triangle", "Open triangle"]];
-const SIZES = [["sm", "Small"], ["med", "Medium"], ["lg", "Large"]];
+const SIZES = [["xs", "Extra small"], ["sm", "Small"], ["med", "Medium"], ["lg", "Large"], ["xl", "Extra large"]];
 const KIND_NAMES = { photo: "a photo", combination: "a photo with text or lines", line_art: "line art" };   // picturekind.py
 // Symbols for the Text tab, with names for screen readers
 const SYMBOLS = [["µ", "micro"], ["°", "degree"], ["±", "plus or minus"], ["×", "times"], ["÷", "divided by"], ["−", "minus"],
@@ -533,51 +533,47 @@ export const inspector = {
     return section("Transparency", [
       transparencyField("Transparency", it.opacity, (op) => this.edit("Transparency", (o) => { o.opacity = op; }))]);
   },
-  // Turn objects together by `angle` degrees clockwise about the middle of their outline, as
-  // Transform Again does, as one undo step that Transform Again (⌘⇧D) then repeats: a line among
-  // them stays attached to what turns with it and lets go of anything else (detachMoved)
-  turnTogether(label, ids, angle) {
-    if (!angle) return;
-    this.app.noteTransform?.({ kind: "rotate", angle });
-    store.update(label, (doc) => {
-      const items = ids.map((id) => findDeep(doc.pages[store.pageIndex].items, id)).filter(Boolean);
-      const b = itemsBBox(items);
-      if (!b) return;
-      detachMoved(items);
-      for (const it of items) rotateItem(it, angle, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2);
-    });
-  },
-  // The Rotation row of the strip above the tabs: a shape, picture, text box, bracket or symbol
-  // turns about its own middle, with its flips beside it; a group turns as a whole about its
-  // middle (rot keeps count of how far)
-  rotationRow(it) {
-    const now = () => store.item(it.id);
-    if (it.type === "group") {
-      const setRot = (v) => this.turnTogether("Rotate", [it.id], turnFrom(now().rot || 0, v));
-      return row(numField("Rotation", it.rot || 0, "deg", setRot, { bind: "rot", step: 1 }));
-    }
-    const setRot = (v) => {
-      this.app.noteTransform?.({ kind: "rotate", angle: turnFrom(now().rot || 0, v) });
-      this.edit("Rotate", (o) => { o.rot = ((v % 360) + 360) % 360; });
+  // Turn objects together by `angle` degrees clockwise about the middle of their outline, as one
+  // undo step that Transform Again (⌘⇧D) then repeats (app.turnItems)
+  turnTogether(label, ids, angle) { this.app.turnItems(label, ids, angle); },
+  // Rotate left or right 90° and flip, the ribbon's commands. A shape, picture or symbol shows
+  // whether it's flipped (pressed); a text box never is (it keeps reading the right way), and a
+  // line, group or several objects flip as a whole, with nothing to show
+  turnFlipButtons(it = null) {
+    const b = (cmd, ic) => iconButton(this.app, cmd, ic);
+    const shows = it?.frame && it.type !== "group" && it.type !== "bracket" && !it.textbox;
+    const flip = (cmd, ic, key) => {
+      const el = b(cmd, ic);
+      if (shows) { el.classList.add("toggle"); el.setAttribute("aria-pressed", it[key] ? "true" : "false"); }
+      return el;
     };
-    return row(numField("Rotation", it.rot || 0, "deg", setRot, { bind: "rot", step: 1 }),
-      h("div", { class: "button-row inline" },
-        toggle("Flip horizontally", !!it.flip_h, (on) => this.edit("Flip", (o) => { o.flip_h = on; }), "⇋"),
-        toggle("Flip vertically", !!it.flip_v, (on) => this.edit("Flip", (o) => { o.flip_v = on; }), "⇵")));
+    return h("div", { class: "button-row inline icons turn-flip" }, b("rotateLeft90", "rotateLeft"), b("rotateRight90", "rotateRight"),
+      flip("flipHorizontal", "flipH", "flip_h"), flip("flipVertical", "flipV", "flip_v"));
+  },
+  // The Rotation row of the strip above the tabs, with turn and flip buttons: a shape, picture,
+  // text box or symbol turns about its own middle; a group turns as a whole about its middle (rot
+  // keeps count of how far). A significance bracket has no Rotation: it stays level or upright,
+  // and a quarter turn or a flip moves its label to another side
+  rotationRow(it) {
+    if (it.type === "bracket") return row(this.turnFlipButtons(it));
+    const setRot = (v) => this.turnTogether("Rotate", [it.id], turnFrom(store.item(it.id).rot || 0, v));
+    return row(numField("Rotation", it.rot || 0, "deg", setRot, { bind: "rot", step: 1 }), this.turnFlipButtons(it));
   },
   // A line's strip: its Angle, the way from its start to its end in degrees clockwise from
   // pointing right (90 points down, as rotation turns clockwise); a typed angle turns the whole
-  // line about its middle. None for a line whose ends meet, an elbow connector (its stretches
-  // stay level and upright) or a zoom inset's line (it follows its box)
+  // line about its middle. Beside it, the turn and flip buttons. No Angle for a line whose ends
+  // meet or an elbow connector (its stretches stay level and upright, though quarter turns and
+  // flips keep them so); no strip for a zoom inset's line (it follows its box)
   lineStrip(it) {
+    if (it.zoomline) return null;
     const angle = lineAngle(it);
-    if (angle === null || it.route === "elbow" || it.zoomline) return null;
     const setAngle = (v) => {
       const was = lineAngle(store.item(it.id));
       if (was !== null) this.turnTogether("Turn line", [it.id], turnFrom(was, v));
     };
     return h("div", { class: "insp-strip", role: "group", "aria-label": "Angle" },
-      row(numField("Angle", angle, "deg", setAngle, { bind: "angle", step: 1 })));
+      row(angle === null || it.route === "elbow" ? null : numField("Angle", angle, "deg", setAngle, { bind: "angle", step: 1 }),
+        this.turnFlipButtons(it)));
   },
   // Several objects: one Rotation for them all, turning them together about their middle. It
   // shows the angle they share (a line's being its way from start to end); typed, they turn
@@ -594,7 +590,7 @@ export const inspector = {
     const at = shared();
     const setRot = (v) => this.turnTogether("Rotate", ids, turnFrom(shared() ?? 0, v));
     return h("div", { class: "insp-strip", role: "group", "aria-label": "Rotation" },
-      row(numField("Rotation", at ?? 0, "deg", setRot, { step: 1, mixed: at === null })),
+      row(numField("Rotation", at ?? 0, "deg", setRot, { step: 1, mixed: at === null }), this.turnFlipButtons()),
       at === null ? h("p", { class: "hint" }, "They're at different angles: a typed angle turns them all by that much, "
         + "together about their middle.") : null);
   },

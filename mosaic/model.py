@@ -17,8 +17,11 @@ Every item has an `id` and a `type`:
 - shape    {geom (DrawingML preset name or "custom"), adj, frame, rot, flip_h, flip_v,
             stroke, fill, arrow_start, arrow_end, path (custom), text, textbox, outline, rounding}
 - line     {points [[x, y], ...], curve: straight|smooth, stroke, arrow_start, arrow_end, outline,
-            start_link, end_link}: a link {item, site} attaches that end to another object's
-            connection point (connect.py), and the editor keeps the end there
+            start_link, end_link}: a link {item, site, at} attaches that end to another object's
+            connection point (connect.py), and the editor keeps the end there. A dash's point
+            (site "d12m") also keeps `at`, where it is in the object's own terms (a shape's frame
+            fractions, a line's offset from its first point): dash numbers change with the dashes,
+            so the editor holds it by place (canvas.linkSite)
 - scalebar {picture, length, unit, frame, anchor {corner: tl|tr|bl|br, dx, dy}, thickness, size,
             label: above|below|none, color, swatch, bold}: a bar `length` long on its picture, which
             has scale {per_pt, unit, how}: the real length of one point of its source. The editor
@@ -36,7 +39,8 @@ rounding 0..1: corner rounding of a shape's straight-edged corners (1 = as round
 fill_reach inner|outer: a shape's or area fill's fill stops at its lines' inner edge, or reaches
         their outer edge, rather than their middle (absent); shows through dashed, dotted or
         see-through lines (fillreach.py)
-arrow_start, arrow_end {type: triangle|stealth|arrow|oval|diamond, w, len: sm|med|lg, rounding 0..1}
+arrow_start, arrow_end {type: triangle|stealth|arrow|oval|diamond, w, len: xs|sm|med|lg|xl, rounding 0..1}
+        (xs and xl are mosaic's own; PowerPoint exports draw a line with them as a picture)
 outline {color, width, opacity, type}: a contour of `width` points in another colour around
         everything the item draws; its opacity applies to the contour as a whole. type:
         outside (default; underneath, so it shows only outside a filled shape), both (round
