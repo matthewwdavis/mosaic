@@ -2902,6 +2902,78 @@ async function offPageChecks(app) {
   await app.savePrefs({ show_grid: false });
 }
 
+// Renaming the document's file (File > Rename…; on a Mac also the title bar, mactitle.py): its
+// name selected without the extension and the folder shown; a name taken or not allowed is
+// refused in the dialog, which stays open; a rename keeps unsaved changes unsaved and the title,
+// Open Recent and the file follow; Cancel changes nothing. A document never saved is named and
+// then saved (the Save dialog, here a stand-in, with that name)
+async function renameChecks(app, out) {
+  store.setDoc(await rpc("new_document"));
+  const run = Date.now().toString(36);   // (names of this run's own: the output folder can be an earlier run's)
+  const first = (await rpc("save_document", store.doc, `${out}/selftest-rename-a-${run}.mosaic`)).path;
+  await rpc("save_document", store.doc, `${out}/selftest-rename-taken-${run}.mosaic`);
+  store.markSaved(first);
+  store.update("Something to save", (doc) => doc.pages[store.pageIndex].items.push(gRectFor("rn", 10, 10, 40, 30)));
+  await settle();
+  const file = (spec) => spec.find((m) => m.title === "File").items;
+  check(file(app.menuSpec()).some((it) => it.title === "Rename…" && it.action === "rename"), "File > Rename… is in the Mac menu bar");
+  const open = () => [...document.querySelectorAll("dialog[open]")].pop();
+  const begin = async () => {
+    const running = app.run("rename");
+    await until(() => open()?.querySelector("#rename-input"));
+    const dlg = open();
+    return { running, dlg, input: dlg.querySelector("#rename-input"), ok: dlg.querySelector(".dialog-actions .btn.primary"),
+      error: dlg.querySelector("#rename-error") };
+  };
+  const attempt = async (d, name) => {
+    d.input.value = name;
+    d.input.dispatchEvent(new Event("input"));
+    d.ok.click();
+    await until(() => !d.dlg.open || !d.error.hidden);
+  };
+  let d = await begin();
+  check(d.input.value === `selftest-rename-a-${run}` && d.input.selectionStart === 0 && d.input.selectionEnd === d.input.value.length
+    && d.dlg.querySelector(".rename-ext")?.textContent === ".mosaic" && d.dlg.querySelector("#rename-where").textContent.startsWith("In ")
+    && d.ok.textContent === "Rename", "Rename shows the name selected, without .mosaic, and the folder it's in",
+  `‹${d.input.value}› ${d.input.selectionStart}-${d.input.selectionEnd} ${d.dlg.querySelector("#rename-where").textContent}`);
+  await attempt(d, `selftest-rename-taken-${run}`);
+  const taken = d.dlg.open && !d.error.hidden && /already a file/.test(d.error.textContent) && store.path === first;
+  await attempt(d, "bad/name");
+  check(taken && d.dlg.open && !d.error.hidden && /contain/.test(d.error.textContent) && store.path === first,
+    "a name already taken in the folder, or with a /, is refused there, the dialog open to put it right", d.error.textContent);
+  await attempt(d, `selftest-rename-b-${run}.mosaic`);   // (typing the extension too is fine)
+  await d.running;
+  const renamed = store.path;
+  const recent = (await rpc("prefs_get")).recent || [];
+  let oldGone = false;
+  try { await rpc("open_document", first); } catch { oldGone = true; }
+  const reopened = await rpc("open_document", renamed).catch(() => null);
+  check(!d.dlg.open && renamed.endsWith(`selftest-rename-b-${run}.mosaic`) && oldGone && reopened
+    && recent.includes(renamed) && !recent.includes(first), "Rename renames the file where it is, and Open Recent follows",
+  `${renamed}; old gone ${oldGone}; recent ${recent.slice(0, 3)}`);
+  check(store.dirty && document.title.startsWith(`selftest-rename-b-${run}.mosaic — edited`),
+    "unsaved changes stay unsaved, and the title shows the new name", document.title);
+  d = await begin();
+  d.dlg.querySelector("button[value=close]").click();
+  await d.running;
+  check(store.path === renamed && !open(), "Cancel changes nothing", store.path);
+  // Never saved: named, then the Save dialog with that name
+  store.setDoc(await rpc("new_document"));
+  const save = app.save;
+  let asked = null;
+  app.save = async (as) => { asked = { as, suggested: store.suggested }; };
+  try {
+    d = await begin();
+    const label = `${d.dlg.querySelector("h2").textContent} / ${d.ok.textContent}`;
+    await attempt(d, "My figure.mosaic");
+    await d.running;
+    check(label === "Name and save / Save…" && asked?.as === true && /(^|[\\/])My figure\.mosaic$/.test(asked.suggested || "") && !store.path,
+      "renaming a document never saved names it and opens Save with that name", `${label}; ${JSON.stringify(asked)}`);
+  } finally {
+    app.save = save;
+  }
+}
+
 // Zoom inset shapes: the Zoom inset button's ▾ menu offers a rounded rectangle, an ellipse and a
 // circle beside the rectangle a plain click makes; the inset takes its box's shape, and the lines
 // run along the outside, touching both; the Zoom shape list changes both, or one alone with Same
@@ -3611,6 +3683,7 @@ export async function run(app, params) {
     if (params.get("only") === "zoomshapes") { await zoomShapeChecks(app); throw ONLY; }
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
     if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
+    if (params.get("only") === "rename") { await renameChecks(app, out); throw ONLY; }
     if (params.get("only") === "pagedrag") { await pageDragChecks(app); throw ONLY; }
     if (params.get("only") === "clickthrough") { await clickThroughChecks(app); throw ONLY; }
     if (params.get("only") === "textribbon") { await textRibbonChecks(app); throw ONLY; }
@@ -4883,6 +4956,7 @@ export async function run(app, params) {
     await zoomShapeChecks(app);
     await pasteboardChecks(app);
     await offPageChecks(app);
+    if (out) await renameChecks(app, out);
     await pageDragChecks(app);
     await clickThroughChecks(app);
     await textRibbonChecks(app);

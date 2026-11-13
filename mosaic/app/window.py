@@ -97,6 +97,11 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                     macdrag.install(window, api)
                 except Exception as exc:   # noqa: BLE001 (drags from PowerPoint just aren't taken)
                     print(f"PowerPoint drags unavailable: {exc}", file=sys.stderr, flush=True)
+                try:   # the file's name in the title bar: double-click to rename, right-click for its menu
+                    from . import mactitle
+                    mactitle.install(api)
+                except Exception as exc:   # noqa: BLE001 (the title bar just stays macOS's own)
+                    print(f"Title bar renaming unavailable: {exc}", file=sys.stderr, flush=True)
             AppHelper.callAfter(install)
 
     def make_window(doc: str | None = None, slides: list[int] | None = None, first: bool = False):
@@ -155,6 +160,15 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         closing_started[0] = time.time()
         close_all()
 
+    def title_smoke(window):
+        """The title bar's name: double-click to rename, right-click for its menu (mactitle.py)."""
+        import tempfile
+        from . import mactitle
+        with tempfile.TemporaryDirectory() as folder:
+            got = mactitle.smoke(window, folder)
+        print(f"SMOKE title bar: {got['passed']} of {got['total']} passed"
+              + (f"; failed: {json.dumps(got['failed'])}" if got["failed"] else ""), flush=True)
+
     def smoke_check():
         """Hidden-window check that the editor starts in this platform's web view."""
         ready = wait_ready(window)
@@ -166,6 +180,8 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                 if window.evaluate_js("document.body.dataset.selftest || ''"):
                     break
             print("SELFTEST " + str(window.evaluate_js("JSON.stringify(window.__selftest || null)")), flush=True)
+            if sys.platform == "darwin" and "titlecheck" in extra:   # (also in the full run below)
+                title_smoke(window)
         errors = window.evaluate_js("JSON.stringify(window.__faErrors || [])") if ready is not None else "[]"
         print(f"SMOKE {'ready' if ready else 'NOT READY'} errors={errors}", flush=True)
         if ready and "selftest" not in (extra or ""):
@@ -196,6 +212,7 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                 menus = macmenu.smoke(window)
                 print(f"SMOKE menus: {menus['passed']} of {menus['total']} passed"
                       + (f"; failed: {json.dumps(menus['failed'])}" if menus["failed"] else ""), flush=True)
+                title_smoke(window)
                 # Documents from the Finder and windows: New, Open, menus, closing, dropping a .mosaic
                 import tempfile
 

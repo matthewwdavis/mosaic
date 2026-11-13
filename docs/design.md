@@ -299,6 +299,22 @@ pre-export check says so.
     read); a click off the page picks nothing; selection handles still show, so editing goes on.
     A note on the page says it's on, with Stop; dragging a guide out of a ruler ends it. It's
     the window's, never saved, like Dangerous mode. None of the three is ever exported.
+  - *Renaming the file from the title bar (2026-11-13, Matthew's choices):* the title bar is
+    macOS's, so a local NSEvent monitor (`mosaic/app/mactitle.py`) takes only presses on the
+    title's text (the title bar's NSTextField showing the window's title, as wide as its text):
+    a double-click runs the editor's `rename` command (the release is taken too, so the window
+    doesn't also zoom); a right-click, Control- or ⌘-click pops a native menu: Rename…, Show in
+    Finder, Copy File Path, then the file and each folder up to its disk with Finder's icons and
+    names, a folder shown with the next one down selected (as ⌘-click on a document title does).
+    Other presses on the title bar go on to macOS. Mac only: Windows renames through command
+    search. The dialog is mosaic's own (`panels.renameDialog`): the name selected without its
+    extension, the folder (home as ~), and the reason a name is refused, shown there to fix.
+    `api.rename_document` renames in place, keeping .mosaic or .figasm, never over another file
+    (a change of case alone is allowed), and moves the file's place in Open Recent and the
+    window's record; unsaved changes stay unsaved (store.path changes and "saved" is emitted
+    without clearing dirty). Linked pictures keep working since their relative paths are from the
+    same folder. A document never saved is named and then saved: the Save dialog with that name.
+    File > Rename… is in the menu bar.
 - **Connectors (2026-10-31):** line and arrow ends attach to connection points and follow them
   (`start_link` / `end_link`: {item, site}). Points come from each shape's own outline (Matthew's
   choice): corners (sharp ones and rounded corners' middles) and side middles; 8 points round

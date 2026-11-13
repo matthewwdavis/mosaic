@@ -1156,6 +1156,17 @@ under one name. As with exporting, the window then closes and a note names the f
 
 - **Save** (⌘S) writes a `.mosaic` document. It holds your pages, the links to placed files, and
   a copy of each file, so it opens complete on another computer. **Save as** (⌘⇧S) saves a copy.
+- **Rename** the file while it's open: on a Mac, **double-click its name** in the window's title
+  bar, or use **File ▸ Rename…** (on Windows, find Rename in command search, Ctrl+/). Type the
+  new name (the `.mosaic` stays) and press Rename. The file is renamed where it is, Open Recent
+  follows, and linked pictures still link up. A name another file in that folder has, or one
+  with `/`, `\` or `:`, is refused, and the dialog says why. Unsaved changes stay unsaved: the
+  title still says "edited". A figure never saved is named and then saved: the Save dialog
+  opens with that name.
+- **Right-click the name** in the title bar (or Control-click or ⌘-click it) for **Rename…**,
+  **Show in Finder**, **Copy File Path** (handy for R scripts), and the file and each folder it's
+  in, as ⌘-click on a title gives in Mac apps: choose one to show it in Finder. Elsewhere on the
+  title bar, a double-click zooms or minimises the window as usual.
 - **Open** a `.mosaic` document by double-clicking it in Finder or Explorer, or by dropping it on
   mosaic in the Dock. Or use **Open** (⌘O), which also opens slides from a PowerPoint deck
   (see [PowerPoint slides](#powerpoint-slides)).

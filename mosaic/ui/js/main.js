@@ -90,7 +90,7 @@ const app = {
     const tick = (title, action) => c(title, action, { check: checks[action] });
     return [
       { title: "File", items: [c("New", "new"), c("Open…", "open"), { title: "Open Recent", recent: true }, "-",
-        { title: "Close", selector: "performClose:", keys: `${M}W` }, c("Save", "save"), c("Save As…", "saveAs"), "-",
+        { title: "Close", selector: "performClose:", keys: `${M}W` }, c("Save", "save"), c("Save As…", "saveAs"), c("Rename…", "rename"), "-",
         c("Refresh All Pictures", "refreshAll"), "-",
         c("Export…", "export"), c("Check Before Export…", "preflight"), c("Figure Report…", "figureReport")] },
       { title: "Edit", items: [c("Undo", "undo"), c("Redo", "redo"), "-",
@@ -284,6 +284,39 @@ const app = {
     rpc("discard_autosave", store.autosaveKey).catch(() => {});
     announce(`Saved ${res.path.split(/[\\/]/).pop()}` + (res.warnings.length ? `, with ${res.warnings.length} warnings` : ""));
     if (res.warnings.length) panels.reportDialog("Saved, with warnings", res.warnings);
+  },
+  // Rename the document's file where it is: from the title bar on a Mac (double-click the name,
+  // or Rename… in its right-click menu, mactitle.py), File > Rename… and command search. The
+  // dialog stays open to show why a name can't be taken. Unsaved changes stay unsaved. A
+  // document never saved is named and then saved straight away (the Save dialog, that name in it)
+  async rename() {
+    const named = store.path;
+    const ext = named?.match(/\.(mosaic|figasm)$/i)?.[0] || ".mosaic";
+    let chosen = null;
+    const ok = await panels.renameDialog(docName().replace(/\.(mosaic|figasm)$/i, ""), ext, named ? dirOf(named) : null, async (name) => {
+      if (!name) return "Type a name for the file.";
+      if (!named) {
+        if (/[\\/:]/.test(name) || name.startsWith(".")) return "A file name can't start with a full stop or contain / \\ or :.";
+        chosen = name.replace(/\.mosaic$/i, "");
+        return null;
+      }
+      const res = await rpc("rename_document", named, name);
+      if (res.error) return res.error;
+      chosen = res.path;
+      return null;
+    });
+    if (!ok) return;
+    if (!named) {
+      const dir = dirOf(store.suggested);
+      store.suggested = `${dir ? `${dir}/` : ""}${chosen}.mosaic`;
+      await this.save(true);
+      return;
+    }
+    if (chosen !== store.path) {
+      store.path = chosen;
+      store.emit("saved");   // (the title, the Pages panel's note and what closing asks follow; unsaved changes stay so)
+    }
+    announce(`Renamed to ${chosen.split(/[\\/]/).pop()}`);
   },
   async chooseExportBase() {
     const title = (store.doc.meta?.title || "figure").replace(/[^\w.-]+/g, "_");
@@ -2307,6 +2340,7 @@ app.commands = {
   open: cmd("Open document or PowerPoint deck", () => app.open(), `${M}O`, key("o"), "Open"),
   save: cmd("Save", () => app.save(), `${M}S`, key("s"), "Save"),
   saveAs: cmd("Save as", () => app.save(true), `${M}${S}S`, key("s", { shift: true })),
+  rename: cmd("Rename the document's file", () => app.rename(), null, null, "Rename"),
   export: cmd("Export", () => panels.exportDialog(), `${M}E`, key("e"), "Export"),
   preflight: cmd("Check before export", () => panels.preflightDialog(), `${M}${S}E`, key("e", { shift: true }), "Check"),
   insertPicture: cmd("Insert picture", () => app.insertPicture(), "I", (e) => plain(e) && !e.shiftKey && e.key.toLowerCase() === "i", "Picture"),

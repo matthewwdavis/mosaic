@@ -1810,6 +1810,46 @@ export const panels = {
     });
   },
 
+  // The document's file renamed (app.rename): its name without the extension, selected, and the
+  // folder it's in (null: never saved, so Save… follows). rename(name) answers null when it's
+  // done, or why not, which shows here to put right. Resolves true once renamed, false if cancelled
+  renameDialog(current, ext, folder, rename) {
+    return new Promise((resolve) => {
+      const input = h("input", { type: "text", id: "rename-input", value: current, spellcheck: "false", autocomplete: "off",
+        "aria-describedby": "rename-where rename-error" });
+      const error = h("p", { class: "hint warn", id: "rename-error", role: "alert", hidden: true });
+      const ok = h("button", { type: "button", class: "btn primary" }, folder ? "Rename" : "Save…");
+      const home = (this.app.info.home || "").replace(/[\\/]$/, "");
+      const where = folder && home && (folder === home || folder.startsWith(`${home}/`) || folder.startsWith(`${home}\\`))
+        ? `~${folder.slice(home.length)}` : folder;
+      const dlg = this.dialog(folder ? "Rename" : "Name and save", h("div", {},
+        h("label", { for: "rename-input" }, "Name"),
+        h("div", { class: "rename-row" }, input, h("span", { class: "rename-ext" }, ext)),
+        h("p", { class: "hint", id: "rename-where" }, folder ? `In ${where}` : "Not saved yet: Save… asks where to keep it, with this name."),
+        error), [ok]);
+      let busy = false, done = false;
+      ok.addEventListener("click", async () => {
+        if (busy) return;
+        busy = true;
+        const why = await rename(input.value.trim());
+        busy = false;
+        if (why) {
+          error.textContent = why;
+          error.hidden = false;
+          input.focus();
+          return;
+        }
+        done = true;
+        dlg.close();
+        resolve(true);
+      });
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); ok.click(); } });
+      input.addEventListener("input", () => { error.hidden = true; });
+      dlg.addEventListener("close", () => { if (!done) resolve(false); });
+      input.focus();
+      input.select();
+    });
+  },
   pathDialog(title, placeholder, recent = []) {
     return new Promise((resolve) => {
       const input = h("input", { type: "text", id: "path-input", placeholder, style: { width: "100%" } });

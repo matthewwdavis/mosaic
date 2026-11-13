@@ -533,6 +533,10 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 .cvd-note, .preview-note { display: flex; gap: 0.6rem; align-items: center; }
 .cvd-note[hidden], .preview-note[hidden] { display: none; }
 .done-note { max-width: 40rem; }
+/* The Rename dialog: the name with its extension after it */
+.rename-row { display: flex; align-items: center; gap: 0.3rem; }
+.rename-row input { flex: 1; min-width: 16rem; }
+.rename-ext { color: var(--muted); }
 .done-note-line { display: flex; gap: 0.6rem; align-items: center; }
 .done-note-line > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .done-note .warnings, .done-note .notes { margin: 0.3rem 0 0.2rem; padding-left: 1.2rem; }

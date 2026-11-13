@@ -240,6 +240,9 @@ Matthew's choices are in brackets.
 - [x] Seeing the page's edge under a picture (asked 2026-11-13): the edge drawn over objects, what's
       off the page dimmed (both on at first), and Preview (W): only what's on the page, no guides
       or grid [Matthew's choices]
+- [x] Renaming the file from the title bar (asked 2026-11-13): double-click the name for a Rename
+      dialog; right-click for Rename…, Show in Finder, Copy File Path and its folders; File ▸
+      Rename…; a figure never saved is named, then saved [Matthew's choices]
 
 ## Acceptance test (test slide)
 

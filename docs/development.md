@@ -77,7 +77,8 @@ several windows (opening a window stood in for) and a .mosaic dropped on the pag
 sizes` page sizes (the Size menu, new documents' size), `--only vision` colour vision side by
 side and in command search, `--only export` the Export and Figure report windows closing with a
 note, `--only guides` guides from clicking the rulers and a guide's right-click menu, `--only
-offpage` the page's edge over objects, dimming off the page and Preview, `--only
+offpage` the page's edge over objects, dimming off the page and Preview, `--only rename`
+renaming the document's file (the editor side of the title bar's rename), `--only
 pictures` the Style tab's picture menus, `--only textribbon` the Home tab's Text section
 (several boxes at once, the highlighted words while typing, switching to Home and back), and
 `--only journallabels` panel labels following a page's journal, and `--only journalchecks` the
@@ -106,7 +107,10 @@ hidden window can't be dragged onto) through the drag methods `mosaic/app/macdra
 and plays a slide drag to the `SlideWatch` that follows PowerPoint's real ones, with a scripted
 drag pasteboard, mouse button and pointer: `SMOKE PowerPoint drags: 9 of 9 passed`. Then the
 menu bar: its menus, the app's name, the shortcuts, and items run as AppKit would run them:
-`SMOKE menus: 11 of 11 passed`. Last, documents and windows (`mosaic/app/macopen.py`):
+`SMOKE menus: 11 of 11 passed`. Then the file's name in the title bar (`mosaic/app/mactitle.py`):
+presses on the title handed to its event monitor, and a double-click posted to mosaic's own
+event queue: `SMOKE title bar: 7 of 7 passed` (also with `titlecheck=1` in a self-test's
+`MOSAIC_SMOKE_QUERY`, without the real key presses). Last, documents and windows (`mosaic/app/macopen.py`):
 documents sent as the Finder sends them, as real "open documents" Apple events to the app
 itself, opening in the blank window, then in windows of their own, or bringing one open already
 to the front; File > New; a menu command going to the window in front; closing a window; a deck;

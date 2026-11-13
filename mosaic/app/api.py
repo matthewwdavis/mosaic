@@ -302,6 +302,7 @@ class Api:
                 # and whether this is the window mosaic opened with (it offers back unsaved work)
                 "windows": self._new_window is not None and self.window is not None,
                 "first_window": win in (None, "1"),
+                "home": os.path.expanduser("~"),   # (shown as ~ in the Rename dialog's folder)
                 "prefs": self.prefs_get(), "standard_sizes": STANDARD_SIZES, "journals": JOURNALS,
                 "machine": platform.node(), "shapes": presets.catalog(), "clipboard": clipboard.backend() is not None,
                 "themes": themes.catalog()}
@@ -615,6 +616,44 @@ class Api:
         warnings = docfile.save(doc, path)
         self._remember(path)
         return {"path": path, "warnings": warnings}
+
+    def rename_document(self, path: str, name: str) -> dict:
+        """Rename a saved document's file where it is (the title bar's name, File > Rename): the
+        name without its extension, which stays (.mosaic, or .figasm for a FigAssemble one).
+        Never over another file, never moved to another folder; unsaved changes stay unsaved.
+        {"path": the new path} or {"error": why not, to show}. Linked pictures are found from
+        the document's folder, which doesn't change."""
+        path = os.path.abspath(os.path.expanduser(path))
+        ext = os.path.splitext(path)[1] if path.lower().endswith(docfile.EXTENSIONS) else docfile.EXTENSION
+        name = (name or "").strip()
+        if name.lower().endswith(ext.lower()):
+            name = name[:-len(ext)].rstrip()
+        bad = set('/\\:<>"|?*') if os.name == "nt" else set("/\\:")   # (Finder shows a ":" as "/")
+        if not name:
+            return {"error": "Type a name for the file."}
+        if any(ch in bad for ch in name) or name.startswith("."):
+            return {"error": f"A file name can't start with a full stop or contain {' '.join(sorted(bad))}."}
+        if not os.path.isfile(path):
+            return {"error": f"{os.path.basename(path)} isn't in its folder any more (moved or deleted?). "
+                             "Save it again to put it somewhere."}
+        new = os.path.join(os.path.dirname(path), name + ext)
+        if new == path:
+            return {"path": path}
+        if os.path.exists(new) and not os.path.samefile(new, path):   # (a change of case alone is the same file)
+            return {"error": f"There's already a file called {name + ext} in that folder."}
+        old_key = _same_file(path)
+        try:
+            os.rename(path, new)
+        except OSError as err:
+            return {"error": f"Couldn't rename it: {err.strerror or err}."}
+        # Open Recent and this window's record of its file follow
+        recent = [new if _same_file(p) == old_key else p for p in self.prefs_get().get("recent", [])]
+        self.prefs_set({"recent": recent})
+        self._on_mac_menus("set_recent", recent)
+        for state in self._win_state.values():
+            if state.get("path") == old_key:
+                state["path"] = _same_file(new)
+        return {"path": new}
 
     def autosave(self, doc: dict, key: str) -> dict:
         d = os.path.join(config_dir(), "autosave")
