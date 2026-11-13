@@ -25,6 +25,7 @@
   --ruler-page: #ffffff;
   --ruler-tick: #888881;
   --guide-line: #0086b4;
+  --page-edge: #e53500;
   color-scheme: light;
 }
 /* These are the Light theme's colours. The theme chosen in Settings (mosaic/themes.py) is
@@ -363,6 +364,12 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .scene { display: block; }
 .page { fill: #fff; }
 .page-shadow { fill: none; stroke: rgba(0, 0, 0, 0.25); stroke-width: 0.6; vector-effect: non-scaling-stroke; }
+/* Over the objects: what's off the page dimmed toward the colour around it, and the page's edge
+   (View > Page Edge, Dim Off the Page); never exported */
+.off-page-veil { fill: var(--stage); fill-opacity: 0.6; pointer-events: none; }
+.page-edge { fill: none; stroke: var(--page-edge); stroke-width: 1; vector-effect: non-scaling-stroke; shape-rendering: crispEdges;
+  pointer-events: none; }
+.off-page-veil.off, .page-edge.off { display: none; }
 .overlay * { vector-effect: non-scaling-stroke; }
 .sel-outline { fill: none; stroke: var(--sel); stroke-width: 1.5; }
 .sel-outline.thin { stroke-width: 1; stroke-dasharray: 3 2; }
@@ -521,10 +528,10 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
 .stage-notes { position: absolute; top: 0.6rem; left: 50%; transform: translateX(-50%); z-index: 3; width: max-content;
   max-width: calc(100% - 2rem); display: flex; flex-direction: column; align-items: center; gap: 0.4rem; pointer-events: none; }
 .stage-notes > * { pointer-events: auto; }
-.cvd-note, .done-note { padding: 0.3rem 0.4rem 0.3rem 0.8rem; border: 2px solid var(--sel); border-radius: 0.5rem;
+.cvd-note, .preview-note, .done-note { padding: 0.3rem 0.4rem 0.3rem 0.8rem; border: 2px solid var(--sel); border-radius: 0.5rem;
   background: var(--panel); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
-.cvd-note { display: flex; gap: 0.6rem; align-items: center; }
-.cvd-note[hidden] { display: none; }
+.cvd-note, .preview-note { display: flex; gap: 0.6rem; align-items: center; }
+.cvd-note[hidden], .preview-note[hidden] { display: none; }
 .done-note { max-width: 40rem; }
 .done-note-line { display: flex; gap: 0.6rem; align-items: center; }
 .done-note-line > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }

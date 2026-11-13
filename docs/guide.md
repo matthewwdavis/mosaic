@@ -47,7 +47,8 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
    - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
      Release).
    - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
-     a colour vision preview, and the page with each one side by side (Check colours).
+     the [page's edge](#the-pages-edge-and-whats-off-it) over objects, dimming off the page, and
+     Preview; a colour vision preview, and the page with each one side by side (Check colours).
 2. Each tab's commands, in labelled groups.
 3. **Always in view:** **Snap** (on when highlighted), **Check**, **Export**, **Settings**, **Help**.
 4. **Pages** of the document, and **Objects** on the current page, front to back. Each object has
@@ -1028,6 +1029,25 @@ meanwhile. Settings turns this off (**Show the Arrange tab while several objects
 
 Guides and the grid are never exported.
 
+### The page's edge and what's off it
+
+Objects can run past the page's edge, and exports cut them off there. Three switches in the
+**View** tab's **Page edge** group show where (they're in the View menu and the page's right-click
+menu too):
+
+- **Page edge** (on at first): the page's edge is drawn over the objects as a thin coloured line,
+  so it stays in view where a picture covers it. It's vermilion in most themes; teal in Lab
+  notebook and cyan in Blueprint, whose guides or selection are red or orange already.
+- **Dim off page** (on at first): whatever lies off the page is faded toward the grey around it.
+- **Preview** (**W**): only what's on the page shows, cut off at its edge as the export will be,
+  with no guides or grid (they don't snap meanwhile). A note at the top says it's on; its
+  **Stop** button, or **W** again, turns it off, and so does dragging a new guide out of a ruler.
+  While it's on, a click off the page picks nothing. Preview isn't saved: every window opens
+  without it.
+
+Page edge and Dim off page are kept with the other view switches, and are in Settings too. None
+of the three is ever exported.
+
 ## Checking and exporting
 
 **Check** (⌘⇧E) looks at the current page and lists:
@@ -1257,8 +1277,8 @@ The gear button (⌘,):
   page sizes (mm). Font sizes and line widths are always in points.
 - **Interface:** text size, labels under toolbar buttons, showing the Home tab while text is
   selected (on unless you turn it off), reduced motion.
-- **Rulers, grid and guides:** what's shown, snapping, the grid's spacing and how many finer lines
-  each square has.
+- **Rulers, grid, guides and the page edge:** what's shown, snapping, the page's edge over objects
+  and dimming off the page, the grid's spacing and how many finer lines each square has.
 - **Unsaved work:** recovery copies kept from earlier sessions, with Delete all.
 - **Updates:** whether new versions install by themselves, ask first or aren't looked for; test
   versions; going back a version (see [Updates](#updates)).
@@ -1342,6 +1362,7 @@ Press **?** in mosaic for this list.
 | Zoom in, Zoom out, Fit page in window, True size | ⌘+, ⌘−, ⌘0, ⌘1 | Ctrl+Plus, Ctrl+Minus, Ctrl+0, Ctrl+1 |
 | Centre page (keeping the zoom) | ⌘⇧0 | Ctrl+Shift+0 |
 | Rulers, Grid, Guides | ⌘R, ⌘', ⌘; | Ctrl+R, Ctrl+', Ctrl+; |
+| Preview: only what's on the page, no guides or grid | W | W |
 | Refresh all pictures from their files | ⌘⇧R | Ctrl+Shift+R |
 | Snap on or off | ⌘⇧; | Ctrl+Shift+; |
 | Select, Text, Panel label | V, T, P | V, T, P |

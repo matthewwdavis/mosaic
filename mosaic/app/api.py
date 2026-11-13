@@ -38,6 +38,9 @@ PREFS_DEFAULTS = {
     # Layout aids: the grid is graph paper, 1 cm squares of 1 mm lines (spacing in points); things
     # snap to the grid and guides only while they're shown
     "show_rulers": True, "show_grid": False, "show_guides": True, "grid": {"spacing": 72 / 2.54, "subdivisions": 10},
+    # The page's edge drawn over objects, and what's off the page dimmed (Preview, which hides it,
+    # isn't saved: every window opens without it)
+    "show_page_edge": True, "dim_off_page": True,
     # Arrow keys move a round amount that shrinks as you zoom in (False: always 1 pt)
     "nudge_zoom": True,
     # Updates (updates.py): "auto" downloads a new version and installs it when mosaic quits,

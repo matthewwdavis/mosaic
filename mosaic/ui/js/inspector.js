@@ -319,7 +319,9 @@ export const inspector = {
         button("Add a vertical guide down the middle of the page", add("x", "Vertical guide"), "Add vertical"),
         button("Add a horizontal guide across the middle of the page", add("y", "Horizontal guide"), "Add horizontal"),
         total ? button("Remove every guide from this page", () => canvas.removeAllGuides(), "Remove all") : null),
-      h("p", { class: "hint" }, hidden
+      h("p", { class: "hint" }, canvas.preview
+        ? `Preview hides guides (${this.app.commands.togglePreview.keys} turns it off), and hidden guides don't snap.`
+        : hidden
         ? `Guides are hidden (${this.app.commands.toggleGuides.keys} shows them), and hidden guides don't snap.`
         : "Or click a ruler to put a guide at that spot, or drag one out onto the page. To remove one, right-click it "
           + "(or its mark on the ruler), or drag it back onto the ruler."),

@@ -77,6 +77,7 @@ several windows (opening a window stood in for) and a .mosaic dropped on the pag
 sizes` page sizes (the Size menu, new documents' size), `--only vision` colour vision side by
 side and in command search, `--only export` the Export and Figure report windows closing with a
 note, `--only guides` guides from clicking the rulers and a guide's right-click menu, `--only
+offpage` the page's edge over objects, dimming off the page and Preview, `--only
 pictures` the Style tab's picture menus, `--only textribbon` the Home tab's Text section
 (several boxes at once, the highlighted words while typing, switching to Home and back), and
 `--only journallabels` panel labels following a page's journal, and `--only journalchecks` the
@@ -99,7 +100,7 @@ the editor starts and that an edit switches on the close confirmation. On a Mac 
 every keyboard shortcut with real key events, through AppKit and pywebview as a key press goes
 (`mosaic/app/keycheck.py`), since the self-test's own key presses never leave the page;
 ⌘-clicks with real mouse events; and pastes text, a PDF, a copied file and a screenshot from the
-real clipboard (put back afterwards): `SMOKE keys: 94 of 94 passed`. A dialog open at the start
+real clipboard (put back afterwards): `SMOKE keys: 96 of 96 passed`. A dialog open at the start
 (such as the offer to recover unsaved work) is closed first, as Not now closes it. Then it hands the web view drags from PowerPoint (made up, since a
 hidden window can't be dragged onto) through the drag methods `mosaic/app/macdrag.py` wraps,
 and plays a slide drag to the `SlideWatch` that follows PowerPoint's real ones, with a scripted

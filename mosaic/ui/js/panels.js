@@ -82,6 +82,9 @@ const ICONS = {
   symbols: "M8 3l1.8 3.6 4 .6-2.9 2.8.7 4L8 12.1 4.4 14l.7-4L2.2 7.2l4-.6zM17 10l1.4 2.8 3.1.5-2.3 2.2.6 3.1-2.8-1.5-2.8 1.5.6-3.1-2.3-2.2 3.1-.5z",
   ruler: "M3 8h18v8H3zM7 8v3M11 8v4.5M15 8v3M19 8v4.5", grid: "M4 4h16v16H4zM9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16",
   guides: "M9 8v13M8 15h13M6.5 3h5L9 6zM3 12.5v5l3-2.5z",
+  // The page with a picture running past its edge; that part hatched; a page trimmed to its crop marks
+  pageEdge: "M3 3h11v18H3zM8 8h13v8H8z", dimOff: "M3 3h11v18H3zM14 8H8v8h6M14 8h7v8h-7M14 12l4-4M14 16l7-7M18 16l3-3",
+  preview: "M7 7h10v10H7zM7 2v3M2 7h3M17 2v3M22 7h-3M7 22v-3M2 17h3M17 22v-3M22 17h-3",
   magnet: "M5 4h4.5v7.5a2.5 2.5 0 005 0V4H19v7.5a7 7 0 01-14 0zM5 8h4.5M14.5 8H19",
   closed: "M9 6l6 6-6 6", open: "M6 9l6 6 6-6",
   pagesize: "M5 3h14v18H5zM9 15l6-6M11 9h4v4M9 11v4h4", compare: "M2 6h6v12H2zM9 6h6v12H9zM16 6h6v12h-6z",
@@ -207,7 +210,7 @@ export const panels = {
     const c = this.app.commands[cmd];
     b.dataset.pref = pref;
     b.setAttribute("aria-label", c.short);
-    b.title = `${c.label} (${c.keys})${hint}`;
+    b.title = `${c.label}${c.keys ? ` (${c.keys})` : ""}${hint}`;
     b.setAttribute("aria-pressed", this.app.prefs[pref] ? "true" : "false");
     return b;
   },
@@ -325,11 +328,15 @@ export const panels = {
           this.toggleButton("toggleGrid", "grid", "show_grid", ". Things snap to it while it shows"),
           this.toggleButton("toggleGuides", "guides", "show_guides", ". Drag a new one out of a ruler")),
         group("Grid", t("gridSettings", "gear")),
+        group("Page edge", this.toggleButton("togglePageEdge", "pageEdge", "show_page_edge", ". Never exported"),
+          this.toggleButton("toggleDimOffPage", "dimOff", "dim_off_page", ". Never exported"),
+          this.previewButton = this.toolButton("togglePreview", "preview")),
         group("Check colours", colourVisionField(), t("compareVision", "compare")),
         group("Plot text", this.dangerButton = this.toolButton("toggleDangerous", "danger")),
       ]],
     ];
     this.dangerButton.setAttribute("aria-pressed", "false");
+    this.previewButton.setAttribute("aria-pressed", "false");
     const tabRow = h("div", { class: "ribbon-tabs", role: "tablist", "aria-label": "Command tabs" });
     this.ribbonTabs = {};
     const panelEls = tabs.map(([key, title, groups]) => {
@@ -923,6 +930,9 @@ export const panels = {
     bar.append(this.message, h("span", { class: "spacer" }), this.dangerBadge, zoom, this.nudge, this.cursor, this.saveState);
     this.renderNudge();
   },
+  renderPreview() {
+    this.previewButton?.setAttribute("aria-pressed", canvas.preview ? "true" : "false");
+  },
   renderDangerous() {
     if (this.dangerBadge) this.dangerBadge.hidden = !this.app.dangerous;
     this.dangerButton?.setAttribute("aria-pressed", this.app.dangerous ? "true" : "false");
@@ -1192,12 +1202,14 @@ export const panels = {
         chk("text_home_tab", "Show the Home tab while text is selected, then the tab you were on"),
         chk("several_arrange_tab", "Show the Arrange tab while several objects are selected, then the tab you were on"),
         chk("reduced_motion", "Reduce motion")),
-      h("fieldset", {}, h("legend", {}, "Rulers, grid and guides"),
+      h("fieldset", {}, h("legend", {}, "Rulers, grid, guides and the page edge"),
         chk("show_rulers", `Show rulers (${keys("toggleRulers")})`),
         chk("show_grid", `Show the grid (${keys("toggleGrid")}); things snap to it while it shows`),
         chk("show_guides", `Show guides (${keys("toggleGuides")}); hidden guides don't snap`),
         chk("snap", `Snap to guides, the grid, the page and other objects (${keys("toggleSnap")}); `
           + `hold ${this.app.mod.replace("+", "")} while dragging to ignore it once`),
+        chk("show_page_edge", "Draw the page's edge over objects, to see where the export cuts them off"),
+        chk("dim_off_page", `Dim what's off the page, which the export leaves out (Preview, ${keys("togglePreview")}, hides it)`),
         numField("Grid spacing", grid.spacing || 72 / 2.54, p.units || "cm",
           (v) => this.app.savePrefs({ grid: { ...(this.app.prefs.grid || {}), spacing: Math.max(v, 0.5) } }), { min: 0 }),
         numField("Divide each grid square into", grid.subdivisions || 10, "parts",

@@ -35,7 +35,7 @@ const SVG_PREVIEW_LIMIT = 8e6; // bigger SVGs preview as rendered PDFs for speed
 const DEFAULT_SIZE = (72 / 2.54) * 2;   // a click (or Enter) with a drawing tool places a 2 cm object
 // The notes over the page (a preview on, editing inside a group, a finished export): presses on
 // them and their buttons are theirs, not the page's
-const NOTES = ".cvd-note, .scope-note, .done-note";
+const NOTES = ".cvd-note, .preview-note, .scope-note, .done-note";
 // Colour vision previews: linear-RGB matrices, Machado, Oliveira & Fernandes 2009 at full strength
 export const COLOUR_VISION = {
   deuteranopia: { name: "deuteranopia (red-green, no green cones)",
@@ -101,19 +101,28 @@ export const canvas = {
     // The grid and guides lie over the objects (pictures would hide them) and under the handles
     this.gridLayer = s("g", { class: "grid" });
     this.guidesLayer = s("g", { class: "guides" });
-    this.view.append(this.pageShadow, this.pageRect, this.ghostLayer, this.itemsLayer, this.gridLayer, this.guidesLayer);
+    // Over the objects too: what's off the page dimmed, and the page's edge (drawPageAids)
+    this.offPageVeil = s("path", { class: "off-page-veil", "fill-rule": "evenodd" });
+    this.pageEdge = s("rect", { class: "page-edge" });
+    this.view.append(this.pageShadow, this.pageRect, this.ghostLayer, this.itemsLayer, this.offPageVeil, this.gridLayer,
+      this.pageEdge, this.guidesLayer);
     this.overlay = s("g", { class: "overlay" });
     this.cvdMatrix = s("feColorMatrix", { type: "matrix" });
     const cvd = s("filter", { id: "fa-cvd", "color-interpolation-filters": "linearRGB" });
     this.defs = s("defs");
     cvd.append(this.cvdMatrix);
-    this.defs.append(cvd);
+    // Preview cuts the objects off at the page's edge
+    this.pageClipRect = s("rect", { x: 0, y: 0 });
+    const pageClip = s("clipPath", { id: "fa-page-clip", clipPathUnits: "userSpaceOnUse" });
+    pageClip.append(this.pageClipRect);
+    this.defs.append(cvd, pageClip);
     this.svg.append(this.defs, this.view, this.overlay);
     stage.append(this.svg);
     this.cvdNote = h("div", { class: "cvd-note", role: "status", hidden: true });
     this.scopeNote = h("div", { class: "scope-note", role: "status", hidden: true });
+    this.previewNote = h("div", { class: "preview-note", role: "status", hidden: true });
     // Notes along the top of the page, one under another (an export's goes here too: panels.doneNote)
-    this.notes = h("div", { class: "stage-notes" }, this.cvdNote);
+    this.notes = h("div", { class: "stage-notes" }, this.previewNote, this.cvdNote);
     stage.append(this.notes, this.scopeNote);
     this.setRulers(this.defaults?.show_rulers !== false);
     store.afterChange = (doc) => this.followLinks(doc);
@@ -223,6 +232,7 @@ export const canvas = {
     this.pageRect.classList.toggle("transparent", !page.background);
     this.pageShadow.setAttribute("width", page.width);
     this.pageShadow.setAttribute("height", page.height);
+    this.drawPageAids();
     const seen = new Set();
     this.syncChildren(this.itemsLayer, page.items, seen);
     for (const id of [...this.els.keys()]) if (!seen.has(id)) { this.els.get(id).g.remove(); this.els.delete(id); }
@@ -748,6 +758,7 @@ export const canvas = {
     return null;
   },
   itemAt(p) {
+    if (this.preview && !this.onPage(p)) return null;   // (Preview hides it)
     const tol = 4 / this.k;
     const items = store.scopeItems();   // inside a group being edited, only its parts
     // Inside a clipping mask, its (undrawn) shape is picked only by its edge
@@ -1216,11 +1227,11 @@ export const canvas = {
   // stretch across that they belong to (null for guides, which cross everything).
 
   snapTargets(excludeIds, { guides = true } = {}) {
-    const page = store.page(), d = this.defaults || {};
+    const page = store.page();
     const xs = [], ys = [], boxes = [];
     for (const v of [0, page.width / 2, page.width]) xs.push({ v, span: [0, page.height] });
     for (const v of [0, page.height / 2, page.height]) ys.push({ v, span: [0, page.width] });
-    if (guides && d.show_guides !== false) {
+    if (guides && this.showsGuides()) {
       for (const v of page.guides?.x || []) xs.push({ v, span: null });
       for (const v of page.guides?.y || []) ys.push({ v, span: null });
     }
@@ -1235,7 +1246,7 @@ export const canvas = {
       // Placed plots' axis and frame lines and the edges of their ink, in groups too
       for (const t of this.plotSnaps(it)) (t.axis ? ys : xs).push({ v: t.v, span: t.span });
     }
-    return { xs, ys, boxes, grid: d.show_grid ? this.gridSteps().snap : null, size: [page.width, page.height] };
+    return { xs, ys, boxes, grid: this.showsGrid() ? this.gridSteps().snap : null, size: [page.width, page.height] };
   },
   snapEnabled(e) { return (this.defaults?.snap ?? true) && !(e.metaKey || e.ctrlKey); },
   // Moving: the box's edges and centre snap to lines, or the box to equal gaps beside it; so do
@@ -1385,10 +1396,49 @@ export const canvas = {
     document.dispatchEvent(new CustomEvent("fa-colour-vision", { detail: this.colourVision }));
   },
 
+  // The page's edge and what's off it ---------------------------------------------------
+  // Objects can run past the page's edge, which the export cuts them off at. The edge is drawn
+  // over them (View > Page Edge), what's past it is dimmed toward the colour around the page
+  // (Dim Off the Page), and Preview (W) shows only what's on the page, without guides or grid.
+  // None of them is ever exported. Preview belongs to the window and isn't saved.
+  preview: false,
+  showsGuides() { return this.defaults?.show_guides !== false && !this.preview; },
+  showsGrid() { return !!this.defaults?.show_grid && !this.preview; },
+  onPage(p) {
+    const page = store.page();
+    return !!page && p[0] >= 0 && p[1] >= 0 && p[0] <= page.width && p[1] <= page.height;
+  },
+  drawPageAids() {
+    if (!this.pageEdge || !store.doc) return;
+    const { width: w, height: hh } = store.page(), far = 1e5, d = this.defaults || {};
+    this.pageEdge.setAttribute("width", w);
+    this.pageEdge.setAttribute("height", hh);
+    this.pageEdge.classList.toggle("off", d.show_page_edge === false);
+    this.pageClipRect.setAttribute("width", w);
+    this.pageClipRect.setAttribute("height", hh);
+    // Everything round the page, with the page cut out of it (even-odd)
+    this.offPageVeil.setAttribute("d", `M${-far} ${-far}H${far}V${far}H${-far}ZM0 0H${w}V${hh}H0Z`);
+    this.offPageVeil.classList.toggle("off", d.dim_off_page === false || this.preview);
+  },
+  setPreview(on) {
+    this.preview = !!on;
+    if (this.preview) this.itemsLayer.setAttribute("clip-path", "url(#fa-page-clip)");
+    else this.itemsLayer.removeAttribute("clip-path");
+    this.stage.classList.toggle("previewing", this.preview);
+    this.previewNote.replaceChildren(...(this.preview ? ["Preview: only what's on the page, as it exports — no guides or grid ",
+      h("button", { type: "button", class: "btn", onclick: () => this.onPreview?.(false) }, "Stop")] : []));
+    this.previewNote.hidden = !this.preview;
+    this.drawPageAids();
+    this.drawGrid();
+    this.drawGuides();
+    this.drawOverlay();
+    document.dispatchEvent(new CustomEvent("fa-preview", { detail: this.preview }));   // the rulers' guide marks
+  },
+
   drawGrid() {
     if (!this.gridLayer || !store.doc) return;
     const page = store.page();
-    const st = this.defaults?.show_grid ? this.gridSteps() : null;
+    const st = this.showsGrid() ? this.gridSteps() : null;
     const key = st ? JSON.stringify([st, page.width, page.height]) : "";
     if (key === this._gridKey) return;
     this._gridKey = key;
@@ -1436,7 +1486,7 @@ export const canvas = {
   drawGuides() {
     if (!this.guidesLayer || !store.doc) return;
     this.guidesLayer.replaceChildren();
-    if (this.defaults?.show_guides === false) return;
+    if (!this.showsGuides()) return;
     const g = this.guideLines();
     const line = (axis, v, cls) => this.guidesLayer.append(s("line", { class: cls, ...(axis === "x" ? { x1: v, x2: v, y1: -1e5, y2: 1e5 }
       : { x1: -1e5, x2: 1e5, y1: v, y2: v }) }));
@@ -1492,7 +1542,7 @@ export const canvas = {
     announce("Removed every guide from this page");
   },
   guideAt(pt) {
-    if (this.defaults?.show_guides === false || !store.doc) return null;
+    if (!this.showsGuides() || !store.doc) return null;
     const g = store.page().guides || {};
     let best = null;
     ["x", "y"].forEach((axis, i) => (g[axis] || []).forEach((v, index) => {

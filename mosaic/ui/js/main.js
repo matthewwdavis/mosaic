@@ -39,7 +39,8 @@ import {
 // Settings each window keeps for itself, though saved for the next window to start with: the
 // view switches and the interface's state (tabs, folded sections, panel widths). The rest are
 // the app's, the same in every window
-const WINDOW_PREFS = ["show_rulers", "show_grid", "show_guides", "snap", "ribbon_tab", "inspector_tabs", "inspector_closed", "panel_widths"];
+const WINDOW_PREFS = ["show_rulers", "show_grid", "show_guides", "snap", "show_page_edge", "dim_off_page", "ribbon_tab", "inspector_tabs",
+  "inspector_closed", "panel_widths"];
 
 const app = {
   prefs: {},
@@ -101,6 +102,7 @@ const app = {
         c("Fit Page in Window", "zoomFit"), c("Centre Page", "centrePage"), "-",
         tick("Rulers", "toggleRulers"), tick("Grid", "toggleGrid"), tick("Guides", "toggleGuides"), tick("Snap", "toggleSnap"),
         tick("Arrow Keys Follow the Zoom", "toggleNudgeZoom"), tick("Dangerous Mode", "toggleDangerous"), "-",
+        tick("Page Edge", "togglePageEdge"), tick("Dim Off the Page", "toggleDimOffPage"), tick("Preview", "togglePreview"), "-",
         { title: "Colour-Vision Preview", items: [...VISION.map(([mode, title]) => tick(title, `vision:${mode}`)), "-",
           c("Side by Side…", "compareVision")] }, "-",
         { title: "Enter Full Screen", selector: "toggleFullScreen:", keys: "⌃⌘F" }] },
@@ -116,6 +118,8 @@ const app = {
     const vision = canvas.colourVision || "normal";
     return { toggleRulers: !!this.prefs.show_rulers, toggleGrid: !!this.prefs.show_grid, toggleGuides: !!this.prefs.show_guides,
       toggleSnap: !!this.prefs.snap, toggleNudgeZoom: !!this.prefs.nudge_zoom, toggleDangerous: !!this.dangerous,
+      togglePageEdge: this.prefs.show_page_edge !== false, toggleDimOffPage: this.prefs.dim_off_page !== false,
+      togglePreview: !!canvas.preview,
       ...Object.fromEntries(VISION.map(([mode]) => [`vision:${mode}`, vision === mode])) };
   },
   syncMenus() {
@@ -152,6 +156,16 @@ const app = {
     const on = !this.prefs[key];
     await this.savePrefs({ [key]: on });
     announce(on ? onMessage : offMessage);
+  },
+  // Preview (canvas.setPreview): only what's on the page, as it exports, without guides or the
+  // grid. Never saved: every window opens with it off
+  togglePreview(on = !canvas.preview) {
+    canvas.setPreview(on);
+    panels.renderPreview?.();
+    inspector.render();   // (the Guides section says why they're hidden)
+    this.syncMenus();
+    announce(canvas.preview ? `Preview on: only what's on the page shows, as it exports, with no guides or grid. `
+      + `${this.commands.togglePreview.keys} turns it off` : "Preview off");
   },
   // Dangerous mode (liftedtext.js): a double-click on a placed plot's text lifts it out as a text
   // box. Never saved: every window opens with it off
@@ -1741,6 +1755,9 @@ const app = {
       "-",
       show("toggleRulers", "show_rulers", "Rulers"), show("toggleGrid", "show_grid", "Grid"),
       show("toggleGuides", "show_guides", "Guides"), show("toggleSnap", "snap", "Snap"),
+      "-",
+      show("togglePageEdge", "show_page_edge", "Page edge"), show("toggleDimOffPage", "dim_off_page", "Dim off the page"),
+      c("togglePreview", { label: "Preview", checked: !!canvas.preview }),
     ];
   },
   // Show a menu once the clipboard has been looked at (entries(clip) builds it); a newer menu
@@ -2423,6 +2440,12 @@ app.commands = {
   toggleSnap: cmd("Snap to guides, the grid, the page and other objects", () => app.togglePref("snap", "Snapping on",
     `Snapping off; things move freely. ${M}${S}; turns it back on`), `${M}${S};`,
   (e) => mod(e) && e.shiftKey && !e.altKey && (e.key === ";" || e.key === ":" || e.code === "Semicolon"), "Snap"),
+  togglePageEdge: cmd("Draw the page's edge over objects, to see where the export cuts them off", () => app.togglePref("show_page_edge",
+    "Page edge drawn over objects", "Page edge no longer drawn over objects"), null, null, "Page edge"),
+  toggleDimOffPage: cmd("Dim what's off the page, which the export leaves out", () => app.togglePref("dim_off_page",
+    "What's off the page is dimmed", "What's off the page is no longer dimmed"), null, null, "Dim off page"),
+  togglePreview: cmd("Preview: only what's on the page, as it exports, with no guides or grid", () => app.togglePreview(), "W",
+    (e) => plain(e) && !e.shiftKey && e.key.toLowerCase() === "w", "Preview"),
   toggleNudgeZoom: cmd("Arrow keys follow the zoom: smaller moves zoomed in, bigger zoomed out", () => app.togglePref("nudge_zoom",
     "Arrow keys follow the zoom", "Arrow keys move 1 pt at every zoom"), null, null, "Arrows follow zoom"),
   toggleDangerous: cmd("Dangerous mode: double-click text in a placed PDF or SVG to lift it out and edit it", () => app.toggleDangerous(),
@@ -2783,11 +2806,15 @@ async function start() {
     return !!name;
   };
   rulers.init(document.querySelector(".stage-wrap"));
-  // Dragging a new guide out of a ruler shows the guides if they were hidden
+  // Dragging a new guide out of a ruler shows the guides if they were hidden, and ends Preview
   rulers.onNeedGuides = () => {
-    app.prefs.show_guides = true;
-    app.savePrefs({ show_guides: true }).then(() => announce("Guides shown")).catch(() => {});
+    if (canvas.preview) app.togglePreview(false);
+    if (app.prefs.show_guides === false) {
+      app.prefs.show_guides = true;
+      app.savePrefs({ show_guides: true }).then(() => announce("Guides shown")).catch(() => {});
+    }
   };
+  canvas.onPreview = (on) => app.togglePreview(on);   // (the Stop button on its note)
   rulers.onMenu = (axis, index, x, y) => app.guideMenu(axis, index, x, y);
   panels.init(app);
   updates.init(app, panels);   // the status bar's note when a new version is ready

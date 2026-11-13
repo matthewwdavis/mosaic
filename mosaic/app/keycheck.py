@@ -253,6 +253,7 @@ STEPS = [
     ("backspace", {"ran": ["delete"], "check": lambda b, s: s["selected"] == 0}),
     ("s", {"ran": ["shapesMenu"], "check": lambda b, s: s["shapeMenu"], "what": "S opens the Shapes menu"}),
     ("escape", {"check": lambda b, s: not s["shapeMenu"], "what": "Escape closes the Shapes menu"}),
+    ("w", {"ran": ["togglePreview"]}), ("w", {"ran": ["togglePreview"]}),   # (Preview on, and off again)
     ("i", {"ran": ["insertPicture"]}),
     ("cmd+n", {"ran": ["new"]}), ("cmd+o", {"ran": ["open"]}), ("cmd+s", {"ran": ["save"]}),
     ("cmd+shift+s", {"ran": ["saveAs"]}), ("cmd+e", {"ran": ["export"]}),

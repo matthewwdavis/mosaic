@@ -42,7 +42,7 @@ export const rulers = {
       el.addEventListener("wheel", (e) => canvas.wheel(e), { passive: false });
     }
     new ResizeObserver(() => this.schedule()).observe(wrap);
-    for (const name of ["fa-zoom", "fa-prefs"]) document.addEventListener(name, () => this.schedule());
+    for (const name of ["fa-zoom", "fa-prefs", "fa-preview"]) document.addEventListener(name, () => this.schedule());
     document.addEventListener("fa-cursor", (e) => { this.cursor = e.detail; this.schedule(); });
     store.on(() => this.schedule());
     this.schedule();
@@ -60,7 +60,7 @@ export const rulers = {
 
   // The guide whose mark is under the pointer: the top ruler (axis "x") marks vertical guides
   markAt(axis, pt) {
-    if (canvas.defaults?.show_guides === false) return null;
+    if (!canvas.showsGuides()) return null;
     const i = axis === "x" ? 0 : 1;
     let best = null, bestD = MARK_HIT;
     (store.page().guides?.[axis] || []).forEach((v, index) => {
@@ -95,7 +95,7 @@ export const rulers = {
     canvas.setGuidePreview(null);
     if (mark !== null) canvas.startGuide(axis, mark);
     else {
-      if (canvas.defaults?.show_guides === false) this.onNeedGuides?.();
+      if (!canvas.showsGuides()) this.onNeedGuides?.();   // (hidden, or Preview on)
       canvas.startGuide(axis === "x" ? "y" : "x", null);   // dragged out, a new guide runs along the ruler it came out of
     }
     this.dragging = true;
@@ -152,7 +152,7 @@ export const rulers = {
       fontPx: parseFloat(css.fontSize) * 0.66 };
     const unit = canvas.defaults?.units || "cm";
     const ctx = { style, unit, steps: rulerSteps(canvas.k * PT_PER[unit], unit, style.fontPx), page: store.page(),
-      sel: itemsBBox(store.selected()), guides: canvas.defaults?.show_guides === false ? null : canvas.guideLines() };
+      sel: itemsBBox(store.selected()), guides: canvas.showsGuides() ? canvas.guideLines() : null };
     this.drawRuler(this.top, 0, ctx);
     this.drawRuler(this.left, 1, ctx);
     this.corner.textContent = UNIT_LABEL[unit];

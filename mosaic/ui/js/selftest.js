@@ -2806,6 +2806,102 @@ async function pasteboardChecks(app) {
   canvas.fit();
 }
 
+// The page's edge and what's off it: the edge drawn over the objects (Page Edge) and what's past
+// it dimmed (Dim Off the Page), saved switches that start on, in the View menu, the ribbon and the
+// page's right-click menu. Preview (W) cuts the objects off at the page's edge and hides guides and
+// the grid, which then don't snap; a click off the page picks nothing; its note's Stop button
+// turns it off, and so does dragging a guide out of a ruler
+async function offPageChecks(app) {
+  await app.savePrefs({ show_rulers: true, show_guides: true, show_grid: true, snap: true, show_page_edge: true, dim_off_page: true });
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const page = store.page();
+  store.update("Past the edge", (doc) => {
+    const pg = doc.pages[store.pageIndex];
+    pg.items.push({ id: "past", type: "shape", geom: "rect", frame: [page.width - 40, 40, 100, 60], rot: 0, flip_h: false, flip_v: false,
+      fill: { color: "#56b4e9", opacity: 1 }, stroke: null });
+    pg.guides = { x: [page.width / 2], y: [] };
+  }, { select: [] });
+  await settle();
+  const { pageEdge: edge, offPageVeil: veil, itemsLayer } = canvas;
+  const shown = (el) => getComputedStyle(el).display !== "none";
+  const layers = [...canvas.view.children];
+  check(shown(edge) && shown(veil) && layers.indexOf(edge) > layers.indexOf(itemsLayer) && layers.indexOf(veil) > layers.indexOf(itemsLayer)
+    && layers.indexOf(edge) > layers.indexOf(veil) && near(+edge.getAttribute("width"), page.width) && near(+edge.getAttribute("height"), page.height),
+  "the page's edge and the dimming off the page are drawn over the objects, at the page's size",
+  `${shown(edge)} ${shown(veil)} ${layers.map((l) => l.getAttribute("class"))} ${edge.getAttribute("width")}`);
+  const ctx = document.createElement("canvas").getContext("2d"), area = new Path2D(veil.getAttribute("d"));
+  check(!ctx.isPointInPath(area, page.width - 20, 70, "evenodd") && ctx.isPointInPath(area, page.width + 30, 70, "evenodd")
+    && ctx.isPointInPath(area, -5, -5, "evenodd"), "the dimming covers what's off the page and leaves the page clear", veil.getAttribute("d"));
+  const rgb = (hex) => { const c = parseHex(hex); return `rgb(${[1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)).join(", ")})`; };
+  const edgeColour = getComputedStyle(document.documentElement).getPropertyValue("--page-edge").trim();
+  check(edgeColour && getComputedStyle(edge).stroke === rgb(edgeColour), "the edge is drawn in the theme's page-edge colour",
+    `${getComputedStyle(edge).stroke} vs ${edgeColour}`);
+  const pressed = (cmd) => [...document.querySelectorAll(`[data-cmd="${cmd}"]`)].map((b) => b.getAttribute("aria-pressed"));
+  check(app.menuChecks().togglePageEdge && app.menuChecks().toggleDimOffPage && !app.menuChecks().togglePreview
+    && pressed("togglePageEdge").every((v) => v === "true") && pressed("toggleDimOffPage").every((v) => v === "true")
+    && pressed("togglePreview").every((v) => v === "false"), "the View menu and the ribbon show the page edge and dimming on, Preview off",
+  `${JSON.stringify(app.menuChecks())} ${pressed("togglePageEdge")} ${pressed("toggleDimOffPage")} ${pressed("togglePreview")}`);
+  await app.menu("togglePageEdge");
+  await app.menu("toggleDimOffPage");
+  const bothOff = !shown(edge) && !shown(veil) && app.prefs.show_page_edge === false && app.prefs.dim_off_page === false
+    && !app.menuChecks().togglePageEdge && pressed("togglePageEdge").every((v) => v === "false");
+  await app.menu("togglePageEdge");
+  await app.menu("toggleDimOffPage");
+  check(bothOff && shown(edge) && shown(veil), "View > Page Edge and Dim Off the Page switch them off and on", `${bothOff}`);
+  // The page's right-click menu has all three
+  app.contextMenuAt(...screenOf(page.width / 4, page.height - 10));   // (beside the guide)
+  await until(() => document.querySelector(".context-menu"));
+  const labels = [...document.querySelectorAll(".context-menu .menu-label")].map((l) => l.textContent);
+  document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  check(["Page edge", "Dim off the page", "Preview"].every((l) => labels.includes(l)), "the page's right-click menu has Page edge, Dim and Preview",
+    labels.join(", "));
+
+  key("w");
+  await settle();
+  const pgGuides = () => canvas.guidesLayer.childElementCount;
+  check(canvas.preview && itemsLayer.getAttribute("clip-path") === "url(#fa-page-clip)" && !shown(veil) && shown(edge)
+    && !canvas.gridLayer.childElementCount && !pgGuides() && !canvas.previewNote.hidden && app.menuChecks().togglePreview
+    && pressed("togglePreview").every((v) => v === "true"),
+  "W turns Preview on: objects cut off at the page's edge, no dimming, guides or grid, and a note saying so",
+  `${canvas.preview} ${itemsLayer.getAttribute("clip-path")} ${shown(veil)} grid ${canvas.gridLayer.childElementCount} guides ${pgGuides()}`);
+  const clip = document.querySelector("#fa-page-clip rect");
+  check(near(+clip.getAttribute("width"), page.width) && near(+clip.getAttribute("height"), page.height), "Preview cuts at the page's size",
+    `${clip.getAttribute("width")} x ${clip.getAttribute("height")}`);
+  const targets = canvas.snapTargets([]);
+  check(!targets.xs.some((t) => t.span === null) && targets.grid === null && rulers.markAt("x", canvas.toScreen(page.width / 2, 0)) === null,
+    "in Preview, guides and the grid neither show on the rulers nor snap", JSON.stringify(targets.xs.filter((t) => t.span === null)));
+  const clickAt = async (x, y) => {
+    const pt = screenOf(x, y);
+    pointer("pointerdown", pt);
+    pointer("pointerup", pt, { buttons: 0 });
+    await settle();
+  };
+  await clickAt(page.width + 30, 70);
+  const offClick = store.selection.join();
+  await clickAt(page.width - 20, 70);
+  check(offClick === "" && store.selection.join() === "past", "in Preview, a click off the page picks nothing; on it, the object",
+    `off: ‹${offClick}› on: ‹${store.selection.join()}›`);
+  store.select([]);
+  canvas.previewNote.querySelector("button").click();
+  await settle();
+  check(!canvas.preview && !itemsLayer.hasAttribute("clip-path") && shown(veil) && pgGuides() === 1 && canvas.gridLayer.childElementCount
+    && canvas.previewNote.hidden && !app.menuChecks().togglePreview, "the note's Stop button turns Preview off, guides and grid back",
+  `${canvas.preview} guides ${pgGuides()} grid ${canvas.gridLayer.childElementCount}`);
+  key("w");
+  await settle();
+  const left = document.querySelector(".ruler.left"), lr = left.getBoundingClientRect(), [, gy] = screenOf(0, page.height / 3);
+  for (const type of ["pointerdown", "pointerup"]) {
+    left.dispatchEvent(new PointerEvent(type, { clientX: lr.left + lr.width / 2, clientY: gy, bubbles: true, button: 0,
+      buttons: type === "pointerdown" ? 1 : 0, pointerId: 3, pointerType: "mouse" }));   // (a click: a guide there)
+  }
+  await settle();
+  check(!canvas.preview && store.page().guides.y.length === 1 && pgGuides() === 2, "a guide from a ruler ends Preview, and shows",
+    `${canvas.preview} ${JSON.stringify(store.page().guides)}`);
+  await app.savePrefs({ show_grid: false });
+}
+
 // Zoom inset shapes: the Zoom inset button's ▾ menu offers a rounded rectangle, an ellipse and a
 // circle beside the rectangle a plain click makes; the inset takes its box's shape, and the lines
 // run along the outside, touching both; the Zoom shape list changes both, or one alone with Same
@@ -3514,6 +3610,7 @@ export async function run(app, params) {
     if (params.get("only") === "pictures") { await pictureMenuChecks(app); throw ONLY; }
     if (params.get("only") === "zoomshapes") { await zoomShapeChecks(app); throw ONLY; }
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
+    if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
     if (params.get("only") === "pagedrag") { await pageDragChecks(app); throw ONLY; }
     if (params.get("only") === "clickthrough") { await clickThroughChecks(app); throw ONLY; }
     if (params.get("only") === "textribbon") { await textRibbonChecks(app); throw ONLY; }
@@ -4785,6 +4882,7 @@ export async function run(app, params) {
     await pictureMenuChecks(app);
     await zoomShapeChecks(app);
     await pasteboardChecks(app);
+    await offPageChecks(app);
     await pageDragChecks(app);
     await clickThroughChecks(app);
     await textRibbonChecks(app);

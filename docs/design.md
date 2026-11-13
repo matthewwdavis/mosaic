@@ -284,6 +284,21 @@ pre-export check says so.
     moved line's dashes (held from its first point). `sitesKnown` now also waits for a line's dashes
     to be drawn for its current shape (`geomKey`): turned or flipped, the old ones (only shifted
     along) sent such an end to the wrong dash.
+  - *The page's edge over objects, dimming off the page, and Preview (2026-11-13, Matthew's
+    choices):* a picture over the page's edge hid it (the edge was only the page rect's shadow,
+    under the objects). Three switches, in the View tab (Page edge group), the View menu, the
+    page's right-click menu and Settings: **Page edge** draws the page's outline over the objects
+    (`canvas.pageEdge`, 1 px, above the grid, under the guides), in a theme colour of its own
+    (`page_edge`, `--page-edge`, held to 3:1 on the white page and the stage in themes.RULES like
+    the guides): vermilion, but teal in Lab notebook (red guides) and cyan in Blueprint (orange
+    selection). **Dim off the page** lays the stage colour at 60% over everything off the page
+    (`canvas.offPageVeil`, an even-odd path round the page). Both start on and are saved per window
+    like rulers and grid (`show_page_edge`, `dim_off_page`). **Preview** (W, as in InDesign)
+    clips the objects layer to the page (`#fa-page-clip`) and hides guides and the grid, which
+    then don't snap (`canvas.showsGuides`/`showsGrid`, used wherever show_guides/show_grid were
+    read); a click off the page picks nothing; selection handles still show, so editing goes on.
+    A note on the page says it's on, with Stop; dragging a guide out of a ruler ends it. It's
+    the window's, never saved, like Dangerous mode. None of the three is ever exported.
 - **Connectors (2026-10-31):** line and arrow ends attach to connection points and follow them
   (`start_link` / `end_link`: {item, site}). Points come from each shape's own outline (Matthew's
   choice): corners (sharp ones and rounded corners' middles) and side middles; 8 points round
