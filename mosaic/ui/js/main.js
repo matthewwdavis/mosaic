@@ -826,7 +826,22 @@ const app = {
     for (const [id, a] of Object.entries(store.doc.assets)) if (Object.values(a.variants).some((v) => v.src)) linked[id] = a;
     if (!Object.keys(linked).length) return announce("No linked pictures to refresh: every picture is stored in the document only");
     announce("Refreshing pictures from their files…");
-    const { changed, added, missing } = await rpc("refresh_assets", linked, store.path, true);
+    // A bar over the page, after a moment, with Stop (then no picture changes)
+    const job = panels.newJob();
+    let note = null, last = null;
+    const showing = setTimeout(() => {
+      note = panels.progressNote("Refreshing pictures…", () => rpc("cancel_job", job).catch(() => {}));
+      if (last) note.set(...last);
+    }, 300);
+    let got;
+    try {
+      got = await panels.track(job, rpc("refresh_assets", linked, store.path, true, job), (st, ms) => { last = [st, ms]; note?.set(st, ms); });
+    } finally {
+      clearTimeout(showing);
+      note?.remove();
+    }
+    if (got.cancelled) return announce("Refresh stopped: no pictures were changed");
+    const { changed, added, missing } = got;
     const ids = Object.keys(changed).filter((id) => store.doc.assets[id]);
     for (const id of Object.keys(linked)) delete this.declined[id];
     const dropped = ids.length ? await this.takeUpdates(changed, ids) : [];

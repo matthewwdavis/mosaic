@@ -174,8 +174,8 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         ready = wait_ready(window)
         if ready and "selftest" in (extra or ""):
             # A hidden window's timers run slowly, and the self-test has many short waits (it took
-            # 400 s in November 2026): up to 15 minutes
-            for _ in range(4500):
+            # 400 s in November 2026, 16 min by 11-13 with autosave's and progress's real waits): up to 30 minutes
+            for _ in range(9000):
                 time.sleep(0.2)
                 if window.evaluate_js("document.body.dataset.selftest || ''"):
                     break

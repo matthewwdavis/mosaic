@@ -81,7 +81,10 @@ offpage` the page's edge over objects, dimming off the page and Preview, `--only
 renaming the document's file (the editor side of the title bar's rename), `--only pageselect`
 several pages selected in the Pages list (and copied, dragged, dropped, exported), `--only
 keeping` recovery copies, AutoSave, Browse Versions and recovering as the document (about 25 s
-of waiting for autosave's 10 s pauses), `--only
+of waiting for autosave's 10 s pauses), `--only progress` the progress bars of export (in the
+window, carried over the page, Stop) and Refresh all pictures, with the engine stood in for
+(headless Chrome's clock stands still while a request is out, so a page can't watch a job there;
+in the app's window it also watches a real export's own progress), `--only
 pictures` the Style tab's picture menus, `--only textribbon` the Home tab's Text section
 (several boxes at once, the highlighted words while typing, switching to Home and back), and
 `--only journallabels` panel labels following a page's journal, and `--only journalchecks` the
@@ -97,7 +100,7 @@ MOSAIC_HOME=$(mktemp -d) MOSAIC_SMOKETEST=1 \
 
 It prints `SELFTEST {...}` with every result, then `SMOKE ready errors=[]`. The figures it saves
 and its exports go in a temporary folder, unless the query gives one (`&out=/path`). A hidden window's
-timers run slowly, so this takes about seven minutes (it waits up to 15). Without
+timers run slowly, so this takes about 16 minutes (it waits up to 30). Without
 `MOSAIC_SMOKE_QUERY` (keep `MOSAIC_HOME`, so it can't meet your own recovery copies
 and preferences) it checks that
 the editor starts and that an edit switches on the close confirmation. On a Mac it then presses

@@ -12,17 +12,20 @@ from PIL import Image, ImageCms
 from ..assets import PDFIUM_LOCK
 
 
-def render_pdf_bytes(pdf_bytes: bytes, dpi: float, transparent: bool = True) -> list[Image.Image]:
+def render_pdf_bytes(pdf_bytes: bytes, dpi: float, transparent: bool = True, on_page=None) -> list[Image.Image]:
+    """Each page as an image. on_page(i): called before page i is drawn (export's progress)."""
     with PDFIUM_LOCK:
-        return _render(pdf_bytes, dpi, transparent)
+        return _render(pdf_bytes, dpi, transparent, on_page)
 
 
-def _render(pdf_bytes: bytes, dpi: float, transparent: bool) -> list[Image.Image]:
+def _render(pdf_bytes: bytes, dpi: float, transparent: bool, on_page=None) -> list[Image.Image]:
     import pypdfium2 as pdfium
     doc = pdfium.PdfDocument(pdf_bytes)
     images = []
     try:
         for i in range(len(doc)):
+            if on_page:
+                on_page(i)
             page = doc[i]
             bitmap = page.render(scale=dpi / 72.0, fill_color=(0, 0, 0, 0) if transparent else (255, 255, 255, 255),
                                  may_draw_forms=False, draw_annots=False)

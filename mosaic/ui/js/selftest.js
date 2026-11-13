@@ -3155,6 +3155,123 @@ async function keepingChecks(app, out) {
   await rpc("discard_autosave", other);
 }
 
+// A long job shows its progress: the Export window's settings greyed out and a bar at the top,
+// filling, with what it's on and (after a while) about how long is left; Keep working closes the
+// window and the bar carries on over the page; Stop stops it and says its files were removed. One
+// left to run closes the window as before. Refresh all pictures shows a bar over the page after a
+// moment, whose Stop changes nothing. (Headless Chrome's clock stands still while a request is
+// out, so the engine's side is stood in for here: the export held open, its progress made up;
+// tests/test_progress.py has the engine's own)
+async function exportProgressChecks(app, out) {
+  const run = Date.now().toString(36), realBase = app.chooseExportBase, realFetch = window.fetch;
+  let state = null, held = null, stopped = false;
+  window.fetch = async (url, init) => {
+    const method = (() => { try { return JSON.parse(init?.body || "{}").method; } catch { return null; } })();
+    const reply = (result) => new Response(JSON.stringify({ result }), { headers: { "Content-Type": "application/json" } });
+    if (method === "job_progress") return reply(state);
+    if (method === "cancel_job") { stopped = true; held?.({ cancelled: true }); return reply(true); }
+    if (held === null && ["export", "refresh_assets"].includes(method)) {
+      return new Promise((resolve) => { held = (result) => { held = undefined; resolve(reply(result)); }; });
+    }
+    return realFetch(url, init);
+  };
+  app.chooseExportBase = async () => `${out}/selftest-progress-${run}`;
+  try {
+    store.setDoc(await rpc("new_document"));
+    store.update("A box", (doc) => doc.pages[0].items.push(gRectFor("pgBox", 20, 20, 300, 200)));
+    const begin = async ({ all = false, dpi = null } = {}) => {
+      await app.run("export");
+      const dlg = [...document.querySelectorAll("dialog[open]")].pop();
+      for (const i of dlg.querySelectorAll(".formats input, .advanced input[value]")) i.checked = ["pdf", "png"].includes(i.value);
+      const field = (text) => document.getElementById([...dlg.querySelectorAll("label")].find((l) => l.textContent === text).htmlFor);
+      if (all) field("Pages").value = "all";
+      if (dpi) {
+        const res = field("Resolution for PNG, TIFF and JPEG");
+        res.value = "custom";
+        res.dispatchEvent(new Event("change", { bubbles: true }));
+        field("Custom resolution").value = dpi;
+      }
+      [...dlg.querySelectorAll(".dialog-actions button")].find((b) => b.textContent === "Export…").click();
+      await until(() => dlg.querySelector(".progress-view") || !dlg.open);   // (a quick one may be done already)
+      return dlg;
+    };
+    let dlg = await begin();
+    const buttons = () => [...dlg.querySelectorAll(".dialog-actions button")].filter((b) => !b.hidden).map((b) => b.textContent).join(",");
+    const greyed = dlg.querySelector("fieldset.plain-fieldset").disabled && buttons() === "Keep working,Stop"
+      && dlg.querySelector(".dialog-body").firstElementChild.classList.contains("progress-view");
+    state = { fraction: 0.25, label: "Building the PDF, page 1 of 2", cancelled: false };
+    await until(() => near(dlg.querySelector(".progress-view progress").value, 0.25, 1e-6));
+    const early = dlg.querySelector(".progress-line").textContent;
+    await wait(2200);
+    state = { fraction: 0.5, label: "Drawing PNG at 600 dpi, page 1 of 2", cancelled: false };
+    await until(() => near(dlg.querySelector(".progress-view progress").value, 0.5, 1e-6));
+    const later = dlg.querySelector(".progress-line").textContent, pct = dlg.querySelector(".progress-pct").textContent;
+    check(greyed && early === "Building the PDF, page 1 of 2" && /^Drawing PNG at 600 dpi, page 1 of 2 · (about \d+ s|a few seconds) left$/.test(later) && pct === "50%",
+      "a long export greys out its settings and shows a bar filling at the top, with what it's on and, after a while, the time left",
+    `greyed ${greyed} (${buttons()}); ‹${early}› ‹${later}› ${pct}`);
+    [...dlg.querySelectorAll(".dialog-actions button")].find((b) => b.textContent === "Keep working").click();
+    const note = () => document.querySelector(".progress-note");
+    state = { fraction: 0.75, label: "Writing PNG, page 2 of 2", cancelled: false };
+    await until(() => near(note()?.querySelector("progress").value ?? 0, 0.75, 1e-6));
+    const carried = !dlg.open && /Writing PNG, page 2 of 2/.test(note()?.querySelector(".progress-line").textContent || "");
+    note()?.querySelector(".progress-row button").click();   // Stop
+    await panels.writing;
+    const said = document.querySelector(".done-note:not(.progress-note)")?.textContent || "";
+    check(carried && stopped && !note() && /Export stopped: the files it had written were removed/.test(said),
+      "Keep working carries the bar on over the page; its Stop stops the export and says the files were removed", `${carried} ${stopped} ‹${said}›`);
+    document.querySelector(".done-note-close")?.click();
+    // Left to run (the engine's own export this time): the window closes and names the files
+    held = undefined;
+    state = null;
+    dlg = await begin();
+    await panels.writing;
+    const done = document.querySelector(".done-note:not(.progress-note)")?.textContent || "";
+    check(!dlg.open && !document.querySelector(".progress-view") && /Exported selftest-progress/.test(done),
+      "an export left to run closes its window and names the files, as before",
+    `open ${dlg.open} ‹${dlg.querySelector(".results")?.textContent}› notes ${[...document.querySelectorAll(".done-note")].map((n) => n.textContent).join(" | ")}`);
+    document.querySelector(".done-note-close")?.click();
+    // Refresh all pictures: a bar over the page after a moment; Stop changes nothing
+    held = null;
+    stopped = false;
+    store.doc.assets.selftestLinked = { name: "linked plot", primary: "svg", variants: { svg: { kind: "svg", src: "/nowhere/plot.svg", sha256: "0" } } };
+    const assetsBefore = JSON.stringify(store.doc.assets);
+    const refreshing = app.refreshAll();
+    state = { fraction: 0, label: "Reading linked plot (1 of 1)", cancelled: false };
+    await until(() => note()?.querySelector(".progress-line")?.textContent.startsWith("Reading linked plot"));
+    const shown = note()?.querySelector(".progress-title")?.textContent;
+    note()?.querySelector(".progress-row button").click();
+    await refreshing;
+    const live = () => document.getElementById("live").textContent;
+    await until(() => /Refresh stopped/.test(live()));   // (announcements show a moment later)
+    check(shown === "Refreshing pictures…" && stopped && !note() && JSON.stringify(store.doc.assets) === assetsBefore
+      && /Refresh stopped: no pictures were changed/.test(live()),
+    "Refresh all pictures shows a bar over the page, and its Stop changes nothing", `‹${shown}› ${stopped} ${!note()} ‹${live()}›`);
+    delete store.doc.assets.selftestLinked;
+    // In the app's own window (whose clock runs while the engine works): a real export's bar fills
+    // from the engine's own progress, 4 pages at 1200 dpi
+    if (!/HeadlessChrome/.test(navigator.userAgent)) {
+      window.fetch = realFetch;
+      for (let k = 0; k < 3; k++) app.addPage();
+      store.update("Boxes", (doc) => doc.pages.forEach((pg, i) => pg.items.push(gRectFor(`pgr${i}`, 20, 20, 300, 200))));
+      dlg = await begin({ all: true, dpi: 1200 });
+      const seen = [];
+      await until(() => {
+        const v = dlg.querySelector(".progress-view progress")?.value, t = dlg.querySelector(".progress-line")?.textContent;
+        if (v) seen.push([v, t]);
+        return !dlg.open;
+      }, 120000);
+      await panels.writing;
+      const labels = new Set(seen.map(([, t]) => t.split(" · ")[0]));
+      check(seen.some(([v]) => v > 0 && v < 1) && [...labels].some((t) => /page \d of 4/.test(t)) && !dlg.open,
+        "in the app's window, a real export's bar fills from the engine's own progress", `${seen.length} looks; ${[...labels].slice(0, 4).join(" | ")}`);
+      document.querySelector(".done-note-close")?.click();
+    }
+  } finally {
+    window.fetch = realFetch;
+    app.chooseExportBase = realBase;
+  }
+}
+
 // Zoom inset shapes: the Zoom inset button's ▾ menu offers a rounded rectangle, an ellipse and a
 // circle beside the rectangle a plain click makes; the inset takes its box's shape, and the lines
 // run along the outside, touching both; the Zoom shape list changes both, or one alone with Same
@@ -3859,6 +3976,7 @@ export async function run(app, params) {
     if (params.get("only") === "sizes") { await pageSizeChecks(app); throw ONLY; }
     if (params.get("only") === "vision") { await visionChecks(app); throw ONLY; }
     if (params.get("only") === "export") { await exportNoteChecks(app, out); throw ONLY; }
+    if (params.get("only") === "progress") { await exportProgressChecks(app, out); throw ONLY; }
     if (params.get("only") === "guides") { await rulerGuideChecks(app); throw ONLY; }
     if (params.get("only") === "pictures") { await pictureMenuChecks(app); throw ONLY; }
     if (params.get("only") === "zoomshapes") { await zoomShapeChecks(app); throw ONLY; }
@@ -5134,6 +5252,7 @@ export async function run(app, params) {
     await pageSizeChecks(app);
     await visionChecks(app);
     await exportNoteChecks(app, out);
+    if (out) await exportProgressChecks(app, out);
     await rulerGuideChecks(app);
     await pictureMenuChecks(app);
     await zoomShapeChecks(app);

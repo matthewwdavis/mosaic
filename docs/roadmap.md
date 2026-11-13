@@ -250,6 +250,9 @@ Matthew's choices are in brackets.
       switching away (was once a minute); a history of recovery copies; earlier versions of saved
       files with Browse Versions; AutoSave into the file (per figure); recovering as the document
       it was [Matthew's choices]
+- [x] Progress while exporting (asked 2026-11-13): a filling bar with what it's on and the time
+      left, settings greyed out, Keep working (the bar carries on over the page) and Stop (files
+      removed); the figure report, Check and Refresh all pictures too [Matthew's choices]
 
 ## Acceptance test (test slide)
 

@@ -16,8 +16,18 @@ import { zoomShapePicture } from "./pictures.js";
 import { ZOOM_SHAPES } from "./zoom.js";
 import { cropMenu } from "./crop.js";
 import { textRibbon } from "./textribbon.js";
-import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon, s, shapeName, toUnit } from "./util.js";
+import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon, s, shapeName, toUnit, uid } from "./util.js";
 
+const PROGRESS_EVERY = 250;        // ms between asking how far a long job has got
+const PROGRESS_SHOW_AFTER = 300;   // ms before a bar shows where nothing else says it's working (Check, Refresh)
+// About how long a job has left, from how far it's got in how long; nothing until it can tell
+function timeLeft(f, ms) {
+  if (!(f > 0.05) || ms < 2000 || f >= 1) return "";
+  const s = (ms * (1 - f)) / f / 1000;
+  if (s < 5) return "a few seconds left";
+  if (s < 60) return `about ${Math.round(s / 5) * 5} s left`;
+  return `about ${Math.round(s / 60)} min left`;
+}
 // The pages an Export or Figure report choice means: every page (null), the selected ones, or the one showing
 function pagesChosen(value, selected) {
   return value === "all" ? null : value === "selected" ? selected : [store.pageIndex];
@@ -1084,12 +1094,13 @@ export const panels = {
     // What the exported pages' journals take, and the settings here they don't (export_check)
     const journal = h("div", { class: "journal-export", "aria-live": "polite" });
     const go = h("button", { type: "button", class: "btn primary" }, "Export…");
-    const body = h("div", {},
+    const settingsBox = h("fieldset", { class: "plain-fieldset" },
       h("fieldset", { class: "formats" }, h("legend", {}, "Formats"),
         check("pdf", "PDF", "vector; placed PDFs go in unchanged"), check("svg", "SVG", "vector; placed SVGs go in unchanged"),
         check("png", "PNG"), check("tiff", "TIFF", "LZW-compressed"),
         check("pptx", "PowerPoint", "editable; what PowerPoint can't draw exactly goes in as pictures")),
-      dpiSel, custom, pages, bg, advanced, journal, results);
+      dpiSel, custom, pages, bg, advanced);
+    const body = h("div", {}, settingsBox, journal, results);
     const dlg = this.dialog("Export", body, [go]);
     const settings = () => {
       let dpi = dpiSel.querySelector("select").value;
@@ -1120,16 +1131,17 @@ export const panels = {
       if (!chosen.length) { results.textContent = "Choose at least one format."; return; }
       const base = await this.app.chooseExportBase();
       if (!base) return;
-      go.disabled = true;
-      results.replaceChildren(h("p", {}, "Exporting…"));
-      try {
-        const res = await rpc("export", store.doc, { ...opts, base, doc_path: store.path });
-        this.app.savePrefs({ export: { formats: chosen, dpi, transparent: opts.transparent, cmyk: opts.cmyk, embed_fonts: opts.embed_fonts } });
-        dlg.close();
-        this.doneNote(`Exported ${fileNames(res.files)}`, res.files, res.warnings, res.notes);
-      } catch (err) {
-        results.replaceChildren(h("p", { class: "error" }, `Export failed: ${err.message}`));
-      } finally { go.disabled = false; }
+      results.replaceChildren();
+      const doc = store.doc, path = store.path;   // (as it is now: editing meanwhile doesn't change the export)
+      const { res, err, open } = await this.dialogJob(dlg, { title: "Exporting…", settings: settingsBox, go,
+        run: (job) => rpc("export", doc, { ...opts, base, doc_path: path, job }) });
+      const said = (text, warn = false) => (open ? results.replaceChildren(h("p", { class: warn ? "error" : "" }, `${text}.`))
+        : this.doneNote(text, [], warn ? [text] : []));
+      if (err) return said(`Export failed: ${err.message}`, true);
+      if (res.cancelled) return said("Export stopped: the files it had written were removed");
+      this.app.savePrefs({ export: { formats: chosen, dpi, transparent: opts.transparent, cmyk: opts.cmyk, embed_fonts: opts.embed_fonts } });
+      if (open) dlg.close();
+      this.doneNote(`Exported ${fileNames(res.files)}`, res.files, res.warnings, res.notes);
     };
     go.addEventListener("click", () => { this.writing = write(); });
   },
@@ -1139,6 +1151,94 @@ export const panels = {
   // placed PDFs, say). It goes after noteSeconds, but not while pointed at or focused; one with
   // warnings stays until closed, so they're seen
   noteSeconds: 10,
+  // Long jobs (progress.py): a bar that fills as the job goes, what it's on and about how long
+  // is left; with onStop, a Stop button (the job stops after the step it's on)
+  progressView(title, onStop = null) {
+    const bar = h("progress", { max: 1, value: 0, "aria-label": title });
+    const pct = h("span", { class: "progress-pct" }, "0%");
+    const line = h("p", { class: "progress-line" }, "Starting…");
+    const stop = onStop ? h("button", { type: "button", class: "btn small" }, "Stop") : null;
+    stop?.addEventListener("click", () => { stop.disabled = true; line.textContent = "Stopping after this step…"; onStop(); });
+    const el = h("div", { class: "progress-view", role: "group", "aria-label": title },
+      h("div", { class: "progress-title" }, title), h("div", { class: "progress-row" }, bar, pct, stop), line);
+    const set = (st, ms) => {
+      if (stop?.disabled) return;
+      const f = Math.max(0, Math.min(1, st.fraction || 0)), left = timeLeft(f, ms);
+      bar.value = f;
+      pct.textContent = `${Math.round(f * 100)}%`;
+      line.textContent = [st.label, left].filter(Boolean).join(" · ");
+      bar.setAttribute("aria-valuetext", `${Math.round(f * 100)}%: ${line.textContent}`);
+    };
+    return { el, set };
+  },
+  // The same over the page (a job carrying on with its window closed, or with none)
+  progressNote(title, onStop) {
+    const view = this.progressView(title, onStop);
+    const el = h("div", { class: "done-note progress-note" }, view.el);
+    canvas.notes.append(el);
+    announce(title);
+    return { el, set: view.set, remove: () => el.remove() };
+  },
+  // A job's request (its promise) followed: how far it's got, asked a few times a second, goes to
+  // onState(state, ms since it began) until it's done. Returns what the request returns
+  async track(job, request, onState) {
+    const began = performance.now();
+    let over = false;
+    (async () => {
+      while (!over) {
+        await new Promise((r) => setTimeout(r, PROGRESS_EVERY));
+        if (over) break;
+        const st = await rpc("job_progress", job).catch(() => null);
+        if (st && !over) onState(st, performance.now() - began);
+      }
+    })();
+    try { return await request; } finally { over = true; }
+  },
+  newJob() { return uid("job"); },
+  // A long job started from a window (Export, the figure report): its settings greyed out and the
+  // bar at the top while it runs, with Keep working (the window closes, the bar carries on in a
+  // note over the page) and Stop (after the step it's on; what it wrote is removed). run(job): the
+  // request. Returns {res, err, open: whether the window's still up}
+  async dialogJob(dlg, { title, settings, go, run }) {
+    const job = this.newJob(), view = this.progressView(title);
+    const body = dlg.querySelector(".dialog-body"), actions = dlg.querySelector(".dialog-actions");
+    const close = actions.querySelector("button[value=close]");
+    const keep = h("button", { type: "button", class: "btn" }, "Keep working");
+    const stop = h("button", { type: "button", class: "btn" }, "Stop");
+    let note = null, last = null;
+    const stopIt = () => { rpc("cancel_job", job).catch(() => {}); };
+    const toNote = () => {
+      if (note) return;
+      note = this.progressNote(title, stopIt);
+      if (last) note.set(...last);
+    };
+    body.prepend(view.el);
+    settings.disabled = true;
+    go.hidden = true;
+    close.hidden = true;
+    actions.prepend(keep, stop);
+    keep.focus();
+    keep.addEventListener("click", () => { toNote(); dlg.close(); });   // (the close event, too late in some web views, is for Escape)
+    stop.addEventListener("click", () => {
+      stop.disabled = true;
+      view.el.querySelector(".progress-line").textContent = "Stopping after this step…";
+      stopIt();
+    });
+    dlg.addEventListener("close", toNote);   // (Keep working, or Escape)
+    let res = null, err = null;
+    try {
+      res = await this.track(job, run(job), (st, ms) => { last = [st, ms]; if (!stop.disabled) view.set(st, ms); note?.set(st, ms); });
+    } catch (e) { err = e; }
+    dlg.removeEventListener("close", toNote);
+    note?.remove();
+    view.el.remove();
+    settings.disabled = false;
+    go.hidden = false;
+    close.hidden = false;
+    keep.remove();
+    stop.remove();
+    return { res, err, open: dlg.open };
+  },
   doneNote(message, files, warnings = [], notes = []) {
     this.doneNoteEl?.remove();
     clearTimeout(this.doneNoteTimer);
@@ -1185,29 +1285,32 @@ export const panels = {
         ...(chosen.length > 1 ? [["selected", `The ${chosen.length} selected pages`]] : [])], () => {});
     const results = h("div", { class: "results", role: "status", "aria-live": "polite" });
     const go = h("button", { type: "button", class: "btn primary" }, "Write report…");
+    let reportSettings = null;
     const body = h("div", {},
       h("p", {}, "For each picture: where it comes from, its copies, its size and place on the page, its scale, crop and turns, "
         + "its resolution, and its calibration and scale bars."),
-      h("fieldset", { class: "formats" }, h("legend", {}, "Formats"),
-        check("html", "HTML", "a page to open in a browser"), check("md", "Markdown", "for notes or a README"),
-        check("csv", "CSV", "for a spreadsheet: one row per picture"), check("pdf", "PDF", "to print or attach")),
-      pages, results);
+      reportSettings = h("fieldset", { class: "plain-fieldset" },
+        h("fieldset", { class: "formats" }, h("legend", {}, "Formats"),
+          check("html", "HTML", "a page to open in a browser"), check("md", "Markdown", "for notes or a README"),
+          check("csv", "CSV", "for a spreadsheet: one row per picture"), check("pdf", "PDF", "to print or attach")),
+        pages), results);
     const dlg = this.dialog("Figure report", body, [go]);
     const write = async () => {
       const formats = [...dlg.querySelectorAll(".formats input:checked")].map((i) => i.value);
       if (!formats.length) { results.textContent = "Choose at least one format."; return; }
       const base = await this.app.chooseReportBase();
       if (!base) return;
-      go.disabled = true;
-      results.replaceChildren(h("p", {}, "Writing…"));
-      try {
-        const res = await rpc("figure_report", store.doc, { formats, base, units: this.app.prefs.units || "cm", doc_path: store.path,
-          pages: pagesChosen(pages.querySelector("select").value, chosen) });
-        dlg.close();
-        this.doneNote(`Wrote the figure report: ${fileNames(res.files)}`, res.files);
-      } catch (err) {
-        results.replaceChildren(h("p", { class: "error" }, `The report failed: ${err.message}`));
-      } finally { go.disabled = false; }
+      results.replaceChildren();
+      const doc = store.doc, opts = { formats, base, units: this.app.prefs.units || "cm", doc_path: store.path,
+        pages: pagesChosen(pages.querySelector("select").value, chosen) };
+      const { res, err, open } = await this.dialogJob(dlg, { title: "Writing the report…", settings: reportSettings, go,
+        run: (job) => rpc("figure_report", doc, { ...opts, job }) });
+      const said = (text, warn = false) => (open ? results.replaceChildren(h("p", { class: warn ? "error" : "" }, `${text}.`))
+        : this.doneNote(text, [], warn ? [text] : []));
+      if (err) return said(`The report failed: ${err.message}`, true);
+      if (res.cancelled) return said("Report stopped: the files it had written were removed");
+      if (open) dlg.close();
+      this.doneNote(`Wrote the figure report: ${fileNames(res.files)}`, res.files);
     };
     go.addEventListener("click", () => { this.writing = write(); });
   },
@@ -1218,11 +1321,20 @@ export const panels = {
     const journals = this.app.info.journals || [];
     const start = store.page().preset?.journal || this.app.prefs.check_journal || "";
     const results = h("div", { class: "preflight-results", "aria-live": "polite" });
+    let looking = null;
     const check = async (journal) => {
+      if (looking) rpc("cancel_job", looking).catch(() => {});   // (a newer choice: the older look stops)
+      const job = (looking = this.newJob());
+      const view = this.progressView("Checking…", () => rpc("cancel_job", job).catch(() => {}));
       results.replaceChildren(h("p", {}, "Checking…"));
+      const showing = setTimeout(() => { if (looking === job) results.replaceChildren(view.el); }, PROGRESS_SHOW_AFTER);
       try {
-        const res = await rpc("preflight", store.doc, { pages: [store.pageIndex], journal,
-          units: this.app.prefs.page_units || "mm" });
+        const res = await this.track(job, rpc("preflight", store.doc, { pages: [store.pageIndex], journal,
+          units: this.app.prefs.page_units || "mm", job }), view.set);
+        clearTimeout(showing);
+        if (looking !== job) return;   // (a newer look's under way)
+        looking = null;
+        if (res.cancelled) return results.replaceChildren(h("p", {}, "Check stopped."));
         const items = res.items, { smallest_text_pt: text, thinnest_line_pt: line } = res.summary;
         const summary = [text ? `Smallest text on this page: ${text} pt.` : "", line ? `Thinnest line: ${line} pt.` : ""];
         results.replaceChildren(
@@ -1236,15 +1348,17 @@ export const panels = {
             return li;
           })) : h("p", {}, "✓ Nothing to flag on this page."));
       } catch (err) {
-        results.replaceChildren(h("p", { class: "error" }, err.message));
+        clearTimeout(showing);
+        if (looking === job) results.replaceChildren(h("p", { class: "error" }, err.message));
       }
     };
-    this.dialog("Check before export", h("div", {},
+    const checkDlg = this.dialog("Check before export", h("div", {},
       selectField("Check against", start, [["", "No journal"], ...journals.map((j) => [j.name, j.name])],
         (v) => { this.app.savePrefs({ check_journal: v }); check(v); }),
       results,
       h("p", { class: "hint" }, "Fonts missing from placed PDFs are embedded automatically when you export."),
       h("div", { class: "button-row" }, button("See and replace the fonts the figure's text uses", () => this.fontsDialog(), "Fonts…"))));
+    checkDlg.addEventListener("close", () => { if (looking) rpc("cancel_job", looking).catch(() => {}); });   // (closed: no need)
     await check(start);
   },
 

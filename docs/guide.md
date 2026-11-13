@@ -1109,7 +1109,7 @@ blind" (or "color blind"), or a name such as "deuter".
   (transparency is flattened), CMYK colour (TIFF, JPEG, PDF; only if a journal asks), and
   embedding missing fonts (on).
 - **Resolution** for PNG, TIFF and JPEG: 300, 600 or 1200 dpi, or any other.
-- **Pages:** this page or all pages. **Background:** transparent or white.
+- **Pages:** this page, the selected pages, or all pages. **Background:** transparent or white.
 - **The page's journal:** for a page with a journal's size, the window says which files the
   journal takes, in what colour and how big, and flags the settings it doesn't take as you
   choose them: a format (PLOS Genetics takes only TIFF and EPS), too low or high a resolution
@@ -1120,6 +1120,19 @@ blind" (or "color blind"), or a name such as "deuter".
 Click **Export…** and choose a name and folder; one file is written per format. A PDF holds all the
 chosen pages; the other formats write one file per page.
 Your choices are remembered for next time.
+
+**While it exports** (a 6-page figure as PDF, PNG and SVG takes about 25 seconds), the window's
+settings are greyed out and a bar at the top fills as it goes, saying what it's on ("Drawing PNG
+at 600 dpi, page 4 of 6") and, after a few seconds, about how long is left.
+
+- **Keep working** closes the window and the bar carries on in a note over the page, so you can
+  edit meanwhile. The export is of the figure as it was when you clicked Export…
+- **Stop** stops it after the step it's on and removes the files it had written, so no
+  half-finished set is left.
+
+The **Figure report** shows the same bar, with Keep working and Stop. **Check** shows one while it
+looks over a large page, with Stop, and **Refresh all pictures** (⌘⇧R) shows one over the page
+while it reads the files, whose Stop leaves every picture as it was.
 
 When the files are written, the window closes and a note at the top of the page names them, with
 **Show in Finder** (Show in Explorer on Windows). It goes after 10 seconds, but stays while you

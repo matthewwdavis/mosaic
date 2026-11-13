@@ -10,6 +10,7 @@ import pikepdf
 from ..assets import AssetCache, SourceResolver, get_cache
 from ..fonts import FontIndex
 from ..plottext import with_lifts
+from ..progress import Cancelled, Progress
 from ..resolve import Resolver
 from . import raster
 from .pdfwriter import PdfWriter
@@ -51,20 +52,48 @@ def page_thumbnail(doc: dict, index: int, width_px: int, cache: AssetCache | Non
     return raster.render_pdf_bytes(buf.getvalue(), width_px / float(page["width"]) * 72.0, transparent=False)[0]
 
 
+# Rough seconds for each step of an export at 600 dpi (a 6-page figure with 19 plots, 2026-11-13),
+# for the progress bar: it fills by these, and its time left is read from how fast it goes
+W_LAYOUT = 0.2      # a page laid out
+W_COMPOSE = 1.5     # a page into the PDF
+W_FINISH = 2.0      # the PDF finished: fonts embedded, written out
+W_CMYK = 2.0        # Ghostscript's CMYK rewrite
+W_SVG = 0.1         # an SVG page
+W_RENDER = 0.4      # a page drawn as an image (times (dpi / 600)²)
+W_SAVE = 0.2        # and the image file written (the same)
+W_PPTX = 1.0        # a page of the PowerPoint
+W_EPS = 1.0         # an EPS page
+
+
 def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | None = None, dpi: float = 600.0,
                     transparent: bool = True, cmyk: bool = False, cmyk_profile: str | None = None,
                     doc_dir: str | None = None, cache: AssetCache | None = None,
-                    fonts: FontIndex | None = None, embed_fonts: bool = True) -> dict:
+                    fonts: FontIndex | None = None, embed_fonts: bool = True, progress: Progress | None = None) -> dict:
     """Write the chosen pages in each format. `base` is the output path without extension.
 
-    PDF holds all chosen pages in one file; other formats write one file per page.
+    PDF holds all chosen pages in one file; other formats write one file per page. `progress`
+    hears each step (progress.py); stopped part-way (Cancelled), the files this export had
+    written are removed again.
     """
+    p = progress or Progress()
     cache = cache or get_cache()
     doc = with_lifts(doc, cache)   # (plots drawn without the texts lifted out of them in dangerous mode)
     sel = [doc["pages"][i] for i in (pages if pages is not None else range(len(doc["pages"])))]
+    n = len(sel)
+    which = lambda i: f"page {i + 1} of {n}" if n > 1 else "the page"   # noqa: E731
+    fmts = [f.lower().replace("jpg", "jpeg").replace("tif", "tiff").replace("tifff", "tiff") for f in formats]
+    scale = (float(dpi) / 600.0) ** 2
+    weight = {"pdf": W_CMYK if cmyk else 0, "svg": n * W_SVG, "png": n * (W_RENDER + W_SAVE) * scale,
+              "tiff": n * (W_RENDER + W_SAVE) * scale, "jpeg": n * (W_RENDER + W_SAVE) * scale, "pptx": n * W_PPTX, "eps": n * W_EPS}
+    needs_pdf = any(f in ("pdf", "png", "tiff", "jpeg", "eps") for f in fmts)
+    p.plan(n * W_LAYOUT + (n * W_COMPOSE + W_FINISH if needs_pdf else 0) + sum(weight.get(f, 0) for f in fmts))
     resolver = Resolver(doc, fonts)
     # Items parked entirely off the page (PowerPoint's pasteboard habit) aren't exported
-    resolved = [[r for r in resolver.resolve_page(p) if _on_page(r.bbox, p)] for p in sel]
+    resolved = []
+    for i, page in enumerate(sel):
+        p.step(f"Laying out {which(i)}")
+        resolved.append([r for r in resolver.resolve_page(page) if _on_page(r.bbox, page)])
+        p.advance(W_LAYOUT)
     os.makedirs(os.path.dirname(os.path.abspath(base)) or ".", exist_ok=True)
     files: list[str] = []
     warnings: list[str] = []
@@ -80,8 +109,11 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
         if pdf_bytes is None:
             src = SourceResolver(doc, cache, doc_dir)
             w = PdfWriter(src, title=doc.get("meta", {}).get("title", ""))
-            for page, rp in zip(sel, resolved):
+            for i, (page, rp) in enumerate(zip(sel, resolved)):
+                p.step(f"Building the PDF, {which(i)}")
                 w.add_page(page, rp)
+                p.advance(W_COMPOSE)
+            p.step("Finishing the PDF (fonts)")
             buf = io.BytesIO()
             w.finish(embed_fonts)
             w.pdf.save(buf, compress_streams=True, recompress_flate=False, deterministic_id=True,
@@ -90,54 +122,78 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
             warnings.extend(w.warnings + src.notes)
             notes.extend(w.notes)
             pdf_bytes = buf.getvalue()
+            p.advance(W_FINISH)
         return pdf_bytes
 
-    for fmt in formats:
-        fmt = fmt.lower().replace("jpg", "jpeg").replace("tif", "tiff").replace("tifff", "tiff")
-        if fmt == "pdf":
-            path = f"{base}.pdf"
-            data = compose_pdf()
-            if cmyk:
-                from .postscript import pdf_to_cmyk
-                data = pdf_to_cmyk(data, cmyk_profile)
-                warnings.append("CMYK PDF: Ghostscript rewrote the file to convert colours")
-            with open(path + ".tmp", "wb") as fh:
-                fh.write(data)
-            os.replace(path + ".tmp", path)
-            files.append(path)
-        elif fmt == "svg":
-            src = SourceResolver(doc, cache, doc_dir)
-            for i, (page, rp) in enumerate(zip(sel, resolved)):
-                w = SvgWriter(src)
-                path = page_filename(base, page, i, len(sel), "svg")
+    try:
+        for fmt in fmts:
+            if fmt == "pdf":
+                path = f"{base}.pdf"
+                data = compose_pdf()
+                if cmyk:
+                    from .postscript import pdf_to_cmyk
+                    p.step("Converting the PDF to CMYK")
+                    data = pdf_to_cmyk(data, cmyk_profile)
+                    warnings.append("CMYK PDF: Ghostscript rewrote the file to convert colours")
+                    p.advance(W_CMYK)
+                p.step("Writing the PDF")
                 with open(path + ".tmp", "wb") as fh:
-                    fh.write(w.page(page, rp))
+                    fh.write(data)
                 os.replace(path + ".tmp", path)
                 files.append(path)
-                warnings += w.warnings
-            warnings += src.notes
-        elif fmt in ("png", "tiff", "jpeg"):
-            images = raster.render_pdf_bytes(compose_pdf(), dpi, transparent=transparent and fmt != "jpeg")
-            ext = {"png": "png", "tiff": "tif", "jpeg": "jpg"}[fmt]
-            for i, (page, im) in enumerate(zip(sel, images)):
-                path = page_filename(base, page, i, len(sel), ext)
-                raster.save_image(im, path, fmt, dpi, cmyk=cmyk and fmt != "png", cmyk_profile=cmyk_profile)
+            elif fmt == "svg":
+                src = SourceResolver(doc, cache, doc_dir)
+                for i, (page, rp) in enumerate(zip(sel, resolved)):
+                    p.step(f"Writing SVG, {which(i)}")
+                    w = SvgWriter(src)
+                    path = page_filename(base, page, i, len(sel), "svg")
+                    with open(path + ".tmp", "wb") as fh:
+                        fh.write(w.page(page, rp))
+                    os.replace(path + ".tmp", path)
+                    files.append(path)
+                    warnings += w.warnings
+                    p.advance(W_SVG)
+                warnings += src.notes
+            elif fmt in ("png", "tiff", "jpeg"):
+                name = {"png": "PNG", "tiff": "TIFF", "jpeg": "JPEG"}[fmt]
+
+                def drawing(i, name=name):
+                    if i:
+                        p.advance(W_RENDER * scale)
+                    p.step(f"Drawing {name} at {dpi:g} dpi, {which(i)}")
+                images = raster.render_pdf_bytes(compose_pdf(), dpi, transparent=transparent and fmt != "jpeg", on_page=drawing)
+                p.advance(W_RENDER * scale)
+                ext = {"png": "png", "tiff": "tif", "jpeg": "jpg"}[fmt]
+                for i, (page, im) in enumerate(zip(sel, images)):
+                    p.step(f"Writing {name}, {which(i)}")
+                    path = page_filename(base, page, i, len(sel), ext)
+                    raster.save_image(im, path, fmt, dpi, cmyk=cmyk and fmt != "png", cmyk_profile=cmyk_profile)
+                    files.append(path)
+                    p.advance(W_SAVE * scale)
+            elif fmt == "pptx":
+                from .pptxwriter import write_pptx
+                p.step("Writing the PowerPoint")
+                path = f"{base}.pptx"
+                warnings += write_pptx(doc, sel, path + ".tmp.pptx", cache, doc_dir, fonts)
+                os.replace(path + ".tmp.pptx", path)
                 files.append(path)
-        elif fmt == "pptx":
-            from .pptxwriter import write_pptx
-            path = f"{base}.pptx"
-            warnings += write_pptx(doc, sel, path + ".tmp.pptx", cache, doc_dir, fonts)
-            os.replace(path + ".tmp.pptx", path)
-            files.append(path)
-        elif fmt == "eps":
-            from .postscript import pdf_page_to_eps
-            for i, page in enumerate(sel):
-                path = page_filename(base, page, i, len(sel), "eps")
-                pdf_page_to_eps(compose_pdf(), i, path)
-                files.append(path)
-            warnings.append("EPS can't hold transparency; Ghostscript flattened any transparent areas")
-        else:
-            raise ValueError(f"unknown format {fmt!r}")
+                p.advance(n * W_PPTX)
+            elif fmt == "eps":
+                from .postscript import pdf_page_to_eps
+                for i, page in enumerate(sel):
+                    p.step(f"Writing EPS, {which(i)}")
+                    path = page_filename(base, page, i, len(sel), "eps")
+                    pdf_page_to_eps(compose_pdf(), i, path)
+                    files.append(path)
+                    p.advance(W_EPS)
+                warnings.append("EPS can't hold transparency; Ghostscript flattened any transparent areas")
+            else:
+                raise ValueError(f"unknown format {fmt!r}")
+    except Cancelled:
+        for f in files:   # (this export's own files: no half-finished set is left)
+            if os.path.exists(f):
+                os.remove(f)
+        raise
     # Files bigger than the pages' journals take
     from .preflight import size_limits
     big, roomy = size_limits(doc, pages, files)

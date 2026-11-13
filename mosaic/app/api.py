@@ -16,6 +16,7 @@ import time
 import zipfile
 
 from .. import __version__, connect, docfile, model, presets, themes
+from ..progress import Cancelled, Progress
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
 from ..fonts import config_dir, get_font_index
 from ..journals import DEFAULT_SIZE
@@ -135,6 +136,7 @@ class Api:
         self._windows: dict[str, object] = {}
         self._page_over: str | None = None      # the window showing where a dragged page would go
         self._win_state: dict[str, dict] = {}
+        self._jobs: dict[str, Progress] = {}     # long jobs under way, by the editor's name for each (progress.py)
         self._caller = threading.local()
         self._next_win = 1
         self._new_window = None               # window.py's: opens a window (document, slides)
@@ -895,14 +897,22 @@ class Api:
             fh.write(base64.b64decode(data_b64))
         return path
 
-    def refresh_assets(self, assets: dict, doc_path: str | None = None, force: bool = False) -> dict:
+    def refresh_assets(self, assets: dict, doc_path: str | None = None, force: bool = False, job: str | None = None) -> dict:
         """Re-read linked files that changed on disk; returns the updated asset records. `force`
         (Refresh All Pictures): every linked file re-read, copies saved since placing taken in,
-        and which files couldn't be found ({"changed", "added": {id: [kinds]}, "missing": [ids]})."""
+        and which files couldn't be found ({"changed", "added": {id: [kinds]}, "missing": [ids]}).
+        `job`: its progress bar's (Stop: {"cancelled": True}, nothing taken)."""
+        return self._run_job(job, lambda p: self._refresh_assets(assets, doc_path, force, p))
+
+    def _refresh_assets(self, assets: dict, doc_path: str | None, force: bool, p: Progress) -> dict:
         from ..assets import resolve_link
         doc_dir = os.path.dirname(doc_path) if doc_path else None
         changed, added, missing = {}, {}, []
-        for aid, asset in assets.items():
+        p.plan(len(assets) or 1)
+        for k, (aid, asset) in enumerate(assets.items()):
+            if k:
+                p.advance(1)   # (the one before: done)
+            p.step(f"Reading {asset.get('name') or 'a picture'} ({k + 1} of {len(assets)})")
             asset = json.loads(json.dumps(asset))
             before = set(asset.get("variants", {}))
             if force and not any(resolve_link(v, doc_dir) for v in asset.get("variants", {}).values() if v.get("src")):
@@ -1021,19 +1031,47 @@ class Api:
         from ..resolve import shape_to_curve
         return shape_to_curve(item, assets)
 
+    # Long jobs' progress (progress.py): the editor names a job ("job" in its options), asks how
+    # far it's got a few times a second (job_progress) and can stop it (cancel_job). A job stopped
+    # answers {"cancelled": True}
+
+    def _run_job(self, job: str | None, fn):
+        p = Progress()
+        if job:
+            self._jobs[job] = p
+        try:
+            return fn(p)
+        except Cancelled:
+            return {"cancelled": True}
+        finally:
+            if job:
+                self._jobs.pop(job, None)
+
+    def job_progress(self, job: str) -> dict | None:
+        """How far a job has got: {"fraction", "label", "cancelled"}, or None (not started, or done)."""
+        p = self._jobs.get(job)
+        return p.state() if p else None
+
+    def cancel_job(self, job: str) -> bool:
+        p = self._jobs.get(job)
+        if p:
+            p.cancel()
+        return bool(p)
+
     def export(self, doc: dict, options: dict) -> dict:
         from ..export.run import export_document
         base = options["base"]
         doc_dir = os.path.dirname(options["doc_path"]) if options.get("doc_path") else None
-        res = export_document(doc, base, options.get("formats", ["pdf"]), pages=options.get("pages"),
-                              dpi=float(options.get("dpi", 600)), transparent=options.get("transparent", True),
-                              cmyk=options.get("cmyk", False), cmyk_profile=options.get("icc") or None,
-                              doc_dir=doc_dir, embed_fonts=options.get("embed_fonts", True))
-        return res
+        return self._run_job(options.get("job"), lambda p: export_document(
+            doc, base, options.get("formats", ["pdf"]), pages=options.get("pages"),
+            dpi=float(options.get("dpi", 600)), transparent=options.get("transparent", True),
+            cmyk=options.get("cmyk", False), cmyk_profile=options.get("icc") or None,
+            doc_dir=doc_dir, embed_fonts=options.get("embed_fonts", True), progress=p))
 
     def preflight(self, doc: dict, options: dict | None = None) -> dict:
         from ..export.preflight import preflight
-        return preflight(doc, options or {})
+        options = options or {}
+        return self._run_job(options.get("job"), lambda p: preflight(doc, options, p))
 
     def export_check(self, doc: dict, options: dict) -> list[dict]:
         """The Export window's settings against the exported pages' journals."""
@@ -1049,9 +1087,9 @@ class Api:
     def figure_report(self, doc: dict, options: dict) -> dict:
         """Write the figure report (report.py) in the chosen formats: {"files": [...]}."""
         from .. import report
-        files = report.write(doc, options["base"], options.get("formats", []), options.get("pages"),
-                             options.get("units", "cm"), options.get("doc_path"))
-        return {"files": files}
+        return self._run_job(options.get("job"), lambda p: {"files": report.write(
+            doc, options["base"], options.get("formats", []), options.get("pages"), options.get("units", "cm"),
+            options.get("doc_path"), p)})
 
     def shape_to_custom(self, item: dict) -> dict:
         """A ready-made shape as a freeform shape of the same outline (resolve.shape_to_custom)."""

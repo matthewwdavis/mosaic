@@ -11,6 +11,7 @@ from ..assets import PDFIUM_LOCK, get_cache, resolve_link
 from ..geometry import DrawPath
 from ..journals import JOURNALS, MM
 from ..model import iter_items
+from ..progress import Progress
 from ..resolve import DrawPicture, DrawText, Resolver, flat_prims
 
 MIN_PHOTO_DPI = 300.0
@@ -146,7 +147,8 @@ def _visible_stroke(prim, fills: dict) -> bool:
                                   and f.opacity == s.opacity)
 
 
-def preflight(doc: dict, options: dict) -> dict:
+def preflight(doc: dict, options: dict, progress: Progress | None = None) -> dict:
+    p = progress or Progress()
     cache = get_cache()
     doc = plottext.with_lifts(doc, cache)   # (plots as exported: without texts lifted out in dangerous mode)
     pages = options.get("pages")
@@ -159,6 +161,8 @@ def preflight(doc: dict, options: dict) -> dict:
     text_cache: dict = {}
     free_smallest = None   # the smallest text on pages whose journal doesn't set one
     free_thinnest = None   # and the thinnest line on pages whose journal sets no line width
+    p.plan(sum(1 for page in sel for _ in iter_items(page.get("items", []))) or 1)
+    checked = 0
     for page in sel:
         pw, ph = float(page["width"]), float(page["height"])
         # The page's size against a journal's: the one asked for, else the page's own journal size
@@ -173,6 +177,10 @@ def preflight(doc: dict, options: dict) -> dict:
         sizes, fonts = [], {}   # the page's text: (printed size, item, a panel label?); family -> first item
         resolver.use_page(page.get("items", []))
         for item in iter_items(page.get("items", [])):
+            if checked:
+                p.advance(1)   # (the one before: done)
+            checked += 1
+            p.step(f"Checking {item.get('name') or item.get('type') or 'an object'}")
             if item.get("type") == "group" or item.get("hidden"):
                 continue
             r = resolver.resolve(item)

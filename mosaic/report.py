@@ -16,6 +16,7 @@ import os
 
 from .assets import resolve_link
 from .model import iter_items
+from .progress import Cancelled, Progress
 
 UNITS = {"pt": 1.0, "mm": 72 / 25.4, "cm": 72 / 2.54, "in": 72.0}
 COLUMNS = [("panel", "Panel"), ("source", "Source"), ("copies", "Copies"), ("size", "Size"), ("place", "Place"),
@@ -242,26 +243,46 @@ def to_pdf(doc: dict, found: list[dict], pages: list[int] | None, made: str, whe
 
 
 def write(doc: dict, base: str, formats: list[str], pages: list[int] | None = None, unit: str = "cm",
-          doc_path: str | None = None) -> list[str]:
-    """Write the report in each format (html, md, csv, pdf) as base + its extension."""
+          doc_path: str | None = None, progress: Progress | None = None) -> list[str]:
+    """Write the report in each format (html, md, csv, pdf) as base + its extension. `progress`
+    hears each step (progress.py); stopped part-way, the files written are removed again."""
+    p = progress or Progress()
+    weights = {"html": 0.2, "md": 0.1, "csv": 0.1, "pdf": 4.0}   # (rough seconds, for the bar)
+    p.plan(1.0 + sum(weights.get(f, 0.1) for f in formats))
     doc_dir = os.path.dirname(doc_path) if doc_path else None
+    p.step("Reading the pictures")
     found = rows(doc, pages, unit, doc_dir)
+    p.advance(1.0)
     today = datetime.date.today()
     made = f"Made by mosaic on {today.day} {today:%B %Y}"
     where = f"From {doc_path}." if doc_path else "From a figure not saved yet."
     files = []
-    if "html" in formats:
-        with open(base + ".html", "w", encoding="utf-8") as fh:
-            fh.write(to_html(doc, found, pages, made, where))
-        files.append(base + ".html")
-    if "md" in formats:
-        with open(base + ".md", "w", encoding="utf-8") as fh:
-            fh.write(to_markdown(doc, found, pages, made, where))
-        files.append(base + ".md")
-    if "csv" in formats:
-        with open(base + ".csv", "w", encoding="utf-8", newline="") as fh:
-            fh.write(to_csv(found))
-        files.append(base + ".csv")
-    if "pdf" in formats:
-        files.append(to_pdf(doc, found, pages, made, where, base))
+    try:
+        if "html" in formats:
+            p.step("Writing the HTML report")
+            with open(base + ".html", "w", encoding="utf-8") as fh:
+                fh.write(to_html(doc, found, pages, made, where))
+            files.append(base + ".html")
+            p.advance(weights["html"])
+        if "md" in formats:
+            p.step("Writing the Markdown report")
+            with open(base + ".md", "w", encoding="utf-8") as fh:
+                fh.write(to_markdown(doc, found, pages, made, where))
+            files.append(base + ".md")
+            p.advance(weights["md"])
+        if "csv" in formats:
+            p.step("Writing the CSV report")
+            with open(base + ".csv", "w", encoding="utf-8", newline="") as fh:
+                fh.write(to_csv(found))
+            files.append(base + ".csv")
+            p.advance(weights["csv"])
+        if "pdf" in formats:
+            p.step("Writing the PDF report")
+            files.append(to_pdf(doc, found, pages, made, where, base))
+            p.advance(weights["pdf"])
+    except Cancelled:
+        for f in files:   # (this report's own files)
+            if os.path.exists(f):
+                os.remove(f)
+        raise
     return files

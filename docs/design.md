@@ -341,6 +341,19 @@ pre-export check says so.
     file instead (`save_document(auto)`), changes made meanwhile staying unsaved; closing saves
     without asking (closing.ask, from doc_state's `autosave`); a failed save keeps a recovery copy
     and says so in the status bar.
+  - *Progress bars (2026-11-13, Matthew's choices):* an export of his 6-page figure took ~25 s
+    (PDF 13 s, PNG 600 dpi 11 s, 1200 dpi 19 s) with only "Exporting…" at the window's foot.
+    `mosaic/progress.py`: a job plans weighted steps (run.py's W_* rough seconds at 600 dpi, images
+    by (dpi/600)²), says each (`step`, where a Stop takes effect) and moves on (`advance`);
+    `Cancelled` stops it, export and report removing the files they'd written. The editor names
+    the job in its request's options; `api.job_progress` (polled every 250 ms over the threaded
+    server) and `api.cancel_job`. `panels.dialogJob`: settings in a disabled fieldset, the bar at
+    the top, Keep working (`progressNote` over the page, made directly: headless Chrome never
+    fires the dialog's close event; that event is kept for Escape) and Stop. Time left comes from
+    the pace so far, after 2 s. Check and Refresh show their bar after 300 ms, so quick ones don't
+    flash. Headless Chrome's virtual clock stands still while a request is out, so the self-test
+    stands in for the engine there (fetch held, progress made up); in WebKit it also watches a
+    real 1200 dpi export's bar fill.
 - **Connectors (2026-10-31):** line and arrow ends attach to connection points and follow them
   (`start_link` / `end_link`: {item, site}). Points come from each shape's own outline (Matthew's
   choice): corners (sharp ones and rounded corners' middles) and side middles; 8 points round
