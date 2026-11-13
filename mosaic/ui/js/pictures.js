@@ -25,8 +25,39 @@ function ink(color, faint = "currentColor") {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) < FAINT ? faint : color;
 }
 
+// The engine draws a dot as a stroke 0.001 pt long, made round by its caps (dashes.DOT). On a 1x
+// screen the Mac app's on-screen drawing leaves out some or all of a picture's dots (offscreen
+// snapshots draw them all), so the pictures draw each dot as a filled circle as wide as the line
+// instead. Only the pictures: the page and exports keep the engine's dots
+const NUM = String.raw`-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?`;
+const STUB = new RegExp(String.raw`^M(${NUM})[ ,](${NUM})L(${NUM})[ ,](${NUM})$`, "i");
+function filledDots(markup) {
+  if (!markup.includes("stroke-linecap:round")) return markup;
+  const g = s("g");
+  g.innerHTML = markup;
+  for (const path of g.querySelectorAll("path")) {
+    const style = path.getAttribute("style") || "";
+    const prop = (k) => style.match(new RegExp(`(?:^|;)${k}:([^;]+)`))?.[1];
+    const colour = prop("stroke");
+    if (prop("stroke-linecap") !== "round" || !colour || colour === "none" || colour.startsWith("url(")) continue;
+    const dots = [], rest = [];
+    for (const sub of (path.getAttribute("d") || "").match(/M[^M]*/g) || []) {
+      const [x1, y1, x2, y2] = sub.trim().match(STUB)?.slice(1).map(Number) || [];
+      if (x1 !== undefined && Math.hypot(x2 - x1, y2 - y1) < 0.01) dots.push([(x1 + x2) / 2, (y1 + y2) / 2]);
+      else rest.push(sub);
+    }
+    if (!dots.length) continue;
+    const r = +(prop("stroke-width") || 1) / 2, opacity = prop("stroke-opacity");
+    path.after(...dots.map(([cx, cy]) => s("circle", { cx, cy, r,
+      style: `fill:${colour};stroke:none${opacity ? `;fill-opacity:${opacity}` : ""}` })));
+    if (rest.length) path.setAttribute("d", rest.join(""));
+    else path.remove();
+  }
+  return g.innerHTML;
+}
+
 // An item drawn by the engine in a box of points, filled in when the drawing arrives. Pictures
-// asked for together go in one request, and each drawing is kept for next time
+// asked for together go in one request, and each drawing is kept for next time (dots filled in)
 function enginePicture(item, [w, ht]) {
   const svg = s("svg", { viewBox: `0 0 ${w} ${ht}`, width: w, height: ht, class: "pic-svg pic-ink", "aria-hidden": "true" });
   const g = s("g");
@@ -44,7 +75,7 @@ function enginePicture(item, [w, ht]) {
       let drawn = [];
       try { drawn = await rpc("resolve", {}, asked.map(([, a]) => ({ ...a.item, id: `pic${++made}` })), [], []); } catch { return; }
       asked.forEach(([k, a], i) => {
-        const got = (drawn[i]?.svg || "").replaceAll(FAINT_INK, "currentColor");
+        const got = filledDots((drawn[i]?.svg || "").replaceAll(FAINT_INK, "currentColor"));
         cache.set(k, got);
         for (const el of a.els) el.innerHTML = got;
       });
@@ -73,9 +104,10 @@ const colourOf = (st) => ink(st?.color || "#000000");
 const across = (box = LINE_BOX) => ({ type: "line", points: [[4, box[1] / 2], [box[0] - 4, box[1] / 2]] });
 
 // Each dash style at 2 pt, whatever the line's width, so dots show (at 1 pt they all but vanish)
-// and the styles are easy to tell apart; at the style's own spacing
+// and the styles are easy to tell apart; at the style's own spacing, evenly (so its dots are
+// drawn one by one and come out as circles, filledDots)
 export function dashPicture(st, dash) {
-  return enginePicture({ ...across(), stroke: pictureStroke(st, { dash, width: 2, dash_spacing: 1 }) }, LINE_BOX);
+  return enginePicture({ ...across(), stroke: pictureStroke(st, { dash, width: 2, dash_spacing: 1, even_dashes: true }) }, LINE_BOX);
 }
 // A thick stub ending at a hairline, so a round or square end shows how far past it it reaches
 export function capPicture(st, cap) {

@@ -135,7 +135,13 @@ pre-export check says so.
     scales a dash style's gaps (dash_pattern in geometry.py; the dashes keep their length), shown
     as a percentage in the Line section; PowerPoint gets a custDash. The Dash menu's pictures are
     drawn at 2 pt: at the line's 1 pt, Dot and Round dot all but vanished in WebKit (checked in a
-    WKWebView snapshot).
+    WKWebView snapshot). On 2026-11-12 Matthew's screenshot from a 1x monitor (dark theme)
+    showed some or all of the dots still missing: the Mac app's on-screen drawing leaves out some
+    of the engine's dots (0.001 pt strokes made round by their caps), though offscreen snapshots,
+    even at 1x, draw them all. So the pictures alone (pictures.js filledDots) draw each dot as a
+    filled circle as wide as the line, and dash pictures are always evenly spaced, so a line with
+    PowerPoint's spacing gets drawn dots too; the page and exports keep the engine's dots
+    (Matthew's choice: only the pictures showed it).
   - *Area fills keep going through small gaps (2026-11-10, Matthew's report and choices):* a
     corner's two ends are usually one attached to the other, so dragging the attached end, or
     moving that whole line, opened a gap and the fill vanished, though it stayed selectable by its

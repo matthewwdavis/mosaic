@@ -1882,10 +1882,30 @@ async function dashSpacingChecks(app) {
   await settle();
   check(!("dash_spacing" in store.item("dL").stroke), "back to 100% is the style as it was", JSON.stringify(store.item("dL").stroke));
   inspector.render();
+  // (dots as filled circles, as wide as the line: the Mac app leaves out some of the engine's
+  // 0.001 pt dots on a 1x screen; with PowerPoint's spacing too, since the pictures space them evenly)
+  store.update("PowerPoint spacing", (doc) => { findItem(doc, "dL").stroke.even_dashes = false; });
+  await settle();
+  inspector.render();
   fieldFor("Dash").click();
-  await until(() => [...document.querySelectorAll(".context-menu .menu-item svg path")].length >= 8, 4000);
-  const widths = [...document.querySelectorAll(".context-menu .menu-item svg path")].map((p) => p.getAttribute("style")?.match(/stroke-width:([\d.]+)/)?.[1]);
-  check(widths.length >= 8 && widths.every((w) => w === "2"), "the Dash menu draws every style at 2 pt", widths.join(" "));
+  const pics = () => [...document.querySelectorAll(".context-menu .menu-item .pic-svg g")];
+  await until(() => pics().length === 9 && pics().every((p) => p.childElementCount), 4000);
+  const widths = pics().flatMap((p) => [...p.querySelectorAll("path")].map((x) => x.getAttribute("style")?.match(/stroke-width:([\d.]+)/)?.[1]));
+  const radii = pics().flatMap((p) => [...p.querySelectorAll("circle")].map((c) => c.getAttribute("r")));
+  check(widths.length >= 7 && widths.every((w) => w === "2") && radii.length && radii.every((r) => r === "1"),
+    "the Dash menu draws every style at 2 pt", `${widths.join(" ")}; dots ${radii.join(" ")}`);
+  const pic = (v) => document.querySelector(`.context-menu .menu-item[data-value="${v}"] .pic-svg g`);
+  const count = (v, sel) => pic(v)?.querySelectorAll(sel).length;
+  const stub = (d) => (d.match(/M[^M]*/g) || []).some((sub) => {
+    const n = (sub.match(/-?[\d.]+/g) || []).map(Number);
+    return n.length === 4 && Math.hypot(n[2] - n[0], n[3] - n[1]) < 0.01;
+  });
+  const stubs = pics().some((p) => [...p.querySelectorAll("path")].some((x) => stub(x.getAttribute("d") || "")));
+  check(count("sysDot", "circle") === 10 && !count("sysDot", "path") && count("dot", "circle") === 6
+    && count("lgDashDotDot", "circle") === 2 && count("lgDashDotDot", "path") === 1 && count("dash", "circle") === 0
+    && !stubs && !pics().some((p) => p.innerHTML.includes("dasharray")),
+  "its dots are filled circles, even for a line with PowerPoint's spacing, so the Mac app draws every one",
+  ["sysDot", "dot", "lgDashDotDot", "dash"].map((v) => `${v}: ${count(v, "circle")} dots, ${count(v, "path")} paths`).join("; "));
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   store.select([]);
 }
