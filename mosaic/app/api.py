@@ -21,7 +21,7 @@ from ..fonts import config_dir, get_font_index
 from ..journals import DEFAULT_SIZE
 from ..resolve import Resolver, shape_outline
 from ..updates import parse_version
-from . import clipboard, powerpoint
+from . import clipboard, kept, powerpoint
 
 DECK_EXTENSIONS = (".pptx", ".pptm", ".potx")
 DECKS_KEPT = 4   # decks kept imported for the slide picker (the slides chosen then come from them)
@@ -211,13 +211,14 @@ class Api:
             from . import macmenu
             macmenu.note_front(w.uid)   # the Mac menu bar's commands go to it (even while hidden)
 
-    def doc_state(self, path: str | None, dirty: bool, name: str | None = None) -> bool:
+    def doc_state(self, path: str | None, dirty: bool, name: str | None = None, autosave: bool = False) -> bool:
         """What the calling window has open (its file: opening it again brings this window to
         the front; its name, for the question closing it asks) and whether there are unsaved
         changes (closing it asks first, closing.py; restarting to update keeps a copy)."""
         win = self._caller_win()
         if win is not None:
-            self._win_state[win] = {"path": _same_file(path) if path else None, "dirty": bool(dirty), "name": name}
+            self._win_state[win] = {"path": _same_file(path) if path else None, "dirty": bool(dirty), "name": name,
+                                    "autosave": bool(autosave) and bool(path)}
         return self.confirm_close(dirty)
 
     def _doc_of(self, window) -> dict:
@@ -609,10 +610,16 @@ class Api:
         Chromium web view is handed, if PowerPoint for Windows offers it), as a paste of them."""
         return self._office_paste(kind, {"data": base64.b64decode(data_b64), "source": None}, doc_path)
 
-    def save_document(self, doc: dict, path: str) -> dict:
+    def save_document(self, doc: dict, path: str, auto: bool = False) -> dict:
+        """Save a document (auto: AutoSave's own save, which keeps earlier versions less often).
+        A file saved over is kept first as an earlier version (kept.py)."""
         path = os.path.abspath(os.path.expanduser(path))
         if not path.lower().endswith(docfile.EXTENSIONS):   # (a FigAssemble document saves as itself)
             path += docfile.EXTENSION
+        try:
+            kept.keep_version(path, auto, os.path.basename(path))
+        except OSError as exc:   # (saving goes ahead: the file itself matters more)
+            print(f"Couldn't keep the earlier version of {path}: {exc}", file=sys.stderr, flush=True)
         warnings = docfile.save(doc, path)
         self._remember(path)
         return {"path": path, "warnings": warnings}
@@ -646,6 +653,10 @@ class Api:
             os.rename(path, new)
         except OSError as err:
             return {"error": f"Couldn't rename it: {err.strerror or err}."}
+        try:
+            kept.moved(path, new)   # (its earlier versions go with it)
+        except OSError:
+            pass
         # Open Recent and this window's record of its file follow
         recent = [new if _same_file(p) == old_key else p for p in self.prefs_get().get("recent", [])]
         self.prefs_set({"recent": recent})
@@ -655,12 +666,21 @@ class Api:
                 state["path"] = _same_file(new)
         return {"path": new}
 
-    def autosave(self, doc: dict, key: str) -> dict:
+    def autosave(self, doc: dict, key: str, doc_path: str | None = None) -> dict:
+        """A window's recovery copy of its unsaved work (doc_path: the document's file, so
+        recovering it opens as that document), kept in its history too every so often (kept.py)."""
         d = os.path.join(config_dir(), "autosave")
         os.makedirs(d, exist_ok=True)
         self.claim_autosave(key)
         path = os.path.join(d, f"{key}{docfile.EXTENSION}")
         docfile.save(doc, path, prune=False)
+        with open(os.path.join(d, f"{key}.json"), "w", encoding="utf-8") as fh:
+            json.dump({"path": doc_path}, fh)
+        title = os.path.basename(doc_path) if doc_path else (doc.get("meta") or {}).get("title")
+        try:
+            kept.keep_history(path, key, doc_path, title)
+        except OSError as exc:
+            print(f"Couldn't keep the recovery copy's history: {exc}", file=sys.stderr, flush=True)
         win = self._caller_win()
         if win is not None:
             self._autosaved_at[win] = time.time()
@@ -727,12 +747,14 @@ class Api:
             if self._kept_elsewhere(n[:-len(docfile.EXTENSION)]):
                 continue
             p = os.path.join(d, n)
-            entry = {"path": p, "modified": os.path.getmtime(p), "bytes": os.path.getsize(p)}
+            entry = {"path": p, "modified": os.path.getmtime(p), "bytes": os.path.getsize(p),
+                     "key": n[:-len(docfile.EXTENSION)], "doc_path": self._autosave_doc_path(p)}
             try:
                 with zipfile.ZipFile(p) as z:
                     doc = json.loads(z.read(docfile.DOC_NAME))
                 pages = doc.get("pages", [])
-                entry.update(title=(doc.get("meta") or {}).get("title") or "Untitled figure", pages=len(pages),
+                entry.update(title=os.path.basename(entry["doc_path"]) if entry["doc_path"]
+                             else (doc.get("meta") or {}).get("title") or "Untitled figure", pages=len(pages),
                              objects=sum(len(pg.get("items", [])) for pg in pages))
             except (OSError, ValueError, KeyError, zipfile.BadZipFile):
                 entry.update(title="Unreadable copy", pages=0, objects=0)
@@ -740,22 +762,57 @@ class Api:
         return sorted(out, key=lambda e: -e["modified"])
 
     def delete_autosaves(self, paths: list[str], exclude_key: str | None = None) -> list[dict]:
-        """Delete recovery copies (only ever files in mosaic's own autosave folder); returns
-        the ones left."""
+        """Delete recovery copies (only ever files in mosaic's own autosave folder), with their
+        histories; returns the ones left."""
         d = os.path.realpath(os.path.join(config_dir(), "autosave"))
         for p in paths or []:
             real = os.path.realpath(p)
+            key = os.path.basename(real)[:-len(docfile.EXTENSION)]
             if os.path.dirname(real) == d and real.endswith(docfile.EXTENSION) and os.path.isfile(real) \
-                    and not self._kept_elsewhere(os.path.basename(real)[:-len(docfile.EXTENSION)]):
+                    and not self._kept_elsewhere(key):
                 os.remove(real)   # mosaic's own autosave file
+                self._forget_doc_path(key)
+                kept.forget_history(key)
         return self.autosaved(exclude_key)
 
     def discard_autosave(self, key: str) -> bool:
+        """The work saved: the window's recovery copy goes (its history stays, kept.py)."""
         p = os.path.join(config_dir(), "autosave", f"{key}{docfile.EXTENSION}")
         if os.path.exists(p):
             os.remove(p)   # mosaic's own autosave file
+        self._forget_doc_path(key)
         self._unlock_autosave(key)
         return True
+
+    def _autosave_doc_path(self, copy: str) -> str | None:
+        """The document file a recovery copy is of (its .json beside it), or None: never saved."""
+        try:
+            with open(copy[:-len(docfile.EXTENSION)] + ".json", encoding="utf-8") as fh:
+                return json.load(fh).get("path")
+        except (OSError, ValueError, AttributeError):
+            return None
+
+    def _forget_doc_path(self, key: str) -> None:
+        if key.replace("-", "").isalnum():
+            p = os.path.join(config_dir(), "autosave", f"{key}.json")
+            if os.path.exists(p):
+                os.remove(p)   # mosaic's own note beside a recovery copy
+
+    def kept_copies(self, doc_path: str | None = None, key: str | None = None) -> dict:
+        """What's kept of a document (File > Browse Versions): its file's earlier versions and
+        the recovery copies kept while editing it (kept.listing)."""
+        return kept.listing(doc_path, key)
+
+    def recovery_history(self, key: str) -> list[dict]:
+        """Earlier recovery copies of one session's unsaved work (the Recover dialog)."""
+        return kept.history_of(key) if key.replace("-", "").isalnum() else []
+
+    def read_kept(self, path: str) -> dict:
+        """One of mosaic's own copies (a recovery copy, one from a history, an earlier version)
+        as a figure, without it becoming the document's file or going in Open Recent."""
+        if not kept.is_kept(path):
+            raise ValueError("That isn't one of mosaic's kept copies.")
+        return {"doc": docfile.load(path)}
 
     # Assets ----------------------------------------------------------------------------
 

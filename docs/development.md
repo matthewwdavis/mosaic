@@ -78,7 +78,10 @@ sizes` page sizes (the Size menu, new documents' size), `--only vision` colour v
 side and in command search, `--only export` the Export and Figure report windows closing with a
 note, `--only guides` guides from clicking the rulers and a guide's right-click menu, `--only
 offpage` the page's edge over objects, dimming off the page and Preview, `--only rename`
-renaming the document's file (the editor side of the title bar's rename), `--only
+renaming the document's file (the editor side of the title bar's rename), `--only pageselect`
+several pages selected in the Pages list (and copied, dragged, dropped, exported), `--only
+keeping` recovery copies, AutoSave, Browse Versions and recovering as the document (about 25 s
+of waiting for autosave's 10 s pauses), `--only
 pictures` the Style tab's picture menus, `--only textribbon` the Home tab's Text section
 (several boxes at once, the highlighted words while typing, switching to Home and back), and
 `--only journallabels` panel labels following a page's journal, and `--only journalchecks` the

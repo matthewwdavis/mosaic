@@ -9,7 +9,9 @@ export const store = {
   doc: null,
   path: null,
   dirty: false,
+  version: 0,             // counts changes (edits, undo, redo): what autosaving has kept is told by it
   pageIndex: 0,
+  pageSel: [],            // ids of other pages selected in the Pages list with the one showing (⌘- and Shift-click)
   selection: [],          // ids of selected items at the working level: the page's, or a group's being edited
   scope: [],              // the groups being edited inside (isolation mode), outermost first
   history: [],
@@ -26,6 +28,7 @@ export const store = {
     this.path = path;
     this.dirty = false;
     this.pageIndex = 0;
+    this.pageSel = [];
     this.selection = [];
     this.scope = [];
     this.history = [];
@@ -111,6 +114,7 @@ export const store = {
     if (this.history.length > MAX_HISTORY) this.history.shift();
     this.future = [];
     this.dirty = true;
+    this.version += 1;
   },
   update(label, fn, { select } = {}) {
     const snap = this.snapshot();
@@ -151,6 +155,7 @@ export const store = {
     this.future.push({ snap: this.snapshot(), label: h.label });
     this.restore(h.snap);
     this.dirty = true;
+    this.version += 1;
     return h.label;
   },
   redo() {
@@ -159,6 +164,7 @@ export const store = {
     this.history.push({ snap: this.snapshot(), label: f.label });
     this.restore(f.snap);
     this.dirty = true;
+    this.version += 1;
     return f.label;
   },
   // Changes the engine makes on its own (auto-fitted text boxes) don't get an undo step
@@ -169,13 +175,26 @@ export const store = {
     this.selection = [...new Set(ids)].filter((id) => here.has(id));
     this.emit("selection");
   },
-  setPage(i) {
+  // The page showing; `keep`: the other selected pages stay selected (else it's the only one)
+  setPage(i, keep = false) {
     this.pageIndex = Math.max(0, Math.min(i, this.doc.pages.length - 1));
+    if (!keep) this.pageSel = [];
     this.selection = [];
     this.scope = [];
     this.emit("page");
     this.emit("doc", {});
     this.emit("selection");
+  },
+  // The pages selected in the Pages list, in order: the one showing and any others still there
+  selectedPages() {
+    const ids = new Set(this.pageSel);
+    return this.doc.pages.map((p, i) => (i === this.pageIndex || ids.has(p.id) ? i : -1)).filter((i) => i >= 0);
+  },
+  // Select these pages (indices), showing `current` (one of them); the Pages list redraws
+  selectPages(indices, current) {
+    this.pageSel = indices.filter((i) => i !== current).map((i) => this.doc.pages[i]?.id).filter(Boolean);
+    if (current !== this.pageIndex) this.setPage(current, true);
+    else this.emit("pages");
   },
   markSaved(path) {
     this.path = path;

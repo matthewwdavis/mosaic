@@ -90,7 +90,8 @@ const app = {
     const tick = (title, action) => c(title, action, { check: checks[action] });
     return [
       { title: "File", items: [c("New", "new"), c("Open…", "open"), { title: "Open Recent", recent: true }, "-",
-        { title: "Close", selector: "performClose:", keys: `${M}W` }, c("Save", "save"), c("Save As…", "saveAs"), c("Rename…", "rename"), "-",
+        { title: "Close", selector: "performClose:", keys: `${M}W` }, c("Save", "save"), c("Save As…", "saveAs"), c("Rename…", "rename"), tick("AutoSave", "toggleAutoSave"),
+        c("Browse Versions…", "browseVersions"), "-",
         c("Refresh All Pictures", "refreshAll"), "-",
         c("Export…", "export"), c("Check Before Export…", "preflight"), c("Figure Report…", "figureReport")] },
       { title: "Edit", items: [c("Undo", "undo"), c("Redo", "redo"), "-",
@@ -119,7 +120,7 @@ const app = {
     return { toggleRulers: !!this.prefs.show_rulers, toggleGrid: !!this.prefs.show_grid, toggleGuides: !!this.prefs.show_guides,
       toggleSnap: !!this.prefs.snap, toggleNudgeZoom: !!this.prefs.nudge_zoom, toggleDangerous: !!this.dangerous,
       togglePageEdge: this.prefs.show_page_edge !== false, toggleDimOffPage: this.prefs.dim_off_page !== false,
-      togglePreview: !!canvas.preview,
+      togglePreview: !!canvas.preview, toggleAutoSave: !!store.doc?.meta?.autosave,
       ...Object.fromEntries(VISION.map(([mode]) => [`vision:${mode}`, vision === mode])) };
   },
   syncMenus() {
@@ -268,8 +269,70 @@ const app = {
   // The unsaved work kept as a recovery copy now (another window is restarting mosaic to update,
   // or this one is closing without saving)
   async keepCopy() {
-    if (store.dirty && store.doc) await rpc("autosave", store.doc, store.autosaveKey);
+    if (store.dirty && store.doc) await rpc("autosave", store.doc, store.autosaveKey, store.path || null);
     return true;
+  },
+  // Unsaved work is kept as it goes: a recovery copy (with AutoSave on, the file itself)
+  // KEEP_QUIET ms after the last change, at once when the window loses focus (another app or
+  // window), and at least once a minute while changes go on. The server keeps some of those
+  // copies as a history, and each file saved over as an earlier version (kept.py)
+  keptVersion: 0,
+  noteChange() {
+    clearTimeout(this.keepTimer);
+    if (store.version !== this.keptVersion) this.keepTimer = setTimeout(() => this.keepNow(), KEEP_QUIET);
+  },
+  async keepNow() {
+    clearTimeout(this.keepTimer);
+    if (!store.doc || !store.dirty || store.version === this.keptVersion) return;
+    if (this.keeping) { this.keepAgain = true; return; }
+    this.keeping = true;
+    const version = store.version;
+    try {
+      if (store.doc.meta?.autosave && store.path) await this.autoSaveFile(version);
+      else await rpc("autosave", store.doc, store.autosaveKey, store.path || null);
+      this.keptVersion = version;
+    } catch (err) {
+      console.error(err);
+    } finally {
+      this.keeping = false;
+      if (this.keepAgain || store.version !== this.keptVersion) { this.keepAgain = false; this.noteChange(); }
+    }
+  },
+  // AutoSave's own save, into the file: no dialogs (a problem goes in the status bar, and a
+  // recovery copy is kept instead). Changes made meanwhile stay unsaved, for the next one
+  async autoSaveFile(version) {
+    const path = store.path;
+    try {
+      await rpc("save_document", store.doc, path, true);
+    } catch (err) {
+      announce(`AutoSave couldn't save ${path.split(/[\\/]/).pop()} (${err.message || err}); a recovery copy is kept instead`);
+      await rpc("autosave", store.doc, store.autosaveKey, path);
+      return;
+    }
+    if (store.path === path && store.version === version) {
+      store.markSaved(path);
+      rpc("discard_autosave", store.autosaveKey).catch(() => {});
+    }
+  },
+  // AutoSave (the document's own switch, saved with it): changes go into its file as you work.
+  // A figure never saved is saved first (the Save dialog); turning it off saves once more
+  async toggleAutoSave(on = !store.doc?.meta?.autosave) {
+    if (on && !store.path) {
+      await this.save(true);
+      if (!store.path) return announce("AutoSave stays off until the figure has been saved");
+    }
+    store.doc.meta = { ...(store.doc.meta || {}), autosave: !!on };
+    store.dirty = true;
+    store.version += 1;
+    store.emit("doc", {});
+    this.syncMenus();
+    if (on) {
+      await this.keepNow();
+      announce(`AutoSave on: ${docName()} is saved as you work, and earlier versions are kept (File ▸ Browse Versions…)`);
+    } else {
+      await this.save();
+      announce("AutoSave off: save with ⌘S as before");
+    }
   },
   async save(as = false) {
     let path = store.path;
@@ -284,6 +347,22 @@ const app = {
     rpc("discard_autosave", store.autosaveKey).catch(() => {});
     announce(`Saved ${res.path.split(/[\\/]/).pop()}` + (res.warnings.length ? `, with ${res.warnings.length} warnings` : ""));
     if (res.warnings.length) panels.reportDialog("Saved, with warnings", res.warnings);
+  },
+  // Earlier versions of the file, and copies kept while editing (File > Browse Versions): one
+  // put back replaces the figure as one undo step, the file changing only when it's saved
+  async browseVersions() {
+    const got = await rpc("kept_copies", store.path || null, store.autosaveKey).catch(() => ({ versions: [], history: [] }));
+    panels.versionsDialog(got, async (entry, label) => {
+      const res = await rpc("read_kept", entry.path);
+      const meta = { ...(res.doc.meta || {}), autosave: store.doc.meta?.autosave };   // (AutoSave stays as it is)
+      store.update(label, (doc) => {
+        for (const k of Object.keys(doc)) delete doc[k];
+        Object.assign(doc, finishEdits(res.doc), { meta });
+      });
+      store.setPage(0);
+      canvas.fit();
+      announce(`${label}. Undo puts the figure back as it was`);
+    });
   },
   // Rename the document's file where it is: from the title bar on a Mac (double-click the name,
   // or Rename… in its right-click menu, mactitle.py), File > Rename… and command search. The
@@ -593,7 +672,7 @@ const app = {
         doc.pages.splice(at + 1, 0, ...pages);
       } else doc.pages.splice(at, 0, ...pages);
     });
-    store.setPage(at);
+    store.selectPages(Array.from({ length: n }, (_, k) => at + k), at);
     canvas.fit();
     announce(blank ? `This page took ${got.name}'s first page${n > 1 ? `, and its others are pages ${at + 2} to ${at + n}` : ""}`
       : `Added ${n} page${s} from ${got.name} as page${s} ${at + 1}${n > 1 ? ` to ${at + n}` : ""}`);
@@ -621,13 +700,18 @@ const app = {
       this.sendAway();
     });
   },
-  async copyPageAway(index, at = null) {
-    const doc = store.doc, page = doc.pages[index];
+  // Pages (indices, or one index) dropped in another window: copies there, with what they use
+  async copyPageAway(indices, at = null) {
+    const list = Array.isArray(indices) ? indices : [indices];
     if (this.away) Object.assign(this.away, { on: false, shown: false, sent: this.away.n });   // (the drop takes the line away)
-    const got = { name: docName(), pages: [clone(page)], assets: doc.assets, symbols: doc.symbols || [], swatches: doc.swatches || [],
-      text_styles: doc.text_styles || [], object_styles: doc.object_styles || [] };
-    const res = await rpc("page_drop", got, at).catch(() => ({}));
-    if (res?.to) announce(`Copied ${page.name} to ${res.to}`);
+    const res = await rpc("page_drop", this.pagesPacket(list), at).catch(() => ({}));
+    if (res?.to) announce(`Copied ${list.length === 1 ? store.doc.pages[list[0]].name : `${list.length} pages`} to ${res.to}`);
+  },
+  // Pages as another figure's (figure_pages' shape): for a drop in another window or the clipboard
+  pagesPacket(indices) {
+    const doc = store.doc;
+    return { name: docName(), pages: indices.map((i) => clone(doc.pages[i])), assets: doc.assets, symbols: doc.symbols || [],
+      swatches: doc.swatches || [], text_styles: doc.text_styles || [], object_styles: doc.object_styles || [] };
   },
   // Where a dragged thing would go, shown while it's over the window (null: it's gone). kind:
   // "files" (pictures), "deck" (a deck file), "slides" or "shapes" (out of PowerPoint): over the
@@ -1921,6 +2005,7 @@ const app = {
     announce("It's an ordinary shape now and stays where it is when the lines move");
   },
   copy(cut = false) {
+    if (panels.pageList?.contains(document.activeElement)) return this.copyPages(cut);   // (the Pages list has the keys)
     const sel = store.selected();
     if (!sel.length) return;
     const assets = {};
@@ -1939,6 +2024,24 @@ const app = {
     if (cut) this.deleteSelection();
     announce(`${cut ? "Cut" : "Copied"} ${sel.length} object${sel.length === 1 ? "" : "s"}`);
   },
+  // The selected pages copied (cut: then deleted), for Paste here or in another mosaic window,
+  // which puts them after its page showing. On the system clipboard as mosaic's own copy, as
+  // objects are
+  copyPages(cut = false) {
+    const indices = store.selectedPages(), n = indices.length;
+    this.clipboard = this.pagesPacket(indices);
+    const text = "mosaic:" + JSON.stringify(this.clipboard);
+    this.clipboardCount = null;
+    this.copying = Promise.resolve(navigator.clipboard?.writeText(text)).catch(() => {})
+      .then(() => rpc("clipboard_copied", text)).then((c) => { this.clipboardCount = c; }).catch(() => {});
+    const what = n === 1 ? `page ${store.doc.pages[indices[0]].name}` : `${n} pages`;
+    if (cut) this.deletePages(indices, false);   // (no question: they're on the clipboard, and Undo brings them back)
+    announce(`${cut ? "Cut" : "Copied"} ${what}`);
+  },
+  // Copied pages pasted: after the page showing, selected
+  pastePages(clip) {
+    this.addFigurePages(clip, { list: true, pageAt: store.pageIndex + 1 });
+  },
   // Paste what's newest on the clipboard: objects copied here or in another document, files
   // copied in the Finder or Explorer (linked, as when dropped), a picture, or text as a text box.
   // mode "picture" takes the picture even when there's text too; at: where (top-left) on the page,
@@ -1953,7 +2056,9 @@ const app = {
       return [cx - w / 2, cy - h / 2];
     };
     const sizeOf = (asset) => (asset.page_sizes ? asset.page_sizes[0] : asset.size_pt);
+    if (r.kind === "own" && this.clipboard?.pages) return this.pastePages(this.clipboard);
     if (r.kind === "own" && this.clipboard) return this.pasteObjects(this.clipboard);
+    if (r.kind === "objects" && r.clip?.pages) return this.pastePages(r.clip);
     if (r.kind === "objects") return this.pasteObjects(r.clip);
     if (r.kind === "slides" || r.kind === "shapes") return this.fromPowerPoint(r, { at }, "Paste");
     if (r.kind === "files") {
@@ -2162,6 +2267,7 @@ const app = {
   },
   addPage(copy = false) {
     const cur = store.page();
+    if (copy && store.selectedPages().length > 1) return this.duplicatePages(store.selectedPages());
     // A new page starts with this page's size, background and guides
     const page = copy ? reidPage(clone(cur)) : this.blankPageLike(cur, `Page ${store.doc.pages.length + 1}`);
     if (copy) page.name = `${cur.name} copy`;
@@ -2169,9 +2275,25 @@ const app = {
     store.setPage(store.pageIndex + 1);
     announce(`${copy ? "Duplicated" : "Added"} page ${store.pageIndex + 1}`);
   },
+  // Several selected pages duplicated: the copies, in order, after the last of them, and selected
+  duplicatePages(indices) {
+    const copies = indices.map((i) => Object.assign(reidPage(clone(store.doc.pages[i])), { name: `${store.doc.pages[i].name} copy` }));
+    const at = indices[indices.length - 1] + 1;
+    store.update(`Duplicate ${copies.length} pages`, (doc) => doc.pages.splice(at, 0, ...copies));
+    store.selectPages(copies.map((_, k) => at + k), at);
+    announce(`Duplicated ${copies.length} pages as pages ${at + 1} to ${at + copies.length}`);
+  },
   async deletePage() {
+    if (store.selectedPages().length > 1) return this.deletePages(store.selectedPages());
+    return this.deletePages([store.pageIndex]);
+  },
+  // Pages deleted, one undo step, asking first (`ask`) if any has something on it. All of them
+  // leaves an empty page like the first, as a document always has a page
+  async deletePages(indices, ask = true) {
+    if (indices.length > 1) return this.deleteSeveralPages(indices, ask);
+    if (indices[0] !== store.pageIndex) store.setPage(indices[0]);
     const name = store.page().name;
-    if (store.items().length && !(await panels.confirm("Delete page?", `Delete page “${name}” and everything on it? `
+    if (ask && store.items().length && !(await panels.confirm("Delete page?", `Delete page “${name}” and everything on it? `
       + "You can undo this.", "Delete page"))) return;
     // A document always has a page: the only one gives way to an empty page like it
     if (store.doc.pages.length === 1) {
@@ -2190,10 +2312,36 @@ const app = {
     store.setPage(store.pageIndex);
     announce(`Deleted page ${name}`);
   },
+  async deleteSeveralPages(indices, ask) {
+    const n = indices.length, full = indices.some((i) => store.doc.pages[i].items.length);
+    if (ask && full && !(await panels.confirm(`Delete ${n} pages?`, `Delete the ${n} selected pages and everything on them? `
+      + "You can undo this.", `Delete ${n} pages`))) return;
+    const gone = new Set(indices), first = indices[0];
+    const blank = n === store.doc.pages.length ? this.blankPageLike(store.doc.pages[first], "Page 1") : null;
+    store.update(`Delete ${n} pages`, (doc) => {
+      doc.pages = blank ? [blank] : doc.pages.filter((_, i) => !gone.has(i));
+      store.pageIndex = Math.min(first, doc.pages.length - 1);
+      store.selection = [];
+    });
+    store.setPage(store.pageIndex);
+    announce(blank ? `Deleted ${n} pages; an empty page of the same size takes their place` : `Deleted ${n} pages`);
+  },
   movePage(from, to) {
     if (from === to || to < 0 || to >= store.doc.pages.length) return;
     store.update("Move page", (doc) => { const [p] = doc.pages.splice(from, 1); doc.pages.splice(to, 0, p); });
     store.setPage(to);
+  },
+  // Pages dragged in the Pages list together: `place` is where among the pages left they go. The
+  // page showing stays showing, and they stay selected
+  movePages(indices, place) {
+    if (indices.length === 1) return this.movePage(indices[0], place);
+    const moving = new Set(indices), showing = store.page().id, ids = indices.map((i) => store.doc.pages[i].id);
+    const order = (pages) => { const rest = pages.filter((_, i) => !moving.has(i)); rest.splice(place, 0, ...indices.map((i) => pages[i])); return rest; };
+    if (order(store.doc.pages).some((p, i) => p !== store.doc.pages[i])) {   // (back where they were: nothing to undo)
+      store.update(`Move ${indices.length} pages`, (doc) => { doc.pages = order(doc.pages); });
+    }
+    const at = (id) => store.doc.pages.findIndex((p) => p.id === id);
+    store.selectPages(ids.map(at), ids.includes(showing) ? at(showing) : at(ids[0]));
   },
   fitPage() {
     // Use what the engine drew (strokes, arrowheads, text) where known, else the frames; objects
@@ -2227,6 +2375,8 @@ const app = {
 };
 
 function dirOf(p) { return p ? p.replace(/[\\/][^\\/]*$/, "") : ""; }
+const KEEP_QUIET = 10000;      // ms after the last change before unsaved work is kept (app.noteChange)
+const KEEP_AT_LEAST = 60000;   // ms: kept this often too while changes go on without a pause
 // The undo step of a picture updated from its linked file
 const UPDATE_FROM_FILE = "Update from file";
 // Which version of its files a picture shows: its copies' (PDF, SVG, PNG…) content hashes, in a fixed order
@@ -2340,6 +2490,9 @@ app.commands = {
   open: cmd("Open document or PowerPoint deck", () => app.open(), `${M}O`, key("o"), "Open"),
   save: cmd("Save", () => app.save(), `${M}S`, key("s"), "Save"),
   saveAs: cmd("Save as", () => app.save(true), `${M}${S}S`, key("s", { shift: true })),
+  toggleAutoSave: cmd("AutoSave: save this figure into its file as you work", () => app.toggleAutoSave(), null, null, "AutoSave"),
+  browseVersions: cmd("Browse versions: earlier saved versions of this figure, and copies kept while editing",
+    () => app.browseVersions(), null, null, "Versions"),
   rename: cmd("Rename the document's file", () => app.rename(), null, null, "Rename"),
   export: cmd("Export", () => panels.exportDialog(), `${M}E`, key("e"), "Export"),
   preflight: cmd("Check before export", () => panels.preflightDialog(), `${M}${S}E`, key("e", { shift: true }), "Check"),
@@ -2430,7 +2583,12 @@ app.commands = {
   transformAgain: cmd("Transform again: repeat the last move, resize or turn", () => app.transformAgain(), `${M}${S}D`,
     key("d", { shift: true }), "Again"),
   delete: cmd("Delete", () => app.deleteSelection(), "Delete", (e) => plain(e) && (e.key === "Delete" || e.key === "Backspace"), "Delete"),
-  selectAll: cmd("Select all", () => { store.select(store.scopeItems().filter((i) => !i.locked).map((i) => i.id)); announce(`${store.selection.length} objects selected`); }, `${M}A`, key("a")),
+  selectAll: cmd("Select all", () => {
+    if (panels.pageList?.contains(document.activeElement)) {   // (the Pages list has the keys)
+      store.selectPages(store.doc.pages.map((_, i) => i), store.pageIndex);
+      return announce(`All ${store.doc.pages.length} pages selected`);
+    }
+    store.select(store.scopeItems().filter((i) => !i.locked).map((i) => i.id)); announce(`${store.selection.length} objects selected`); }, `${M}A`, key("a")),
   ...Object.fromEntries(SAME.map(([what, name]) => [sameCommand(what), cmd(`Select same ${name.toLowerCase()}`, () => app.selectSame(what))])),
   group: cmd("Group", () => app.group(), `${M}G`, key("g"), "Group"),
   ungroup: cmd("Ungroup", () => app.ungroup(), `${M}${S}G`, key("g", { shift: true }), "Ungroup"),
@@ -2866,11 +3024,14 @@ async function start() {
       }
       // What this window has open (another window opening it brings this one to the front),
       // and whether closing it asks first (naming the figure)
-      const now = JSON.stringify([store.path, store.dirty, docName()]);
+      const auto = !!store.doc?.meta?.autosave;
+      const now = JSON.stringify([store.path, store.dirty, docName(), auto]);
       if (now !== state) {
         state = now;
-        rpc("doc_state", store.path, store.dirty, docName().replace(/\.(mosaic|figasm)$/i, "")).catch(() => {});
+        rpc("doc_state", store.path, store.dirty, docName().replace(/\.(mosaic|figasm)$/i, ""), auto).catch(() => {});
+        app.syncMenus();   // (File > AutoSave's tick)
       }
+      if (what === "doc") app.noteChange();
     }
   });
   const params = new URLSearchParams(location.search);
@@ -2893,9 +3054,8 @@ async function start() {
   canvas.fit();
   if (params.get("select")) store.select(params.get("select").split(","));   // e.g. for screenshots
   setInterval(() => app.refreshLinks().catch(() => {}), 2000);
-  setInterval(() => {
-    if (store.dirty && store.doc) rpc("autosave", store.doc, store.autosaveKey).catch(() => {});
-  }, 60000);
+  setInterval(() => app.keepNow(), KEEP_AT_LEAST);   // (changes going on without a pause)
+  window.addEventListener("blur", () => app.keepNow());   // (to another app or window)
   window.addEventListener("beforeunload", (e) => { if (store.dirty && !app.info.native) { e.preventDefault(); e.returnValue = ""; } });
   window.addEventListener("focus", () => app.refreshPrefs());   // Settings changed in another window
   Object.assign(window.FA, { app, store, canvas, panels, inspector, updates });   // for the smoke test's checks
@@ -2913,6 +3073,20 @@ async function start() {
 }
 
 // Work that wasn't saved last time: recover a document, or delete copies that aren't wanted
+// A recovery copy (or an earlier one of it) taken back into this window: as the document it was
+// of, if it had a file, so Save saves it there. It keeps writing to that recovery copy (this
+// window's now: another mosaic won't offer it back), so saving the document clears it
+async function recover(s, copy, when) {
+  const res = await rpc("read_kept", copy);
+  store.setDoc(finishEdits(res.doc), s.doc_path || null);
+  store.autosaveKey = s.key;
+  rpc("claim_autosave", store.autosaveKey).catch(() => {});
+  store.dirty = true;
+  store.version += 1;
+  store.emit("doc", {});   // (the title says it's edited, and closing asks first)
+  canvas.fit();
+  announce(`Recovered ${s.title} as it was at ${when}${s.doc_path ? "; Save puts it back in its file" : ""}`);
+}
 function offerRecovery(saved) {
   const list = h("ul", { class: "recovery-list" });
   const deleteAll = h("button", { type: "button", class: "btn" }, "Delete all");
@@ -2926,19 +3100,15 @@ function offerRecovery(saved) {
       return h("li", {},
         h("div", { class: "recovery-name" }, s.title), h("div", { class: "hint" }, what),
         h("div", { class: "button-row" },
-          button(`Recover ${s.title}, ${when}`, async () => {
-            dlg.close();
-            const res = await rpc("open_document", s.path);
-            store.setDoc(finishEdits(res.doc), null);
-            // Keep writing to this copy (this window's now: another mosaic won't offer it
-            // back), so saving the document clears it
-            store.autosaveKey = s.path.split(/[\\/]/).pop().replace(/\.mosaic$/i, "");
-            rpc("claim_autosave", store.autosaveKey).catch(() => {});
-            store.dirty = true;
-            store.emit("doc", {});   // (the title says it's edited, and closing asks first)
-            canvas.fit();
-            announce(`Recovered ${s.title}`);
-          }, "Recover", "primary"),
+          button(`Recover ${s.title}, ${when}`, () => { dlg.close(); recover(s, s.path, when); }, "Recover", "primary"),
+          button(`Earlier copies of ${s.title}`, async (e) => {
+            const row = e.target.closest("li"), earlier = await rpc("recovery_history", s.key).catch(() => []);
+            row.querySelector(".recovery-earlier")?.remove();
+            row.append(h("ul", { class: "recovery-earlier" }, ...(earlier.length ? earlier.map((c) => {
+              const at = new Date(c.modified * 1000).toLocaleString();
+              return h("li", {}, button(`Recover ${s.title} as it was at ${at}`, () => { dlg.close(); recover(s, c.path, at); }, at, "link"));
+            }) : [h("li", { class: "hint" }, "No earlier copies: they're kept every 10 minutes of editing")])));
+          }, "Earlier copies…"),
           button(`Delete ${s.title}, ${when}`, async () => {
             if (!(await panels.confirmDeleteRecovery(1))) return;
             show(await rpc("delete_autosaves", [s.path], store.autosaveKey));

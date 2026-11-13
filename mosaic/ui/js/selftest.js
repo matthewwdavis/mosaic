@@ -2723,7 +2723,7 @@ async function pageDragChecks(app) {
   } finally {
     Object.assign(app, keep);
   }
-  check(calls.some(([k, on]) => k === "away" && on) && JSON.stringify(calls.at(-1)) === '["copy",1]' && store.doc.pages.length === 2,
+  check(calls.some(([k, on]) => k === "away" && on) && JSON.stringify(calls.at(-1)) === '["copy",[1]]' && store.doc.pages.length === 2,
     "a page dragged out of the window is offered to the window under the pointer, as a copy", JSON.stringify(calls));
   const first = panels.pageList.querySelector("li[data-index]").getBoundingClientRect();
   const at = [first.left + 20, first.top + first.height * 0.75];   // (its lower half: after it)
@@ -2736,6 +2736,118 @@ async function pageDragChecks(app) {
   check(line && gone && store.doc.pages.length === 3 && store.doc.pages[1].name === "From elsewhere" && store.pageIndex === 1
     && typeof name === "string" && name.length > 0,
   "a page dragged in from another window shows a line where it would go, and a copy goes there", `${line} ${gone} ${store.doc.pages.map((p) => p.name)}`);
+}
+
+// Several pages selected in the Pages list: ⌘-click (Ctrl-click) adds or takes away one, Shift-click
+// and Shift+arrows a run, ⌘A all (the list focused). Duplicate, Delete, a drag, Copy, Cut and
+// Paste (here or in another window), a drop in another window and Export take them all, each one
+// undo step
+async function pageSelectChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  for (let k = 0; k < 4; k++) app.addPage();   // (5 pages)
+  store.update("Name the pages", (doc) => doc.pages.forEach((p, i) => { p.name = "ABCDE"[i]; }));
+  store.setPage(0);
+  panels.renderPages();
+  await settle();
+  const li = (i) => panels.pageList.querySelector(`li[data-index="${i}"]`);
+  const click = (i, opts = {}) => li(i).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0,
+    ...(opts.mod ? (isMac ? { metaKey: true } : { ctrlKey: true }) : {}), shiftKey: !!opts.shift }));
+  const names = () => store.doc.pages.map((p) => p.name).join("");
+  const sel = () => store.selectedPages().map((i) => store.doc.pages[i].name).join("");
+  click(1);
+  click(3, { mod: true });
+  const two = sel() === "BD" && store.pageIndex === 3 && li(1).classList.contains("selected") && li(3).classList.contains("current")
+    && li(1).getAttribute("aria-selected") === "true" && li(2).getAttribute("aria-selected") === "false";
+  click(4, { shift: true });   // (from D, the page last clicked)
+  const run = sel();
+  click(4, { mod: true });
+  check(two && run === "DE" && sel() === "D" && store.pageIndex === 3, "⌘-click adds a page, Shift-click a run, ⌘-click takes one away",
+    `${two} ‹${run}› ‹${sel()}› ${store.pageIndex}`);
+  click(0);
+  panels.pageList.focus();
+  panels.pageList.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", shiftKey: true, bubbles: true }));
+  panels.pageList.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", shiftKey: true, bubbles: true }));
+  const keys = sel();
+  panels.pageList.focus();
+  await app.run("selectAll");   // (⌘A with the Pages list focused)
+  const all = sel();
+  click(2);
+  check(keys === "ABC" && store.pageIndex === 2 && all === "ABCDE" && sel() === "C", "Shift+arrows and ⌘A select pages; a plain click, one",
+    `${keys} ${all} ${sel()}`);
+  // Duplicate and Delete take every selected page
+  click(1);
+  click(2, { mod: true });
+  let undos = store.history.length;
+  await app.run("duplicatePage");
+  const dup = names(), dupSel = sel(), dupUndo = store.history.length - undos;
+  app.undo();
+  check(dup === "ABCB copyC copyDE" && dupSel === "B copyC copy" && dupUndo === 1 && names() === "ABCDE",
+    "Duplicate copies the selected pages after them, selected, one undo step",
+  `${dup} / ${dupSel} / ${dupUndo}`);
+  click(1);
+  click(3, { mod: true });
+  undos = store.history.length;
+  app.autoConfirm = true;
+  await app.run("deletePage");
+  const del = names(), delUndo = store.history.length - undos;
+  app.undo();
+  check(del === "ACE" && delUndo === 1 && names() === "ABCDE", "Delete deletes the selected pages, one undo step", `${del} ${delUndo} ${names()}`);
+  // A drag takes them all, keeping their order, and they stay selected
+  click(0);
+  click(2, { mod: true });
+  panels.renderPages();
+  const row = li(0), r = row.getBoundingClientRect(), last = li(4).getBoundingClientRect();
+  const ev = (type, y) => row.dispatchEvent(new PointerEvent(type, { clientX: r.left + 30, clientY: y, bubbles: true, button: 0,
+    buttons: type === "pointerup" ? 0 : 1, pointerId: 11, pointerType: "mouse" }));
+  ev("pointerdown", r.top + r.height / 2);
+  ev("pointermove", r.top + r.height / 2 + 8);
+  ev("pointermove", last.bottom - 2);
+  ev("pointerup", last.bottom - 2);
+  await settle();
+  check(names() === "BDEAC" && sel() === "AC" && store.doc.pages[store.pageIndex].name === "C", "dragging selected pages moves them all, in order",
+    `${names()} ‹${sel()}›`);
+  app.undo();
+  // Copy and Paste (and Cut): after the page showing, the pasted pages selected
+  click(1);
+  click(2, { mod: true });
+  panels.pageList.focus();
+  await app.run("copy");
+  const copied = app.clipboard?.pages?.map((p) => p.name).join("");
+  click(4);
+  panels.pageList.focus();
+  await app.run("paste");
+  await settle();
+  const pasted = names(), pastedSel = sel();
+  app.undo();
+  click(3);
+  click(4, { mod: true });
+  panels.pageList.focus();
+  await app.run("cut");
+  await settle();
+  const cutNames = names();
+  click(0);
+  await app.run("paste");
+  await settle();
+  check(copied === "BC" && pasted === "ABCDEBC" && pastedSel === "BC" && cutNames === "ABC" && names() === "ADEBC",
+    "Copy and Paste put the selected pages after the page showing; Cut takes them away", `${copied} ${pasted} ‹${pastedSel}› ${cutNames} ${names()}`);
+  // Another window's drop, and its packet: several pages, with what they use
+  store.setDoc(await rpc("new_document"));
+  for (let k = 0; k < 2; k++) app.addPage();
+  store.update("Name the pages", (doc) => doc.pages.forEach((p, i) => { p.name = "XYZ"[i]; }));
+  store.selectPages([0, 2], 0);
+  const packet = app.pagesPacket(store.selectedPages());
+  const first = panels.pageList.querySelector("li[data-index]").getBoundingClientRect();
+  window.FA.pageDrop(packet, first.left + 20, first.top + first.height * 0.75);   // (its lower half: after it)
+  check(packet.pages.map((p) => p.name).join("") === "XZ" && names() === "XXZYZ" && sel() === "XZ" && store.pageIndex === 1
+    && new Set(store.doc.pages.map((p) => p.id)).size === 5, "pages dropped from another window go in together, selected, with ids of their own",
+  `${names()} ‹${sel()}›`);
+  // Export offers the selected pages, and exports those
+  await app.run("export");
+  const dlg = [...document.querySelectorAll("dialog[open]")].pop();
+  const pageSel = [...dlg.querySelectorAll("select")].find((x) => [...x.options].some((o) => o.value === "selected"));
+  check(pageSel?.value === "selected" && pageSel.selectedOptions[0].textContent === "The 2 selected pages",
+    "Export offers the selected pages, chosen at first", pageSel ? [...pageSel.options].map((o) => o.textContent).join(" | ") : "no choice");
+  dlg.close();
 }
 
 // Around the page: scrolling goes past it, as far as keeps something in view; an object outside it
@@ -2972,6 +3084,75 @@ async function renameChecks(app, out) {
   } finally {
     app.save = save;
   }
+}
+
+// Keeping work safe: a recovery copy (saying which file it's of) 10 s after the last change, and
+// at once when the window loses focus; AutoSave (the status bar's switch, File > AutoSave) saves
+// into the file instead, keeping the file it saves over as an earlier version; Browse Versions
+// puts one back as one undo step; a recovery copy recovers as the document it was of, or as an
+// earlier copy of it
+async function keepingChecks(app, out) {
+  const run = Date.now().toString(36);
+  store.setDoc(await rpc("new_document"));
+  const path = (await rpc("save_document", store.doc, `${out}/selftest-keep-${run}.mosaic`)).path;
+  store.markSaved(path);
+  const key = store.autosaveKey, file = path.split(/[\\/]/).pop();
+  const ours = async (k = key) => (await rpc("autosaved")).find((c) => c.key === k);
+  const box = (id, x) => store.update(`Box ${id}`, (doc) => doc.pages[0].items.push(gRectFor(id, x, 10, 30, 20)));
+  box("kp1", 10);
+  const early = app.keptVersion === store.version;
+  await until(() => app.keptVersion === store.version, 20000);
+  const copy = await ours();
+  check(!early && copy?.doc_path === path && copy.title === file && copy.objects === 1,
+    "a recovery copy is kept 10 s after the last change, saying which file it's of", JSON.stringify(copy));
+  box("kp2", 50);
+  window.dispatchEvent(new Event("blur"));
+  await until(() => app.keptVersion === store.version, 3000);   // (well before 10 s)
+  check(app.keptVersion === store.version && (await ours())?.objects === 2, "switching to another app keeps it at once");
+  // AutoSave: saved into the file as you work; its recovery copy goes
+  const sw = document.querySelector(".autosave-toggle");
+  sw.click();
+  await until(() => !store.dirty && store.doc.meta?.autosave);
+  const on = !store.dirty && sw.getAttribute("aria-pressed") === "true" && app.menuChecks().toggleAutoSave
+    && app.menuSpec().find((m) => m.title === "File").items.some((it) => it.action === "toggleAutoSave" && it.check);
+  box("kp3", 90);
+  const dirtyAfter = store.dirty;
+  await until(() => !store.dirty, 20000);
+  const saved = (await rpc("open_document", path)).doc;
+  check(on && dirtyAfter && !store.dirty && saved.pages[0].items.length === 3 && saved.meta.autosave === true && !(await ours()),
+    "AutoSave saves into the file as you work, and the recovery copy goes", `${on} ${dirtyAfter} ${store.dirty} ${saved.pages[0].items.length}`);
+  // Browse Versions: the file as it was before AutoSave saved over it, put back as one undo step
+  await app.run("browseVersions");
+  const dlg = [...document.querySelectorAll("dialog[open]")].pop();
+  const lists = [...dlg.querySelectorAll(".versions-list")];
+  const versionRows = lists[0]?.querySelectorAll("li").length || 0, historyRows = lists[1]?.querySelectorAll("li").length || 0;
+  lists[0]?.querySelector("li:last-child button").click();   // (the oldest: the empty figure first saved)
+  await until(() => store.items().length === 0);
+  const putBack = store.items().length === 0 && !dlg.open && store.doc.meta.autosave === true;
+  app.undo();
+  check(versionRows >= 1 && historyRows >= 1 && putBack && store.items().length === 3,
+    "Browse Versions lists the file's earlier versions and the copies kept, and puts one back as one undo step",
+    `${versionRows} versions, ${historyRows} copies; ${putBack}; ${store.items().length}`);
+  sw.click();   // AutoSave off: saved once more, as off
+  await until(() => !store.doc.meta?.autosave && !store.dirty);
+  check(!(await rpc("open_document", path)).doc.meta.autosave && sw.getAttribute("aria-pressed") === "false",
+    "turning AutoSave off saves the figure once more, off");
+  // A recovery copy of a saved figure recovers as that figure, or as an earlier copy of it
+  const other = `doc-selftest${run}`, twoBoxes = JSON.parse(JSON.stringify(store.doc));
+  twoBoxes.pages[0].items = twoBoxes.pages[0].items.slice(0, 2);
+  await rpc("autosave", twoBoxes, other, path);
+  app.offerRecovery([await ours(other)]);
+  const rec = [...document.querySelectorAll("dialog[open]")].pop();
+  const earlierBtn = [...rec.querySelectorAll("button")].find((b) => b.textContent === "Earlier copies…");
+  earlierBtn.click();
+  await until(() => rec.querySelector(".recovery-earlier li"));
+  const earlier = rec.querySelectorAll(".recovery-earlier li button").length;
+  [...rec.querySelectorAll("button")].find((b) => b.textContent === "Recover").click();
+  await until(() => store.autosaveKey === other && store.items().length === 2);
+  check(earlier === 1 && store.path === path && store.dirty && store.items().length === 2 && document.title.startsWith(`${file} — edited`),
+    "a recovery copy recovers as the document it was of (Save puts it back), with its earlier copies offered", `${earlier} ${store.path}`);
+  store.markSaved(path);
+  await rpc("discard_autosave", other);
 }
 
 // Zoom inset shapes: the Zoom inset button's ▾ menu offers a rounded rectangle, an ellipse and a
@@ -3684,7 +3865,9 @@ export async function run(app, params) {
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
     if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
     if (params.get("only") === "rename") { await renameChecks(app, out); throw ONLY; }
+    if (params.get("only") === "keeping") { await keepingChecks(app, out); throw ONLY; }
     if (params.get("only") === "pagedrag") { await pageDragChecks(app); throw ONLY; }
+    if (params.get("only") === "pageselect") { await pageSelectChecks(app); throw ONLY; }
     if (params.get("only") === "clickthrough") { await clickThroughChecks(app); throw ONLY; }
     if (params.get("only") === "textribbon") { await textRibbonChecks(app); throw ONLY; }
     if (params.get("only") === "journallabels") { await journalLabelChecks(app); throw ONLY; }
@@ -4957,7 +5140,9 @@ export async function run(app, params) {
     await pasteboardChecks(app);
     await offPageChecks(app);
     if (out) await renameChecks(app, out);
+    if (out) await keepingChecks(app, out);
     await pageDragChecks(app);
+    await pageSelectChecks(app);
     await clickThroughChecks(app);
     await textRibbonChecks(app);
     await journalLabelChecks(app);

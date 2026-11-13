@@ -18,6 +18,11 @@ import { cropMenu } from "./crop.js";
 import { textRibbon } from "./textribbon.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon, s, shapeName, toUnit } from "./util.js";
 
+// The pages an Export or Figure report choice means: every page (null), the selected ones, or the one showing
+function pagesChosen(value, selected) {
+  return value === "all" ? null : value === "selected" ? selected : [store.pageIndex];
+}
+
 // 24 x 24 stroke icons, drawn for mosaic; a few follow Feather's and Lucide's designs (their
 // notices are in THIRD_PARTY_NOTICES.md)
 const ICONS = {
@@ -177,6 +182,7 @@ export const panels = {
     store.on((what, detail) => {
       if (what === "doc" && detail?.live) return;   // mid-drag: the lists don't change
       if (["doc", "page", "saved"].includes(what)) { this.renderPages(); this.renderLayers(); this.renderSaveState(); }
+      if (what === "pages") this.renderPages();   // (the pages selected changed)
       if (what === "selection") this.renderLayers();
     });
     canvas.onToolChange = (tool) => this.renderTools(tool);
@@ -583,17 +589,18 @@ export const panels = {
       h("div", { class: "panel-head" }, h("h2", { id: "pages-title" }, "Pages"),
         h("div", { class: "panel-actions" },
           button("Add a page", () => this.app.run("addPage"), icon("plus"), "icon-btn"),
-          button("Duplicate this page", () => this.app.run("duplicatePage"), icon("duplicate"), "icon-btn"),
-          button("Delete this page", () => this.app.run("deletePage"), icon("trash"), "icon-btn"))),
+          this.dupPageBtn = button("Duplicate this page", () => this.app.run("duplicatePage"), icon("duplicate"), "icon-btn"),
+          this.delPageBtn = button("Delete this page", () => this.app.run("deletePage"), icon("trash"), "icon-btn"))),
       this.pageList);
     this.pageList.addEventListener("keydown", (e) => {
       if (!store.doc) return;
       const n = store.doc.pages.length;
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
-        const d = e.key === "ArrowDown" ? 1 : -1;
+        const d = e.key === "ArrowDown" ? 1 : -1, to = Math.min(Math.max(store.pageIndex + d, 0), n - 1);
         if (e.altKey) this.app.run(d > 0 ? "pageDown" : "pageUp");
-        else store.setPage(Math.min(Math.max(store.pageIndex + d, 0), n - 1));
+        else if (e.shiftKey) this.selectPageRange(to);   // (Shift+arrows: more pages, as Shift-click)
+        else { store.setPage(to); this.pageAnchor = to; }
         announce(`Page ${store.pageIndex + 1} of ${n}: ${store.page().name}`);
       } else if (e.key === "F2" || e.key === "Enter") {
         e.preventDefault();
@@ -601,15 +608,16 @@ export const panels = {
       }
     });
     // Drag a page up or down the list to move it (listdrag.js), or into another mosaic window
-    // for a copy there
+    // for a copy there; a selected page takes the other selected pages with it
     let from = null;
     listDrag(this.pageList, {
       rows: "li[data-index]",
       scroller: root.closest(".sidebar"),
       start: (li) => {
-        from = Number(li.dataset.index);
-        li.classList.add("drag-hidden");
-        return { row: li, depth: 0, count: 1 };
+        const i = Number(li.dataset.index), sel = store.selectedPages();
+        from = sel.includes(i) ? sel : [i];
+        for (const k of from) this.pageList.querySelector(`li[data-index="${k}"]`)?.classList.add("drag-hidden");
+        return { row: li, depth: 0, count: from.length };
       },
       places: (rows) => Array.from({ length: rows.length + 1 }, (_, k) => [{ depth: 0, place: k }]),
       away: true,
@@ -620,7 +628,7 @@ export const panels = {
           this.app.copyPageAway(from);
           return;
         }
-        this.app.movePage(from, t.place);
+        this.app.movePages(from, t.place);
         this.renderPages();
         announce(`Page ${store.pageIndex + 1} of ${store.doc.pages.length}: ${store.page().name}`);
       },
@@ -632,15 +640,22 @@ export const panels = {
   },
   renderPages() {
     if (!store.doc || this.layerDrag) return;   // mid-drag the lists are the drag's
-    const pu = this.app.prefs.page_units || "mm";
+    const pu = this.app.prefs.page_units || "mm", sel = new Set(store.selectedPages()), n = sel.size;
+    for (const [b, what] of [[this.dupPageBtn, "Duplicate"], [this.delPageBtn, "Delete"]]) {
+      const label = n > 1 ? `${what} the ${n} selected pages` : `${what} this page`;
+      b?.setAttribute("title", label);
+      b?.setAttribute("aria-label", label);
+    }
+    this.pageList.setAttribute("aria-multiselectable", "true");
     this.pageList.replaceChildren(...store.doc.pages.map((p, i) => {
-      const li = h("li", { role: "option", id: `page-opt-${i}`, "aria-selected": i === store.pageIndex ? "true" : "false",
-        class: i === store.pageIndex ? "current" : "", "data-index": i },
+      const li = h("li", { role: "option", id: `page-opt-${i}`, "aria-selected": sel.has(i) ? "true" : "false",
+        "aria-current": i === store.pageIndex ? "page" : null,
+        class: [i === store.pageIndex ? "current" : "", sel.has(i) && n > 1 ? "selected" : ""].join(" ").trim(), "data-index": i },
       h("span", { class: "page-num" }, i + 1),
       h("span", { class: "page-name" }, p.name),
       h("span", { class: "page-size" }, `${fmt(toUnit(p.width, pu), 1)} × ${fmt(toUnit(p.height, pu), 1)} ${UNIT_LABEL[pu]}`));
-      li.addEventListener("click", () => store.setPage(i));
-      li.addEventListener("dblclick", () => this.renamePage(i));
+      li.addEventListener("click", (e) => this.clickPage(i, e));
+      li.addEventListener("dblclick", (e) => { if (!e.shiftKey && !(isMac ? e.metaKey : e.ctrlKey)) this.renamePage(i); });
       li.addEventListener("contextmenu", (e) => {
         if (e.target.closest("input")) return;   // the name being typed keeps its own menu
         e.preventDefault();
@@ -649,6 +664,29 @@ export const panels = {
       return li;
     }));
     this.pageList.setAttribute("aria-activedescendant", `page-opt-${store.pageIndex}`);
+  },
+  // A click in the Pages list: that page alone; ⌘-click (Ctrl-click) adds or takes away one,
+  // Shift-click a run from the page last clicked, as in the Finder and PowerPoint's slide list.
+  // The page clicked shows (one taken away: another selected one)
+  clickPage(i, e) {
+    const sel = store.selectedPages();
+    if (e.shiftKey) return this.selectPageRange(i);
+    if (isMac ? e.metaKey : e.ctrlKey) {
+      this.pageAnchor = i;
+      if (!sel.includes(i)) return store.selectPages([...sel, i], i);
+      if (sel.length === 1) return;   // (the last one stays)
+      const rest = sel.filter((k) => k !== i);
+      store.selectPages(rest, i === store.pageIndex ? rest.reduce((a, b) => (Math.abs(b - i) < Math.abs(a - i) ? b : a)) : store.pageIndex);
+      return;
+    }
+    this.pageAnchor = i;
+    if (i !== store.pageIndex || sel.length > 1) store.setPage(i);
+  },
+  selectPageRange(i) {
+    const a = this.pageAnchor ?? store.pageIndex, lo = Math.min(a, i), hi = Math.max(a, i);
+    store.selectPages(Array.from({ length: hi - lo + 1 }, (_, k) => lo + k), i);
+    const n = hi - lo + 1;
+    if (n > 1) announce(`${n} pages selected, ${lo + 1} to ${hi + 1}`);
   },
   renamePage(i) {
     const li = this.pageList.children[i];
@@ -670,17 +708,24 @@ export const panels = {
     });
     input.addEventListener("blur", () => done(true), { once: true });
   },
-  // A page's right-click menu (it becomes the current page, as a click would make it)
+  // A page's right-click menu: for the selected pages if it's one of them, else it alone (it
+  // becomes the page showing, as a click would make it)
   pageMenu(i, x, y) {
-    store.setPage(i);
+    if (!store.selectedPages().includes(i)) store.setPage(i);
+    else if (i !== store.pageIndex) store.selectPages(store.selectedPages(), i);
+    this.pageList.focus();   // (Copy, Cut and Paste are the pages')
     const c = (name, opts) => this.app.menuEntry(name, opts);
-    const n = store.doc.pages.length;
+    const n = store.doc.pages.length, k = store.selectedPages().length, many = k > 1;
     contextMenu.show([
-      c("addPage"), c("duplicatePage"), c("deletePage"),
+      c("addPage"), c("duplicatePage", many ? { label: `Duplicate ${k} pages` } : {}), c("deletePage", many ? { label: `Delete ${k} pages` } : {}),
       "-",
-      c("pageUp", { disabled: i === 0 }), c("pageDown", { disabled: i === n - 1 }),
+      c("cut", { label: many ? `Cut ${k} pages` : "Cut page", run: () => this.app.copyPages(true) }),
+      c("copy", { label: many ? `Copy ${k} pages` : "Copy page", run: () => this.app.copyPages() }),
+      c("paste", { label: "Paste" }),   // (copied pages go after this one)
       "-",
-      { label: "Rename page", keys: "F2", run: () => this.renamePage(i) },
+      c("pageUp", { disabled: i === 0 || many }), c("pageDown", { disabled: i === n - 1 || many }),
+      "-",
+      { label: "Rename page", keys: "F2", disabled: many, run: () => this.renamePage(i) },
     ], x, y, this.pageList);
   },
 
@@ -913,6 +958,9 @@ export const panels = {
     this.message = h("span", { id: "live", class: "message", role: "status", "aria-live": "polite" });
     this.cursor = h("span", { class: "cursor-pos", "aria-hidden": "true" });
     this.saveState = h("span", { class: "save-state" });
+    // AutoSave, the figure's own switch: on, it's saved into its file as you work
+    this.autoSaveBtn = h("button", { type: "button", class: "btn toggle small autosave-toggle", "aria-pressed": "false" }, "AutoSave");
+    this.autoSaveBtn.addEventListener("click", () => this.app.run("toggleAutoSave"));
     const z = (cmd, ic) => button(`${this.app.commands[cmd].label} (${this.app.commands[cmd].keys})`, () => this.app.run(cmd),
       icon(ic), "icon-btn small");
     const zoom = h("span", { class: "status-zoom", role: "group", "aria-label": "Zoom" }, z("zoomOut", "zoomout"),
@@ -927,7 +975,7 @@ export const panels = {
       title: "Dangerous mode is on: a double-click on a placed plot's text lifts it out as a text box. Click to turn it off." },
     "⚠ Dangerous mode");
     this.dangerBadge.addEventListener("click", () => this.app.toggleDangerous(false));
-    bar.append(this.message, h("span", { class: "spacer" }), this.dangerBadge, zoom, this.nudge, this.cursor, this.saveState);
+    bar.append(this.message, h("span", { class: "spacer" }), this.dangerBadge, zoom, this.nudge, this.cursor, this.autoSaveBtn, this.saveState);
     this.renderNudge();
   },
   renderPreview() {
@@ -947,8 +995,32 @@ export const panels = {
   },
   renderSaveState() {
     if (!store.doc) return;
-    const name = store.path ? store.path.split(/[\\/]/).pop() : "Not saved yet";
-    this.saveState.textContent = `${name}${store.dirty ? " — unsaved changes" : store.path ? " — saved" : ""}`;
+    const name = store.path ? store.path.split(/[\\/]/).pop() : "Not saved yet", auto = !!store.doc.meta?.autosave && !!store.path;
+    this.saveState.textContent = `${name}${store.dirty ? (auto ? " — saving soon" : " — unsaved changes") : store.path ? " — saved" : ""}`;
+    this.autoSaveBtn?.setAttribute("aria-pressed", auto ? "true" : "false");
+    this.autoSaveBtn?.setAttribute("title", auto ? "AutoSave is on: this figure is saved into its file as you work. Click to turn it off"
+      : `AutoSave is off: changes are saved with ${isMac ? "⌘" : "Ctrl+"}S (a recovery copy is kept meanwhile). Click to save as you work`);
+  },
+  // File > Browse Versions: the file's earlier versions and the copies kept while editing,
+  // newest first; Put back replaces the figure with one (put(entry, undo label), one undo step)
+  versionsDialog(got, put) {
+    const when = (e) => new Date(e.modified * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
+    const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+    const what = (e) => [e.pages === null ? "" : `${plural(e.pages, "page")}, ${plural(e.objects, "object")}`, sizeText(e.bytes)]
+      .filter(Boolean).join(" · ");
+    let dlg = null;
+    const rows = (list, kind, none) => (list.length ? h("ul", { class: "versions-list" }, ...list.map((e) => {
+      const label = kind === "version" ? `Revert to the version saved ${when(e)}` : `Revert to the copy kept ${when(e)}`;
+      return h("li", {}, h("span", { class: "versions-when" }, when(e)), h("span", { class: "hint" }, what(e)),
+        button(label, async () => { dlg.close(); await put(e, label); }, "Put back", "small"));
+    })) : h("p", { class: "hint" }, none));
+    dlg = this.dialog("Versions", h("div", {},
+      h("h3", {}, store.path ? `Saved versions of ${store.path.split(/[\\/]/).pop()}` : "Saved versions"),
+      rows(got.versions || [], "version", store.path ? "None yet: each time the figure is saved over, the file as it was is kept here (the last 10)."
+        : "None: the figure hasn't been saved yet."),
+      h("h3", {}, "Copies kept while editing"),
+      rows(got.history || [], "copy", "None yet: one is kept every 10 minutes of editing (the last 3 hours' worth)."),
+      h("p", { class: "hint" }, "Putting one back replaces the figure here; Undo brings it back as it was, and the file only changes when it's saved.")));
   },
 
   // Dialogs ------------------------------------------------------------------------------
@@ -997,7 +1069,9 @@ export const panels = {
     const dpiSel = selectField("Resolution for PNG, TIFF and JPEG", String(saved.dpi || prefs.default_dpi || 600),
       [["300", "300 dpi"], ["600", "600 dpi"], ["1200", "1200 dpi"], ["custom", "Custom…"]], (v) => { custom.hidden = v !== "custom"; });
     const custom = h("div", { hidden: true }, numField("Custom resolution", saved.dpi || 600, "dpi", () => {}, { min: 50, step: 50 }));
-    const pages = selectField("Pages", "current", [["current", `This page (${store.page().name})`], ["all", `All ${store.doc.pages.length} pages`]], () => {});
+    const chosen = store.selectedPages();
+    const pages = selectField("Pages", chosen.length > 1 ? "selected" : "current", [["current", `This page (${store.page().name})`],
+      ...(chosen.length > 1 ? [["selected", `The ${chosen.length} selected pages`]] : []), ["all", `All ${store.doc.pages.length} pages`]], () => {});
     const bg = selectField("Background", saved.transparent === false ? "white" : "transparent",
       [["transparent", "Transparent"], ["white", "White"]], () => {});
     const advanced = h("details", { class: "advanced" }, h("summary", {}, "More options (CMYK, EPS, fonts)"),
@@ -1024,7 +1098,7 @@ export const panels = {
         formats: [...dlg.querySelectorAll(".formats input:checked, .advanced input[value]:checked")].map((i) => i.value),
         dpi, transparent: bg.querySelector("select").value === "transparent",
         cmyk: dlg.querySelector("#ex-cmyk").checked, embed_fonts: dlg.querySelector("#ex-fonts").checked,
-        pages: pages.querySelector("select").value === "all" ? null : [store.pageIndex],
+        pages: pagesChosen(pages.querySelector("select").value, chosen),
       };
     };
     let asked = 0;
@@ -1105,8 +1179,10 @@ export const panels = {
         h("span", { class: "hint" }, extra));
     };
     const n = store.doc.pages.length;
-    const pages = selectField("Pages", "all", n === 1 ? [["all", "The figure's one page"]]
-      : [["all", `All ${n} pages`], ["current", `This page (${store.page().name})`]], () => {});
+    const chosen = store.selectedPages();
+    const pages = selectField("Pages", chosen.length > 1 ? "selected" : "all", n === 1 ? [["all", "The figure's one page"]]
+      : [["all", `All ${n} pages`], ["current", `This page (${store.page().name})`],
+        ...(chosen.length > 1 ? [["selected", `The ${chosen.length} selected pages`]] : [])], () => {});
     const results = h("div", { class: "results", role: "status", "aria-live": "polite" });
     const go = h("button", { type: "button", class: "btn primary" }, "Write report…");
     const body = h("div", {},
@@ -1126,7 +1202,7 @@ export const panels = {
       results.replaceChildren(h("p", {}, "Writing…"));
       try {
         const res = await rpc("figure_report", store.doc, { formats, base, units: this.app.prefs.units || "cm", doc_path: store.path,
-          pages: pages.querySelector("select").value === "all" ? null : [store.pageIndex] });
+          pages: pagesChosen(pages.querySelector("select").value, chosen) });
         dlg.close();
         this.doneNote(`Wrote the figure report: ${fileNames(res.files)}`, res.files);
       } catch (err) {

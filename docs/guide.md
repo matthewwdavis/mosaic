@@ -149,11 +149,20 @@ empty page of the same size, background and guides in its place (a page with obj
 room), and double-click a page's name to rename it. Drop a PowerPoint deck in the list to add its
 slides as pages there. One document can hold versions of a figure side by side.
 
+**Several pages at once:** ⌘-click (Ctrl-click on Windows) pages in the Pages list to add or
+take away one, Shift-click (or Shift+↑/↓) for a run of them, ⌘A with the list focused for all.
+The page showing is outlined. **Duplicate** and **Delete** (the buttons above the list, or a
+page's right-click menu) then take every selected page, in one undo step; dragging one of them
+moves them all; **Export** and the **Figure report** offer "The selected pages". With the Pages
+list focused, **⌘C**, **⌘X** and **⌘V** copy, cut and paste pages: pasted pages go after the page
+showing, in this figure or another.
+
 **Pages between documents:** drag a page out of the Pages list into another mosaic window to
-copy it there (on a Mac). Over that window's Pages list a line shows where it will go; over its
-page, it goes after the page showing (taking a blank page's place). The page stays in the first
-document too, and its pictures, swatches, symbols and styles come with it, as when you drop a
-whole `.mosaic` file.
+copy it there (on a Mac), or copy and paste it (anywhere). Several selected pages go together.
+Over that window's Pages list a line shows where they will go; over its page, they go after the
+page showing (the first taking a blank page's place). The pages stay in the first document too,
+and their pictures, swatches, symbols and styles come with them, as when you drop a whole
+`.mosaic` file.
 
 ## Pictures
 
@@ -1200,11 +1209,26 @@ under one name. As with exporting, the window then closes and a note names the f
   beside its file since you placed it (a PDF or SVG that wasn't there yet), so each export can use
   its own copy. Pictures keep their place and scale, the status bar says what changed and which
   files weren't found, and ⌘Z undoes it in one step.
-- **Recovery:** unsaved work is copied every minute, and as a window closes without saving. If
-  mosaic closes unexpectedly, it offers the work back next time. That window can also **Delete**
-  copies you don't need, one at a time or all together. **Settings → Unsaved work** shows how
-  many copies are kept and can delete them. Deleting always asks first, since these are the only
-  copies of work that was never saved.
+- **Recovery:** unsaved work is copied 10 seconds after you stop changing things, at once when
+  you switch to another app or window, at least once a minute while you keep working, and as a
+  window closes without saving. If mosaic closes unexpectedly, it offers the work back next time:
+  **Recover** opens it as the document it was (Save puts it back in its file), and **Earlier
+  copies…** offers it as it was a while before. Every 10 minutes of editing, a copy is kept in a
+  history (the last 3 hours' worth, for 2 weeks). That window can also **Delete** copies you
+  don't need, one at a time or all together. **Settings → Unsaved work** shows how many copies
+  are kept and can delete them. Deleting always asks first, since these are the only copies of
+  work that was never saved.
+- **AutoSave:** the **AutoSave** switch in the status bar (or **File ▸ AutoSave**) saves the
+  figure into its file as you work, 10 seconds after you stop changing things and when you
+  switch away, as Word's AutoSave does. It's the figure's own switch, saved with it, so it's on
+  again next time. A figure never saved is saved first. Closing it saves without asking.
+  Turning it off saves once more.
+- **Earlier versions:** each time a figure is saved over, the file as it was is kept first (its
+  last 10; with AutoSave, at most one every 10 minutes). **File ▸ Browse Versions…** lists them,
+  with the copies kept while editing, and **Put back** replaces the figure with one: Undo brings
+  it back as it was, and the file only changes when it's saved. Renaming the file keeps its
+  versions. Versions and copies are kept in the `.mosaic` folder in your home folder, 2 GB at
+  most all together (the oldest go first).
 
 ## PowerPoint slides
 

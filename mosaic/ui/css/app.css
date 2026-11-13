@@ -215,6 +215,12 @@ body.resizing-panel { cursor: col-resize; user-select: none; }
 .statusbar .spacer { flex: 1; }
 .statusbar .message { color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cursor-pos, .save-state { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.autosave-toggle { white-space: nowrap; }
+/* File > Browse Versions, and a recovery copy's earlier copies */
+.versions-list, .recovery-earlier { list-style: none; margin: 0.2rem 0 0.6rem; padding: 0; }
+.versions-list li { display: flex; align-items: center; gap: 0.6rem; padding: 0.2rem 0; }
+.versions-when { flex: 1; font-variant-numeric: tabular-nums; }
+.recovery-earlier li { padding: 0.1rem 0; }
 
 /* Lists ------------------------------------------------------------------ */
 .page-list, .layer-list { list-style: none; margin: 0; padding: 0; border-radius: 0.3rem; }
@@ -222,6 +228,8 @@ body.resizing-panel { cursor: col-resize; user-select: none; }
   border-radius: 0.3rem; cursor: pointer; border: 1px solid transparent; min-height: 2.1rem; }
 .page-list li:hover, .layer-list li:hover { background: var(--hover); }
 .page-list li.current, .layer-list li.selected { background: var(--pressed); border-color: var(--sel); }
+/* Other pages selected with it (⌘- or Shift-click): shaded, the page showing outlined too */
+.page-list li.selected { background: var(--pressed); }
 .page-num { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 1.2rem; }
 .page-name, .layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .page-size { color: var(--muted); font-size: 0.78rem; white-space: nowrap; }
@@ -507,7 +515,7 @@ kbd { font-family: var(--font); border: 1px solid var(--line); border-radius: 0.
   .handle.adjust { fill: Highlight; stroke: CanvasText; }
   .site, .site.dash { fill: Canvas; stroke: Highlight; }
   .site.active, .handle.end.linked { fill: Highlight; stroke: CanvasText; }
-  .tool[aria-pressed="true"], .tool.active, .shape-item[aria-current], .page-list li.current,
+  .tool[aria-pressed="true"], .tool.active, .shape-item[aria-current], .page-list li.current, .page-list li.selected,
   .layer-list li.selected, .layer-list li.drop-into, .page-list li.drop-target, .drag-held li,
   .slide-grid li.chosen { outline: 2px solid Highlight; }
   .page-list .slide-drop-line { background: Highlight; forced-color-adjust: none; }

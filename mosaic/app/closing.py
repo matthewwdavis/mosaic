@@ -1,6 +1,7 @@
 """Closing a window with unsaved changes asks first, naming its figure: Save, Don't Save or
-Cancel. On a Mac the question is a sheet on the window (macclose.py, which also asks about each
-unsaved figure in turn when mosaic quits); on Windows a message box, Yes saving.
+Cancel; a figure with AutoSave on is saved without asking. On a Mac the question is a sheet on
+the window (macclose.py, which also asks about each unsaved figure in turn when mosaic quits);
+on Windows a message box, Yes saving.
 
 Save saves the figure (asking where, for one never saved), and the window closes once it's
 saved; if that's cancelled or fails it stays open. Don't Save keeps a copy of the changes, made
@@ -38,6 +39,9 @@ def ask(api, window, then) -> None:
     """Ask about a window's unsaved changes and do what the answer says; then then(True) once it
     may close (saved, or its copy kept), or then(False) (cancelled, or not saved after all)."""
     doc = api._doc_of(window)
+    if doc.get("autosave"):   # AutoSave on (a saved figure): saved now, as it would be in a moment anyway
+        answer(window, "save", then)
+        return
     q = question(doc.get("name") or "Untitled figure", bool(doc.get("path")))
     _show(api, window, q, lambda choice: answer(window, choice, then))
 

@@ -243,6 +243,13 @@ Matthew's choices are in brackets.
 - [x] Renaming the file from the title bar (asked 2026-11-13): double-click the name for a Rename
       dialog; right-click for Rename…, Show in Finder, Copy File Path and its folders; File ▸
       Rename…; a figure never saved is named, then saved [Matthew's choices]
+- [x] Several pages selected (asked 2026-11-13): ⌘-click and Shift-click in the Pages list;
+      duplicate, delete, drag, copy/cut/paste (between documents too), drop in another window and
+      export them together [Matthew's choices]
+- [x] Protection against crashes (asked 2026-11-13): recovery copy 10 s after changes and on
+      switching away (was once a minute); a history of recovery copies; earlier versions of saved
+      files with Browse Versions; AutoSave into the file (per figure); recovering as the document
+      it was [Matthew's choices]
 
 ## Acceptance test (test slide)
 

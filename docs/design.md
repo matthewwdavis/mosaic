@@ -315,6 +315,32 @@ pre-export check says so.
     without clearing dirty). Linked pictures keep working since their relative paths are from the
     same folder. A document never saved is named and then saved: the Save dialog with that name.
     File > Rename… is in the menu bar.
+  - *Several pages selected (2026-11-13, Matthew's choices):* ⌘-click (Ctrl-click) adds or takes
+    away a page and Shift-click or Shift+arrows a run, as in the Objects list and the Finder
+    (Control-click stays a right-click on a Mac). `store.pageSel` holds the other selected pages'
+    ids beside the one showing (`store.selectedPages()`, `selectPages()`); an ordinary change of
+    page clears it. Duplicate (`duplicatePages`: copies after the last, selected), Delete
+    (`deletePages`, one question and one undo step; all of them leaves a blank page), a drag
+    (`movePages`, the page showing staying so), a drop in another window (`copyPageAway` with a
+    list) and Export / Figure report ("The selected pages", `pagesChosen`) take them all. ⌘C, ⌘X
+    and ⌘V with the Pages list focused copy, cut and paste pages: the clipboard's mosaic copy
+    carries `pages` (`pagesPacket`, figure_pages' shape), and Paste puts them after the page
+    showing through `addFigurePages`, here or in another document.
+  - *Protection against crashes (2026-11-13, Matthew's choices):* unsaved work was copied once a
+    minute. Now `app.noteChange`/`keepNow` keep it 10 s after the last change (`KEEP_QUIET`), at
+    once on the window's blur, and at least once a minute (`KEEP_AT_LEAST`), by `store.version`
+    (counting edits, undo and redo); a copy (~0.6 s for an 8 MB, 19-picture figure) runs on the
+    server's thread. Each recovery copy has a `<key>.json` saying which file it's of, so Recover
+    opens it as that document (it used to come back untitled, and `open_document` put the copy in
+    Open Recent; `read_kept` reads mosaic's own copies without that). `mosaic/app/kept.py` keeps
+    a history of recovery copies (one per 10 minutes, the last 18, 14 days) and each file saved
+    over as an earlier version (its last 10, by the file's own time; AutoSave's saves at most one
+    per 10 minutes), within 2 GB all together, oldest first; renaming moves versions along.
+    File > Browse Versions lists both; Put back replaces the figure as one undo step. AutoSave is
+    the figure's switch (`meta.autosave`, the status bar and File menu): `keepNow` saves into the
+    file instead (`save_document(auto)`), changes made meanwhile staying unsaved; closing saves
+    without asking (closing.ask, from doc_state's `autosave`); a failed save keeps a recovery copy
+    and says so in the status bar.
 - **Connectors (2026-10-31):** line and arrow ends attach to connection points and follow them
   (`start_link` / `end_link`: {item, site}). Points come from each shape's own outline (Matthew's
   choice): corners (sharp ones and rounded corners' middles) and side middles; 8 points round
