@@ -141,3 +141,16 @@ def test_a_powerpoint_label_box_keeps_its_letter_on_one_line_and_on_the_page():
     x, _, w, _ = edge["frame"]
     need = r.resolve({**edge, "text": {**edge["text"], "wrap": False}}).autofit_frame[2]
     assert abs(x + w / 2 - (need - 14.4) / 2) < 1e-6, "its text starts at the page's edge"
+
+
+def test_the_boxes_are_fitted_for_an_export_without_a_copy(tmp_path, monkeypatch, capsys):
+    """Fitted whether or not the relabelled document is saved too (a plain --journal export)."""
+    src = tmp_path / "fig.mosaic"
+    docfile.save(figure(label("a")), str(src))
+    seen = []
+    real = relabel.relabel
+    monkeypatch.setattr(relabel, "relabel", lambda doc, journal, fonts=None: seen.append(fonts) or real(doc, journal, fonts))
+    assert cli.main(["export", str(src), "--journal", "New Phytologist", "--json"]) == 0
+    assert cli.main(["export", str(src), "--journal", "New Phytologist", "--dry-run", "--json"]) == 0
+    assert seen[0] is not None and seen[1] is None
+    capsys.readouterr()

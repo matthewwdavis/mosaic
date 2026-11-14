@@ -42,7 +42,7 @@ def cmd_export(args) -> int:
             print(f"No journal called {args.journal!r}; mosaic knows " + ", ".join(j["name"] for j in JOURNALS), file=sys.stderr)
             return 2
         fonts = None
-        if args.copy and not args.dry_run:
+        if not args.dry_run:   # (the labels' boxes fitted to their new text, for the export and any copy)
             from .fonts import get_font_index
             fonts = get_font_index()
         report["journal"] = journal["name"]
