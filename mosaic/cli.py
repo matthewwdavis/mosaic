@@ -2,6 +2,8 @@
 
     mosaic [document.mosaic]                      open the app
     mosaic export fig.mosaic -f pdf,png --dpi 600 [-o out/base] [--pages 1,3]
+    mosaic export fig.mosaic --journal Nature [--copy fig_nature.mosaic] [--dry-run] [--json]
+                                                  the panel labels in a journal's look (relabel.py)
     mosaic import-pptx deck.pptx [--slides 13] [-o fig.mosaic] [--search DIR]
     mosaic fonts                                  list installed font families
     mosaic update [--install | --go-back] [--test] look for an update (and install it)
@@ -24,17 +26,66 @@ def _load(path: str) -> tuple[dict, str]:
 
 def cmd_export(args) -> int:
     from .export.run import export_document
+    if (args.copy or args.dry_run) and not args.journal:
+        print("--copy and --dry-run go with --journal", file=sys.stderr)
+        return 2
     doc, doc_dir = _load(args.document)
-    base = args.output or os.path.splitext(os.path.abspath(args.document))[0]
+    src = os.path.abspath(args.document)
+    own = os.path.splitext(src)[0]   # the document's own exports, which a relabelled copy never writes over
+    report: dict = {}
+    if args.journal:
+        # The panel labels in the journal's look; the document itself as it was (relabel.py)
+        from . import docfile, relabel
+        from .journals import JOURNALS
+        journal = relabel.find_journal(args.journal)
+        if journal is None:
+            print(f"No journal called {args.journal!r}; mosaic knows " + ", ".join(j["name"] for j in JOURNALS), file=sys.stderr)
+            return 2
+        fonts = None
+        if args.copy and not args.dry_run:
+            from .fonts import get_font_index
+            fonts = get_font_index()
+        report["journal"] = journal["name"]
+        report["labels"] = relabel.relabel(doc, journal, fonts)
+        if args.dry_run:
+            if args.json:
+                print(json.dumps(report))
+            else:
+                for n, k in enumerate(report["labels"], 1):
+                    print(f"page {n}: {k} label{'' if k == 1 else 's'} to change for {journal['name']}")
+            return 0
+        if args.copy:
+            copy = os.path.abspath(args.copy if args.copy.lower().endswith(docfile.EXTENSIONS) else args.copy + docfile.EXTENSION)
+            if os.path.exists(copy) and os.path.samefile(copy, src):
+                print("--copy would write over the document itself; give the copy a name of its own", file=sys.stderr)
+                return 2
+            report["warnings"] = docfile.save(doc, copy)
+            report["copy"] = copy
+        base = os.path.abspath(args.output) if args.output else \
+            (os.path.splitext(report["copy"])[0] if args.copy else f"{own}_{relabel.slug(journal['name'])}")
+        if base == own:
+            print(f"That would write over {os.path.basename(own)}'s own exports; name the relabelled ones with -o", file=sys.stderr)
+            return 2
+    else:
+        base = args.output or own
     pages = [int(p) - 1 for p in args.pages.split(",")] if args.pages else None
     res = export_document(doc, base, [f.strip() for f in args.formats.split(",")], pages=pages, dpi=args.dpi,
                           transparent=not args.white, cmyk=args.cmyk, cmyk_profile=args.icc, doc_dir=doc_dir)
+    if args.json:
+        print(json.dumps({**report, "files": res["files"], "warnings": report.get("warnings", []) + res["warnings"],
+                          "notes": res["notes"]}))
+        return 0
+    if report.get("copy"):
+        print(report["copy"])
     for f in res["files"]:
         print(f)
-    for w in res["warnings"]:
+    for w in report.get("warnings", []) + res["warnings"]:
         print("warning:", w, file=sys.stderr)
     for n in res["notes"]:
         print("note:", n, file=sys.stderr)
+    if report:
+        k = sum(report["labels"])
+        print(f"note: {k} panel label{'' if k == 1 else 's'} in {report['journal']}'s look", file=sys.stderr)
     return 0
 
 
@@ -86,6 +137,11 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--white", action="store_true", help="white background instead of transparent")
     e.add_argument("--cmyk", action="store_true", help="CMYK colour (TIFF, JPEG, PDF); never the default")
     e.add_argument("--icc", help="CMYK ICC profile to convert with")
+    e.add_argument("--journal", help="the panel labels in this journal's look (the document itself is left as it is); "
+                                     "the files are named after the journal unless -o names them")
+    e.add_argument("--copy", help="with --journal: also save the relabelled document here")
+    e.add_argument("--dry-run", action="store_true", help="with --journal: how many labels each page would change; nothing written")
+    e.add_argument("--json", action="store_true", help="report as one JSON object")
     e.set_defaults(func=cmd_export)
 
     i = sub.add_parser("import-pptx", help="turn PowerPoint slides into a mosaic document")

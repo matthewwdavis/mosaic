@@ -81,7 +81,8 @@ export const pageLabels = (page, journals) => (journals || []).find((j) => j.nam
 
 // Every panel label among items takes a journal's look: all of it where there was no journal
 // before (from: null), else what still matches the journal before, so what was changed by hand
-// in a label stays. Returns how many labels changed
+// in a label stays. Returns how many labels changed. (relabel.py does the same for the command
+// line's `mosaic export --journal`: keep the two in step.)
 export function restyleLabels(items, from, to) {
   let n = 0;
   const walk = (list) => {
