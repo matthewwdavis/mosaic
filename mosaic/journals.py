@@ -2,8 +2,8 @@
 
 The journals' table (JOURNALS, RULES) is the shared library's (_labapp/journals.py: prose sizes
 and relabels a manuscript's figures by the same one); the notes below say how it was made. Your
-own journals (a name, widths and a depth: Size > My Journals) are kept in journals.json in the
-settings folder and listed with the others (load_user, save_user).
+own journals (a name, widths and a depth: Size > My Journals) are kept in one file that prose
+reads too (user_file) and listed with the others (load_user, save_user).
 
 Choosing a journal and a figure type sets the page to that type's width and the journal's
 maximum figure depth ("Fit to content" crops it afterwards). To add a journal, add an entry
@@ -84,8 +84,11 @@ def preset_size(preset) -> tuple[float, float] | None:
 # Your own journals ------------------------------------------------------------------------------
 
 def user_file() -> str:
-    from .fonts import config_dir
-    return os.path.join(config_dir(), "journals.json")
+    """The file of your own journals: the one mosaic and prose share (a journal added in either
+    is in both), or journals.json in MOSAIC_HOME when that's set (tests, and trying mosaic out)."""
+    if os.environ.get("MOSAIC_HOME"):
+        return os.path.join(os.environ["MOSAIC_HOME"], "journals.json")
+    return _shared.shared_user_file()
 
 
 def user_journals() -> list[dict]:

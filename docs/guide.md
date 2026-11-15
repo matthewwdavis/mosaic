@@ -134,8 +134,8 @@ height. The page's size now has a tick.
 Journals… ▸ Add a Journal…**. Give it a name, the figure widths it takes (each with a name, such
 as "Single column", in millimetres) and the deepest a figure may be. It's then listed with the
 others under **Size ▸ Journal** and in the Page panel, and `mosaic export --journal` takes its
-name. Your journals are kept on this computer (`journals.json` in mosaic's settings folder); a
-page sized by one keeps its size on any computer. A journal of your own has no label or text
+name. Your journals are kept on this computer, in one list that prose reads too (a journal added
+in either app is in both); a page sized by one keeps its size on any computer. A journal of your own has no label or text
 rules, so Check uses mosaic's general ones for its pages.
 
 <img src="images/sizemenu.png" alt="The Size menu, with Slide 16:9 ticked" width="405">

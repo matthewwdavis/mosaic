@@ -31,13 +31,17 @@ fonts must be embedded or alpha channels are refused. Where a journal states non
 publisher's guide gives them, and each source says so.
 
 **A person's own journals** (user journals) sit beside these: a name, widths and a depth they
-typed in, kept in a JSON file in the app's settings folder (read_user, write_user). They carry
-"user": True and no rules unless given. with_user() puts them into a list with the built-in ones.
+typed in, kept in one JSON file that both apps read (shared_user_file; read_user, write_user), so
+a journal added in either is in both. They carry "user": True, an "id" that stays when the name
+changes, no rules unless given, and whatever else an app keeps with them under its own key
+("manuscript": prose's page, reference style and sections), which the other app hands back
+untouched. with_user() puts them into a list with the built-in ones.
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 
 MM = 72.0 / 25.4
 
@@ -407,6 +411,19 @@ BUILT_IN = [j["name"] for j in JOURNALS]
 # A person's own journals ---------------------------------------------------------------------------
 
 MAX_MM = 5000.0   # (a poster is 1.2 m: nothing sensible is wider than this)
+APP_PARTS = ("manuscript",)   # what an app keeps with a journal under its own key, as it gave it
+
+
+def shared_user_file() -> str:
+    """The one file of a person's own journals, read by every app that uses this table
+    (LABAPP_JOURNALS: somewhere else, for tests)."""
+    from . import platform
+    return os.environ.get("LABAPP_JOURNALS") or os.path.join(platform.settings_dir("mosaic-prose"), "journals.json")
+
+
+def slug(name: str) -> str:
+    """A journal's name as a plain id: "Tree Genetics & Genomes" -> "tree_genetics_genomes"."""
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:40] or "journal"
 
 
 def clean(entry: dict) -> dict:
@@ -441,10 +458,13 @@ def clean(entry: dict) -> dict:
         raise ValueError("Give at least one figure width.")
     if len(types) > 12:
         raise ValueError("A journal can have up to 12 figure widths.")
-    out = {"name": name, "depth_mm": mm(entry.get("depth_mm"), "The greatest depth"), "types": types,
+    ident = str(entry.get("id") or "")
+    if not re.fullmatch(r"[a-z0-9_]{1,40}", ident):
+        ident = slug(name)
+    out = {"id": ident, "name": name, "depth_mm": mm(entry.get("depth_mm"), "The greatest depth"), "types": types,
            "note": str(entry.get("note") or "")[:400], "source": str(entry.get("source") or "")[:400] or "added by you",
            "user": True}
-    for key in ("labels", "text", "lines", "pictures", "export"):   # (rules, where an app lets them be given)
+    for key in ("labels", "text", "lines", "pictures", "export", *APP_PARTS):   # (rules, and each app's own part)
         if isinstance(entry.get(key), dict):
             out[key] = entry[key]
     return out
@@ -458,26 +478,32 @@ def read_user(path: str) -> list[dict]:
             data = json.load(fh)
     except (OSError, ValueError):
         return []
-    out, names = [], set()
+    out, names, ids = [], set(), set()
     for entry in (data.get("journals") if isinstance(data, dict) else data) or []:
         try:
             j = clean(entry)
         except ValueError:
             continue
-        if j["name"].lower() not in names:
+        if j["name"].lower() not in names and j["id"] not in ids:
             names.add(j["name"].lower())
+            ids.add(j["id"])
             out.append(j)
     return sorted(out, key=lambda j: j["name"].lower())
 
 
 def write_user(path: str, journals: list[dict]) -> list[dict]:
     """Keep the person's own journals (each checked: clean); returns them as kept."""
-    kept, names = [], set()
+    kept, names, ids = [], set(), set()
     for entry in journals or []:
         j = clean(entry)
         if j["name"].lower() in names:
             raise ValueError(f"Two of your journals are called {j['name']}; give each its own name.")
+        base, n = j["id"], 2
+        while j["id"] in ids:   # (two names that come to the same id)
+            j["id"] = f"{base[:37]}_{n}"
+            n += 1
         names.add(j["name"].lower())
+        ids.add(j["id"])
         kept.append(j)
     kept.sort(key=lambda j: j["name"].lower())
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)

@@ -321,7 +321,7 @@ export const panels = {
     const dlg = this.dialog("My journals", h("div", {},
       h("p", {}, "Journals of your own, with the figure sizes they take. They're listed with the others under Size ▸ Journal and in the Page panel."),
       list,
-      h("p", { class: "hint" }, "Kept on this computer. A figure sized by one keeps its size anywhere.")), [add], "Done");
+      h("p", { class: "hint" }, "Kept on this computer, where prose lists them too. A figure sized by one keeps its size anywhere.")), [add], "Done");
     const draw = () => {
       list.replaceChildren(...(mine.length ? mine.map((j, i) => {
         const edit = h("button", { type: "button", class: "btn" }, "Edit…");
@@ -374,7 +374,8 @@ export const panels = {
         const entry = { name: name.value, depth_mm: depth.value, note: note.value, source: journal?.source,
           types: [...rows.children].map((r) => { const [n, w] = r.querySelectorAll("input"); return { name: n.value, width_mm: w.value }; })
             .filter((t) => t.name.trim() || String(t.width_mm).trim()) };
-        for (const k of ["labels", "text", "lines", "pictures", "export"]) if (journal?.[k]) entry[k] = journal[k];
+        // (what else is kept with it goes back as it came: its rules, its id, prose's own part)
+        for (const k of ["id", "labels", "text", "lines", "pictures", "export", "manuscript"]) if (journal?.[k]) entry[k] = journal[k];
         const next = index >= 0 ? mine.map((j, k) => (k === index ? entry : j)) : [...mine, entry];
         save.disabled = true;
         try {
