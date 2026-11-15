@@ -1467,11 +1467,42 @@ mosaic can also run from a terminal, with its conda environment active
 mosaic                                    # open the app
 mosaic figure.mosaic                      # open a document
 mosaic export figure.mosaic -f pdf,svg,png --dpi 600
+mosaic build figure.mosaic -f pdf,png     # read every linked plot again from its file, then export
 mosaic info figure.mosaic                 # its pages, their sizes and descriptions (--json for other programs)
 mosaic import-pptx deck.pptx --slides 13  # PowerPoint slides -> figure.mosaic
 mosaic --browser                          # use a web browser instead of the app window
 mosaic update                             # look for an update (--install installs it)
 ```
+
+### Figures that rebuild themselves
+
+`mosaic build` is `mosaic export` with one step first: every linked plot is read again from its
+file, as **Refresh All Pictures** (⌘⇧R) does in the app, each keeping its place and scale. Run it
+at the end of the script that makes the plots and the finished figure follows the data, without
+opening mosaic:
+
+```sh
+Rscript make_plots.R && mosaic build main_figures.mosaic -f pdf,png
+```
+
+The document itself is left as it is; add `--save` to save it with the new plots too (the file
+as it was is kept under **File ▸ Browse Versions**). A plot whose file isn't found uses the copy
+stored in the document, with a warning. `--journal`, `--pages`, `-o` and the rest work as for
+`mosaic export`, and `--json` reports what changed.
+
+**From R**, the [ggenomics](https://github.com/matthewwdavis/ggenomics) package has two helpers:
+
+```r
+# Saves plot.pdf, plot.png and plot.svg at one size (whole points, so mosaic takes the three as
+# one picture), each written under a temporary name first so an open mosaic never reads half a file
+save_for_mosaic(depth.plot, "./Figures/depth/chr1_depth", width = 60, height = 45, units = "mm")
+
+# Runs `mosaic build`: returns the exported files
+mosaic_build("./Figures/main_figures.mosaic", formats = c("pdf", "png"))
+```
+
+With the figure open in mosaic, the first is enough: mosaic notices the new files within a
+couple of seconds and updates the plot where it is.
 
 ### In a web browser
 
