@@ -37,6 +37,7 @@ def settled(window, choice):
 def asking(monkeypatch, choice):
     """The questions asked, each answered `choice`."""
     asked = []
+    monkeypatch.setattr(closing, "_has_question", lambda: True)   # (as on a Mac or Windows, whatever runs the tests)
     monkeypatch.setattr(closing, "_show", lambda api, w, q, reply: (asked.append(q), reply(choice)))
     return asked
 
@@ -109,3 +110,14 @@ def test_cancel_leaves_the_editor_alone():
 def test_the_editor_says_what_its_window_has_open(tmp_path):
     api, w = one_window(str(tmp_path / "b.mosaic"), "b")
     assert api._doc_of(w)["name"] == "b" and api._doc_of(w)["path"] and api._doc_of(FakeWindow()) == {}
+
+
+def test_on_linux_pywebviews_own_question_asks_and_autosave_still_saves(monkeypatch):
+    monkeypatch.setattr(closing, "_has_question", lambda: False)
+    monkeypatch.setattr(closing, "_show", lambda *a: (_ for _ in ()).throw(AssertionError("no question of mosaic's own")))
+    api, w = one_window()
+    assert closing.on_closing(api, w) is None and not w.destroyed   # pywebview asks; nothing fails
+    api2, w2 = one_window(path="/tmp/fig.mosaic")
+    api2._doc_of(w2)["autosave"] = True
+    w2.answer = True
+    assert closing.on_closing(api2, w2) is False                    # saved first, as everywhere

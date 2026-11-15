@@ -1,7 +1,8 @@
 """Closing a window with unsaved changes asks first, naming its figure: Save, Don't Save or
 Cancel; a figure with AutoSave on is saved without asking. On a Mac the question is a sheet on
 the window (macclose.py, which also asks about each unsaved figure in turn when mosaic quits);
-on Windows a message box, Yes saving.
+on Windows a message box, Yes saving; on Linux pywebview's own question (Close without saving
+or Cancel), the recovery copy the editor keeps as it goes being what's offered back.
 
 Save saves the figure (asking where, for one never saved), and the window closes once it's
 saved; if that's cancelled or fails it stays open. Don't Save keeps a copy of the changes, made
@@ -31,8 +32,15 @@ def on_closing(api, window):
     for now (False) and asks; one without closes."""
     if not window.confirm_close:
         return None
+    if not _has_question() and not api._doc_of(window).get("autosave"):
+        return None   # Linux has no question of mosaic's own: pywebview's asks (Close without saving or Cancel)
     ask(api, window, lambda ok: ok and close(window))
     return False
+
+
+def _has_question() -> bool:
+    """Whether this platform has a question of mosaic's own (a Mac's sheet, Windows' message box)."""
+    return sys.platform in ("darwin", "win32")
 
 
 def ask(api, window, then) -> None:
