@@ -21,6 +21,7 @@ on:
       - pyproject.toml
       - packaging/**
       - mosaic/updates.py
+      - mosaic/_labapp/**
       - tools/release.py
       - tools/fake_github.py
       - tools/update_e2e.py

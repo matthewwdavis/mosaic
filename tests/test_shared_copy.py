@@ -18,7 +18,7 @@ def _files():
                 continue
             path = os.path.join(folder, name)
             with open(path, "rb") as fh:
-                out[os.path.relpath(path, COPY).replace(os.sep, "/")] = hashlib.sha256(fh.read()).hexdigest()
+                out[os.path.relpath(path, COPY).replace(os.sep, "/")] = hashlib.sha256(fh.read().replace(b"\r\n", b"\n")).hexdigest()   # (as git may check it out on Windows)
     return out
 
 
@@ -42,5 +42,5 @@ def test_the_copy_matches_labapp_when_it_is_beside_mosaic():
                 continue
             path = os.path.join(folder, name)
             with open(path, "rb") as fh:
-                theirs[os.path.relpath(path, source).replace(os.sep, "/")] = hashlib.sha256(fh.read()).hexdigest()
+                theirs[os.path.relpath(path, source).replace(os.sep, "/")] = hashlib.sha256(fh.read().replace(b"\r\n", b"\n")).hexdigest()   # (as git may check it out on Windows)
     assert _files() == theirs, "mosaic/_labapp is behind labapp: run labapp's tools/vendor.py"
