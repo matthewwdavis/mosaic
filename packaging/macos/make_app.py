@@ -37,26 +37,7 @@ DECK_TYPES = ["org.openxmlformats.presentationml.presentation", "org.openxmlform
               "org.openxmlformats.presentationml.template"]
 
 
-# The icon's mosaic: figure panels of different sizes fitted together as tiles, in the
-# colour-blind-safe Okabe-Ito colours. (x0, y0, x1, y1) as fractions of the icon's width
-ICON_TILES = [((0.2, 0.2, 0.55, 0.52), (0, 114, 178)), ((0.585, 0.2, 0.8, 0.36), (230, 159, 0)),
-              ((0.585, 0.395, 0.8, 0.52), (86, 180, 233)), ((0.2, 0.555, 0.36, 0.8), (0, 158, 115)),
-              ((0.395, 0.555, 0.8, 0.68), (213, 94, 0)), ((0.395, 0.715, 0.6, 0.8), (240, 228, 66)),
-              ((0.635, 0.715, 0.8, 0.8), (204, 121, 167))]
-
-
-def draw_icon(size: int):
-    """A rounded tile holding the mosaic, drawn four times as big and scaled down, for smooth edges."""
-    from PIL import Image, ImageDraw
-    s = size * 4
-    im = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    pad = round(s * 0.09)
-    d.rounded_rectangle((pad, pad, s - pad, s - pad), radius=round(s * 0.2), fill=(250, 250, 247, 255),
-                        outline=(40, 40, 38, 255), width=max(4, round(s * 0.02)))
-    for (x0, y0, x1, y1), rgb in ICON_TILES:
-        d.rounded_rectangle((x0 * s, y0 * s, x1 * s, y1 * s), radius=round(s * 0.018), fill=rgb + (255,))
-    return im.resize((size, size), Image.LANCZOS)
+from mosaic.icon import ICON_TILES, draw_icon  # noqa: E402,F401 (the icon, light; mosaic/icon.py has its dark one too)
 
 
 SPEC = packaging.AppSpec(

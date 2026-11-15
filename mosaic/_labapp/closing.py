@@ -14,6 +14,9 @@ The app says who it is once (configure), and hooks the event:
 
     closing.configure(name="mosaic", thing="figure", save_js="window.FA.app.saveToClose()",
                       keep_js="window.FA.app.keepCopy()")
+
+save_js and keep_js must be promises (an async function's call, or Promise.resolve(…)): pywebview
+answers only a promise, so a plain value ("true") is never heard and the window waits out KEEP_WAIT.
     window.events.closing += lambda: closing.on_closing(api, window)
 
 A window asks only while window.confirm_close is true (the app sets it as the editor says there

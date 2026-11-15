@@ -119,6 +119,13 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                     macdrag.install(window, api)
                 except Exception as exc:   # noqa: BLE001 (drags from PowerPoint just aren't taken)
                     print(f"PowerPoint drags unavailable: {exc}", file=sys.stderr, flush=True)
+                try:   # the Dock icon in the system's appearance: light, or dark in Dark mode
+                    from .. import icon
+                    from .._labapp.mac import dockicon
+                    if "light" not in dockicon._state:
+                        dockicon.follow(icon.png(512, "light"), icon.png(512, "dark"))
+                except Exception as exc:   # noqa: BLE001 (the icon just stays the app's own)
+                    print(f"The Dock icon couldn't follow the system's appearance: {exc}", file=sys.stderr, flush=True)
                 try:   # the file's name in the title bar: double-click to rename, right-click for its menu
                     from . import mactitle
                     mactitle.install(api)
