@@ -1,7 +1,7 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "711561e",
+ "commit": "7813347",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "closing.py": "6bbf43a5dba8fe5cabb451d72f5fa39aed929e2b38145a55378968f633cd2c2f",
@@ -10,6 +10,7 @@
   "oslock.py": "6c362ca83197458df3b23ae5b72c13e48fcf90ddd52500e5c1006be7ee33522e",
   "packaging.py": "b930a34a716db0f384ece0027e422efe562294ad1ebdf6e6fcaead93f9b86e1f",
   "platform.py": "32dde2d6987ce1c2c84c21344ed9da446422b19d083355c157c364c4cf288dec",
+  "release.py": "170519f1220536b3a6855e43fe39e8848a66a9ac39a7d28bf00931e54e268dee",
   "server.py": "512138705e989be9c8b62eb7cdba0d3d10e659fe273bfdd44edcd3fd441c96f3",
   "updates.py": "317e80cece51bcf037951a1312121cb6244aa784105f0d495d21bf45bd7aef68",
   "winruntime.py": "ba786de490bf30eef0e0f8499fd20a4ff9c48bdb3eb3fdaca536f6b8859918a9",
