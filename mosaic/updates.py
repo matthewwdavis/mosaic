@@ -257,6 +257,9 @@ def http(url: str, token: str | None = None, accept: str = "application/vnd.gith
             if err.code in (301, 302, 303, 307, 308) and location:
                 err.close()
                 url = urllib.parse.urljoin(url, location)
+                to = urllib.parse.urlsplit(url)
+                if to.scheme != "https" and not (to.scheme == "http" and to.hostname in ("127.0.0.1", "localhost", "::1")):
+                    raise UpdateError("GitHub sent mosaic somewhere that isn't a secure web address") from None
                 if err.code == 303:
                     data = None
                 continue
@@ -401,6 +404,7 @@ def wait_for_install(timeout: float = 900) -> None:
 
 def _waiting_notice(version: str):
     """A small notice that mosaic opens once the update is in; returns how to close it."""
+    version = "".join(c for c in str(version) if c.isalnum() or c in ". -")[:40]   # (it goes into a script: plain words only)
     text = f"mosaic is finishing its update to {version}. It opens when the update is in, in a minute or so."
     try:
         if sys.platform == "darwin":

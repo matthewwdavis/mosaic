@@ -26,6 +26,18 @@ from .server import start_server
 
 def run_app(document: str | None = None, browser: bool = False, port: int = 0) -> int:
     api = Api()
+    left = threading.Lock()
+
+    def leaving():
+        """mosaic is closing (once, however it closes): a downloaded update starts installing."""
+        if not left.acquire(blocking=False):
+            return
+        api.updater.stop()
+        try:
+            api.updater.on_quit()
+        except Exception as exc:   # noqa: BLE001 (it tries again at the next quit)
+            print(f"The update couldn't start installing: {exc}", file=sys.stderr, flush=True)
+
     # Previews and conversions nothing has used for a month go (in the background; each is made again if wanted)
     threading.Thread(target=lambda: get_cache().prune_derived(), daemon=True).start()
     srv = start_server(api, port)
@@ -65,7 +77,7 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         # Quitting with unsaved changes asks about each figure, with Save (macclose.py)
         try:
             from . import macclose
-            macclose.install(api)
+            macclose.install(api, leaving)   # (Quit ends the app there: nothing after webview.start() runs)
         except Exception as exc:   # noqa: BLE001 (pywebview's own question asks instead)
             print(f"Asking before quitting unavailable: {exc}", file=sys.stderr, flush=True)
     smoke = os.environ.get("MOSAIC_SMOKETEST", "")
@@ -244,11 +256,7 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         print(f"SMOKE window closed in {time.time() - closing_started[0]:.2f} s", flush=True)
     else:
         webview.start(debug=bool(os.environ.get("MOSAIC_DEBUG")), localization=wording)
-    updater.stop()
-    try:
-        updater.on_quit()
-    except Exception as exc:   # noqa: BLE001 (it tries again at the next quit)
-        print(f"The update couldn't start installing: {exc}", file=sys.stderr, flush=True)
+    leaving()
     return 0
 
 

@@ -105,17 +105,26 @@ def should_quit(api) -> int:
     return TERMINATE_CANCEL
 
 
-def install(api) -> None:
-    """Quitting asks about each unsaved figure (before webview.start)."""
+def install(api, on_quit=None) -> None:
+    """Quitting asks about each unsaved figure (before webview.start). `on_quit` is called once
+    mosaic is really quitting: AppKit ends the app there and then, so nothing after
+    webview.start() runs (a downloaded update is started from here)."""
     from webview.platforms.cocoa import BrowserView
     delegate = BrowserView.AppDelegate
     if "pywebview" not in _state:
         _state["pywebview"] = delegate.applicationShouldTerminate_
     _state["api"] = api
+    _state["on_quit"] = on_quit
 
     def applicationShouldTerminate_(self, app):
         try:
-            return should_quit(_state["api"])
+            reply = should_quit(_state["api"])
+            if reply == TERMINATE_NOW and _state.get("on_quit"):
+                try:
+                    _state["on_quit"]()
+                except Exception as exc:   # noqa: BLE001 (quitting goes on)
+                    print(f"Leaving mosaic: {exc!r}", file=sys.stderr, flush=True)
+            return reply
         except Exception as exc:   # noqa: BLE001 (pywebview's own question asks instead)
             print(f"Asking about unsaved figures before quitting failed: {exc!r}", file=sys.stderr, flush=True)
             _state["quitting"] = False

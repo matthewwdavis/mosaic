@@ -387,3 +387,27 @@ def test_opened_again_while_an_update_installs_it_waits(tmp_path, monkeypatch):
     t0 = time.time()
     updates.wait_for_install()   # nothing installing: straight on
     assert time.time() - t0 < 0.5 and closed == ["0.2.0"]
+
+
+def test_a_redirect_to_anything_but_a_secure_address_is_refused():
+    """GitHub sends downloads on to another host; mosaic follows only to https (or this computer, for the tests)."""
+    import http.server
+    import threading
+
+    class Away(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(302)
+            self.send_header("Location", "file:///etc/passwd" if "file" in self.path else "http://example.invalid/x")
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), Away)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        for path in ("/file", "/plain"):
+            with pytest.raises(updates.UpdateError, match="secure"):
+                updates.http(f"http://127.0.0.1:{srv.server_port}{path}")
+    finally:
+        srv.shutdown()

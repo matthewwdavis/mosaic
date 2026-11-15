@@ -121,3 +121,23 @@ def test_on_linux_pywebviews_own_question_asks_and_autosave_still_saves(monkeypa
     api2._doc_of(w2)["autosave"] = True
     w2.answer = True
     assert closing.on_closing(api2, w2) is False                    # saved first, as everywhere
+
+
+def test_quitting_on_a_mac_tells_the_updater_once_it_is_really_quitting(monkeypatch):
+    """⌘Q ends the app inside AppKit, so what follows webview.start() never runs: the quit hook calls on."""
+    import sys
+
+    import pytest
+    if sys.platform != "darwin":
+        pytest.skip("a Mac's")
+    from webview.platforms.cocoa import BrowserView
+
+    from mosaic.app import macclose
+    monkeypatch.setattr(BrowserView.AppDelegate, "applicationShouldTerminate_", BrowserView.AppDelegate.applicationShouldTerminate_)
+    monkeypatch.setitem(macclose._state, "on_quit", None)
+    called, replies = [], [macclose.TERMINATE_CANCEL, macclose.TERMINATE_NOW]
+    monkeypatch.setattr(macclose, "should_quit", lambda api: replies.pop(0))
+    macclose.install(Api(), lambda: called.append(1))
+    hook = BrowserView.AppDelegate.applicationShouldTerminate_
+    assert hook(None, None) == macclose.TERMINATE_CANCEL and called == []   # asking about unsaved figures: not yet
+    assert hook(None, None) == macclose.TERMINATE_NOW and called == [1]
