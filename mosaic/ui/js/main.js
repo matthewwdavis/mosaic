@@ -115,6 +115,7 @@ const app = {
       { title: "Window", window: true },
       { title: "Help", help: true, items: [c("Keyboard Shortcuts and Help", "shortcuts"), c("Search Commands…", "commandSearch"), "-",
         { title: "User Guide", url: `${REPO}/blob/main/docs/guide.md` },
+        c("Open the Sample Figure", "openSample"),
         c("Report a Problem…", "reportProblem"),
         { title: "Suggest an Idea…", url: `${REPO}/issues/new?template=idea.yml` }] },
     ];
@@ -201,6 +202,15 @@ const app = {
     if (!this.info.windows) return false;
     const r = await rpc("open_window", path, slides);
     return !!(r.opened || r.shown);
+  },
+  // Help > Open the Sample Figure: four small plots as panels a-d, as an unsaved figure of its
+  // own (in this window if it's blank, else it asks before replacing what's here)
+  async openSample(first = false) {
+    if (!first && !this.isBlank() && !(await this.confirmDiscard())) return;
+    store.setDoc(await rpc("sample_document"));
+    canvas.fit();
+    announce(first ? "Welcome to mosaic. This is a sample figure to try things on: drag a plot, or press ? for help. File > New starts your own."
+      : "The sample figure, to try things on");
   },
   async newDocument() {
     if (!this.isBlank() && (await this.openWindow())) return;
@@ -2724,6 +2734,7 @@ app.commands = {
   checkForUpdates: cmd("Check for updates", () => updates.checkNow(), null, null, "Updates"),
   commandSearch: cmd("Search commands: type to find and run any command", () => panels.commandSearch(), `${M}/`, key("/"), "Search"),
   shortcuts: cmd("Keyboard shortcuts and help", () => panels.shortcutsDialog(), "?", (e) => plain(e) && e.key === "?", "Help"),
+  openSample: cmd("Open the sample figure: four plots to try things on", () => app.openSample(), null, null, "Sample"),
   reportProblem: cmd("Report a problem: save a report file to send", () => panels.problemDialog(`${REPO}/issues/new?template=problem.yml`), null, null, "Report"),
 };
 // The colour vision previews, and all of them side by side, as commands: command search finds them
@@ -3071,6 +3082,8 @@ async function start() {
   } else if (app.info.first_window) {
     const saved = await rpc("autosaved", store.autosaveKey).catch(() => []);
     if (saved.length) offerRecovery(saved);
+    // The very first time mosaic runs: the sample figure, to try things on (Help has it afterwards)
+    else if (app.info.first_run && !params.get("selftest")) await app.openSample(true).catch(() => {});
   }
   canvas.fit();
   if (params.get("select")) store.select(params.get("select").split(","));   // e.g. for screenshots

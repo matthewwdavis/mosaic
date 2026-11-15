@@ -49,3 +49,16 @@ def test_the_log_starts_again_when_it_is_full(home, monkeypatch):
     assert os.path.getsize(diagnostics.log_path()) < 400 and os.path.exists(diagnostics.log_path() + ".1")
     lines = open(diagnostics.log_path(), encoding="utf-8").read().splitlines()
     assert lines[-1].endswith("line 19 of some length to fill the file") and lines[-1][:4].isdigit()   # (dated)
+
+
+def test_the_sample_figure_opens_as_a_figure_of_its_own(home):
+    """Help > Open the Sample Figure, and the first window the first time mosaic runs."""
+    api = Api()
+    assert api.app_info()["first_run"] is True   # (no settings yet)
+    doc = api.sample_document()
+    page = doc["pages"][0]
+    assert doc["meta"]["title"] == "Sample figure" and len(doc["assets"]) == 4
+    assert sum(it["type"] == "picture" for it in page["items"]) == 4 and page["alt"].startswith("Four panels")
+    assert all(v.get("src") is None for a in doc["assets"].values() for v in a["variants"].values())   # stored, not linked
+    api.prefs_set({"units": "mm"})
+    assert Api().app_info()["first_run"] is False   # (settings now: not the first run any more)

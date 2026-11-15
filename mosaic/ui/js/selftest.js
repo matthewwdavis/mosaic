@@ -443,6 +443,18 @@ async function problemReportChecks(app) {
     report?.click();
     await until(() => top()?.querySelector("textarea"));
     check(report && top()?.querySelector("h2")?.textContent === "Report a problem", "the Help dialog leads to Report a Problem");
+    for (const d of document.querySelectorAll("dialog[open]")) d.close();
+    // Help > Open the Sample Figure: four plots as panels a-d with their labels, unsaved and not dirty
+    store.setDoc(await rpc("new_document"));
+    await app.openSample();
+    await settle();
+    const items = store.items();
+    check(items.filter((it) => it.type === "picture").length === 4 && items.filter((it) => it.textbox).length === 4
+      && !store.path && !store.dirty && store.doc.meta.title === "Sample figure" && /Four panels/.test(store.page().alt || ""),
+      "the sample figure opens as an unsaved figure with four plots, their labels and a description",
+      JSON.stringify({ n: items.length, path: store.path, dirty: store.dirty, title: store.doc.meta.title }));
+    store.setDoc(await rpc("new_document"));
+    await settle();
   } finally {
     for (const d of document.querySelectorAll("dialog[open]")) d.close();
   }

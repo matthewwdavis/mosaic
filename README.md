@@ -97,6 +97,10 @@ run its installer once; it keeps your settings, and from then on mosaic updates 
 
 ## Quick start
 
+The first time mosaic opens it shows a **sample figure**, four small plots as panels a to d, to
+try things on; **Help ▸ Open the Sample Figure** brings it back any time (on Windows and Linux:
+press **?**, then **Open the Sample Figure**).
+
 1. **Choose a page size.** Click **Size** in the Home tab: a journal's figure size (say *Nature*,
    *Double column*), paper, a slide or a poster. With nothing selected, the panel on the right
    shows the page's size too.

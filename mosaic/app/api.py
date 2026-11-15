@@ -130,6 +130,7 @@ def _unlock(fh) -> None:
 
 class Api:
     def __init__(self):
+        self._first_run = not os.path.exists(_prefs_path())   # (before anything saves a setting)
         # The app's windows, by number (pywebview's Window objects; none in browser mode), and
         # what each has open: {path, dirty} (doc_state). Each editor sends its window's number
         # with every request (server.py), so `window` is the one asking
@@ -305,6 +306,9 @@ class Api:
                 # and whether this is the window mosaic opened with (it offers back unsaved work)
                 "windows": self._new_window is not None and self.window is not None,
                 "first_window": win in (None, "1"),
+                # The first time mosaic runs on this computer (no settings yet), in a window that
+                # shows: the first window opens the sample figure
+                "first_run": self._first_run and not getattr(self, "hidden_windows", False),
                 "home": os.path.expanduser("~"),   # (shown as ~ in the Rename dialog's folder)
                 "prefs": self.prefs_get(), "standard_sizes": STANDARD_SIZES, "journals": JOURNALS,
                 "machine": platform.node(), "shapes": presets.catalog(), "clipboard": clipboard.backend() is not None,
@@ -431,6 +435,14 @@ class Api:
     def new_document(self) -> dict:
         """A blank figure, its page the size Settings gives new documents."""
         return model.new_document(page=self.prefs_get().get("new_page"))
+
+    def sample_document(self) -> dict:
+        """The sample figure (data/sample.mosaic, made by tools/make_sample.py): four small plots
+        as panels a-d, to try things on. An unsaved figure of its own, never the file itself."""
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "sample.mosaic")
+        doc = docfile.load(path)
+        doc["meta"]["title"] = "Sample figure"
+        return doc
 
     def open_document(self, path: str, slides: list[int] | None = None) -> dict:
         """A document, or a PowerPoint deck's slides (the numbers chosen; default all) as a new
