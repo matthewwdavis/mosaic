@@ -167,13 +167,12 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
                 name = {"png": "PNG", "tiff": "TIFF", "jpeg": "JPEG"}[fmt]
 
                 def drawing(i, name=name):
-                    if i:
-                        p.advance(W_RENDER * scale)
                     p.step(f"Drawing {name} at {dpi:g} dpi, {which(i)}")
-                images = raster.render_pdf_bytes(compose_pdf(), dpi, transparent=transparent and fmt != "jpeg", on_page=drawing)
-                p.advance(W_RENDER * scale)
+                # (a page at a time, drawn then written: only one page's image is in memory)
+                images = raster.iter_pdf_pages(compose_pdf(), dpi, transparent=transparent and fmt != "jpeg", on_page=drawing)
                 ext = {"png": "png", "tiff": "tif", "jpeg": "jpg"}[fmt]
                 for i, (page, im) in enumerate(zip(sel, images)):
+                    p.advance(W_RENDER * scale)
                     p.step(f"Writing {name}, {which(i)}")
                     path = page_filename(base, page, i, len(sel), ext)
                     raster.save_image(im, staging(path), fmt, dpi, cmyk=cmyk and fmt != "png", cmyk_profile=cmyk_profile)

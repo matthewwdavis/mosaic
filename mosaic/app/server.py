@@ -61,7 +61,7 @@ class Handler(BaseHTTPRequestHandler):
             rest = "ui/index.html"
         if rest.startswith("ui/"):
             path = os.path.normpath(os.path.join(UI_DIR, rest[3:]))
-            if not path.startswith(UI_DIR) or not os.path.isfile(path):
+            if not path.startswith(UI_DIR + os.sep) or not os.path.isfile(path):
                 return self._send(404, b"not found", "text/plain")
             ctype = mimetypes.guess_type(path)[0] or "application/octet-stream"
             if path.endswith(".js"):
@@ -87,8 +87,13 @@ class Handler(BaseHTTPRequestHandler):
         if not src or not os.path.exists(src):
             return self._send(404, b"missing", "text/plain")
         if kind == "pdf":
-            page = int(query.get("page", ["0"])[0])
-            scale = min(max(float(query.get("scale", ["2"])[0]), 0.25), 16.0)
+            try:
+                page = int(query.get("page", ["0"])[0])
+                scale = min(max(float(query.get("scale", ["2"])[0]), 0.25), 16.0)
+            except ValueError:
+                return self._send(400, b"bad page or scale", "text/plain")
+            if not 0 <= page < 100000 or scale != scale:   # (scale != scale: not a number)
+                return self._send(400, b"bad page or scale", "text/plain")
             out = cache.derived(f"{sha}.p{page}.s{scale:g}", ".png")
             with _preview_lock:
                 if not os.path.exists(out):
@@ -97,11 +102,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, fh.read(), "image/png", cache=True)
         if kind == "tiff":
             out = cache.derived(sha + ".view", ".png")
-            if not os.path.exists(out):
-                from PIL import Image
-                with Image.open(src) as im:
-                    im.save(out + ".tmp.png", "PNG")
-                os.replace(out + ".tmp.png", out)
+            with _preview_lock:   # (two requests for one picture at once: made once)
+                if not os.path.exists(out):
+                    from PIL import Image
+                    with Image.open(src) as im:
+                        im.save(out + ".tmp.png", "PNG")
+                    os.replace(out + ".tmp.png", out)
             with open(out, "rb") as fh:
                 return self._send(200, fh.read(), "image/png", cache=True)
         ctype = {"svg": "image/svg+xml", "png": "image/png", "jpeg": "image/jpeg"}[kind]

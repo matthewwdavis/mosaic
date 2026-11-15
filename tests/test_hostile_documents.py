@@ -56,3 +56,28 @@ def test_ordinary_names_still_work(tmp_path):
     cache = AssetCache(str(tmp_path / "cache"))
     sha, dst = cache.put_bytes(b"%PDF-1.4", "pdf")
     assert cache.path(sha, "pdf") == dst and cache.has(sha, "pdf")
+
+
+def test_saving_over_a_file_keeps_placed_files_only_it_still_holds(tmp_path):
+    """The cache emptied and the linked file gone: the bytes come from the file being saved over."""
+    cache = AssetCache(str(tmp_path / "cache"))
+    sha, _ = cache.put_bytes(b"%PDF-1.4 a plot", "pdf")
+    doc = model.new_document()
+    doc["assets"]["a1"] = {"name": "plot.pdf", "variants": {"pdf": {"sha256": sha}}}
+    doc["pages"][0]["items"].append({"id": "p1", "type": "picture", "asset": "a1", "frame": [0, 0, 10, 10]})
+    path = str(tmp_path / "fig.mosaic")
+    assert docfile.save(doc, path, cache, prune=False) == []
+    empty = AssetCache(str(tmp_path / "cache2"))
+    assert docfile.save(doc, path, empty, prune=False) == []
+    with zipfile.ZipFile(path) as z:
+        assert z.read(f"assets/{sha}.pdf") == b"%PDF-1.4 a plot"
+
+
+def test_a_failed_save_leaves_nothing_beside_the_document(tmp_path, monkeypatch):
+    cache = AssetCache(str(tmp_path / "cache"))
+    out = tmp_path / "docs"
+    out.mkdir()
+    monkeypatch.setattr(os, "fsync", lambda fd: (_ for _ in ()).throw(OSError(28, "No space left on device")))
+    with pytest.raises(OSError):
+        docfile.save(model.new_document(), str(out / "fig.mosaic"), cache)
+    assert os.listdir(out) == []

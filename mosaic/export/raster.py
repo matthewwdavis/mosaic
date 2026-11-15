@@ -14,31 +14,36 @@ from ..assets import PDFIUM_LOCK
 
 def render_pdf_bytes(pdf_bytes: bytes, dpi: float, transparent: bool = True, on_page=None) -> list[Image.Image]:
     """Each page as an image. on_page(i): called before page i is drawn (export's progress)."""
-    with PDFIUM_LOCK:
-        return _render(pdf_bytes, dpi, transparent, on_page)
+    return list(iter_pdf_pages(pdf_bytes, dpi, transparent, on_page))
 
 
-def _render(pdf_bytes: bytes, dpi: float, transparent: bool, on_page=None) -> list[Image.Image]:
+def iter_pdf_pages(pdf_bytes: bytes, dpi: float, transparent: bool = True, on_page=None):
+    """Each page as an image, one at a time: a page is drawn when asked for, so only one is in
+    memory at once (a 600 dpi A4 page is 140 MB), and PDFium is held for a page at a time,
+    leaving the editor's previews room in between."""
     import pypdfium2 as pdfium
-    doc = pdfium.PdfDocument(pdf_bytes)
-    images = []
+    with PDFIUM_LOCK:
+        doc = pdfium.PdfDocument(pdf_bytes)
+        n = len(doc)
     try:
-        for i in range(len(doc)):
+        for i in range(n):
             if on_page:
                 on_page(i)
-            page = doc[i]
-            bitmap = page.render(scale=dpi / 72.0, fill_color=(0, 0, 0, 0) if transparent else (255, 255, 255, 255),
-                                 may_draw_forms=False, draw_annots=False)
-            im = bitmap.to_pil()
-            # PDFium rounds the pixel size up; use the nearest whole pixel like other export tools
-            want = (max(1, round(page.get_width() * dpi / 72.0)), max(1, round(page.get_height() * dpi / 72.0)))
-            if im.size != want:
-                im = im.crop((0, 0, want[0], want[1]))
-            images.append(im.convert("RGBA") if transparent else im.convert("RGB"))
-            page.close()
+            with PDFIUM_LOCK:
+                page = doc[i]
+                bitmap = page.render(scale=dpi / 72.0, fill_color=(0, 0, 0, 0) if transparent else (255, 255, 255, 255),
+                                     may_draw_forms=False, draw_annots=False)
+                im = bitmap.to_pil()
+                # PDFium rounds the pixel size up; use the nearest whole pixel like other export tools
+                want = (max(1, round(page.get_width() * dpi / 72.0)), max(1, round(page.get_height() * dpi / 72.0)))
+                if im.size != want:
+                    im = im.crop((0, 0, want[0], want[1]))
+                im = im.convert("RGBA") if transparent else im.convert("RGB")
+                page.close()
+            yield im
     finally:
-        doc.close()
-    return images
+        with PDFIUM_LOCK:
+            doc.close()
 
 
 def default_cmyk_profile() -> str | None:

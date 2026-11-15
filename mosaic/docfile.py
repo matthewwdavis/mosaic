@@ -48,21 +48,44 @@ def save(doc: dict, path: str, cache: AssetCache | None = None, prune: bool = Tr
             if not os.path.exists(src):
                 linked = resolve_link(var, doc_dir)
                 if linked:
-                    cache.put_file(linked, kind)
-                else:
+                    cache.put_file(linked, kind)   # (under its own hash: this one's only if it hasn't changed)
+                if not os.path.exists(src):
+                    _from_saved(path, name, cache, kind)   # the file being saved over may still hold it
+                if not os.path.exists(src):
                     warnings.append(f"{asset.get('name')}: no copy of the {kind} file to embed")
                     continue
             files[name] = src
     tmp = path + f".{uuid.uuid4().hex[:6]}.tmp"
-    with zipfile.ZipFile(tmp, "w") as z:
-        z.writestr(zipfile.ZipInfo(DOC_NAME, date_time=time.localtime()[:6]),
-                   json.dumps(doc, indent=1, ensure_ascii=False), compress_type=zipfile.ZIP_STORED)
-        for name, src in sorted(files.items()):
-            # SVG is text and shrinks a lot; PDF/PNG/JPEG are already compressed
-            ctype = zipfile.ZIP_DEFLATED if name.endswith(".svg") else zipfile.ZIP_STORED
-            z.write(src, name, compress_type=ctype)
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "wb") as fh:
+            with zipfile.ZipFile(fh, "w") as z:
+                z.writestr(zipfile.ZipInfo(DOC_NAME, date_time=time.localtime()[:6]),
+                           json.dumps(doc, indent=1, ensure_ascii=False), compress_type=zipfile.ZIP_STORED)
+                for name, src in sorted(files.items()):
+                    # SVG is text and shrinks a lot; PDF/PNG/JPEG are already compressed
+                    ctype = zipfile.ZIP_DEFLATED if name.endswith(".svg") else zipfile.ZIP_STORED
+                    z.write(src, name, compress_type=ctype)
+            fh.flush()
+            os.fsync(fh.fileno())   # on the disk before it takes the document's name
+        os.replace(tmp, path)
+    except BaseException:   # (a full disk, a file gone meanwhile): nothing is left beside the document
+        try:
+            os.remove(tmp)   # this save's own unfinished file
+        except OSError:
+            pass
+        raise
     return warnings
+
+
+def _from_saved(path: str, name: str, cache: AssetCache, kind: str) -> None:
+    """Put a placed file's bytes back in the cache from the document file about to be saved
+    over, if it holds them (the cache emptied, say, and the linked file changed or gone)."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            if name in z.namelist():
+                cache.put_bytes(z.read(name), kind)
+    except (OSError, zipfile.BadZipFile):
+        pass
 
 
 def load(path: str, cache: AssetCache | None = None, assets_dir: str | None = None) -> dict:
