@@ -13,10 +13,12 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import time
 import webbrowser
 from urllib.parse import parse_qs, quote, urlencode
 
+from ..assets import get_cache
 from . import closing
 from .api import Api
 from .server import start_server
@@ -24,6 +26,8 @@ from .server import start_server
 
 def run_app(document: str | None = None, browser: bool = False, port: int = 0) -> int:
     api = Api()
+    # Previews and conversions nothing has used for a month go (in the background; each is made again if wanted)
+    threading.Thread(target=lambda: get_cache().prune_derived(), daemon=True).start()
     srv = start_server(api, port)
     base = srv.url + "ui/index.html"
     extra = os.environ.get("MOSAIC_SMOKE_QUERY")   # e.g. the editor self-test, for testing

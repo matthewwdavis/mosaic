@@ -148,3 +148,84 @@ def test_recovery_notes_are_json(api):
     api.autosave(doc(), "doc-j1", "/somewhere/fig.mosaic")
     with open(os.path.join(os.environ["MOSAIC_HOME"], "autosave", "doc-j1.json"), encoding="utf-8") as fh:
         assert json.load(fh) == {"path": "/somewhere/fig.mosaic"}
+
+
+def with_picture(api, tmp_path, title="Figure", colour=(200, 30, 30)):
+    """A document with one placed PNG (its bytes embedded when saved)."""
+    from PIL import Image
+    png = tmp_path / f"plot-{title}.png"
+    Image.new("RGB", (400, 300), colour).save(png)
+    d = doc(title)
+    [asset] = api.add_files([str(png)])
+    d["assets"][asset["asset_id"]] = asset["asset"]
+    d["pages"][0]["items"].append(model.picture_item(asset["asset_id"], asset["asset"], 10, 10))
+    return d
+
+
+def stored():
+    return sorted(n for _, _, names in os.walk(kept.store_root()) for n in names)
+
+
+def test_kept_copies_hold_the_layout_and_share_the_placed_files(api, docs, tmp_path, monkeypatch):
+    path = str(docs / "fig.mosaic")
+    d = with_picture(api, tmp_path)
+    for k in range(4):   # saved over three times: three earlier versions
+        d["meta"]["title"] = str(k)
+        api.save_document(d, path)
+        aged(path, 3600 - k * 60)
+    versions = kept.listing(path)["versions"]
+    assert len(versions) == 3 and len(stored()) == 1                    # one placed file, kept once
+    full = os.path.getsize(path)
+    assert all(os.path.getsize(v["path"]) < full / 2 for v in versions)   # the copies themselves: the layout
+    assert all(abs(v["bytes"] - full) < 64 for v in versions)             # ...listed at their documents' size
+    # Read back whole, even with the cache emptied
+    from mosaic import assets
+    import shutil
+    shutil.rmtree(assets.get_cache().root)
+    monkeypatch.setattr(assets, "_cache", None)
+    back = api.read_kept(versions[0]["path"])["doc"]
+    var = next(iter(next(iter(back["assets"].values()))["variants"].items()))
+    assert assets.get_cache().has(var[1]["sha256"], var[0])
+
+
+def test_placed_files_go_with_the_last_copy_that_uses_them(api, docs, tmp_path, monkeypatch):
+    monkeypatch.setattr(kept, "_SWEEP_GRACE", 0)
+    path = str(docs / "fig.mosaic")
+    api.save_document(with_picture(api, tmp_path, "red"), path)
+    aged(path, 7200)
+    api.save_document(with_picture(api, tmp_path, "blue", (30, 30, 200)), path)
+    aged(path, 3600)
+    api.save_document(doc("empty"), path)
+    assert len(kept.listing(path)["versions"]) == 2 and len(stored()) == 2
+    os.remove(kept.listing(path)["versions"][-1]["path"])   # the oldest (red) goes
+    kept.prune()
+    assert len(stored()) == 1
+    got = api.read_kept(kept.listing(path)["versions"][0]["path"])["doc"]
+    assert got["meta"]["title"] == "blue"
+
+
+def test_a_copy_kept_whole_before_still_reads_back(api, docs, tmp_path):
+    import shutil
+    path = str(docs / "fig.mosaic")
+    api.save_document(with_picture(api, tmp_path, "whole"), path)
+    folder = os.path.join(kept.versions_root(), kept.file_key(path))
+    os.makedirs(folder)
+    shutil.copy2(path, os.path.join(folder, "20261101-120000.mosaic"))   # as mosaic kept them before
+    [v] = kept.listing(path)["versions"]
+    assert api.read_kept(v["path"])["doc"]["meta"]["title"] == "whole"
+    kept.prune()
+    assert kept.listing(path)["versions"]   # (and it isn't in the way of pruning)
+
+
+def test_unused_previews_leave_the_cache_after_a_month(api, tmp_path):
+    from mosaic.assets import get_cache
+    cache = get_cache()
+    old, new = cache.derived("aa" + "0" * 30, ".png"), cache.derived("bb" + "0" * 30, ".png")
+    for p in (old, new):
+        with open(p, "wb") as fh:
+            fh.write(b"x" * 100)
+    aged(old, 31 * 86400)
+    sha, original = cache.put_bytes(b"a placed file", "png")
+    aged(original, 400 * 86400)
+    assert cache.prune_derived() == 100
+    assert not os.path.exists(old) and os.path.exists(new) and os.path.exists(original)   # placed files are never touched

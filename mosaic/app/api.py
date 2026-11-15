@@ -814,7 +814,7 @@ class Api:
         as a figure, without it becoming the document's file or going in Open Recent."""
         if not kept.is_kept(path):
             raise ValueError("That isn't one of mosaic's kept copies.")
-        return {"doc": docfile.load(path)}
+        return {"doc": kept.load(path)}
 
     # Assets ----------------------------------------------------------------------------
 

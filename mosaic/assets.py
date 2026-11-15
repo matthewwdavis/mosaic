@@ -28,6 +28,7 @@ KIND_EXT = {"pdf": ".pdf", "svg": ".svg", "png": ".png", "jpeg": ".jpg", "tiff":
 RASTER_KINDS = ("png", "jpeg", "tiff")
 VECTOR_KINDS = ("pdf", "svg")
 DEFAULT_RASTER_DPI = 300.0   # used when an image file doesn't record its resolution
+DERIVED_DAYS = 30            # days an unused preview or conversion stays in the cache
 SIZE_TOLERANCE = 0.05        # points: siblings must agree on size this closely
 
 # SVG length units in points
@@ -276,6 +277,23 @@ class AssetCache:
         d = os.path.join(self.root, "derived", key[:2])
         os.makedirs(d, exist_ok=True)
         return os.path.join(d, key + ext)
+
+
+    def prune_derived(self, days: float = DERIVED_DAYS) -> int:
+        """Remove the derived files (previews, conversions, notes) nothing has read or written
+        for `days` days; each is made again when next wanted. Returns the bytes freed."""
+        root, freed, cutoff = os.path.join(self.root, "derived"), 0, time.time() - days * 86400
+        for folder, _, names in os.walk(root):
+            for n in names:
+                p = os.path.join(folder, n)
+                try:
+                    st = os.stat(p)
+                    if max(st.st_atime, st.st_mtime) < cutoff:
+                        os.remove(p)   # one of mosaic's own derived files
+                        freed += st.st_size
+                except OSError:   # (in use, or gone already)
+                    pass
+        return freed
 
 
 _cache: AssetCache | None = None

@@ -65,8 +65,9 @@ def save(doc: dict, path: str, cache: AssetCache | None = None, prune: bool = Tr
     return warnings
 
 
-def load(path: str, cache: AssetCache | None = None) -> dict:
-    """Read a document and make sure every embedded copy is in the cache."""
+def load(path: str, cache: AssetCache | None = None, assets_dir: str | None = None) -> dict:
+    """Read a document and make sure every embedded copy is in the cache. `assets_dir`: a folder
+    holding the placed files of a copy kept without them (app/kept.py), as <sha[:2]>/<sha><ext>."""
     cache = cache or get_cache()
     with zipfile.ZipFile(path) as z:
         doc = json.loads(z.read(DOC_NAME).decode("utf-8"))
@@ -78,6 +79,11 @@ def load(path: str, cache: AssetCache | None = None) -> dict:
                 name = f"assets/{var['sha256']}{KIND_EXT.get(kind, '.' + kind)}"
                 if name in names:
                     cache.put_bytes(z.read(name), kind)
+                elif assets_dir:
+                    cache.path(var["sha256"], kind)   # (refuses names that aren't a hash and a kind)
+                    beside = os.path.join(assets_dir, var["sha256"][:2], name[len("assets/"):])
+                    if os.path.isfile(beside):
+                        cache.put_file(beside, kind)
     if "mosaic" not in doc and "figassemble" in doc:
         doc["mosaic"] = doc.pop("figassemble")   # saved while mosaic was called FigAssemble
     fmt = doc.get("mosaic")

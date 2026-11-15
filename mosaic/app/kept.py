@@ -10,17 +10,26 @@
 
 Each folder has an info.json saying which document it's for. Past KEPT_LIMIT bytes all
 together, the oldest go first. Nothing here is ever a document's only copy.
+
+A kept copy holds the figure's layout only; the files placed in it are kept once, in
+kept-assets/ (store_root), however many copies use them: as hard links to the cache's own copies
+where the disk allows, so they take no room of their own while the cache has them and stay when
+it doesn't. A copy is read back with load(). Placed files no copy uses any more go when copies
+do (_sweep). Copies kept before this (whole documents) read back as they are; should a copy not
+be writable this way, the whole document is kept instead.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import os
+import re
 import shutil
 import time
 import zipfile
 
 from .. import docfile
+from ..assets import get_cache
 from ..fonts import config_dir
 
 HISTORY_EVERY = 600              # s between the recovery copies kept in a document's history
@@ -37,6 +46,125 @@ def history_root() -> str:
 
 def versions_root() -> str:
     return os.path.join(config_dir(), "versions")
+
+
+def store_root() -> str:
+    """Where the files placed in kept copies are, once each: <sha[:2]>/<sha><ext>."""
+    return os.path.join(config_dir(), "kept-assets")
+
+
+_ASSET_RE = re.compile(r"[0-9a-f]{64}\.[a-z0-9]{1,8}")   # a placed file's name in a document: its hash and kind
+_MARK = b"mosaic-kept bytes="                            # a slim copy's zip comment, with its document's size
+_SWEEP_GRACE = 3600                                      # s a stored file stays although no copy uses it (yet)
+
+
+def _store(z: zipfile.ZipFile, member: zipfile.ZipInfo, name: str) -> None:
+    """Keep one placed file of a document in the store, unless it's there: a hard link to the
+    cache's copy of it if there is one, else its bytes from the document."""
+    dest = os.path.join(store_root(), name[:2], name)
+    if os.path.exists(dest):
+        return
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    cached = os.path.join(get_cache().root, name[:2], name)
+    try:
+        if os.path.getsize(cached) == member.file_size:
+            os.link(cached, dest)
+            return
+    except OSError:   # (not in the cache, or a disk without hard links)
+        pass
+    tmp = f"{dest}.{os.getpid()}.tmp"
+    with z.open(member) as src, open(tmp, "wb") as out:
+        shutil.copyfileobj(src, out)
+    os.replace(tmp, dest)
+
+
+def _slim(src: str, dest: str) -> None:
+    """Keep the document src as dest: its layout, with its placed files in the store."""
+    tmp = dest + ".tmp"   # (a name _sweep reads too: its placed files are in use from the start)
+    try:
+        with zipfile.ZipFile(src) as z, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as out:
+            out.comment = _MARK + str(os.path.getsize(src)).encode()
+            members = z.infolist()
+            for m in members:   # the layout first, so the placed files are spoken for before they're stored
+                if not (m.filename.startswith("assets/") and _ASSET_RE.fullmatch(m.filename[len("assets/"):])):
+                    out.writestr(m.filename, z.read(m))
+        with zipfile.ZipFile(src) as z:
+            for m in z.infolist():
+                name = m.filename[len("assets/"):]
+                if m.filename.startswith("assets/") and _ASSET_RE.fullmatch(name):
+                    _store(z, m, name)
+        os.replace(tmp, dest)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)   # this copy's own unfinished file
+        raise
+
+
+def _bytes(path: str) -> int:
+    """The size of the document a kept copy is of (a slim copy's own file is much smaller)."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            if z.comment.startswith(_MARK):
+                return int(z.comment[len(_MARK):])
+    except (OSError, ValueError, zipfile.BadZipFile):
+        pass
+    return os.path.getsize(path)
+
+
+def _uses(path: str) -> set[str] | None:
+    """The stored files a kept copy needs (their names); None if it can't be read."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            doc = json.loads(z.read(docfile.DOC_NAME))
+        out = set()
+        for asset in (doc.get("assets") or {}).values():
+            for kind, var in (asset.get("variants") or {}).items():
+                out.add(f"{var['sha256']}{docfile.KIND_EXT.get(kind, '.' + kind)}")
+        return out
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, zipfile.BadZipFile):
+        return None
+
+
+def _sweep() -> None:
+    """Stored files no kept copy uses go (ones just stored wait: their copy may be on its way)."""
+    root = store_root()
+    if not os.path.isdir(root):
+        return
+    used: set[str] = set()
+    for top in (history_root(), versions_root()):
+        for folder, _, names in os.walk(top):
+            for n in names:
+                if n.endswith((docfile.EXTENSION, docfile.EXTENSION + ".tmp")):
+                    got = _uses(os.path.join(folder, n))
+                    if got is None and not n.endswith(".tmp"):
+                        return   # a copy that can't be read: nothing is removed on its account
+                    used |= got or set()
+    now = time.time()
+    for folder, _, names in os.walk(root):
+        for n in names:
+            p = os.path.join(folder, n)
+            try:
+                st = os.stat(p)
+                if n not in used and now - max(st.st_ctime, st.st_mtime) > _SWEEP_GRACE:
+                    os.remove(p)   # one of mosaic's own stored files, used by no kept copy
+            except OSError:
+                pass
+
+
+def _stored_bytes() -> int:
+    total = 0
+    for folder, _, names in os.walk(store_root()):
+        for n in names:
+            try:
+                total += os.path.getsize(os.path.join(folder, n))
+            except OSError:
+                pass
+    return total
+
+
+def load(path: str) -> dict:
+    """A kept copy as a document, its placed files back in the cache."""
+    return docfile.load(path, assets_dir=store_root())
 
 
 def _same(path: str) -> str:
@@ -82,7 +210,7 @@ def _keep(src: str, folder: str, when: float, every: float = 0) -> str | None:
     the newest copy there is less than `every` seconds older, or is this very file already."""
     copies = _copies(folder)
     if copies:
-        newest, size = copies[0][1], copies[0][2]
+        newest, size = copies[0][1], _bytes(copies[0][0])
         if (newest == when and size == os.path.getsize(src)) or (every and 0 <= when - newest < every):
             return None
     os.makedirs(folder, exist_ok=True)
@@ -91,7 +219,10 @@ def _keep(src: str, folder: str, when: float, every: float = 0) -> str | None:
     while os.path.exists(dest):
         n += 1
         dest = os.path.join(folder, f"{stem}-{n}{docfile.EXTENSION}")
-    shutil.copy2(src, dest)
+    try:
+        _slim(src, dest)
+    except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+        shutil.copy2(src, dest)   # (not a document that can be kept slim: kept whole)
     os.utime(dest, (when, when))
     return dest
 
@@ -159,7 +290,7 @@ def _entry(copy: tuple[str, float, int]) -> dict:
         pages, objects = len(got), sum(len(pg.get("items", [])) for pg in got)
     except (OSError, ValueError, KeyError, zipfile.BadZipFile):
         pass
-    return {"path": p, "modified": t, "bytes": b, "pages": pages, "objects": objects}
+    return {"path": p, "modified": t, "bytes": _bytes(p), "pages": pages, "objects": objects}
 
 
 def listing(doc_path: str | None = None, key: str | None = None) -> dict:
@@ -192,7 +323,8 @@ def is_kept(path: str) -> bool:
 
 
 def prune() -> None:
-    """Histories older than HISTORY_DAYS go; then, past KEPT_LIMIT bytes, the oldest copies."""
+    """Histories older than HISTORY_DAYS go; then, past KEPT_LIMIT bytes (the copies and the
+    files placed in them, each counted once), the oldest copies; then placed files none uses."""
     now, every = time.time(), []
     for root, is_history in ((history_root(), True), (versions_root(), False)):
         if not os.path.isdir(root):
@@ -206,9 +338,11 @@ def prune() -> None:
                     every.append((t, b, p))
             if os.path.isdir(folder) and not _copies(folder):
                 shutil.rmtree(folder)   # (only its info.json was left)
+    _sweep()
+    every.sort()
     total = sum(b for _, b, _ in every)
-    for t, b, p in sorted(every):
-        if total <= KEPT_LIMIT:
-            break
-        os.remove(p)
+    while every and total + _stored_bytes() > KEPT_LIMIT:
+        t, b, p = every.pop(0)
+        os.remove(p)   # the oldest of mosaic's own kept copies
         total -= b
+        _sweep()
