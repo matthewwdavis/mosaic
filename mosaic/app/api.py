@@ -298,8 +298,23 @@ class Api:
 
     # App ------------------------------------------------------------------------------
 
+    # Your own journals (journals.py: a name, figure widths and a depth, kept in the settings folder)
+
+    def user_journals(self) -> list:
+        from .. import journals
+        return journals.user_journals()
+
+    def user_journals_save(self, items: list) -> dict:
+        """Keep your own journals; {"mine": them as kept, "journals": every journal, for the lists}.
+        A journal that can't be kept says why (ValueError)."""
+        from .. import journals
+        mine = journals.save_user(items if isinstance(items, list) else [])
+        return {"mine": mine, "journals": journals.JOURNALS}
+
     def app_info(self) -> dict:
         from ..journals import JOURNALS, STANDARD_SIZES
+        from .. import journals as _journals
+        _journals.load_user()   # (your own journals, with the built-in ones)
         win = self._caller_win()
         return {"version": __version__, "platform": sys.platform, "native": self.window is not None,
                 # Opening documents in windows of their own (else the editor replaces its figure),

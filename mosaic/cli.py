@@ -57,7 +57,9 @@ def cmd_export(args) -> int:
     if args.journal:
         # The panel labels in the journal's look; the document itself as it was (relabel.py)
         from . import docfile, relabel
+        from . import journals as _journals
         from .journals import JOURNALS
+        _journals.load_user()   # (your own journals are listed with the others)
         journal = relabel.find_journal(args.journal)
         if journal is None:
             print(f"No journal called {args.journal!r}; mosaic knows " + ", ".join(j["name"] for j in JOURNALS), file=sys.stderr)

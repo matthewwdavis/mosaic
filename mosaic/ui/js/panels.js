@@ -262,7 +262,8 @@ export const panels = {
       checked: journal?.name === j.name && type?.name === t.name, run: () => inspector.setJournalSize(j.name, t.name) }))]);
     entries.push("-", { label: "Journal", items: journals }, "-",
       { label: "Swap width and height", run: () => inspector.swapPage() },
-      { label: "Custom size…", run: () => this.customSizeDialog() });
+      { label: "Custom size…", run: () => this.customSizeDialog() },
+      { label: "My Journals…", run: () => this.journalsDialog() });
     const r = btn.getBoundingClientRect();
     contextMenu.show(entries, r.left, r.bottom + 2, btn);
   },
@@ -300,6 +301,94 @@ export const panels = {
         numField("Width", page.width, pu, (v) => inspector.setPageWidth(v), { min: 1 }),
         numField("Height", page.height, pu, (v) => inspector.setPageHeight(v), { min: 1 })),
       h("p", { class: "hint" }, `The size of ${page.name}. Objects stay where they are on it.`)));
+  },
+
+  // Your own journals (Size > My Journals…): a name, the figure widths it takes and the deepest a
+  // figure may be, kept on this computer (journals.py) and listed with the others under Size >
+  // Journal and in the Page panel. A list first; Add or Edit opens the form.
+  async journalsDialog() {
+    let mine;
+    try { mine = await rpc("user_journals"); } catch (err) { this.reportDialog("Couldn't read your journals", [String(err.message || err)]); return; }
+    const info = this.app.info;
+    const keep = async (list) => {
+      const got = await rpc("user_journals_save", list);
+      info.journals.splice(0, info.journals.length, ...got.journals);   // (the same list everything reads)
+      inspector.render();
+      return got.mine;
+    };
+    const list = h("ul", { class: "report my-journals" });
+    const add = h("button", { type: "button", class: "btn primary" }, "Add a Journal…");
+    const dlg = this.dialog("My journals", h("div", {},
+      h("p", {}, "Journals of your own, with the figure sizes they take. They're listed with the others under Size ▸ Journal and in the Page panel."),
+      list,
+      h("p", { class: "hint" }, "Kept on this computer. A figure sized by one keeps its size anywhere.")), [add], "Done");
+    const draw = () => {
+      list.replaceChildren(...(mine.length ? mine.map((j, i) => {
+        const edit = h("button", { type: "button", class: "btn" }, "Edit…");
+        const del = h("button", { type: "button", class: "btn" }, "Delete");
+        edit.addEventListener("click", async () => { const got = await this.journalForm(j, mine, i, keep); if (got) { mine = got; draw(); } });
+        del.addEventListener("click", async () => {
+          if (!(await this.confirm("Delete this journal?", `${j.name} goes from your list. Pages already sized by it keep their size.`, "Delete"))) return;
+          try { mine = await keep(mine.filter((_, k) => k !== i)); draw(); } catch (err) { this.reportDialog("Couldn't delete it", [plain(err)]); }
+        });
+        return h("li", { class: "my-journal" },
+          h("span", {}, `${j.name}: ${j.types.map((t) => `${t.name} ${t.width_mm} mm`).join(", ")}; up to ${j.depth_mm} mm deep `), edit, " ", del);
+      }) : [h("li", { class: "hint" }, "None yet.")]));
+    };
+    const plain = (err) => String(err.message || err).replace(/^ValueError: /, "");
+    add.addEventListener("click", async () => { const got = await this.journalForm(null, mine, -1, keep); if (got) { mine = got; draw(); } });
+    draw();
+    return dlg;
+  },
+
+  // The form for one journal of your own; resolves to your journals as kept, or null (cancelled)
+  journalForm(journal, mine, index, keep) {
+    return new Promise((resolve) => {
+      const id = `jf-${Date.now()}`;
+      const name = h("input", { type: "text", id: `${id}-name`, value: journal?.name || "", maxlength: 80, style: { width: "100%" } });
+      const depth = h("input", { type: "number", id: `${id}-depth`, value: journal?.depth_mm ?? "", min: 1, step: "any", style: { width: "7em" } });
+      const note = h("input", { type: "text", id: `${id}-note`, value: journal?.note || "", maxlength: 400, style: { width: "100%" },
+        placeholder: "Where the sizes come from (optional)" });
+      const rows = h("div", { class: "journal-widths" });
+      const addRow = (t) => {
+        const n = h("input", { type: "text", value: t?.name || "", maxlength: 60, placeholder: "Single column", "aria-label": "Name of this width" });
+        const w = h("input", { type: "number", value: t?.width_mm ?? "", min: 1, step: "any", style: { width: "7em" }, "aria-label": "Width in millimetres" });
+        const out = h("button", { type: "button", class: "btn", title: "Take this width out", "aria-label": "Take this width out" }, "×");
+        const row = h("div", { class: "row journal-width" }, n, w, h("span", {}, "mm"), out);
+        out.addEventListener("click", () => { if (rows.children.length > 1) row.remove(); });
+        rows.append(row);
+        return n;
+      };
+      (journal?.types?.length ? journal.types : [{ name: "Single column" }, { name: "Double column" }]).forEach(addRow);
+      const more = h("button", { type: "button", class: "btn" }, "Add a Width");
+      more.addEventListener("click", () => addRow(null).focus());
+      const problem = h("p", { class: "hint", role: "alert" }, "");
+      const save = h("button", { type: "button", class: "btn primary" }, "Save");
+      let done = false;
+      const dlg = this.dialog(journal ? "Edit journal" : "Add a journal", h("div", {},
+        h("label", { for: `${id}-name` }, "Journal's name"), name,
+        h("p", {}, h("label", {}, "Figure widths")), rows, more,
+        h("p", {}, h("label", { for: `${id}-depth` }, "Deepest a figure may be "), depth, " mm"),
+        h("label", { for: `${id}-note` }, "Note"), note, problem), [save]);
+      save.addEventListener("click", async () => {
+        const entry = { name: name.value, depth_mm: depth.value, note: note.value, source: journal?.source,
+          types: [...rows.children].map((r) => { const [n, w] = r.querySelectorAll("input"); return { name: n.value, width_mm: w.value }; })
+            .filter((t) => t.name.trim() || String(t.width_mm).trim()) };
+        for (const k of ["labels", "text", "lines", "pictures", "export"]) if (journal?.[k]) entry[k] = journal[k];
+        const next = index >= 0 ? mine.map((j, k) => (k === index ? entry : j)) : [...mine, entry];
+        save.disabled = true;
+        try {
+          const kept = await keep(next);
+          done = true;
+          dlg.close();
+          resolve(kept);
+        } catch (err) {
+          save.disabled = false;
+          problem.textContent = String(err.message || err).replace(/^ValueError: /, "");
+        }
+      });
+      dlg.addEventListener("close", () => { if (!done) resolve(null); });
+    });
   },
 
   // Ribbon: tabs of labelled groups, like PowerPoint's; Snap, Check, Export, Settings and Help

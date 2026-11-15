@@ -426,6 +426,67 @@ async function selectionChecks(app) {
 // Help > Report a Problem: the dialog says what the report holds and takes a note; the Help dialog
 // leads to it. (The report file itself is checked by tests/test_diagnostics.py: saving one here
 // would leave a file on the Desktop.)
+// Size > My Journals…: a journal of your own (a name, widths and a depth) is kept, listed with the
+// others, sizes a page, says what's wrong with one that can't be kept, and goes when deleted
+async function myJournalsChecks(app) {
+  const top = () => [...document.querySelectorAll("dialog[open]")].at(-1);
+  const press = (dlg, label) => [...dlg.querySelectorAll("button")].find((b) => b.textContent === label)?.click();
+  const before = (await rpc("user_journals")) || [];
+  try {
+    await rpc("user_journals_save", []);
+    panels.journalsDialog();
+    await until(() => top()?.querySelector("h2")?.textContent === "My journals");
+    const listDlg = top();
+    check(/None yet/.test(listDlg.textContent), "My Journals starts with none");
+    press(listDlg, "Add a Journal…");
+    await until(() => top()?.querySelector("h2")?.textContent === "Add a journal");
+    let form = top();
+    press(form, "Save");   // (nothing filled in)
+    await until(() => form.querySelector("[role=alert]").textContent);
+    check(/name/i.test(form.querySelector("[role=alert]").textContent) && top() === form,
+      "a journal without a name isn't kept, and the form says why", form.querySelector("[role=alert]").textContent);
+    const fill = (el, v) => { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); };
+    fill(form.querySelector("input[type=text]"), "Selftest Journal");
+    const rows = form.querySelectorAll(".journal-width");
+    fill(rows[0].querySelector("input[type=number]"), "84");
+    fill(rows[1].querySelector("input[type=number]"), "174");
+    fill(form.querySelector("input[id$=-depth]"), "230");
+    press(form, "Save");
+    await until(() => top() === listDlg && /Selftest Journal/.test(listDlg.textContent));
+    const j = (app.info.journals || []).find((x) => x.name === "Selftest Journal");
+    check(j && j.user && j.depth_mm === 230 && j.types.map((t) => t.width_mm).join() === "84,174",
+      "a journal of your own is kept and listed with the others", JSON.stringify(j));
+    inspector.setJournalSize("Selftest Journal", "Double column");
+    await settle();
+    const pg = store.page(), mm = 72 / 25.4;
+    check(Math.abs(pg.width - 174 * mm) < 0.01 && Math.abs(pg.height - 230 * mm) < 0.01 && pg.preset?.journal === "Selftest Journal",
+      "and sizes a page: its width and depth", `${pg.width} x ${pg.height}`);
+    press(listDlg, "Add a Journal…");
+    await until(() => top()?.querySelector("h2")?.textContent === "Add a journal");
+    form = top();
+    fill(form.querySelector("input[type=text]"), "Nature");
+    fill(form.querySelector(".journal-width input[type=number]"), "90");
+    fill(form.querySelector("input[id$=-depth]"), "170");
+    press(form, "Save");
+    await until(() => form.querySelector("[role=alert]").textContent);
+    check(/already listed/.test(form.querySelector("[role=alert]").textContent), "one named like a listed journal isn't kept",
+      form.querySelector("[role=alert]").textContent);
+    form.close();
+    app.autoConfirm = true;
+    press(listDlg, "Delete");
+    await until(() => /None yet/.test(listDlg.textContent));
+    check(!(app.info.journals || []).some((x) => x.user), "deleting it takes it off the lists");
+    check(Math.abs(store.page().width - 174 * mm) < 0.01, "a page sized by it keeps its size");
+  } finally {
+    app.autoConfirm = false;
+    for (const d of document.querySelectorAll("dialog[open]")) d.close();
+    const got = await rpc("user_journals_save", before);
+    app.info.journals.splice(0, app.info.journals.length, ...got.journals);
+    store.setDoc(await rpc("new_document"));
+    await settle();
+  }
+}
+
 async function problemReportChecks(app) {
   const top = () => [...document.querySelectorAll("dialog[open]")].at(-1);
   try {
@@ -4008,6 +4069,7 @@ export async function run(app, params) {
     if (params.get("only") === "slides") { await slidesChecks(app, ppt); throw ONLY; }
     if (params.get("only") === "links") { await linkedFileChecks(app); throw ONLY; }
     if (params.get("only") === "problem") { await problemReportChecks(app); throw ONLY; }
+    if (params.get("only") === "journals") { await myJournalsChecks(app); throw ONLY; }
     if (params.get("only") === "updates") { await updateChecks(app); throw ONLY; }
     if (params.get("only") === "selection") { await selectionChecks(app); throw ONLY; }
     if (params.get("only") === "windows") { await windowChecks(app, out); throw ONLY; }
@@ -5286,6 +5348,7 @@ export async function run(app, params) {
     info.slidesMs = Math.round(performance.now() - slidesFrom);
     await linkedFileChecks(app);
     await problemReportChecks(app);
+    await myJournalsChecks(app);
     await updateChecks(app);
     await windowChecks(app, out);
     await pageSizeChecks(app);
