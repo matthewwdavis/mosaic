@@ -1,18 +1,15 @@
 """Local HTTP server: the editor UI, asset previews and JSON-RPC, on 127.0.0.1 only.
 
 Every URL carries a random token so other programs on the machine can't read through it.
+The server itself (the token, the editor's files, the calls) is the shared library's
+(_labapp/server.py); this adds what is mosaic's: previews of placed files and the theme.
 """
 from __future__ import annotations
 
-import json
-import mimetypes
 import os
-import secrets
 import threading
-import traceback
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlparse
 
+from .._labapp import server as _shared
 from ..assets import PDFIUM_LOCK, get_cache
 
 UI_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui")
@@ -31,51 +28,22 @@ def render_pdf_preview(path: str, page: int, scale: float, out: str) -> None:
     os.replace(out + ".tmp.png", out)
 
 
-class Handler(BaseHTTPRequestHandler):
+class Handler(_shared.Handler):
     server_version = "mosaic"
+    ui_dir = UI_DIR
 
-    def log_message(self, fmt, *args):   # keep the terminal quiet
-        pass
+    def ui_body(self, path: str, body: bytes) -> bytes:
+        if path == os.path.join(UI_DIR, "index.html"):
+            # The chosen theme's colours, there from the first paint (no flash of another theme)
+            body = body.replace(b'<style id="theme-vars"></style>',
+                                f'<style id="theme-vars">{self.server.api.theme_css()}</style>'.encode("utf-8"))
+        return body
 
-    def _send(self, code: int, body: bytes, ctype: str, cache: bool = False) -> None:
-        self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "max-age=31536000, immutable" if cache else "no-store")
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _check(self) -> str | None:
-        parts = urlparse(self.path).path.split("/", 2)
-        if len(parts) < 2 or parts[1] != self.server.token:
-            self._send(403, b"forbidden", "text/plain")
-            return None
-        return parts[2] if len(parts) > 2 else ""
-
-    def do_GET(self):
-        rest = self._check()
-        if rest is None:
-            return
-        url = urlparse(self.path)
-        if rest in ("", "index.html"):
-            rest = "ui/index.html"
-        if rest.startswith("ui/"):
-            path = os.path.normpath(os.path.join(UI_DIR, rest[3:]))
-            if not path.startswith(UI_DIR + os.sep) or not os.path.isfile(path):
-                return self._send(404, b"not found", "text/plain")
-            ctype = mimetypes.guess_type(path)[0] or "application/octet-stream"
-            if path.endswith(".js"):
-                ctype = "text/javascript"
-            with open(path, "rb") as fh:
-                body = fh.read()
-            if path == os.path.join(UI_DIR, "index.html"):
-                # The chosen theme's colours, there from the first paint (no flash of another theme)
-                body = body.replace(b'<style id="theme-vars"></style>',
-                                    f'<style id="theme-vars">{self.server.api.theme_css()}</style>'.encode("utf-8"))
-            return self._send(200, body, ctype)
+    def get(self, rest: str, query: dict) -> bool:
         if rest.startswith("asset/"):
-            return self._asset(rest[6:], parse_qs(url.query))
-        self._send(404, b"not found", "text/plain")
+            self._asset(rest[6:], query)
+            return True
+        return False
 
     def _asset(self, name: str, query: dict) -> None:
         cache = get_cache()
@@ -114,48 +82,11 @@ class Handler(BaseHTTPRequestHandler):
         with open(src, "rb") as fh:
             self._send(200, fh.read(), ctype, cache=True)
 
-    def do_POST(self):
-        rest = self._check()
-        if rest is None:
-            return
-        if rest != "rpc":
-            return self._send(404, b"not found", "text/plain")
-        length = int(self.headers.get("Content-Length", "0"))
-        caller = getattr(self.server.api, "_caller", None)   # the window asking (each request has its own thread)
-        try:
-            req = json.loads(self.rfile.read(length) or b"{}")
-            method = req.get("method", "")
-            fn = getattr(self.server.api, method, None)
-            if method.startswith("_") or not callable(fn):
-                raise ValueError(f"unknown method {method}")
-            if caller is not None:
-                caller.win = req.get("win")
-            result = fn(*req.get("args", []), **req.get("kwargs", {}))
-            body = json.dumps({"result": result}).encode("utf-8")
-        except Exception as exc:
-            body = json.dumps({"error": f"{type(exc).__name__}: {exc}",
-                               "trace": traceback.format_exc()[-2000:]}).encode("utf-8")
-        finally:
-            if caller is not None:
-                caller.win = None
-        self._send(200, body, "application/json")
 
-
-class AppServer(ThreadingHTTPServer):
-    daemon_threads = True
-    # Connections waiting to be taken: the editor opens one per request, in bursts (a page of
-    # previews, several windows), and Windows refuses those past this number outright, which the
-    # editor sees as a request that failed. Python's own 5 was met by the self-test on Windows
-    request_queue_size = 128
-
+class AppServer(_shared.AppServer):
     def __init__(self, api, port: int = 0):
-        super().__init__(("127.0.0.1", port), Handler)
-        self.api = api
-        self.token = secrets.token_urlsafe(16)
-
-    @property
-    def url(self) -> str:
-        return f"http://127.0.0.1:{self.server_address[1]}/{self.token}/"
+        # (the self-test's helpers, selftest_*, answer only while testing, as they check themselves)
+        super().__init__(api, Handler, port, testing=bool(os.environ.get("MOSAIC_FAKE_CLIPBOARD")))
 
 
 def start_server(api, port: int = 0) -> AppServer:

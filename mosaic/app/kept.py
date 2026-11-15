@@ -17,10 +17,12 @@ where the disk allows, so they take no room of their own while the cache has the
 it doesn't. A copy is read back with load(). Placed files no copy uses any more go when copies
 do (_sweep). Copies kept before this (whole documents) read back as they are; should a copy not
 be writable this way, the whole document is kept instead.
+
+The parts any app's kept copies need (files kept once as hard links, sweeping, small JSON files, a
+file's key) are the shared library's (_labapp/kept.py).
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -29,6 +31,7 @@ import time
 import zipfile
 
 from .. import docfile
+from .._labapp import kept as _shared
 from ..assets import get_cache
 from ..fonts import config_dir
 
@@ -64,18 +67,9 @@ def _store(z: zipfile.ZipFile, member: zipfile.ZipInfo, name: str) -> None:
     dest = os.path.join(store_root(), name[:2], name)
     if os.path.exists(dest):
         return
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    cached = os.path.join(get_cache().root, name[:2], name)
-    try:
-        if os.path.getsize(cached) == member.file_size:
-            os.link(cached, dest)
-            return
-    except OSError:   # (not in the cache, or a disk without hard links)
-        pass
-    tmp = f"{dest}.{os.getpid()}.tmp"
-    with z.open(member) as src, open(tmp, "wb") as out:
-        shutil.copyfileobj(src, out)
-    os.replace(tmp, dest)
+    if not _shared.link(os.path.join(get_cache().root, name[:2], name), dest, size=member.file_size):
+        with z.open(member) as src:   # (not in the cache)
+            _shared.copy_stream(src, dest)
 
 
 def _slim(src: str, dest: str) -> None:
@@ -139,27 +133,11 @@ def _sweep() -> None:
                     if got is None and not n.endswith(".tmp"):
                         return   # a copy that can't be read: nothing is removed on its account
                     used |= got or set()
-    now = time.time()
-    for folder, _, names in os.walk(root):
-        for n in names:
-            p = os.path.join(folder, n)
-            try:
-                st = os.stat(p)
-                if n not in used and now - max(st.st_ctime, st.st_mtime) > _SWEEP_GRACE:
-                    os.remove(p)   # one of mosaic's own stored files, used by no kept copy
-            except OSError:
-                pass
+    _shared.sweep(root, used, _SWEEP_GRACE)   # mosaic's own stored files, used by no kept copy
 
 
 def _stored_bytes() -> int:
-    total = 0
-    for folder, _, names in os.walk(store_root()):
-        for n in names:
-            try:
-                total += os.path.getsize(os.path.join(folder, n))
-            except OSError:
-                pass
-    return total
+    return _shared.tree_bytes(store_root())
 
 
 def load(path: str) -> dict:
@@ -167,13 +145,12 @@ def load(path: str) -> dict:
     return docfile.load(path, assets_dir=store_root())
 
 
-def _same(path: str) -> str:
-    return os.path.normcase(os.path.realpath(os.path.abspath(os.path.expanduser(path))))
+_same = _shared.same_path
 
 
 def file_key(path: str) -> str:
     """The versions folder's name for a document file."""
-    return hashlib.sha1(_same(path).encode("utf-8")).hexdigest()[:16]
+    return _shared.path_key(path)
 
 
 def _copies(folder: str) -> list[tuple[str, float, int]]:
@@ -192,17 +169,12 @@ def _copies(folder: str) -> list[tuple[str, float, int]]:
 
 
 def _info(folder: str) -> dict:
-    try:
-        with open(os.path.join(folder, "info.json"), encoding="utf-8") as fh:
-            return json.load(fh)
-    except (OSError, ValueError):
-        return {}
+    got = _shared.read_json(os.path.join(folder, "info.json"), {})
+    return got if isinstance(got, dict) else {}
 
 
 def _set_info(folder: str, **values) -> None:
-    info = {**_info(folder), **values}
-    with open(os.path.join(folder, "info.json"), "w", encoding="utf-8") as fh:
-        json.dump(info, fh)
+    _shared.write_json(os.path.join(folder, "info.json"), {**_info(folder), **values})
 
 
 def _keep(src: str, folder: str, when: float, every: float = 0) -> str | None:

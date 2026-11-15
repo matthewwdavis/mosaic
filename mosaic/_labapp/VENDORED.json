@@ -1,11 +1,17 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "7a4bb59",
+ "commit": "200b74c",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "diagnostics.py": "583054798a36d075ecf1a71753a8b6240b7a6dc0f2fecb55498a88a017e70e2a",
+  "kept.py": "74ff94d6244a2febb0fbc845e48f9cef4ceb3b4f96493e83912bca86edf14e9d",
   "oslock.py": "6c362ca83197458df3b23ae5b72c13e48fcf90ddd52500e5c1006be7ee33522e",
-  "platform.py": "32dde2d6987ce1c2c84c21344ed9da446422b19d083355c157c364c4cf288dec"
+  "platform.py": "32dde2d6987ce1c2c84c21344ed9da446422b19d083355c157c364c4cf288dec",
+  "server.py": "512138705e989be9c8b62eb7cdba0d3d10e659fe273bfdd44edcd3fd441c96f3",
+  "mac/__init__.py": "c8d654111e586466e550da6435d7a71bd6fd5efadc02f721e740835eb3d4ac99",
+  "mac/finder.py": "da67c5b80c830358bb664ce9c428bd53e31b2c4b3b0977760acd55fab793e51f",
+  "mac/menu.py": "cb2e26656f088934881fc28d2ed64a99f32b9eb1fcb8b8d1376b55cfac1a13df",
+  "mac/title.py": "887c638af09b6f96196e7c93e7ecf5f81c637042ce00271caaba75cde78ed95f"
  }
 }
