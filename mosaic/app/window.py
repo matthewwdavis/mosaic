@@ -150,7 +150,9 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
     window = make_window(document, first=True)
 
     def close_all():
+        """The checks' windows closed without the question about unsaved changes (nobody's there to answer)."""
         for w in list(api._windows.values()):
+            w.confirm_close = False
             w.destroy()
 
     def wait_ready(w, tries=150):
