@@ -388,11 +388,70 @@ class WindowsClipboard:
         return data.rstrip(b"\x00") if kind == "svg" else data
 
 
+class LinuxClipboard:
+    """Linux's clipboard, read with the desktop's own tool: wl-paste on Wayland (wl-clipboard),
+    xclip on X11. Neither there: no system clipboard (LookupError), and pastes are mosaic's own."""
+
+    TYPES = {"files": ("text/uri-list",), "text": ("text/plain;charset=utf-8", "UTF8_STRING", "text/plain", "STRING"),
+             "html": ("text/html",), "pdf": ("application/pdf",), "svg": ("image/svg+xml",), "png": ("image/png",),
+             "tiff": ("image/tiff",), "jpeg": ("image/jpeg",)}
+
+    def __init__(self):
+        import shutil
+        if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-paste"):
+            self.tool = "wl-paste"
+        elif os.environ.get("DISPLAY") and shutil.which("xclip"):
+            self.tool = "xclip"
+        else:
+            raise LookupError("no wl-paste or xclip")
+
+    def _run(self, mime: str | None) -> bytes | None:
+        """The clipboard as `mime` (None: the list of what it holds); None if it isn't there."""
+        import subprocess
+        if self.tool == "wl-paste":
+            cmd = ["wl-paste", "--list-types"] if mime is None else ["wl-paste", "--no-newline", "--type", mime]
+        else:
+            cmd = ["xclip", "-selection", "clipboard", "-o", "-t", mime or "TARGETS"]
+        try:
+            got = subprocess.run(cmd, capture_output=True, timeout=3, stdin=subprocess.DEVNULL)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        return got.stdout if got.returncode == 0 else None
+
+    def _types(self) -> list[str]:
+        return (self._run(None) or b"").decode("utf-8", "replace").split()
+
+    def _mime(self, kind: str) -> str | None:
+        types = self._types()
+        return next((m for m in self.TYPES.get(kind, ()) if m in types), None)
+
+    def count(self) -> int:
+        """There's no count of changes to ask for: a number that differs when what's held does."""
+        import zlib
+        return zlib.crc32(" ".join(self._types()).encode() + b"\0" + (self._run(self._mime("text")) or b"")[:4096])
+
+    def available(self) -> set[str]:
+        types = set(self._types())
+        return {k for k, mimes in self.TYPES.items() if types.intersection(mimes)}
+
+    def get(self, kind: str):
+        mime = self._mime(kind)
+        data = self._run(mime) if mime else None
+        if data is None:
+            return None
+        if kind == "files":
+            from urllib.parse import unquote, urlsplit
+            lines = [ln.strip() for ln in data.decode("utf-8", "replace").splitlines()]
+            return [unquote(urlsplit(ln).path) for ln in lines if ln.startswith("file://")]
+        return data.decode("utf-8", "replace") if kind in ("text", "html") else data
+
+
 _fake: FakeClipboard | None = None
 
 
 def backend():
-    """The clipboard to read: the fake for tests, the system's on a Mac or Windows, else None."""
+    """The clipboard to read: the fake for tests, else the system's (on Linux through wl-paste or
+    xclip), else None."""
     global _fake
     if os.environ.get("MOSAIC_FAKE_CLIPBOARD"):
         if _fake is None:
@@ -403,7 +462,9 @@ def backend():
             return MacClipboard()
         if sys.platform == "win32":
             return WindowsClipboard()
-    except Exception:   # noqa: BLE001 (no AppKit, no user32: no clipboard)
+        if sys.platform.startswith("linux"):
+            return LinuxClipboard()
+    except Exception:   # noqa: BLE001 (no AppKit, no user32, no wl-paste or xclip: no clipboard)
         return None
     return None
 

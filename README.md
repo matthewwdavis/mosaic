@@ -31,8 +31,9 @@ mosaic does the job people usually do in PowerPoint, without PowerPoint's damage
   copying a style from one object to others.
 
 > **Status: early version, for collaborators' feedback.** mosaic was called FigAssemble until
-> November 2026; its `.figasm` documents open as they are. Developed and tested on a Mac; Windows should work but hasn't been tried on a real Windows
-> computer yet, so please [report anything odd](#feedback).
+> November 2026; its `.figasm` documents open as they are. Developed and tested on a Mac. On Windows and Linux the
+> tests, the installers and the app's window are checked automatically on every change, but it
+> hasn't been used day to day there yet, so please [report anything odd](#feedback).
 
 ## Install
 
@@ -68,7 +69,21 @@ and, under **Assets**, click **mosaic-…zip** (the one with the version number 
 3. A window shows the progress. When it finishes, mosaic starts. From now on, start it from
    the **Start menu** or the **desktop** shortcut.
 
-**Updating:** mosaic updates itself. When a new version is out, it downloads it and installs it
+### Linux
+
+1. Extract the downloaded ZIP and open a terminal in the extracted folder (named after the
+   version, such as `mosaic-0.2.0`).
+2. Run **`bash install-linux.sh`**. Nothing is installed system-wide and no password is asked for.
+3. When it finishes, mosaic starts. From now on it's in your applications menu, and `mosaic`
+   starts it from a terminal.
+
+To paste pictures copied in other programs, mosaic uses your desktop's clipboard tool:
+`wl-clipboard` on Wayland or `xclip` on X11 (install one with your package manager if neither is
+there). On Linux mosaic doesn't update itself yet: download the newest release and run its
+installer again. On a computer without a desktop (a cluster login node, say), `mosaic gui --browser`
+runs it in your web browser instead (see the [guide](docs/guide.md#in-a-web-browser)).
+
+**Updating:** on a Mac and Windows mosaic updates itself. When a new version is out, it downloads it and installs it
 when you quit mosaic, then says what's new. **Settings → Updates** switches this to asking
 first, or off, and can go back to the version before. While the repository is private,
 mosaic asks you to sign in to GitHub once, to download updates (see the

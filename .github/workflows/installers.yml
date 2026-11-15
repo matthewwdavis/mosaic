@@ -1,6 +1,8 @@
-# Runs both installers on fresh machines without conda, as a collaborator would, and checks the
-# result; then the installed copy updates itself, goes back a version and takes a test version
-# (tools/update_e2e.py, from a stand-in GitHub). Only when the installers, what they install or
+# Runs the installers on fresh machines without conda, as a collaborator would, and checks the
+# result, opening the installed app in its real window (hidden) on each system; then on a Mac
+# and Windows the installed copy updates itself, goes back a version and takes a test version
+# (tools/update_e2e.py, from a stand-in GitHub). Windows is also installed for an account whose
+# folder has a space in its name. Only when the installers, what they install or
 # the updates change (macOS minutes cost more), or by hand.
 name: installers
 
@@ -11,6 +13,10 @@ on:
     paths:
       - install-mac.command
       - install-windows.bat
+      - install-linux.sh
+      - mosaic/app/window.py
+      - mosaic/app/closing.py
+      - mosaic/app/winruntime.py
       - environment.yml
       - pyproject.toml
       - packaging/**
@@ -41,6 +47,12 @@ jobs:
           "$py" -c "import mosaic, os; ui = os.path.join(os.path.dirname(mosaic.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(mosaic.__file__)"
           "$py" -c "import Foundation; name = Foundation.NSBundle.mainBundle().infoDictionary()['CFBundleName']; assert name == 'mosaic', name"
           "$py" -m mosaic export --help
+      - name: The installed app opens its window with the editor in it
+        run: |
+          py="$RUNNER_TEMP/Applications/mosaic.app/Contents/MacOS/python"
+          cd "$RUNNER_TEMP"
+          MOSAIC_HOME="$(mktemp -d)" MOSAIC_SMOKETEST=launch MOSAIC_NO_UPDATES=1 "$py" -P -m mosaic | tee smoke.txt
+          grep -q 'SMOKE launch: {"ready": true' smoke.txt
       - name: Double-clicking a .mosaic opens it in the installed app
         run: |
           py="$RUNNER_TEMP/Applications/mosaic.app/Contents/MacOS/python"
@@ -61,9 +73,20 @@ jobs:
           "$py" tools/update_e2e.py --python "$py"
 
   windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ["", "Test User"]   # (the account's folder as it is; one with a space in its name)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - name: An account folder with a space in its name
+        if: matrix.profile != ''
+        shell: pwsh
+        run: |
+          $p = Join-Path $env:RUNNER_TEMP '${{ matrix.profile }}'
+          New-Item -ItemType Directory -Force $p | Out-Null
+          "USERPROFILE=$p" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Run the Windows installer
         shell: cmd
         run: install-windows.bat
@@ -80,6 +103,20 @@ jobs:
           & $py -c "import mosaic, os; ui = os.path.join(os.path.dirname(mosaic.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(mosaic.__file__)"
           & $py -m mosaic export --help
           if ($LASTEXITCODE -ne 0) { throw "mosaic didn't start" }
+      - name: The installed app opens its window (WebView2) with the editor in it
+        shell: pwsh
+        run: |
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\mosaic.lnk'
+          $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath
+          $py = Join-Path (Split-Path $target) 'python.exe'
+          Set-Location $env:RUNNER_TEMP
+          $env:MOSAIC_HOME = Join-Path $env:RUNNER_TEMP 'smoke-home'
+          $env:MOSAIC_SMOKETEST = '1'
+          $env:MOSAIC_NO_UPDATES = '1'
+          $out = & $py -P -m mosaic 2>&1 | Out-String
+          Write-Output $out
+          if ($out -notmatch 'SMOKE ready errors=\[\]') { throw "the editor didn't start in the window" }
+          if ($out -notmatch 'close confirmation: False before an edit, True after') { throw "an edit didn't reach the window" }
       - name: Double-clicking a .mosaic opens it in mosaic; decks have it under Open with
         shell: pwsh
         run: |
@@ -103,3 +140,30 @@ jobs:
           $py = Join-Path (Split-Path $target) 'python.exe'
           & $py tools/update_e2e.py --python $py
           if ($LASTEXITCODE -ne 0) { throw "updating didn't work" }
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the Linux installer
+        run: bash install-linux.sh
+        env:
+          MOSAIC_NO_OPEN: "1"
+          MOSAIC_ENV: mosaic-installed
+      - name: Check the applications menu entry and the installed copy of mosaic
+        run: |
+          entry="$HOME/.local/share/applications/mosaic.desktop"
+          test -f "$entry" && test -f "$HOME/.local/share/mime/packages/mosaic.xml"
+          py="$(sed -n 's/^Exec="\(.*\)" -P -m mosaic %f$/\1/p' "$entry")"
+          test -x "$py"
+          echo "PY=$py" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"   # away from the source folder, so the installed copy is the one tested
+          "$py" -c "import mosaic, os; ui = os.path.join(os.path.dirname(mosaic.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(mosaic.__file__)"
+          "$py" -m mosaic export --help
+      - name: The installed app opens its window (Qt) with the editor in it
+        run: |
+          cd "$RUNNER_TEMP"
+          MOSAIC_HOME="$(mktemp -d)" MOSAIC_SMOKETEST=1 MOSAIC_NO_UPDATES=1 \
+            timeout 300 xvfb-run -a "$PY" -P -m mosaic 2>&1 | tee smoke.txt
+          grep -q 'SMOKE ready errors=\[\]' smoke.txt
+          grep -q 'close confirmation: False before an edit, True after' smoke.txt

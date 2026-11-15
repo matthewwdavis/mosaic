@@ -252,3 +252,28 @@ def test_windows_clipboard_powerpoint(fixtures):
     kind, got = cb.plan(w)
     assert kind == "shapes" and got["data"].startswith(shapes) and got["source"] == "C:\\Talks\\deck.pptx"
     assert cb.plan(w, "picture")[0] == "picture"
+
+
+def test_linux_reads_the_clipboard_through_the_desktops_tool(monkeypatch):
+    """wl-paste or xclip (mosaic/app/clipboard.py LinuxClipboard): what's held, by kind."""
+    import shutil
+
+    from mosaic.app.clipboard import LinuxClipboard
+    monkeypatch.setenv("DISPLAY", ":0")
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/xclip" if name == "xclip" else None)
+    cb = LinuxClipboard()
+    assert cb.tool == "xclip"
+    held = {None: b"TARGETS\nUTF8_STRING\ntext/html\nimage/png\ntext/uri-list\n", "UTF8_STRING": "café".encode(),
+            "text/html": b"<b>bold</b>", "image/png": b"\x89PNG", "text/uri-list": b"file:///home/a/my%20plot.pdf\r\n# note\r\n"}
+    monkeypatch.setattr(cb, "_run", lambda mime: held.get(mime))
+    assert cb.available() == {"text", "html", "png", "files"}
+    assert cb.get("text") == "café" and cb.get("html") == "<b>bold</b>" and cb.get("png") == b"\x89PNG"
+    assert cb.get("files") == ["/home/a/my plot.pdf"] and cb.get("pdf") is None
+    before = cb.count()
+    held["UTF8_STRING"] = b"other"
+    assert cb.count() != before
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    import pytest
+    with pytest.raises(LookupError):
+        LinuxClipboard()

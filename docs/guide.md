@@ -1466,6 +1466,32 @@ mosaic --browser                          # use a web browser instead of the app
 mosaic update                             # look for an update (--install installs it)
 ```
 
+### In a web browser
+
+`mosaic --browser` runs the same editor in your web browser instead of mosaic's own window.
+It's the way to use mosaic on a computer without a desktop, and a fallback anywhere the app
+window won't open. Files are opened and saved by typing their path (there's no file chooser),
+and drags from PowerPoint and the system clipboard's pictures aren't available; everything else
+works the same.
+
+**On a cluster or another remote computer**, where your plots are, run mosaic there and look at
+it from your own computer through an SSH tunnel:
+
+```sh
+# 1. On the remote computer (in its mosaic environment): pick a port, say 8765
+mosaic gui --browser --port 8765
+#    It prints an address like http://127.0.0.1:8765/3f9c.../ui/index.html and keeps running.
+
+# 2. On your own computer, in another terminal: carry that port over SSH
+ssh -N -L 8765:127.0.0.1:8765 you@cluster.example.edu
+
+# 3. Open the printed address in your own browser.
+```
+
+The address holds a key that's new each time mosaic starts, and mosaic answers only on the
+remote computer itself, so nobody else on the cluster can open your figures without that
+address. Paths you type are the remote computer's. Press Ctrl+C in the first terminal to stop.
+
 ## Troubleshooting
 
 **The Mac installer won't open.** macOS blocks scripts downloaded from the internet until you
