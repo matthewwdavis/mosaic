@@ -31,3 +31,25 @@ def test_the_dock_icon_is_the_one_for_the_systems_appearance(monkeypatch):
     assert dockicon.apply() == "dark" and shown[-1] == dockicon._state["dark"]
     monkeypatch.setattr(dockicon, "is_dark", lambda: False)
     assert dockicon.apply() == "light" and shown[-1] == dockicon._state["light"]
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="a Mac's app")
+def test_the_app_carries_the_icon_macos_draws_light_or_dark_by_itself(tmp_path):
+    """packaging/macos/Assets.car (compiled from mosaic.icon by labapp's tools/make_mac_icon.py) goes
+    into the app with CFBundleIconName, beside the drawn .icns older Macs use."""
+    import json
+    import os
+    import plistlib
+    import subprocess
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    doc = json.load(open(os.path.join(root, "packaging", "macos", "mosaic.icon", "icon.json")))
+    assert [f.get("appearance") for f in doc["fill-specializations"]] == [None, "dark"]
+    for layer in doc["groups"][0]["layers"]:
+        assert os.path.isfile(os.path.join(root, "packaging", "macos", "mosaic.icon", "Assets", layer["image-name"]))
+    subprocess.run([sys.executable, os.path.join(root, "packaging", "macos", "make_app.py"), "--dest", str(tmp_path), "--no-register"],
+                   check=True, capture_output=True)
+    app = tmp_path / "mosaic.app" / "Contents"
+    info = plistlib.load(open(app / "Info.plist", "rb"))
+    assert info["CFBundleIconName"] == "mosaic" and info["CFBundleIconFile"] == "mosaic"
+    assert (app / "Resources" / "Assets.car").read_bytes() == open(os.path.join(root, "packaging", "macos", "Assets.car"), "rb").read()
+    assert (app / "Resources" / "mosaic.icns").is_file()

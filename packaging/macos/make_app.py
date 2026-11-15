@@ -47,7 +47,8 @@ SPEC = packaging.AppSpec(
     draw_icon=draw_icon, conforms=["public.data", "public.composite-content"],
     alt_name="PowerPoint deck", alt_key="Deck", alt_mac_types=DECK_TYPES, alt_extensions=[".pptx", ".pptm", ".potx"],
     alt_mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    categories="Graphics;Science;")
+    categories="Graphics;Science;",
+    icon_assets=os.path.join(HERE, "Assets.car"))   # (the icon, light or dark with the system on macOS 26 and later)
 
 
 def document_types() -> dict:

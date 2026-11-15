@@ -45,6 +45,8 @@ class AppSpec:
     alt_mime: str = ""
     categories: str = "Office;"                 # the Linux menu's
     shortcut_args: str = ""                     # a Windows shortcut's arguments; "-m <module>" unless given
+    icon_assets: str = ""                       # a Mac's Assets.car holding the icon named <name> (tools/make_mac_icon.py):
+                                                # macOS 26 and later draw it in the system's appearance, light or dark
 
     @property
     def extensions(self) -> list:
@@ -126,7 +128,10 @@ def mac_app(spec: AppSpec, dest: str, command: list | None = None, do_register: 
         "NSHighResolutionCapable": True, **document_types(spec),
     }
     if has_icon:
-        info["CFBundleIconFile"] = spec.name
+        info["CFBundleIconFile"] = spec.name   # (the drawn icon: what a Mac before macOS 26 shows)
+    if spec.icon_assets and os.path.isfile(spec.icon_assets):
+        shutil.copyfile(spec.icon_assets, os.path.join(res, "Assets.car"))
+        info["CFBundleIconName"] = spec.name   # (macOS 26 and later: the icon in Assets.car, light or dark with the system)
     with open(os.path.join(app, "Contents", "Info.plist"), "wb") as fh:
         plistlib.dump(info, fh)
     if do_register and sys.platform == "darwin":

@@ -4,7 +4,9 @@ Light mode, its dark one in Dark mode, changed as the system changes.
     dockicon.follow(light_png_bytes, dark_png_bytes)      # once the app has started; any thread
 
 This is the icon of the running app (the Dock, the app switcher). The icon the Finder and the Dock
-show for an app that isn't running is the one in its bundle, which this doesn't change.
+show for an app that isn't running is the one in its bundle: on macOS 26 and later a bundle made
+with an Assets.car (packaging.AppSpec.icon_assets) follows the system by itself, and this then
+leaves the icon to macOS.
 """
 from __future__ import annotations
 
@@ -39,10 +41,27 @@ def apply() -> str | None:
     return which
 
 
+def system_follows() -> bool:
+    """Whether macOS draws this app's icon in the system's appearance by itself: an app bundle that
+    names an icon in its Assets.car (packaging.mac_app's CFBundleIconName), on macOS 26 or later."""
+    import platform
+
+    import Foundation
+    try:
+        major = int(platform.mac_ver()[0].split(".")[0])
+    except (ValueError, IndexError):
+        return False
+    info = Foundation.NSBundle.mainBundle().infoDictionary() or {}
+    return major >= 26 and bool(info.get("CFBundleIconName"))
+
+
 def follow(light: bytes, dark: bytes) -> None:
-    """Show the icon for the system's appearance, and change it when the system's changes."""
+    """Show the icon for the system's appearance, and change it when the system's changes; left
+    to macOS where it does that itself (system_follows), so its tinted and clear icons work too."""
     import Foundation
     from PyObjCTools import AppHelper
+    if system_follows():
+        return
     _state.update(light=light, dark=dark)
     _state.pop("shown", None)
 
