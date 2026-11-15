@@ -58,6 +58,10 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                 time.sleep(3600)
         except KeyboardInterrupt:
             return 0
+    if sys.platform == "win32":
+        from . import winruntime
+        if not winruntime.ensure():   # (no WebView2: said so, with where to get it)
+            return 1
     import webview
     from webview.dom import DOMEventHandler
 

@@ -1,23 +1,25 @@
 name: mosaic
 channels:
   - conda-forge
+# Each library is held to the major version mosaic is tested with (2026-11), so an install made
+# months from now gets the same generation of everything; raise a bound when a newer one is tried.
 dependencies:
   - python=3.12
   - pip
-  - pikepdf        # PDF writing; places PDF pages unchanged
-  - pypdfium2      # rendering (previews, PNG/TIFF export)
-  - pillow
-  - lxml
-  - fonttools      # font metrics and embedding
-  - numpy
-  - shapely>=2.1   # areas enclosed by lines and shapes (live area fills)
-  - skia-pathops>=0.8   # Pathfinder: combining shapes with exact curves
-  - matplotlib-base     # equations: LaTeX maths drawn as real text (mathtext)
-  - python-pptx         # export to editable PowerPoint
-  - cryptography        # checks that an update was signed with the release key
+  - pikepdf>=10,<11     # PDF writing; places PDF pages unchanged
+  - pypdfium2>=5,<6     # rendering (previews, PNG/TIFF export)
+  - pillow>=12,<14
+  - lxml>=5,<7
+  - fonttools>=4.50,<5     # font metrics and embedding
+  - numpy>=2,<3
+  - shapely>=2.1,<3  # areas enclosed by lines and shapes (live area fills)
+  - skia-pathops>=0.8,<1  # Pathfinder: combining shapes with exact curves
+  - matplotlib-base>=3.9,<4    # equations: LaTeX maths drawn as real text (mathtext)
+  - python-pptx>=1,<2        # export to editable PowerPoint
+  - cryptography>=44       # checks that an update was signed with the release key
   - pytest
   - ghostscript    # optional: EPS export, CMYK PDF
   - librsvg        # optional: SVG -> PDF when a plot has no PDF copy
   - poppler        # optional: PDF -> SVG when a plot has no SVG copy
   - pip:
-      - pywebview>=6   # app window (conda-forge has no macOS build)
+      - pywebview>=6,<7  # app window (conda-forge has no macOS build)
