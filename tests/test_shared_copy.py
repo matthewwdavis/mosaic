@@ -44,3 +44,19 @@ def test_the_copy_matches_labapp_when_it_is_beside_mosaic():
             with open(path, "rb") as fh:
                 theirs[os.path.relpath(path, source).replace(os.sep, "/")] = hashlib.sha256(fh.read().replace(b"\r\n", b"\n")).hexdigest()   # (as git may check it out on Windows)
     assert _files() == theirs, "mosaic/_labapp is behind labapp: run labapp's tools/vendor.py"
+
+
+def test_the_installers_are_as_labapp_writes_them():
+    """The three installers come from labapp's one set (its tools/make_installers.py)."""
+    import importlib.util
+    import pytest
+    root = os.path.dirname(os.path.dirname(COPY))
+    tool = os.path.join(root, os.pardir, "labapp", "tools", "make_installers.py")
+    if not os.path.isfile(tool):
+        pytest.skip("labapp isn't beside mosaic here")
+    spec = importlib.util.spec_from_file_location("make_installers", tool)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    for name, text in mod.installers(root).items():
+        with open(os.path.join(root, name), encoding="utf-8", newline="") as fh:
+            assert fh.read() == text, f"{name} was edited in place: change labapp's installers/{name}.in and run its tools/make_installers.py"

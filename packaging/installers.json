@@ -1,0 +1,7 @@
+{
+ "app": "mosaic",
+ "APP": "MOSAIC",
+ "self_updates": true,
+ "clipboard_note": true,
+ "start_flags": ""
+}

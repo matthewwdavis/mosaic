@@ -29,7 +29,8 @@ KEEP_WAIT = 5.0   # seconds a window waits for its copy to be kept, before it cl
 # What the app says of itself (configure): its name; what it calls a document ("document"); the
 # editor's promises that save the document to close it (true once saved) and keep a copy of its
 # changes; and doc_of(api, window) -> {"name", "path", "autosave"} for the window's document
-cfg: dict = {"name": "app", "thing": "document", "save_js": "", "keep_js": "",
+# detail: what the question says under its first line, for an app that keeps no copy at Don't Save
+cfg: dict = {"name": "app", "thing": "document", "save_js": "", "keep_js": "", "detail": None,
              "doc_of": lambda api, window: api._doc_of(window)}
 
 
@@ -44,7 +45,7 @@ def question(name: str, has_file: bool) -> dict:
     """What the question says: {"message", "detail", "save"} (Save… for a document never saved,
     as saving it opens the Save dialog)."""
     return {"message": f"Do you want to save the changes made to “{name}”?",
-            "detail": f"If you don’t save, {cfg['name']} keeps a copy of your changes and offers it back the next time it starts.",
+            "detail": cfg["detail"] or f"If you don’t save, {cfg['name']} keeps a copy of your changes and offers it back the next time it starts.",
             "save": "Save" if has_file else "Save…"}
 
 

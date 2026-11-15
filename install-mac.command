@@ -46,7 +46,7 @@ failed() {
 trap 'failed "a step failed (the messages above say why)"' ERR
 env_hash() { shasum -a 256 environment.yml | cut -d' ' -f1; }
 
-[ "$(uname)" = "Darwin" ] || failed "this installer is for Macs; on Windows use install-windows.bat"
+[ "$(uname)" = "Darwin" ] || failed "this installer is for Macs; on Windows use install-windows.bat, on Linux install-linux.sh"
 [ -f environment.yml ] || failed "run this file from inside the mosaic folder you downloaded"
 APP_DIR="${MOSAIC_APP_DIR:-/Applications}"
 
