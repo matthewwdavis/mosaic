@@ -2,7 +2,7 @@
 rem Installs mosaic on Windows. Double-click this file (if Windows says it protected your
 rem PC, click "More info" and then "Run anyway").
 rem
-rem It installs conda (Miniforge, in your user folder) if you don't have conda yet, makes a conda
+rem It installs conda (Miniforge, in your user folder; see MF_DIR below) if you don't have conda yet, makes a conda
 rem environment called "mosaic" with everything mosaic needs, and adds mosaic to
 rem the Start menu and the desktop. Running it again updates an earlier installation. It needs
 rem an internet connection and about 2 GB of disk space; the first run takes 5-15 minutes.
@@ -24,6 +24,20 @@ if not exist environment.yml (
   goto failed
 )
 
+rem Where conda goes if it has to be installed: your user folder, unless that folder's name has a
+rem space or a letter outside plain English in it (Miniforge refuses those): then a folder of its
+rem own on the system drive, named after the account in plain letters.
+set "MF_DIR=%USERPROFILE%\miniforge3"
+powershell -NoProfile -Command "if ($env:USERPROFILE -match '\s|\P{IsBasicLatin}') { exit 1 }"
+if errorlevel 1 (
+  set "MF_USER="
+  powershell -NoProfile -Command "$env:USERNAME -replace '\P{IsBasicLatin}','' -replace '\W',''" > "%TEMP%\mosaic-user.txt"
+  if exist "%TEMP%\mosaic-user.txt" set /p MF_USER=<"%TEMP%\mosaic-user.txt"
+  del "%TEMP%\mosaic-user.txt" >nul 2>nul
+  if not defined MF_USER set "MF_USER=user"
+  set "MF_DIR=%SystemDrive%\miniforge3-!MF_USER!"
+)
+
 rem 0. An update from mosaic itself: it closes first
 if defined MOSAIC_WAIT_PID (
   echo.
@@ -42,9 +56,9 @@ rem 1. Conda: use the one you have, or install Miniforge
 call :find_conda
 if not defined CONDA (
   echo.
-  echo ==^> Installing conda ^(Miniforge^) into !USERPROFILE!\miniforge3
-  if exist "%USERPROFILE%\miniforge3" (
-    set "WHY=%USERPROFILE%\miniforge3 exists but has no conda in it; move it aside and try again"
+  echo ==^> Installing conda ^(Miniforge^) into !MF_DIR!
+  if exist "!MF_DIR!" (
+    set "WHY=!MF_DIR! exists but has no conda in it; move it aside and try again"
     goto failed
   )
   powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe' -OutFile (Join-Path $env:TEMP 'Miniforge3-Windows-x86_64.exe')"
@@ -52,9 +66,9 @@ if not defined CONDA (
     set "WHY=Miniforge couldn't be downloaded; check the internet connection"
     goto failed
   )
-  start "" /wait "%TEMP%\Miniforge3-Windows-x86_64.exe" /InstallationType=JustMe /RegisterPython=0 /AddToPath=0 /S /D=!USERPROFILE!\miniforge3
+  start "" /wait "%TEMP%\Miniforge3-Windows-x86_64.exe" /InstallationType=JustMe /RegisterPython=0 /AddToPath=0 /S /D=!MF_DIR!
   del "%TEMP%\Miniforge3-Windows-x86_64.exe" >nul 2>nul
-  set "CONDA=%USERPROFILE%\miniforge3\Scripts\conda.exe"
+  set "CONDA=!MF_DIR!\Scripts\conda.exe"
   if not exist "!CONDA!" (
     set "WHY=Miniforge didn't install"
     goto failed
@@ -177,7 +191,7 @@ goto :eof
 rem Conda: the one on the PATH or in a usual place, or the base installation the environment is in
 :find_conda
 set "CONDA="
-for %%D in ("%USERPROFILE%\miniforge3" "%USERPROFILE%\mambaforge" "%USERPROFILE%\miniconda3" "%USERPROFILE%\anaconda3" "%LOCALAPPDATA%\miniforge3" "%PROGRAMDATA%\miniforge3" "%PROGRAMDATA%\miniconda3" "%PROGRAMDATA%\anaconda3") do (
+for %%D in ("%MF_DIR%" "%USERPROFILE%\miniforge3" "%USERPROFILE%\mambaforge" "%USERPROFILE%\miniconda3" "%USERPROFILE%\anaconda3" "%LOCALAPPDATA%\miniforge3" "%PROGRAMDATA%\miniforge3" "%PROGRAMDATA%\miniconda3" "%PROGRAMDATA%\anaconda3") do (
   if not defined CONDA if exist "%%~D\Scripts\conda.exe" set "CONDA=%%~D\Scripts\conda.exe"
 )
 if not defined CONDA (

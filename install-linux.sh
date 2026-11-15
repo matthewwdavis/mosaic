@@ -69,7 +69,7 @@ PY="$PREFIX/bin/python"
 # 3. The window: Qt and its web view, inside the environment with everything they need (Macs
 #    and Windows use the system's own web view)
 step "Installing the window parts (Qt)"
-"$CONDA" install -y -q -n "$ENV_NAME" -c conda-forge "pyside6>=6.6,<7" "qtpy>=2.4"
+"$CONDA" install -y -q -n "$ENV_NAME" -c conda-forge "pyside6>=6.6,<7" qt6-webengine "qtpy>=2.4"
 
 # 4. mosaic itself, copied into the environment (this folder can be deleted afterwards)
 step "Installing mosaic"
