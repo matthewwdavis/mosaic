@@ -1,9 +1,18 @@
 # A shared library under mosaic and prose: plan
 
-Written 14 November 2026, after the audit of both apps. Decision so far: **not yet**. It waits
-until prose's feature work and its Windows and Linux phase are done, so the two apps aren't
-refactored under each other. This page records what would move and in what order, so the work
-is ready to start then.
+**Done, 14 November 2026.** The library is `~/Projects/labapp` (a working name; its README says
+what's in it), and each app carries a copy in `<app>/_labapp/`. All eight parts below moved, with
+three differences from the plan:
+
+- It isn't a separate installed package pinned by version: with no GitHub repository until the
+  names are final, each app carries a copy (`labapp/tools/vendor.py`), and a test in each app
+  fails if the copy was edited or is behind.
+- Recovery copies and versions keep each app's own form (mosaic: slim `.mosaic` files by path;
+  prose: saved parts by document id). Moving either onto the other's would have changed what's on
+  people's disks. The shared part is what both are built from (`labapp/kept.py`).
+- prose has no updater wired in yet (it needs its own repository, key and GitHub app).
+
+The rest of this page is the plan as written before the work.
 
 ## Why
 
