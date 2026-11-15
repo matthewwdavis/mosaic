@@ -48,6 +48,7 @@ jobs:
           "$py" -c "import Foundation; name = Foundation.NSBundle.mainBundle().infoDictionary()['CFBundleName']; assert name == 'mosaic', name"
           "$py" -m mosaic export --help
       - name: The installed app opens its window with the editor in it
+        timeout-minutes: 6
         run: |
           py="$RUNNER_TEMP/Applications/mosaic.app/Contents/MacOS/python"
           cd "$RUNNER_TEMP"
@@ -105,6 +106,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "mosaic didn't start" }
       - name: The installed app opens its window (WebView2) with the editor in it
         shell: pwsh
+        timeout-minutes: 6
         run: |
           $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\mosaic.lnk'
           $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath
@@ -113,8 +115,9 @@ jobs:
           $env:MOSAIC_HOME = Join-Path $env:RUNNER_TEMP 'smoke-home'
           $env:MOSAIC_SMOKETEST = '1'
           $env:MOSAIC_NO_UPDATES = '1'
-          $out = & $py -P -m mosaic 2>&1 | Out-String
-          Write-Output $out
+          $env:PYTHONUNBUFFERED = '1'
+          & $py -P -m mosaic 2>&1 | Tee-Object -FilePath smoke.txt   # (shown as it goes, should it stop part-way)
+          $out = Get-Content smoke.txt -Raw
           if ($out -notmatch 'SMOKE ready errors=\[\]') { throw "the editor didn't start in the window" }
           if ($out -notmatch 'close confirmation: False before an edit, True after') { throw "an edit didn't reach the window" }
       - name: Double-clicking a .mosaic opens it in mosaic; decks have it under Open with
@@ -161,6 +164,7 @@ jobs:
           "$py" -c "import mosaic, os; ui = os.path.join(os.path.dirname(mosaic.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(mosaic.__file__)"
           "$py" -m mosaic export --help
       - name: The installed app opens its window (Qt) with the editor in it
+        timeout-minutes: 8
         run: |
           cd "$RUNNER_TEMP"
           MOSAIC_HOME="$(mktemp -d)" MOSAIC_SMOKETEST=1 MOSAIC_NO_UPDATES=1 \

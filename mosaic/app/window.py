@@ -87,7 +87,7 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         except Exception as exc:   # noqa: BLE001 (pywebview's own question asks instead)
             print(f"Asking before quitting unavailable: {exc}", file=sys.stderr, flush=True)
     smoke = os.environ.get("MOSAIC_SMOKETEST", "")
-    api.hidden_windows = bool(smoke)
+    api.hidden_windows = bool(smoke) and not os.environ.get("MOSAIC_SMOKE_SHOW")   # (shown, where a hidden one won't load)
     # Updates: looked for shortly after starting and every few hours (not while testing); one
     # downloaded installs when the last window closes (updates.py)
     updater = api.updater
@@ -139,7 +139,7 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         if first and extra:
             url += "&" + extra
         window = webview.create_window("mosaic", url, width=1440, height=920, min_size=(960, 640),
-                                       background_color="#F4F4F2", text_select=False, hidden=bool(smoke))
+                                       background_color="#F4F4F2", text_select=False, hidden=api.hidden_windows)
         api._add_window(win, window)
         window.events.loaded += lambda: on_loaded(window)
         window.events.closing += lambda: closing.on_closing(api, window)   # unsaved changes: Save, Don't Save or Cancel
@@ -193,6 +193,7 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
 
     def smoke_check():
         """Hidden-window check that the editor starts in this platform's web view."""
+        print("SMOKE the window's thread is running; waiting for the editor", flush=True)
         ready = wait_ready(window)
         if ready and "selftest" in (extra or ""):
             # A hidden window's timers run slowly, and the self-test has many short waits (it took
@@ -257,6 +258,7 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
     wording = {"global.quitConfirmation": "This figure has unsaved changes. Close without saving?",
                "global.quit": "Close without saving"}
     if smoke:
+        print(f"SMOKE starting the window ({'hidden' if api.hidden_windows else 'shown'})", flush=True)
         closing_started = [0.0]
         webview.start(launch_check if smoke == "launch" else smoke_check, localization=wording)
         print(f"SMOKE window closed in {time.time() - closing_started[0]:.2f} s", flush=True)
