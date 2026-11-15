@@ -37,8 +37,8 @@ def settled(window, choice):
 def asking(monkeypatch, choice):
     """The questions asked, each answered `choice`."""
     asked = []
-    monkeypatch.setattr(closing, "_has_question", lambda: True)   # (as on a Mac or Windows, whatever runs the tests)
-    monkeypatch.setattr(closing, "_show", lambda api, w, q, reply: (asked.append(q), reply(choice)))
+    monkeypatch.setattr(closing.shared, "_has_question", lambda: True)   # (as on a Mac or Windows, whatever runs the tests)
+    monkeypatch.setattr(closing.shared, "_show", lambda api, w, q, reply: (asked.append(q), reply(choice)))
     return asked
 
 
@@ -97,7 +97,7 @@ def test_dont_save_keeps_a_copy_then_closes_even_if_the_editor_never_answers(mon
     w.answer = True
     closing.on_closing(api, w)
     assert w.js == ["window.FA.app.keepCopy()"] and w.destroyed
-    monkeypatch.setattr(closing, "KEEP_WAIT", 0.1)
+    monkeypatch.setattr(closing.shared, "KEEP_WAIT", 0.1)
     assert settled(FakeWindow(answer=None), "discard") is True   # (it waited, then closes)
     assert settled(FakeWindow(fails=True), "discard") is True
 
@@ -113,8 +113,8 @@ def test_the_editor_says_what_its_window_has_open(tmp_path):
 
 
 def test_on_linux_pywebviews_own_question_asks_and_autosave_still_saves(monkeypatch):
-    monkeypatch.setattr(closing, "_has_question", lambda: False)
-    monkeypatch.setattr(closing, "_show", lambda *a: (_ for _ in ()).throw(AssertionError("no question of mosaic's own")))
+    monkeypatch.setattr(closing.shared, "_has_question", lambda: False)
+    monkeypatch.setattr(closing.shared, "_show", lambda *a: (_ for _ in ()).throw(AssertionError("no question of mosaic's own")))
     api, w = one_window()
     assert closing.on_closing(api, w) is None and not w.destroyed   # pywebview asks; nothing fails
     api2, w2 = one_window(path="/tmp/fig.mosaic")
@@ -136,7 +136,7 @@ def test_quitting_on_a_mac_tells_the_updater_once_it_is_really_quitting(monkeypa
     monkeypatch.setattr(BrowserView.AppDelegate, "applicationShouldTerminate_", BrowserView.AppDelegate.applicationShouldTerminate_)
     monkeypatch.setitem(macclose._state, "on_quit", None)
     called, replies = [], [macclose.TERMINATE_CANCEL, macclose.TERMINATE_NOW]
-    monkeypatch.setattr(macclose, "should_quit", lambda api: replies.pop(0))
+    monkeypatch.setattr(macclose.shared, "should_quit", lambda api: replies.pop(0))
     macclose.install(Api(), lambda: called.append(1))
     hook = BrowserView.AppDelegate.applicationShouldTerminate_
     assert hook(None, None) == macclose.TERMINATE_CANCEL and called == []   # asking about unsaved figures: not yet

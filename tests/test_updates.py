@@ -76,9 +76,9 @@ def github(tmp_path, monkeypatch):
     monkeypatch.setenv("MOSAIC_UPDATE_WEB", gh.web)
     monkeypatch.setenv("MOSAIC_UPDATE_KIND", "installed")
     monkeypatch.setenv("MOSAIC_HOME", str(tmp_path / "home"))
-    monkeypatch.setattr(updates, "INSTALLER", "install-mac.command")   # (Linux has no installer of its own)
+    monkeypatch.setattr(updates.shared, "INSTALLER", "install-mac.command")   # (Linux has no installer of its own)
     info = {**updates.settings(), "github_app_client_id": "Iv1.test"}
-    monkeypatch.setattr(updates, "settings", lambda: info)
+    monkeypatch.setattr(updates.shared, "settings", lambda: info)
     gh.folder_path = folder
     yield gh
     gh.stop()
@@ -275,11 +275,11 @@ def test_the_installer_starts_with_what_it_needs(tmp_path, monkeypatch):
     top.mkdir()
     out = tmp_path / "seen.txt"
     if sys.platform == "darwin":
-        (top / updates.INSTALLER).write_text(
+        (top / updates.shared.INSTALLER).write_text(
             f'#!/bin/bash\nprintf "%s|%s|%s\\n" "$MOSAIC_PREFIX" "$MOSAIC_NO_OPEN" "$MOSAIC_WAIT_PID" > "{out}"\n'
             'echo ok > "$MOSAIC_RESULT"\nrm -f "$MOSAIC_LOCK"\n')
     else:   # (bytes: written as text, Windows would double the line ends' CR)
-        (top / updates.INSTALLER).write_bytes(
+        (top / updates.shared.INSTALLER).write_bytes(
             f'@echo off\r\n(echo %MOSAIC_PREFIX%^|%MOSAIC_NO_OPEN%^|%MOSAIC_WAIT_PID%)>"{out}"\r\n'
             '(echo ok)>"%MOSAIC_RESULT%"\r\ndel "%MOSAIC_LOCK%"\r\n'.encode())
     up = make()
@@ -321,7 +321,7 @@ def test_windows_keeps_the_sign_in_in_its_credential_manager(monkeypatch):
 
 
 def test_a_release_zip_unpacks_only_inside_its_folder(tmp_path, monkeypatch, source):
-    monkeypatch.setattr(updates, "INSTALLER", "install-mac.command")
+    monkeypatch.setattr(updates.shared, "INSTALLER", "install-mac.command")
     good = tmp_path / "good.zip"
     release.zip_tree(str(source), "0.2.0", str(good))
     top = updates.extract(str(good), str(tmp_path / "out"))
@@ -376,7 +376,7 @@ def test_opened_again_while_an_update_installs_it_waits(tmp_path, monkeypatch):
     import threading
     monkeypatch.setenv("MOSAIC_HOME", str(tmp_path))
     closed = []
-    monkeypatch.setattr(updates, "_waiting_notice", lambda version: (lambda: closed.append(version)))
+    monkeypatch.setattr(updates.shared, "_waiting_notice", lambda version: (lambda: closed.append(version)))
     installer = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(1.5)"])
     threading.Thread(target=installer.wait, daemon=True).start()   # (as the system does once mosaic has gone)
     with open(os.path.join(updates.updates_dir(), updates.LOCK), "w") as fh:

@@ -135,8 +135,8 @@ def test_closing_a_figure_with_autosave_on_saves_without_asking(api, monkeypatch
     api._caller = type("Caller", (), {"win": "1"})()
     api.doc_state("/tmp/fig.mosaic", True, "fig", autosave=True)
     asked, answered = [], []
-    monkeypatch.setattr(closing, "_show", lambda *a: asked.append(a))
-    monkeypatch.setattr(closing, "answer", lambda window, choice, then: answered.append(choice))
+    monkeypatch.setattr(closing.shared, "_show", lambda *a: asked.append(a))
+    monkeypatch.setattr(closing.shared, "answer", lambda window, choice, then: answered.append(choice))
     closing.ask(api, w, lambda ok: None)
     assert answered == ["save"] and asked == []
     api.doc_state(None, True, "Untitled", autosave=True)   # (never saved: it asks, as before)

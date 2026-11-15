@@ -1,15 +1,19 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "200b74c",
+ "commit": "eda0a31",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
+  "closing.py": "f51c7dde465453200eb78a4ad40022a05240e5af9b64b1a5c1c3eaad4fa11cbe",
   "diagnostics.py": "583054798a36d075ecf1a71753a8b6240b7a6dc0f2fecb55498a88a017e70e2a",
   "kept.py": "74ff94d6244a2febb0fbc845e48f9cef4ceb3b4f96493e83912bca86edf14e9d",
   "oslock.py": "6c362ca83197458df3b23ae5b72c13e48fcf90ddd52500e5c1006be7ee33522e",
   "platform.py": "32dde2d6987ce1c2c84c21344ed9da446422b19d083355c157c364c4cf288dec",
   "server.py": "512138705e989be9c8b62eb7cdba0d3d10e659fe273bfdd44edcd3fd441c96f3",
+  "updates.py": "317e80cece51bcf037951a1312121cb6244aa784105f0d495d21bf45bd7aef68",
+  "winruntime.py": "ba786de490bf30eef0e0f8499fd20a4ff9c48bdb3eb3fdaca536f6b8859918a9",
   "mac/__init__.py": "c8d654111e586466e550da6435d7a71bd6fd5efadc02f721e740835eb3d4ac99",
+  "mac/close.py": "cc61b2a7b9c5f169cfc11844b9f26cfc0b5e5e3eb9798b23750fb0ce592e3574",
   "mac/finder.py": "da67c5b80c830358bb664ce9c428bd53e31b2c4b3b0977760acd55fab793e51f",
   "mac/menu.py": "cb2e26656f088934881fc28d2ed64a99f32b9eb1fcb8b8d1376b55cfac1a13df",
   "mac/title.py": "887c638af09b6f96196e7c93e7ecf5f81c637042ce00271caaba75cde78ed95f"
