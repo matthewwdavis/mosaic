@@ -72,6 +72,8 @@ def cmd_export(args) -> int:
     res = export_document(doc, base, [f.strip() for f in args.formats.split(",")], pages=pages, dpi=args.dpi,
                           transparent=not args.white, cmyk=args.cmyk, cmyk_profile=args.icc, doc_dir=doc_dir)
     if args.json:
+        shown = [doc["pages"][i] for i in (pages if pages is not None else range(len(doc["pages"])))]
+        report["pages"] = [{"name": pg.get("name", ""), "alt": (pg.get("alt") or "").strip()} for pg in shown]
         print(json.dumps({**report, "files": res["files"], "warnings": report.get("warnings", []) + res["warnings"],
                           "notes": res["notes"]}))
         return 0
@@ -86,6 +88,26 @@ def cmd_export(args) -> int:
     if report:
         k = sum(report["labels"])
         print(f"note: {k} panel label{'' if k == 1 else 's'} in {report['journal']}'s look", file=sys.stderr)
+    return 0
+
+
+def cmd_info(args) -> int:
+    """What a document holds, for other programs (prose reads each page's description here)."""
+    from .model import iter_items
+    doc, _ = _load(args.document)
+    pages = [{"number": i + 1, "name": pg.get("name", ""), "width_pt": float(pg["width"]), "height_pt": float(pg["height"]),
+              "objects": len(pg.get("items", [])), "alt": (pg.get("alt") or "").strip(),
+              # (its pictures' own descriptions, in the order they're stacked)
+              "pictures": [{"name": it.get("name") or "", "alt": it["alt"].strip()} for it in iter_items(pg.get("items", []))
+                           if (it.get("alt") or "").strip()]} for i, pg in enumerate(doc["pages"])]
+    info = {"title": (doc.get("meta") or {}).get("title", ""), "saved_by": (doc.get("meta") or {}).get("saved_by"), "pages": pages}
+    if args.json:
+        print(json.dumps(info, ensure_ascii=False))
+        return 0
+    print(info["title"] or os.path.basename(args.document))
+    for pg in pages:
+        print(f"  {pg['number']}. {pg['name']}: {pg['width_pt']:g} x {pg['height_pt']:g} pt, {pg['objects']} objects"
+              + (f"\n     {pg['alt']}" if pg["alt"] else ""))
     return 0
 
 
@@ -123,7 +145,7 @@ def cmd_gui(args) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    if not argv or (argv[0] not in ("export", "import-pptx", "fonts", "update", "gui", "-h", "--help")):
+    if not argv or (argv[0] not in ("export", "info", "import-pptx", "fonts", "update", "gui", "-h", "--help")):
         argv = ["gui"] + argv
     p = argparse.ArgumentParser(prog="mosaic", description="Assemble multi-panel figures.")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -143,6 +165,11 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--dry-run", action="store_true", help="with --journal: how many labels each page would change; nothing written")
     e.add_argument("--json", action="store_true", help="report as one JSON object")
     e.set_defaults(func=cmd_export)
+
+    n = sub.add_parser("info", help="a document's pages, their sizes and descriptions (alt text)")
+    n.add_argument("document")
+    n.add_argument("--json", action="store_true", help="as JSON, for other programs")
+    n.set_defaults(func=cmd_info)
 
     i = sub.add_parser("import-pptx", help="turn PowerPoint slides into a mosaic document")
     i.add_argument("deck")

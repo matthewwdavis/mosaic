@@ -117,6 +117,10 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
             p.step("Finishing the PDF (fonts)")
             buf = io.BytesIO()
             w.finish(embed_fonts)
+            described = [(pg.get("name") or f"Page {i + 1}", pg["alt"].strip()) for i, pg in enumerate(sel) if (pg.get("alt") or "").strip()]
+            if described:   # the figure in words (the Page panel's Description), as the PDF's Subject
+                subject = described[0][1] if n == 1 else "\n".join(f"{name}: {alt}" for name, alt in described)
+                w.pdf.docinfo[pikepdf.Name.Subject] = pikepdf.String(subject)
             w.pdf.save(buf, compress_streams=True, recompress_flate=False, deterministic_id=True,
                        object_stream_mode=pikepdf.ObjectStreamMode.generate)
             w.close_sources()

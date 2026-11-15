@@ -1448,6 +1448,12 @@ Export still work, saving what you've typed.
   right-click menu for whatever has the focus.
 - Screen readers hear what's selected, where it is, and what each action did. Pictures can carry
   a description.
+- **Describing a figure for readers who can't see it (alt text):** with nothing selected, the
+  Page panel has **Description (alt text)**. Say what the figure shows in a sentence or two
+  ("Bar chart: treated plants are 30% taller than controls at day 14"). It's saved with the
+  figure and written into the SVG export (as its description) and the PDF export (as its
+  Subject), which is where journals' submission systems and screen readers look. A manuscript
+  written in prose picks it up for its accessible PDF, so it's typed once.
 - **Settings:** interface text size, a High contrast theme (and every other theme meets WCAG AA
   contrast), labels under toolbar buttons, reduced motion. The system's dark mode, contrast and
   reduced-motion settings are followed too.
@@ -1461,6 +1467,7 @@ mosaic can also run from a terminal, with its conda environment active
 mosaic                                    # open the app
 mosaic figure.mosaic                      # open a document
 mosaic export figure.mosaic -f pdf,svg,png --dpi 600
+mosaic info figure.mosaic                 # its pages, their sizes and descriptions (--json for other programs)
 mosaic import-pptx deck.pptx --slides 13  # PowerPoint slides -> figure.mosaic
 mosaic --browser                          # use a web browser instead of the app window
 mosaic update                             # look for an update (--install installs it)

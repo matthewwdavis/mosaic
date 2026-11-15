@@ -137,6 +137,11 @@ class SvgWriter:
         root.set("width", f"{_fmt(w, 4)}pt")
         root.set("height", f"{_fmt(h, 4)}pt")
         root.set("viewBox", f"0 0 {_fmt(w, 4)} {_fmt(h, 4)}")
+        if (page.get("alt") or "").strip():
+            # The figure in words (the Page panel's Description): what a screen reader says for it
+            root.set("role", "img")
+            etree.SubElement(root, _q("title")).text = str(page.get("name") or "Figure")
+            etree.SubElement(root, _q("desc")).text = page["alt"].strip()
         self._defs = etree.SubElement(root, _q("defs"))
         self._clip = 0
         if page.get("background"):

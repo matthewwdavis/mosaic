@@ -275,6 +275,13 @@ export const inspector = {
             () => this.app.run("fitPage"), "Fit to content")),
         radioField("Background", page.background ? "white" : "none", [["none", "Transparent"], ["white", "White"]],
           (v) => this.editPage("Background", (p) => { p.background = v === "white" ? "#ffffff" : null; })),
+        // What the figure shows, in words, for readers who can't see it: it goes into the SVG and
+        // PDF exports, and a manuscript written in prose puts it in its accessible PDF
+        textArea("Description (alt text)", page.alt || "", (v) => this.editPage("Describe the figure", (p) => {
+          if (v) p.alt = v; else delete p.alt;
+        })),
+        h("p", { class: "hint" }, "What the figure shows, in a sentence or two, for readers using a screen reader. "
+          + "Saved in the SVG and PDF exports."),
       ]),
       this.guidesSection(),
       section("Document", [
