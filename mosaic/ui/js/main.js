@@ -2,8 +2,13 @@
 
 // Collected for the start-up smoke test (and handy when debugging in the app window)
 window.__faErrors = [];
-window.addEventListener("error", (e) => window.__faErrors.push(String(e.message)));
-window.addEventListener("unhandledrejection", (e) => window.__faErrors.push(String(e.reason?.message || e.reason)));
+// ...and kept in mosaic's log (the first few of a session), which Help > Report a Problem takes along
+const noteError = (text, where = "") => {
+  window.__faErrors.push(text);
+  if (window.__faErrors.length <= 30) rpc("log_error", where ? `${text} (${where})` : text).catch(() => {});
+};
+window.addEventListener("error", (e) => noteError(String(e.message), e.filename ? `${String(e.filename).split("/").pop()}:${e.lineno}` : ""));
+window.addEventListener("unhandledrejection", (e) => noteError(String(e.reason?.message || e.reason)));
 
 import { rpc } from "./api.js";
 import {
@@ -110,7 +115,7 @@ const app = {
       { title: "Window", window: true },
       { title: "Help", help: true, items: [c("Keyboard Shortcuts and Help", "shortcuts"), c("Search Commands…", "commandSearch"), "-",
         { title: "User Guide", url: `${REPO}/blob/main/docs/guide.md` },
-        { title: "Report a Problem…", url: `${REPO}/issues/new?template=problem.yml` },
+        c("Report a Problem…", "reportProblem"),
         { title: "Suggest an Idea…", url: `${REPO}/issues/new?template=idea.yml` }] },
     ];
   },
@@ -2719,6 +2724,7 @@ app.commands = {
   checkForUpdates: cmd("Check for updates", () => updates.checkNow(), null, null, "Updates"),
   commandSearch: cmd("Search commands: type to find and run any command", () => panels.commandSearch(), `${M}/`, key("/"), "Search"),
   shortcuts: cmd("Keyboard shortcuts and help", () => panels.shortcutsDialog(), "?", (e) => plain(e) && e.key === "?", "Help"),
+  reportProblem: cmd("Report a problem: save a report file to send", () => panels.problemDialog(`${REPO}/issues/new?template=problem.yml`), null, null, "Report"),
 };
 // The colour vision previews, and all of them side by side, as commands: command search finds them
 // by "colour blind", "color blind" or a kind's name

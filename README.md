@@ -156,6 +156,11 @@ Feedback is the point of this early version: what's confusing, what's missing, w
 - **[Suggest an idea](https://github.com/matthewwdavis/mosaic/issues/new?template=idea.yml)**: something mosaic should do, or
   do differently.
 
+**In mosaic, choose Help ▸ Report a Problem** (on Windows and Linux: press **?**, then **Report a
+Problem…**). It saves a small report file on your Desktop to attach to the form or an email:
+mosaic's version, your operating system, your settings and the last messages mosaic logged. It
+holds none of your figures and no names of your files, and it's a ZIP you can open to check.
+
 Each form asks for the details that help, such as what you did, what you expected and Mac or Windows.
 Screenshots help a lot: paste or drag them into the form. The version number is at the bottom of
 **Settings**. You can see existing reports under [Issues](https://github.com/matthewwdavis/mosaic/issues).

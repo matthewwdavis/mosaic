@@ -423,6 +423,31 @@ async function selectionChecks(app) {
 // puts back the version before, which stays until the file is saved again; redo takes the update
 // back. (Whether the window shows is set here, so this runs the same in the smoke test's hidden
 // window; and waits are in elapsed time, since a hidden window's timers run slowly.)
+// Help > Report a Problem: the dialog says what the report holds and takes a note; the Help dialog
+// leads to it. (The report file itself is checked by tests/test_diagnostics.py: saving one here
+// would leave a file on the Desktop.)
+async function problemReportChecks(app) {
+  const top = () => [...document.querySelectorAll("dialog[open]")].at(-1);
+  try {
+    app.run("reportProblem");
+    await until(() => top()?.querySelector("textarea"));
+    const dlg = top();
+    check(dlg?.querySelector("h2")?.textContent === "Report a problem" && dlg.querySelector("textarea")
+      && [...dlg.querySelectorAll("button")].some((b) => b.textContent === "Save Report"),
+      "Report a Problem asks what happened and offers to save a report", dlg?.textContent.slice(0, 200));
+    check(/none of your figures/.test(dlg?.textContent || ""), "the dialog says no figures or file names go in the report");
+    dlg?.close();
+    app.run("shortcuts");
+    await until(() => top()?.querySelector("table.shortcuts"));
+    const report = [...(top()?.querySelectorAll("button") || [])].find((b) => b.textContent === "Report a Problem…");
+    report?.click();
+    await until(() => top()?.querySelector("textarea"));
+    check(report && top()?.querySelector("h2")?.textContent === "Report a problem", "the Help dialog leads to Report a Problem");
+  } finally {
+    for (const d of document.querySelectorAll("dialog[open]")) d.close();
+  }
+}
+
 async function linkedFileChecks(app) {
   const showing = (on) => Object.defineProperty(document, "hidden", { get: () => !on, configurable: true });
   const soon = async (cond, ms) => { const t0 = performance.now(); while (!cond() && performance.now() - t0 < ms) await wait(50); return cond(); };
@@ -3970,6 +3995,7 @@ export async function run(app, params) {
     if (params.get("only") === "objects") { await objectsListChecks(app); throw ONLY; }   // just that part, while working on it
     if (params.get("only") === "slides") { await slidesChecks(app, ppt); throw ONLY; }
     if (params.get("only") === "links") { await linkedFileChecks(app); throw ONLY; }
+    if (params.get("only") === "problem") { await problemReportChecks(app); throw ONLY; }
     if (params.get("only") === "updates") { await updateChecks(app); throw ONLY; }
     if (params.get("only") === "selection") { await selectionChecks(app); throw ONLY; }
     if (params.get("only") === "windows") { await windowChecks(app, out); throw ONLY; }
@@ -5247,6 +5273,7 @@ export async function run(app, params) {
     await slidesChecks(app, ppt);
     info.slidesMs = Math.round(performance.now() - slidesFrom);
     await linkedFileChecks(app);
+    await problemReportChecks(app);
     await updateChecks(app);
     await windowChecks(app, out);
     await pageSizeChecks(app);

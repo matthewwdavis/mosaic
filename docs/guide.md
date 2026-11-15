@@ -1494,6 +1494,15 @@ address. Paths you type are the remote computer's. Press Ctrl+C in the first ter
 
 ## Troubleshooting
 
+**Reporting a problem.** Choose **Help ▸ Report a Problem** (on Windows and Linux: press **?**
+for the help window, then **Report a Problem…**; or type "report" in Search Commands). Say what
+happened in the box if you like and click **Save Report**. mosaic puts `mosaic-report-….zip` on
+your Desktop: its version and the versions of the libraries it uses, your operating system, how
+it was installed, your settings, and the last messages it logged (errors it met, mostly). It
+holds no figures, pictures or documents and no names of your files or folders; your home
+folder's path is written `~`. Open the ZIP to see exactly what's in it, then attach it to the
+problem form or an email.
+
 **The Mac installer won't open.** macOS blocks scripts downloaded from the internet until you
 allow them. After the warning, open **System Settings → Privacy & Security** and click **Open
 Anyway**. Or run it in Terminal: type `bash `, drag `install-mac.command` into the window, and

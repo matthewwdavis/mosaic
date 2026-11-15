@@ -1197,6 +1197,30 @@ class Api:
             self.window.confirm_close = bool(dirty)
         return True
 
+    def problem_report(self, notes: str = "") -> dict:
+        """Help > Report a Problem: the report file (diagnostics.py: versions, system, settings,
+        the log's end; nothing of the figures), saved on the Desktop and shown there."""
+        from .. import diagnostics
+        home = os.path.expanduser("~")
+        desktop = os.path.join(home, "Desktop")
+        extra = {"window": "app" if self.window is not None else "browser"}
+        try:
+            extra["updates"] = self.updater.mode()
+        except Exception:   # noqa: BLE001
+            pass
+        path = diagnostics.report(desktop if os.path.isdir(desktop) else home, self.prefs_get(), extra, str(notes or ""))
+        try:
+            self.reveal(path)
+        except Exception:   # noqa: BLE001 (it's saved all the same)
+            pass
+        return {"path": path, "name": os.path.basename(path), "folder": "Desktop" if os.path.isdir(desktop) else "home folder"}
+
+    def log_error(self, text: str) -> bool:
+        """An error in the editor's page, for the log a problem report takes along."""
+        from .. import diagnostics
+        diagnostics.note("editor: " + str(text))
+        return True
+
     def open_url(self, url: str) -> bool:
         """A web page in the browser (GitHub's sign-in page, the releases)."""
         if not url.startswith(("https://", "http://127.0.0.1", "http://localhost")):

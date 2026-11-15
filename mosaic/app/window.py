@@ -25,6 +25,8 @@ from .server import start_server
 
 
 def run_app(document: str | None = None, browser: bool = False, port: int = 0) -> int:
+    from .. import diagnostics
+    diagnostics.start_log()   # what mosaic prints is kept too, for Help > Report a Problem
     api = Api()
     left = threading.Lock()
 

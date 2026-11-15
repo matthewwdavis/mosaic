@@ -1549,7 +1549,8 @@ export const panels = {
   shortcutsDialog() {
     const rows = Object.entries(this.app.commands).filter(([, c]) => c.keys).map(([, c]) =>
       h("tr", {}, h("td", {}, c.label), h("td", {}, h("kbd", {}, c.keys))));
-    this.dialog("Keyboard shortcuts", h("div", {},
+    const report = h("button", { type: "button", class: "btn" }, "Report a Problem…");
+    const dlg = this.dialog("Keyboard shortcuts", h("div", {},
       h("table", { class: "shortcuts" }, h("thead", {}, h("tr", {}, h("th", {}, "Action"), h("th", {}, "Keys"))), h("tbody", {}, ...rows)),
       h("h3", {}, "On the canvas"),
       h("ul", { class: "plain" },
@@ -1575,7 +1576,8 @@ export const panels = {
           + "or onto a page in the Pages list (Escape puts it back). With the list focused, Option/Alt + ↑ or ↓ moves the "
           + "selection forward or backward, Option/Alt + → into the group above it, Option/Alt + ← out of its group; "
           + "→ and ← open and close groups"),
-        h("li", {}, "Drag a side panel's inner edge to make it wider or narrower; double-click the edge to put it back"))));
+        h("li", {}, "Drag a side panel's inner edge to make it wider or narrower; double-click the edge to put it back"))), [report]);
+    report.addEventListener("click", () => { dlg.close(); this.app.run("reportProblem"); });
   },
 
   // Fonts: every font the figure's text uses, how many text objects use it and whether it's on
@@ -1878,6 +1880,35 @@ export const panels = {
     dlg.showModal();
     render();
     input.focus();
+  },
+
+  // Help > Report a Problem: a report file (versions, system, settings, the log's end; nothing of
+  // the figures) saved on the Desktop, to attach to the problem form or an email
+  problemDialog(formUrl) {
+    const id = `problem-${Date.now()}`;
+    const notes = h("textarea", { id, rows: 5, style: { width: "100%" },
+      placeholder: "What you did, what you expected, and what happened instead" });
+    const save = h("button", { type: "button", class: "btn primary" }, "Save Report");
+    const dlg = this.dialog("Report a problem", h("div", {},
+      h("p", {}, "mosaic saves a small report file on your Desktop to send along. It holds mosaic's version, your "
+        + "operating system, your settings and the last messages mosaic logged."),
+      h("p", { class: "hint" }, "It holds none of your figures, and no names of your files or folders. It's a ZIP you can open to check."),
+      h("label", { for: id }, "What happened? (optional)"), notes), [save]);
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try {
+        const got = await rpc("problem_report", notes.value);
+        dlg.close();
+        const form = h("button", { type: "button", class: "btn primary" }, "Open the Problem Form");
+        const done = this.dialog("Report saved", h("div", {},
+          h("p", {}, `${got.name} is in your ${got.folder}.`),
+          h("p", {}, "Attach it to the problem form, or to an email to whoever gave you mosaic. A screenshot helps too.")), [form], "Done");
+        form.addEventListener("click", () => { rpc("open_url", formUrl); done.close(); });
+      } catch (err) {
+        save.disabled = false;
+        this.reportDialog("Couldn't save the report", [String(err.message || err)]);
+      }
+    });
   },
 
   reportDialog(title, lines) {
