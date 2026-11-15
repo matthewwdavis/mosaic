@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import os
 import re
+import uuid
 
 import pikepdf
 
@@ -125,6 +126,18 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
             p.advance(W_FINISH)
         return pdf_bytes
 
+    # Every file is written under a name of its own first and only takes its real name once the
+    # whole export is done: stopping (or a failure) half-way leaves the folder as it was, with
+    # any files an earlier export left there untouched
+    token = uuid.uuid4().hex[:6]
+    staged: list[tuple[str, str]] = []   # (written as, to be named)
+
+    def staging(path: str) -> str:
+        root, ext = os.path.splitext(path)
+        tmp = f"{root}.{token}.part{ext}"
+        staged.append((tmp, path))
+        return tmp
+
     try:
         for fmt in fmts:
             if fmt == "pdf":
@@ -137,20 +150,16 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
                     warnings.append("CMYK PDF: Ghostscript rewrote the file to convert colours")
                     p.advance(W_CMYK)
                 p.step("Writing the PDF")
-                with open(path + ".tmp", "wb") as fh:
+                with open(staging(path), "wb") as fh:
                     fh.write(data)
-                os.replace(path + ".tmp", path)
-                files.append(path)
             elif fmt == "svg":
                 src = SourceResolver(doc, cache, doc_dir)
                 for i, (page, rp) in enumerate(zip(sel, resolved)):
                     p.step(f"Writing SVG, {which(i)}")
                     w = SvgWriter(src)
                     path = page_filename(base, page, i, len(sel), "svg")
-                    with open(path + ".tmp", "wb") as fh:
+                    with open(staging(path), "wb") as fh:
                         fh.write(w.page(page, rp))
-                    os.replace(path + ".tmp", path)
-                    files.append(path)
                     warnings += w.warnings
                     p.advance(W_SVG)
                 warnings += src.notes
@@ -167,32 +176,31 @@ def export_document(doc: dict, base: str, formats=("pdf",), pages: list[int] | N
                 for i, (page, im) in enumerate(zip(sel, images)):
                     p.step(f"Writing {name}, {which(i)}")
                     path = page_filename(base, page, i, len(sel), ext)
-                    raster.save_image(im, path, fmt, dpi, cmyk=cmyk and fmt != "png", cmyk_profile=cmyk_profile)
-                    files.append(path)
+                    raster.save_image(im, staging(path), fmt, dpi, cmyk=cmyk and fmt != "png", cmyk_profile=cmyk_profile)
                     p.advance(W_SAVE * scale)
             elif fmt == "pptx":
                 from .pptxwriter import write_pptx
                 p.step("Writing the PowerPoint")
                 path = f"{base}.pptx"
-                warnings += write_pptx(doc, sel, path + ".tmp.pptx", cache, doc_dir, fonts)
-                os.replace(path + ".tmp.pptx", path)
-                files.append(path)
+                warnings += write_pptx(doc, sel, staging(path), cache, doc_dir, fonts)
                 p.advance(n * W_PPTX)
             elif fmt == "eps":
                 from .postscript import pdf_page_to_eps
                 for i, page in enumerate(sel):
                     p.step(f"Writing EPS, {which(i)}")
                     path = page_filename(base, page, i, len(sel), "eps")
-                    pdf_page_to_eps(compose_pdf(), i, path)
-                    files.append(path)
+                    pdf_page_to_eps(compose_pdf(), i, staging(path))
                     p.advance(W_EPS)
                 warnings.append("EPS can't hold transparency; Ghostscript flattened any transparent areas")
             else:
                 raise ValueError(f"unknown format {fmt!r}")
-    except Cancelled:
-        for f in files:   # (this export's own files: no half-finished set is left)
-            if os.path.exists(f):
-                os.remove(f)
+        for tmp, path in staged:
+            os.replace(tmp, path)
+            files.append(path)
+    except BaseException:   # (stopped, or something failed)
+        for tmp, _ in staged:   # this export's own unfinished files: no half-finished set is left
+            if os.path.exists(tmp):
+                os.remove(tmp)
         raise
     # Files bigger than the pages' journals take
     from .preflight import size_limits

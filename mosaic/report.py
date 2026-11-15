@@ -13,6 +13,7 @@ import datetime
 import html
 import io
 import os
+import uuid
 
 from .assets import resolve_link
 from .model import iter_items
@@ -256,33 +257,41 @@ def write(doc: dict, base: str, formats: list[str], pages: list[int] | None = No
     today = datetime.date.today()
     made = f"Made by mosaic on {today.day} {today:%B %Y}"
     where = f"From {doc_path}." if doc_path else "From a figure not saved yet."
+    # Each file is written under a name of its own and takes its real name once all are done:
+    # stopping part-way leaves the folder as it was, an earlier report's files included
+    part = f"{base}.{uuid.uuid4().hex[:6]}.part"
+    staged: list[tuple[str, str]] = []   # (written as, to be named)
     files = []
     try:
         if "html" in formats:
             p.step("Writing the HTML report")
-            with open(base + ".html", "w", encoding="utf-8") as fh:
+            staged.append((part + ".html", base + ".html"))
+            with open(part + ".html", "w", encoding="utf-8") as fh:
                 fh.write(to_html(doc, found, pages, made, where))
-            files.append(base + ".html")
             p.advance(weights["html"])
         if "md" in formats:
             p.step("Writing the Markdown report")
-            with open(base + ".md", "w", encoding="utf-8") as fh:
+            staged.append((part + ".md", base + ".md"))
+            with open(part + ".md", "w", encoding="utf-8") as fh:
                 fh.write(to_markdown(doc, found, pages, made, where))
-            files.append(base + ".md")
             p.advance(weights["md"])
         if "csv" in formats:
             p.step("Writing the CSV report")
-            with open(base + ".csv", "w", encoding="utf-8", newline="") as fh:
+            staged.append((part + ".csv", base + ".csv"))
+            with open(part + ".csv", "w", encoding="utf-8", newline="") as fh:
                 fh.write(to_csv(found))
-            files.append(base + ".csv")
             p.advance(weights["csv"])
         if "pdf" in formats:
             p.step("Writing the PDF report")
-            files.append(to_pdf(doc, found, pages, made, where, base))
+            staged.append((part + ".pdf", base + ".pdf"))
+            to_pdf(doc, found, pages, made, where, part)
             p.advance(weights["pdf"])
-    except Cancelled:
-        for f in files:   # (this report's own files)
-            if os.path.exists(f):
-                os.remove(f)
+        for tmp, path in staged:
+            os.replace(tmp, path)
+            files.append(path)
+    except BaseException:   # (stopped, or something failed)
+        for tmp, _ in staged:   # this report's own unfinished files
+            if os.path.exists(tmp):
+                os.remove(tmp)
         raise
     return files

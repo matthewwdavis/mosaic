@@ -55,6 +55,26 @@ def test_a_stopped_export_removes_what_it_wrote(tmp_path):
     assert os.listdir(out) == []   # (the PDF and two SVGs it had written: gone)
 
 
+def test_a_stopped_export_leaves_an_earlier_exports_files_alone(tmp_path):
+    out = tmp_path / "out"
+    first = export_document(three_pages(), str(out / "fig"), ["pdf", "svg", "png"], dpi=150)["files"]
+    before = {f: open(f, "rb").read() for f in first}
+    with pytest.raises(Cancelled):
+        export_document(three_pages(), str(out / "fig"), ["pdf", "svg", "png"], dpi=150,
+                        progress=Watched(stop_at="Writing PNG, page 2 of 3"))
+    assert sorted(os.listdir(out)) == sorted(os.path.basename(f) for f in first)   # all still there, nothing new
+    assert {f: open(f, "rb").read() for f in first} == before                      # ...and as they were
+
+
+def test_a_stopped_report_leaves_an_earlier_reports_files_alone(tmp_path):
+    first = report.write(three_pages(), str(tmp_path / "rep"), ["html", "md", "csv"])
+    before = {f: open(f, "rb").read() for f in first}
+    with pytest.raises(Cancelled):
+        report.write(three_pages(), str(tmp_path / "rep"), ["html", "md", "csv"], progress=Watched(stop_at="Writing the CSV report"))
+    assert sorted(os.listdir(tmp_path)) == sorted(os.path.basename(f) for f in first)
+    assert {f: open(f, "rb").read() for f in first} == before
+
+
 def test_a_stopped_report_removes_what_it_wrote(tmp_path):
     with pytest.raises(Cancelled):
         report.write(three_pages(), str(tmp_path / "rep"), ["html", "md", "csv"], progress=Watched(stop_at="Writing the CSV report"))
