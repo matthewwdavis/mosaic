@@ -431,7 +431,7 @@ async function selectionChecks(app) {
 async function myJournalsChecks(app) {
   const top = () => [...document.querySelectorAll("dialog[open]")].at(-1);
   const press = (dlg, label) => [...dlg.querySelectorAll("button")].find((b) => b.textContent === label)?.click();
-  const before = (await rpc("user_journals")) || [];
+  const before = (await rpc("user_journals")) || [], confirming = app.autoConfirm;
   try {
     await rpc("user_journals_save", []);
     panels.journalsDialog();
@@ -478,7 +478,7 @@ async function myJournalsChecks(app) {
     check(!(app.info.journals || []).some((x) => x.user), "deleting it takes it off the lists");
     check(Math.abs(store.page().width - 174 * mm) < 0.01, "a page sized by it keeps its size");
   } finally {
-    app.autoConfirm = false;
+    app.autoConfirm = confirming;   // (as it was: the whole self-test may be answering for itself)
     for (const d of document.querySelectorAll("dialog[open]")) d.close();
     const got = await rpc("user_journals_save", before);
     app.info.journals.splice(0, app.info.journals.length, ...got.journals);

@@ -130,6 +130,14 @@ With nothing selected (click the grey area or press Escape), the right panel sho
 under **Journal**, then **Swap width and height** and **Custom size…** to type the width and
 height. The page's size now has a tick.
 
+**Your own journals.** If the journal you're writing for isn't listed, add it: **Size ▸ My
+Journals… ▸ Add a Journal…**. Give it a name, the figure widths it takes (each with a name, such
+as "Single column", in millimetres) and the deepest a figure may be. It's then listed with the
+others under **Size ▸ Journal** and in the Page panel, and `mosaic export --journal` takes its
+name. Your journals are kept on this computer (`journals.json` in mosaic's settings folder); a
+page sized by one keeps its size on any computer. A journal of your own has no label or text
+rules, so Check uses mosaic's general ones for its pages.
+
 <img src="images/sizemenu.png" alt="The Size menu, with Slide 16:9 ticked" width="405">
 
 **Around the page:** the grey area around the page works like the page. Scroll out to it, then
