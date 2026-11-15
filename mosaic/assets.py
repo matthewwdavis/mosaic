@@ -226,6 +226,10 @@ def siblings(path: str) -> dict[str, str]:
 # Cache
 # ---------------------------------------------------------------------------
 
+_SHA_RE = re.compile(r"[0-9a-f]{64}")
+_KIND_RE = re.compile(r"[a-z0-9]{1,8}")
+
+
 class AssetCache:
     """Content-addressed copies of placed files and of conversions made from them."""
 
@@ -234,6 +238,12 @@ class AssetCache:
         os.makedirs(self.root, exist_ok=True)
 
     def path(self, sha: str, kind: str) -> str:
+        # Both come from the document file when one is opened: anything but a SHA-256 and a
+        # plain file kind could name a path outside the cache (written on open, embedded on save)
+        if not (isinstance(sha, str) and _SHA_RE.fullmatch(sha)
+                and isinstance(kind, str) and _KIND_RE.fullmatch(kind)):
+            raise ValueError("This document names a placed file in a way mosaic doesn't accept "
+                             f"({str(kind)[:40]!r}, {str(sha)[:40]!r}); it may be damaged or unsafe.")
         return os.path.join(self.root, sha[:2], sha + KIND_EXT.get(kind, "." + kind))
 
     def has(self, sha: str, kind: str) -> bool:
