@@ -143,6 +143,10 @@ class Handler(BaseHTTPRequestHandler):
 
 class AppServer(ThreadingHTTPServer):
     daemon_threads = True
+    # Connections waiting to be taken: the editor opens one per request, in bursts (a page of
+    # previews, several windows), and Windows refuses those past this number outright, which the
+    # editor sees as a request that failed. Python's own 5 was met by the self-test on Windows
+    request_queue_size = 128
 
     def __init__(self, api, port: int = 0):
         super().__init__(("127.0.0.1", port), Handler)
