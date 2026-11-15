@@ -34,6 +34,7 @@ import { stackLevels } from "./brackets.js";
 import { colourHolders, swatchById } from "./swatches.js";
 import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, setFormat } from "./textstyles.js";
 import { KEYS as LOOK, applyObjectStyle, formatOf as lookOf, restyle as restyleObjects } from "./objectstyles.js";
+import { installDialogDrag } from "./dragdialog.js";
 import { canMove, containerAt, moveItems } from "./layers.js";
 import { cropToDrawnShape, drawnPair, ratioEntries, selectedPicture } from "./crop.js";
 import {
@@ -3007,6 +3008,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
 // Start-up ------------------------------------------------------------------------------------
 
 async function start() {
+  installDialogDrag();   // (any dialog moves by its title: dragdialog.js)
   app.info = await rpc("app_info");
   app.prefs = app.info.prefs;
   Object.assign(shapeCatalog, app.info.shapes || {});

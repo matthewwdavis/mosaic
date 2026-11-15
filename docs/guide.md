@@ -1540,6 +1540,10 @@ address. Paths you type are the remote computer's. Press Ctrl+C in the first ter
 
 ## Troubleshooting
 
+**Moving a dialog.** Any dialog (Export, Settings, Check…) can be dragged by its title, to see the
+figure under it. Once moved, the figure behind it is no longer dimmed. Double-click the title to put
+the dialog back in the middle.
+
 **Reporting a problem.** Choose **Help ▸ Report a Problem** (on Windows and Linux: press **?**
 for the help window, then **Report a Problem…**; or type "report" in Search Commands). Say what
 happened in the box if you like and click **Save Report**. mosaic puts `mosaic-report-….zip` on

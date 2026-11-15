@@ -459,6 +459,9 @@ body.drop-busy { cursor: progress; }
 .dialog { border: 1px solid var(--line); border-radius: 0.6rem; padding: 0; background: var(--panel); color: var(--text);
   width: min(36rem, 92vw); max-height: 86vh; }
 .dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+/* A dialog moves by its title (dragdialog.js); once moved, what's behind it isn't dimmed */
+dialog[open] h2 { cursor: move; user-select: none; -webkit-user-select: none; }
+dialog.dialog-moved::backdrop { background: transparent; }
 .dialog form { display: flex; flex-direction: column; max-height: 86vh; }
 .dialog h2 { margin: 0; padding: 0.9rem 1.1rem 0.4rem; font-size: 1.15rem; }
 .dialog-body { padding: 0.3rem 1.1rem; overflow-y: auto; }

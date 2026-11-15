@@ -487,6 +487,46 @@ async function myJournalsChecks(app) {
   }
 }
 
+// Any dialog moves by its title (dragdialog.js): dragged, it follows the pointer and what's behind
+// is no longer dimmed; it can't be lost off the window; a click on the title or a drag from its
+// body doesn't move it; a double-click on the title puts it back in the middle
+async function dialogDragChecks(app) {
+  const fire = (el, type, x, y) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, pointerId: 7 }));
+  try {
+    app.run("shortcuts");
+    await until(() => document.querySelector("dialog[open] h2"));
+    const dlg = [...document.querySelectorAll("dialog[open]")].at(-1), title = dlg.querySelector("h2");
+    const r0 = dlg.getBoundingClientRect();
+    const tx = r0.left + 40, ty = title.getBoundingClientRect().top + 8;
+    fire(title, "pointerdown", tx, ty);
+    fire(document, "pointerup", tx, ty);
+    check(!dlg.classList.contains("dialog-moved") && Math.abs(dlg.getBoundingClientRect().left - r0.left) < 1, "a click on a dialog's title doesn't move it");
+    fire(title, "pointerdown", tx, ty);
+    fire(document, "pointermove", tx - 150, ty + 90);
+    fire(document, "pointerup", tx - 150, ty + 90);
+    const r1 = dlg.getBoundingClientRect();
+    check(Math.abs(r1.left - (r0.left - 150)) < 2 && Math.abs(r1.top - (r0.top + 90)) < 2 && dlg.classList.contains("dialog-moved"),
+      "a dialog dragged by its title moves with the pointer", `${r0.left},${r0.top} -> ${r1.left},${r1.top}`);
+    check(dlg.open && Math.abs(r1.width - r0.width) < 1 && getComputedStyle(dlg, "::backdrop").backgroundColor === "rgba(0, 0, 0, 0)",
+      "it stays open at its size, and what's behind it is no longer dimmed", getComputedStyle(dlg, "::backdrop").backgroundColor);
+    fire(title, "pointerdown", r1.left + 40, r1.top + 8);
+    fire(document, "pointermove", 5000, 5000);
+    fire(document, "pointerup", 5000, 5000);
+    const r2 = dlg.getBoundingClientRect();
+    check(r2.left <= window.innerWidth - 80 && r2.top <= window.innerHeight - 40 && r2.top >= 0, "it can't be dragged out of reach", `${r2.left},${r2.top}`);
+    const inBody = dlg.querySelector(".dialog-body");
+    fire(inBody, "pointerdown", r2.left + 30, r2.top + 120);
+    fire(document, "pointermove", r2.left - 200, r2.top - 100);
+    fire(document, "pointerup", r2.left - 200, r2.top - 100);
+    check(Math.abs(dlg.getBoundingClientRect().left - r2.left) < 1, "a drag from its body doesn't move it");
+    title.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    const r3 = dlg.getBoundingClientRect();
+    check(!dlg.classList.contains("dialog-moved") && Math.abs(r3.left - r0.left) < 2 && Math.abs(r3.top - r0.top) < 2, "a double-click on its title puts it back in the middle");
+  } finally {
+    for (const d of document.querySelectorAll("dialog[open]")) d.close();
+  }
+}
+
 async function problemReportChecks(app) {
   const top = () => [...document.querySelectorAll("dialog[open]")].at(-1);
   try {
@@ -4070,6 +4110,7 @@ export async function run(app, params) {
     if (params.get("only") === "links") { await linkedFileChecks(app); throw ONLY; }
     if (params.get("only") === "problem") { await problemReportChecks(app); throw ONLY; }
     if (params.get("only") === "journals") { await myJournalsChecks(app); throw ONLY; }
+    if (params.get("only") === "dialogs") { await dialogDragChecks(app); throw ONLY; }
     if (params.get("only") === "updates") { await updateChecks(app); throw ONLY; }
     if (params.get("only") === "selection") { await selectionChecks(app); throw ONLY; }
     if (params.get("only") === "windows") { await windowChecks(app, out); throw ONLY; }
@@ -5349,6 +5390,7 @@ export async function run(app, params) {
     await linkedFileChecks(app);
     await problemReportChecks(app);
     await myJournalsChecks(app);
+    await dialogDragChecks(app);
     await updateChecks(app);
     await windowChecks(app, out);
     await pageSizeChecks(app);
