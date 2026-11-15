@@ -57,14 +57,8 @@ def sha256_file(path: str) -> str:
 
 def tool_path(name: str) -> str | None:
     """Find a helper executable on PATH or inside the running environment."""
-    found = shutil.which(name)
-    if found:
-        return found
-    for sub in ("bin", os.path.join("Library", "bin"), "Scripts"):
-        cand = os.path.join(sys.prefix, sub, name + (".exe" if os.name == "nt" else ""))
-        if os.path.exists(cand):
-            return cand
-    return None
+    from ._labapp.platform import tool
+    return tool(name, path_first=True)
 
 
 # ---------------------------------------------------------------------------

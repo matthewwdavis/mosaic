@@ -1190,12 +1190,8 @@ class Api:
         return res if isinstance(res, str) else res[0]
 
     def reveal(self, path: str) -> bool:
-        if sys.platform == "darwin":
-            subprocess.Popen(["open", "-R", path])
-        elif os.name == "nt":
-            subprocess.Popen(["explorer", "/select,", os.path.normpath(path)])
-        else:
-            subprocess.Popen(["xdg-open", os.path.dirname(path)])
+        from .._labapp import platform
+        platform.reveal(path)
         return True
 
     def set_title(self, title: str) -> bool:
@@ -1213,19 +1209,19 @@ class Api:
         """Help > Report a Problem: the report file (diagnostics.py: versions, system, settings,
         the log's end; nothing of the figures), saved on the Desktop and shown there."""
         from .. import diagnostics
-        home = os.path.expanduser("~")
-        desktop = os.path.join(home, "Desktop")
+        from .._labapp import platform
+        dest = platform.desktop_dir()
         extra = {"window": "app" if self.window is not None else "browser"}
         try:
             extra["updates"] = self.updater.mode()
         except Exception:   # noqa: BLE001
             pass
-        path = diagnostics.report(desktop if os.path.isdir(desktop) else home, self.prefs_get(), extra, str(notes or ""))
+        path = diagnostics.report(dest, self.prefs_get(), extra, str(notes or ""))
         try:
             self.reveal(path)
         except Exception:   # noqa: BLE001 (it's saved all the same)
             pass
-        return {"path": path, "name": os.path.basename(path), "folder": "Desktop" if os.path.isdir(desktop) else "home folder"}
+        return {"path": path, "name": os.path.basename(path), "folder": "Desktop" if os.path.basename(dest) == "Desktop" else "home folder"}
 
     def log_error(self, text: str) -> bool:
         """An error in the editor's page, for the log a problem report takes along."""
@@ -1235,10 +1231,8 @@ class Api:
 
     def open_url(self, url: str) -> bool:
         """A web page in the browser (GitHub's sign-in page, the releases)."""
-        if not url.startswith(("https://", "http://127.0.0.1", "http://localhost")):
-            return False
-        import webbrowser
-        return webbrowser.open(url)
+        from .._labapp import platform
+        return platform.open_url(url)
 
     # Updates (updates.py): looked for in the background; the editor asks how it's going ---------
 

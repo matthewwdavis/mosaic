@@ -34,7 +34,7 @@ version = {attr = "mosaic.__version__"}
 include = ["mosaic*"]
 
 [tool.setuptools.package-data]
-mosaic = ["ui/**/*", "data/*"]
+mosaic = ["ui/**/*", "data/*", "_labapp/VENDORED.json"]
 
 [tool.setuptools.exclude-package-data]
 mosaic = ["**/claude-commands.log", "**/.DS_Store"]

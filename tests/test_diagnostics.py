@@ -16,7 +16,7 @@ def home(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "person"))
     monkeypatch.setenv("USERPROFILE", str(tmp_path / "person"))
     (tmp_path / "person" / "Desktop").mkdir(parents=True)
-    monkeypatch.setattr(diagnostics, "_log", None)
+    monkeypatch.setattr(diagnostics.d, "log", None)
     return tmp_path / "person"
 
 
@@ -24,8 +24,7 @@ def test_the_report_says_what_helps_and_nothing_private(home, monkeypatch):
     api = Api()
     monkeypatch.setattr(api, "reveal", lambda path: True)
     api.prefs_set({"recent": [str(home / "Thesis" / "secret_figure.mosaic")], "units": "mm"})
-    log = diagnostics._Log(diagnostics.log_path())
-    monkeypatch.setattr(diagnostics, "_log", log)
+    monkeypatch.setattr(diagnostics.d, "log", diagnostics.d.new_log())
     api.log_error(f"TypeError: x is undefined, opening {home}/Thesis/secret_figure.mosaic")
     got = api.problem_report("It froze when I exported.")
     assert got["folder"] == "Desktop" and os.path.dirname(got["path"]) == str(home / "Desktop")
@@ -37,13 +36,14 @@ def test_the_report_says_what_helps_and_nothing_private(home, monkeypatch):
     assert info["app"] == "mosaic" and info["format"] == 1 and info["version"] and info["notes"] == "It froze when I exported."
     assert info["system"]["platform"] and info["system"]["python"] and "pikepdf" in info["libraries"]
     assert info["settings"]["units"] == "mm" and "recent" not in info["settings"]
-    assert "editor: TypeError: x is undefined" in text and "~/Thesis" in text.replace("\\", "/")
+    assert "editor: TypeError: x is undefined" in text and "(a .mosaic file)" in text
+    assert "secret_figure" not in whole   # (nor the names of the person's files, in the log or the settings)
     assert str(home) not in whole   # the home folder (the account's name) is written ~
 
 
 def test_the_log_starts_again_when_it_is_full(home, monkeypatch):
-    monkeypatch.setattr(diagnostics, "LOG_BYTES", 200)
-    log = diagnostics._Log(diagnostics.log_path())
+    monkeypatch.setattr(diagnostics.d, "log_bytes", 200)
+    log = diagnostics.d.new_log()
     for k in range(20):
         log.write(f"line {k} of some length to fill the file\n")
     assert os.path.getsize(diagnostics.log_path()) < 400 and os.path.exists(diagnostics.log_path() + ".1")

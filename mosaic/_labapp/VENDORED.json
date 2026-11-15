@@ -1,0 +1,11 @@
+{
+ "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
+ "version": "0.1.0",
+ "commit": "7a4bb59",
+ "files": {
+  "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
+  "diagnostics.py": "583054798a36d075ecf1a71753a8b6240b7a6dc0f2fecb55498a88a017e70e2a",
+  "oslock.py": "6c362ca83197458df3b23ae5b72c13e48fcf90ddd52500e5c1006be7ee33522e",
+  "platform.py": "32dde2d6987ce1c2c84c21344ed9da446422b19d083355c157c364c4cf288dec"
+ }
+}
