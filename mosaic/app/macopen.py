@@ -1,5 +1,6 @@
 """Documents macOS hands mosaic to open: double-clicked in the Finder, chosen with Open With,
-or dropped on its Dock icon. mosaic.app declares the .mosaic type and takes decks as an
+or dropped on its Dock icon. mosaic.app declares its document types (.mff, and the older .mosaic
+and .figasm: docfile.EXTENSIONS) and takes decks as an
 alternative (packaging/macos/make_app.py), so macOS sends them as an "open documents" Apple event,
 at launch and while the app runs. Taking that event is the shared library's
 (_labapp/mac/finder.py); the smoke test's check of mosaic's documents and windows is here.
@@ -15,8 +16,8 @@ from .._labapp.mac.finder import _code, _state, install, opened, paths_of, send_
 def smoke(api, window, scratch: str) -> dict:
     """The smoke test's check of documents and windows, in the hidden app window (left as it
     was found, alone): documents sent as the Finder sends them, File > New, the menus going to
-    the window in front, closing a window, a page dragged into another window, and a .mosaic
-    dropped on the page.
+    the window in front, closing a window, a page dragged into another window, and a mosaic
+    document dropped on the page. One of the documents is an older .mosaic: it opens the same way.
     {"passed", "total", "failed": [names]}."""
     import time
 
@@ -50,10 +51,10 @@ def smoke(api, window, scratch: str) -> dict:
 
     # Two figures with an object each, and a deck of one slide (no slide picker)
     figs = []
-    for name in ("Smoke A", "Smoke B"):
+    for name, ext in (("Smoke A", docfile.EXTENSION), ("Smoke B", docfile.LEGACY_EXTENSIONS[0])):
         doc = model.new_document(name)
         doc["pages"][0]["items"].append(model.text_item(name, 72, 72))
-        p = os.path.join(scratch, f"{name}.mosaic")
+        p = os.path.join(scratch, f"{name}{ext}")
         docfile.save(doc, p)
         figs.append(p)
     deck = os.path.join(scratch, "One slide.pptx")
@@ -124,10 +125,10 @@ def smoke(api, window, scratch: str) -> dict:
     for w in windows()[1:]:
         w.destroy()
     wait(lambda: len(windows()) == 1)
-    # A .mosaic dropped on a page in use: its pages after this one, with what they use
+    # A mosaic document dropped on a page in use: its pages after this one, with what they use
     pages = js(first, "window.FA.store.doc.pages.length")
     js(first, f"window.FA.onNativeDrop({json.dumps({'paths': [b], 'x': 700, 'y': 450})}), true")
-    results["a .mosaic dropped on the page adds its pages after this one"] = wait(
+    results["a mosaic document dropped on the page adds its pages after this one"] = wait(
         lambda: js(first, "window.FA.store.doc.pages.length") == pages + 1
         and js(first, "window.FA.store.pageIndex") == pages
         and js(first, "window.FA.store.page().items[0].text.paragraphs[0].runs[0].t") == "Smoke B")

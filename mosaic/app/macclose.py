@@ -25,7 +25,6 @@ def smoke(api, window, scratch: str) -> dict:
     from webview.platforms.cocoa import BrowserView
 
     from .. import docfile, model
-    from ..fonts import config_dir
     from .keycheck import on_main
 
     def wait(cond, seconds=10.0):
@@ -73,12 +72,12 @@ def smoke(api, window, scratch: str) -> dict:
         return wait(lambda: w not in api._windows.values())
 
     def copy_of(w):
-        return os.path.join(config_dir(), "autosave", f"{js(w, 'window.FA.store.autosaveKey')}{docfile.EXTENSION}")
+        return api.autosave_path(js(w, 'window.FA.store.autosaveKey'))
 
     results, copies = {}, []
     figs = {}
     for name in ("Close A", "Quit A", "Quit B"):
-        figs[name] = os.path.join(scratch, f"{name}.mosaic")
+        figs[name] = os.path.join(scratch, f"{name}{docfile.EXTENSION}")
         docfile.save(model.new_document(name), figs[name])
     # Nothing unsaved in the first window, so quitting asks only about this check's figures
     js(window, "window.FA.store.markSaved(window.FA.store.path), true")

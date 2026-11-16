@@ -20,7 +20,7 @@ python -m mosaic              # or: mosaic
 mosaic from the active environment. The environment's Python is linked into the app and
 runs from there, so macOS takes the app's name, icon and version from the bundle; started any
 other way, mosaic tells macOS its name itself (`macmenu.name_app`), or the menu bar would
-say "python". The bundle declares the .mosaic type, so double-clicking a document opens it in
+say "python". The bundle declares the .mff type (and the older .mosaic and .figasm), so double-clicking a document opens it in
 the app. Built anywhere but `dist/` (`--dest /Applications`, as the installer does), the script
 registers it with LaunchServices (`lsregister -f`) as it makes it. A copy in `dist/` isn't
 registered, since macOS would then choose between two apps of the same name for the documents
@@ -37,7 +37,7 @@ so it always has the editor's commands and their shortcuts.
 
 ```
 mosaic/
-  model.py, docfile.py      the document (JSON) and the .mosaic file (zip)
+  model.py, docfile.py      the document (JSON) and the .mff file (zip)
   assets.py                 placed files: copies, links, sizes, change detection
   geometry.py, presets.py   paths, corner rounding, arrowheads; PowerPoint's 187 shapes
   dashes.py, connect.py     even dash spacing; connection points
@@ -73,12 +73,14 @@ shapes (`.gvml`). `tools/ui_selftest.py ... --only slides` runs just the PowerPo
 `--only links` just linked files updating (a test figure re-saved while placed), `--only
 updates` the update screens (with the updater saying what each case needs), `--only
 selection` selecting several objects and Select Same, `--only windows` New and Open with
-several windows (opening a window stood in for) and a .mosaic dropped on the page, `--only
+several windows (opening a window stood in for) and a mosaic document dropped on the page, `--only
 sizes` page sizes (the Size menu, new documents' size), `--only vision` colour vision side by
 side and in command search, `--only export` the Export and Figure report windows closing with a
 note, `--only guides` guides from clicking the rulers and a guide's right-click menu, `--only
 offpage` the page's edge over objects, dimming off the page and Preview, `--only rename`
-renaming the document's file (the editor side of the title bar's rename), `--only pageselect`
+renaming the document's file (the editor side of the title bar's rename) and the document's
+extension (.mff new; a .mosaic or .figasm opening, saving and renaming under its own name, Save As
+offering .mff, each dropped), `--only pageselect`
 several pages selected in the Pages list (and copied, dragged, dropped, exported), `--only
 keeping` recovery copies, AutoSave, Browse Versions and recovering as the document (about 25 s
 of waiting for autosave's 10 s pauses), `--only progress` the progress bars of export (in the
@@ -120,7 +122,7 @@ event queue: `SMOKE title bar: 7 of 7 passed` (also with `titlecheck=1` in a sel
 documents sent as the Finder sends them, as real "open documents" Apple events to the app
 itself, opening in the blank window, then in windows of their own, or bringing one open already
 to the front; File > New; a menu command going to the window in front; closing a window; a deck;
-and a .mosaic dropped on the page: `SMOKE windows: 12 of 12 passed`. Then closing and quitting
+and a mosaic document dropped on the page (one of them an older .mosaic): `SMOKE windows: 12 of 12 passed`. Then closing and quitting
 with unsaved changes (`mosaic/app/macclose.py`), with its buttons pressed as AppKit presses them:
 - the sheet, its wording and keys;
 - Cancel, Save, and Don't Save keeping a copy;
@@ -136,9 +138,9 @@ light check that reports which windows have which documents, then quits:
 
 ```sh
 H=$(mktemp -d)
-python -c "from mosaic import docfile, model; docfile.save(model.new_document('Test'), '$H/test.mosaic')"
-open -g --env MOSAIC_HOME=$H --env MOSAIC_SMOKETEST=launch --stdout $H/out.txt "$H/test.mosaic"
-cat $H/out.txt   # SMOKE launch: {"ready": true, "windows": 1, "documents": [".../test.mosaic"]}
+python -c "from mosaic import docfile, model; docfile.save(model.new_document('Test'), '$H/test.mff')"
+open -g --env MOSAIC_HOME=$H --env MOSAIC_SMOKETEST=launch --stdout $H/out.txt "$H/test.mff"
+cat $H/out.txt   # SMOKE launch: {"ready": true, "windows": 1, "documents": [".../test.mff"]}
 ```
 
 Only do this while no mosaic.app is running: macOS hands the document to a running one.

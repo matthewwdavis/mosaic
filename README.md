@@ -31,7 +31,9 @@ mosaic does the job people usually do in PowerPoint, without PowerPoint's damage
   copying a style from one object to others.
 
 > **Status: early version, for collaborators' feedback.** mosaic was called FigAssemble until
-> November 2026; its `.figasm` documents open as they are. Developed and tested on a Mac. On Windows and Linux the
+> November 2026; its `.figasm` documents open as they are. Figures are saved as `.mff` files
+> ("mosaic figure file") from November 2026; ones saved before, as `.mosaic`, open and save as
+> they are, the way Word keeps a `.doc` a `.doc` until you use Save As. Developed and tested on a Mac. On Windows and Linux the
 > tests, the installers and the app's window are checked automatically on every change, but it
 > hasn't been used day to day there yet, so please [report anything odd](#feedback).
 
@@ -113,7 +115,7 @@ press **?**, then **Open the Sample Figure**).
    arrows (A). Drop an arrow's end on an object's corner or edge to attach it.
 5. **Export.** Click **Check** to look for problems, then **Export** (⌘E) for PDF, SVG, PNG or TIFF,
    or an editable PowerPoint file for collaborators.
-   Save your work with ⌘S as a `.mosaic` document, and double-click it to open it again (each
+   Save your work with ⌘S as a `.mff` document, and double-click it to open it again (each
    figure in a window of its own).
 
 **New to it? Follow the [tutorial](docs/tutorial.md)**: it builds the figure above in about

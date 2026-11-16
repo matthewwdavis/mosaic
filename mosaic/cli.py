@@ -1,12 +1,15 @@
 """Command line: `mosaic` opens the app; subcommands export and import headlessly.
 
-    mosaic [document.mosaic]                      open the app
-    mosaic export fig.mosaic -f pdf,png --dpi 600 [-o out/base] [--pages 1,3]
-    mosaic export fig.mosaic --journal Nature [--copy fig_nature.mosaic] [--dry-run] [--json]
+    mosaic [document.mff]                         open the app
+    mosaic export fig.mff -f pdf,png --dpi 600 [-o out/base] [--pages 1,3]
+    mosaic export fig.mff --journal Nature [--copy fig_nature.mff] [--dry-run] [--json]
                                                   the panel labels in a journal's look (relabel.py)
-    mosaic build fig.mosaic -f pdf,png [--save]    read the linked plots again from their files, then export
-    mosaic info fig.mosaic [--json]               its pages, sizes and descriptions
-    mosaic import-pptx deck.pptx [--slides 13] [-o fig.mosaic] [--search DIR]
+    mosaic build fig.mff -f pdf,png [--save]      read the linked plots again from their files, then export
+    mosaic info fig.mff [--json]                  its pages, sizes and descriptions
+    mosaic import-pptx deck.pptx [--slides 13] [-o fig.mff] [--search DIR]
+
+Documents are .mff; older ones (.mosaic, .figasm) are read the same way and --save writes them
+under their own names. A name given without a document extension gets .mff (--copy, -o of import-pptx).
     mosaic fonts                                  list installed font families
     mosaic update [--install | --go-back] [--test] look for an update (and install it)
 """
@@ -27,6 +30,7 @@ def _load(path: str) -> tuple[dict, str]:
 
 
 def cmd_export(args) -> int:
+    from . import docfile
     from .export.run import export_document
     if (args.copy or args.dry_run) and not args.journal:
         print("--copy and --dry-run go with --journal", file=sys.stderr)
@@ -46,7 +50,7 @@ def cmd_export(args) -> int:
         report["warnings"] = list(got["warnings"]) + [f"{name}: its file wasn't found; the copy in the document was used"
                                                       for name in got["missing"]]
         if args.save and src.lower().endswith(".json"):
-            print("--save writes a .mosaic document, not a .json one", file=sys.stderr)
+            print(f"--save writes a mosaic document ({docfile.EXTENSION}), not a .json one", file=sys.stderr)
             return 2
         if args.save and got["changed"] and not args.dry_run:
             from . import docfile
@@ -78,7 +82,7 @@ def cmd_export(args) -> int:
                     print(f"page {n}: {k} label{'' if k == 1 else 's'} to change for {journal['name']}")
             return 0
         if args.copy:
-            copy = os.path.abspath(args.copy if args.copy.lower().endswith(docfile.EXTENSIONS) else args.copy + docfile.EXTENSION)
+            copy = os.path.abspath(docfile.with_extension(args.copy))
             if os.path.exists(copy) and os.path.samefile(copy, src):
                 print("--copy would write over the document itself; give the copy a name of its own", file=sys.stderr)
                 return 2
@@ -144,7 +148,7 @@ def cmd_import_pptx(args) -> int:
     from .importers.pptx import import_pptx
     slides = [int(s) for s in args.slides.split(",")] if args.slides else None
     doc, report = import_pptx(args.deck, slides=slides, search_dirs=args.search or None, relink=not args.no_relink)
-    out = args.output or os.path.splitext(os.path.abspath(args.deck))[0] + docfile.EXTENSION
+    out = docfile.with_extension(args.output) if args.output else os.path.splitext(os.path.abspath(args.deck))[0] + docfile.EXTENSION
     docfile.save(doc, out)
     print(out)
     for line in report:
@@ -189,7 +193,8 @@ def main(argv: list[str] | None = None) -> int:
         e.add_argument("--icc", help="CMYK ICC profile to convert with")
         e.add_argument("--journal", help="the panel labels in this journal's look (the document itself is left as it is); "
                                          "the files are named after the journal unless -o names them")
-        e.add_argument("--copy", help="with --journal: also save the relabelled document here")
+        e.add_argument("--copy", help="with --journal: also save the relabelled document here (.mff added to a name "
+                                       "without a document extension; .mff, .mosaic or .figasm kept as given)")
         e.add_argument("--dry-run", action="store_true", help="with --journal: how many labels each page would change; nothing written")
         e.add_argument("--json", action="store_true", help="report as one JSON object")
 

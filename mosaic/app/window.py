@@ -245,7 +245,7 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                 print(f"SMOKE menus: {menus['passed']} of {menus['total']} passed"
                       + (f"; failed: {json.dumps(menus['failed'])}" if menus["failed"] else ""), flush=True)
                 title_smoke(window)
-                # Documents from the Finder and windows: New, Open, menus, closing, dropping a .mosaic
+                # Documents from the Finder and windows: New, Open, menus, closing, dropping a mosaic document
                 import tempfile
 
                 from . import macopen

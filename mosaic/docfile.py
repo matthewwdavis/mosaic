@@ -1,6 +1,9 @@
-"""The .mosaic document file: a zip of document.json plus a copy of every placed file.
+"""The mosaic document file (.mff, "mosaic figure file"): a zip of document.json plus a copy of
+every placed file. Older documents' extensions (.mosaic, and .figasm from when mosaic was called
+FigAssemble) open as they are and save as themselves; only new documents and Save As take .mff.
+Every other part of mosaic asks this module which extensions are a document's.
 
-document.json is stored uncompressed so `unzip -p figure.mosaic document.json` shows it.
+document.json is stored uncompressed so `unzip -p figure.mff document.json` shows it.
 Embedded copies live under assets/<sha256><ext>; linked variants also record where their
 file was (absolute, and relative to the document) so they can refresh on another machine
 that has the same project folder.
@@ -18,9 +21,34 @@ from .assets import KIND_EXT, AssetCache, get_cache, resolve_link
 from .model import FORMAT_VERSION, used_assets, validate
 
 DOC_NAME = "document.json"
-EXTENSION = ".mosaic"
-OLD_EXTENSION = ".figasm"   # documents saved while mosaic was called FigAssemble, which open as they are
-EXTENSIONS = (EXTENSION, OLD_EXTENSION)
+EXTENSION = ".mff"   # "mosaic figure file": what new documents (and Save As) are named
+# Older documents' extensions, which open as they are and save under their own names: .mosaic
+# (until November 2026) and .figasm (saved while mosaic was called FigAssemble)
+LEGACY_EXTENSIONS = (".mosaic", ".figasm")
+EXTENSIONS = (EXTENSION, *LEGACY_EXTENSIONS)
+
+
+def has_extension(path: str) -> bool:
+    """Whether a file's name is a mosaic document's (.mff, or an older one's), in any case."""
+    return str(path).lower().endswith(EXTENSIONS)
+
+
+def extension_of(path: str) -> str:
+    """A document's own extension, as its name has it (.mff, .mosaic, .figasm); "" if it has none."""
+    ext = os.path.splitext(str(path))[1]
+    return ext if ext.lower() in EXTENSIONS else ""
+
+
+def strip_extension(name: str) -> str:
+    """A document's name without its extension (only a document extension comes off)."""
+    ext = extension_of(name)
+    return name[:-len(ext)] if ext else name
+
+
+def with_extension(path: str) -> str:
+    """The path as it is when it already names a document (any of its extensions: an older one
+    stays), else with .mff added: what Save, Save As and the command line write to."""
+    return path if has_extension(path) else path + EXTENSION
 
 
 def save(doc: dict, path: str, cache: AssetCache | None = None, prune: bool = True) -> list[str]:
@@ -127,4 +155,5 @@ def is_document(path: str) -> bool:
         return DOC_NAME in z.namelist()
 
 
-__all__ = ["save", "load", "is_document", "EXTENSION", "EXTENSIONS", "FORMAT_VERSION"]
+__all__ = ["save", "load", "is_document", "EXTENSION", "LEGACY_EXTENSIONS", "EXTENSIONS", "has_extension", "extension_of",
+           "strip_extension", "with_extension", "FORMAT_VERSION"]

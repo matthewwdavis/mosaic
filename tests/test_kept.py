@@ -85,10 +85,10 @@ def test_saving_lets_the_recovery_copy_go_and_deleting_it_its_history(api):
     api.autosave(doc("unsaved"), "doc-k2", None)
     home = os.path.join(os.environ["MOSAIC_HOME"], "autosave")
     api.discard_autosave("doc-k1")
-    assert not os.path.exists(os.path.join(home, "doc-k1.mosaic")) and not os.path.exists(os.path.join(home, "doc-k1.json"))
+    assert not os.path.exists(os.path.join(home, "doc-k1.mff")) and not os.path.exists(os.path.join(home, "doc-k1.json"))
     assert len(api.recovery_history("doc-k1")) == 1   # (its history stays, pruned by age)
     api._unlock_autosave("doc-k2")   # (as if from an earlier session)
-    api.delete_autosaves([os.path.join(home, "doc-k2.mosaic")])
+    api.delete_autosaves([os.path.join(home, "doc-k2.mff")])
     assert api.recovery_history("doc-k2") == [] and not os.path.exists(os.path.join(home, "doc-k2.json"))
 
 

@@ -128,7 +128,8 @@ def _sweep() -> None:
     for top in (history_root(), versions_root()):
         for folder, _, names in os.walk(top):
             for n in names:
-                if n.endswith((docfile.EXTENSION, docfile.EXTENSION + ".tmp")):
+                # (copies kept as .mff, and as .mosaic by an earlier mosaic: their files are used too)
+                if n.endswith((*docfile.EXTENSIONS, *(e + ".tmp" for e in docfile.EXTENSIONS))):
                     got = _uses(os.path.join(folder, n))
                     if got is None and not n.endswith(".tmp"):
                         return   # a copy that can't be read: nothing is removed on its account
@@ -159,7 +160,7 @@ def _copies(folder: str) -> list[tuple[str, float, int]]:
         return []
     out = []
     for n in os.listdir(folder):
-        if n.endswith(docfile.EXTENSION):
+        if docfile.has_extension(n):   # (.mff; .mosaic, kept by an earlier mosaic)
             p = os.path.join(folder, n)
             try:
                 out.append((p, os.path.getmtime(p), os.path.getsize(p)))
@@ -291,7 +292,7 @@ def is_kept(path: str) -> bool:
     versions): what may be read back as a figure without becoming the document's file."""
     real = os.path.realpath(path)
     roots = [os.path.realpath(r) for r in (os.path.join(config_dir(), "autosave"), versions_root())]
-    return real.endswith(docfile.EXTENSION) and any(real.startswith(r + os.sep) for r in roots) and os.path.isfile(real)
+    return docfile.has_extension(real) and any(real.startswith(r + os.sep) for r in roots) and os.path.isfile(real)
 
 
 def prune() -> None:

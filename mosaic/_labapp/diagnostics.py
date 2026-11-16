@@ -32,6 +32,7 @@ import platform
 import re
 import sys
 import threading
+import traceback
 import zipfile
 
 LOG_BYTES = 1_000_000      # the log file's size before it starts again
@@ -83,6 +84,26 @@ class _Tee(io.TextIOBase):
 
     def isatty(self):
         return False
+
+
+def _whole(exc_type, exc, tb, head: str) -> None:
+    """A traceback written in one piece (several threads failing at once otherwise mix theirs line
+    by line in the log)."""
+    try:
+        sys.stderr.write(head + "".join(traceback.format_exception(exc_type, exc, tb)))
+    except Exception:   # noqa: BLE001 (nowhere to write it)
+        pass
+
+
+def _thread_hook(args) -> None:
+    if args.exc_type is SystemExit:
+        return
+    name = args.thread.name if args.thread is not None else threading.get_ident()
+    _whole(args.exc_type, args.exc_value, args.exc_traceback, f"Exception in thread {name}:\n")
+
+
+def _main_hook(exc_type, exc, tb) -> None:
+    _whole(exc_type, exc, tb, "")
 
 
 class Log:
@@ -212,6 +233,7 @@ class Diagnostics:
             self.log = None
             return None
         sys.stdout, sys.stderr = _Tee(sys.stdout, self.log), _Tee(sys.stderr, self.log)
+        threading.excepthook, sys.excepthook = _thread_hook, _main_hook   # (whole tracebacks, not mixed)
         return self.log.path
 
     def note(self, text: str) -> None:

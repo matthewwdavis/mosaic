@@ -51,5 +51,5 @@ body:
     attributes:
       label: Files (optional)
       description: >-
-        If it happens with a particular figure, attach the .mosaic document or the file you placed (zip it
+        If it happens with a particular figure, attach the .mff (or .mosaic) document or the file you placed (zip it
         first). Only attach files you're happy for the other collaborators to see.

@@ -1,4 +1,4 @@
-"""Makes the sample figure mosaic opens the first time it runs (mosaic/data/sample.mosaic,
+"""Makes the sample figure mosaic opens the first time it runs (mosaic/data/sample.mff,
 also Help > Open the Sample Figure): the four demo plots (demo/Figures/demo, from R's built-in
 data) as panels a-d with their labels and a description, their files stored in the document.
 
@@ -13,7 +13,7 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 FIGURES = os.path.join(ROOT, "demo", "Figures", "demo")
-OUT = os.path.join(ROOT, "mosaic", "data", "sample.mosaic")
+OUT = os.path.join(ROOT, "mosaic", "data", "sample.mff")   # (docfile.EXTENSION)
 PANELS = [("iris_petal_scatter", "a"), ("tooth_length_bars", "b"), ("plant_weight_box", "c"), ("chick_weight_time_course", "d")]
 MARGIN, GAP, LABEL = 14.0, 16.0, 9.0   # pt: round the page, between panels, a label's room above its plot
 ALT = ("Four panels from R's built-in data. a, iris petal length against width by species. b, tooth length by "

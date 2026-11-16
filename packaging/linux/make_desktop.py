@@ -1,6 +1,6 @@
 """Puts mosaic in a Linux desktop's applications menu, for the account (install-linux.sh): a
 .desktop entry that starts `python -P -m mosaic` from the environment this runs in, with
-mosaic's icon, and the .mosaic file type (and .figasm, from when mosaic was called FigAssemble)
+mosaic's icon, and its file type (.mff, and the older .mosaic and .figasm: docfile.EXTENSIONS)
 so documents open in it when double-clicked. PowerPoint decks get mosaic under Open with.
 
     python packaging/linux/make_desktop.py [--data ~/.local/share] [--no-register]

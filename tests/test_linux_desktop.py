@@ -1,5 +1,5 @@
 """Linux's applications-menu entry (packaging/linux/make_desktop.py): mosaic started from the
-environment's Python, its icon, and .mosaic documents (and FigAssemble's .figasm) as its own."""
+environment's Python, its icon, and .mff documents (and the older .mosaic and FigAssemble's .figasm) as its own."""
 import os
 import sys
 
@@ -14,5 +14,5 @@ def test_the_entry_starts_mosaic_and_owns_its_documents(tmp_path):
     assert 'Exec="/home/a/miniforge3/envs/mosaic/bin/python" -P -m mosaic %f' in text
     assert "MimeType=application/x-mosaic;" in text and "Icon=mosaic" in text
     xml = open(tmp_path / "mime" / "packages" / "mosaic.xml", encoding="utf-8").read()
-    assert '<glob pattern="*.mosaic"/>' in xml and '<glob pattern="*.figasm"/>' in xml
+    assert '<glob pattern="*.mff"/>' in xml and '<glob pattern="*.mosaic"/>' in xml and '<glob pattern="*.figasm"/>' in xml
     assert (tmp_path / "icons" / "hicolor" / "256x256" / "apps" / "mosaic.png").stat().st_size > 500

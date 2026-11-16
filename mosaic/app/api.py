@@ -325,6 +325,8 @@ class Api:
                 # shows: the first window opens the sample figure
                 "first_run": self._first_run and not getattr(self, "hidden_windows", False),
                 "home": os.path.expanduser("~"),   # (shown as ~ in the Rename dialog's folder)
+                # A document's extensions (docfile.py): .mff for new ones, then the older ones that still open
+                "doc_ext": docfile.EXTENSION, "doc_exts": list(docfile.EXTENSIONS),
                 "prefs": self.prefs_get(), "standard_sizes": STANDARD_SIZES, "journals": JOURNALS,
                 "machine": platform.node(), "shapes": presets.catalog(), "clipboard": clipboard.backend() is not None,
                 "themes": themes.catalog()}
@@ -452,9 +454,9 @@ class Api:
         return model.new_document(page=self.prefs_get().get("new_page"))
 
     def sample_document(self) -> dict:
-        """The sample figure (data/sample.mosaic, made by tools/make_sample.py): four small plots
+        """The sample figure (data/sample.mff, made by tools/make_sample.py): four small plots
         as panels a-d, to try things on. An unsaved figure of its own, never the file itself."""
-        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "sample.mosaic")
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "sample" + docfile.EXTENSION)
         doc = docfile.load(path)
         doc["meta"]["title"] = "Sample figure"
         return doc
@@ -487,10 +489,10 @@ class Api:
                    ("assets", "symbols", "swatches", "text_styles", "object_styles")}}
 
     def figure_upload(self, name: str, data_b64: str) -> dict:
-        """A .mosaic dropped in the browser (its bytes, with no path to it): its pages, as
+        """A mosaic document dropped in the browser (its bytes, with no path to it): its pages, as
         figure_pages."""
         with tempfile.TemporaryDirectory() as tmp:
-            path = os.path.join(tmp, os.path.basename(name) or "figure.mosaic")
+            path = os.path.join(tmp, os.path.basename(name) or "figure" + docfile.EXTENSION)
             with open(path, "wb") as fh:
                 fh.write(base64.b64decode(data_b64))
             return self.figure_pages(path)
@@ -643,8 +645,7 @@ class Api:
         """Save a document (auto: AutoSave's own save, which keeps earlier versions less often).
         A file saved over is kept first as an earlier version (kept.py)."""
         path = os.path.abspath(os.path.expanduser(path))
-        if not path.lower().endswith(docfile.EXTENSIONS):   # (a FigAssemble document saves as itself)
-            path += docfile.EXTENSION
+        path = docfile.with_extension(path)   # (an older .mosaic or .figasm document saves as itself)
         try:
             kept.keep_version(path, auto, os.path.basename(path))
         except OSError as exc:   # (saving goes ahead: the file itself matters more)
@@ -655,12 +656,12 @@ class Api:
 
     def rename_document(self, path: str, name: str) -> dict:
         """Rename a saved document's file where it is (the title bar's name, File > Rename): the
-        name without its extension, which stays (.mosaic, or .figasm for a FigAssemble one).
+        name without its extension, which stays (.mff, or an older document's .mosaic or .figasm).
         Never over another file, never moved to another folder; unsaved changes stay unsaved.
         {"path": the new path} or {"error": why not, to show}. Linked pictures are found from
         the document's folder, which doesn't change."""
         path = os.path.abspath(os.path.expanduser(path))
-        ext = os.path.splitext(path)[1] if path.lower().endswith(docfile.EXTENSIONS) else docfile.EXTENSION
+        ext = docfile.extension_of(path) or docfile.EXTENSION
         name = (name or "").strip()
         if name.lower().endswith(ext.lower()):
             name = name[:-len(ext)].rstrip()
@@ -701,7 +702,7 @@ class Api:
         d = os.path.join(config_dir(), "autosave")
         os.makedirs(d, exist_ok=True)
         self.claim_autosave(key)
-        path = os.path.join(d, f"{key}{docfile.EXTENSION}")
+        path = self.autosave_path(key)
         docfile.save(doc, path, prune=False)
         with open(os.path.join(d, f"{key}.json"), "w", encoding="utf-8") as fh:
             json.dump({"path": doc_path}, fh)
@@ -714,6 +715,14 @@ class Api:
         if win is not None:
             self._autosaved_at[win] = time.time()
         return {"path": path}
+
+    @staticmethod
+    def autosave_path(key: str) -> str:
+        """A window's recovery copy: <key>.mff, or the .mosaic one an earlier mosaic left that this
+        window recovered, which it goes on writing (so there's never two of one window's work)."""
+        d = os.path.join(config_dir(), "autosave")
+        return next((p for p in (os.path.join(d, key + ext) for ext in docfile.LEGACY_EXTENSIONS) if os.path.isfile(p)),
+                    os.path.join(d, key + docfile.EXTENSION))
 
     def claim_autosave(self, key: str) -> bool:
         """This window is keeping this recovery copy (one it writes, or one recovered): locked,
@@ -771,13 +780,15 @@ class Api:
             return []
         out = []
         for n in os.listdir(d):
-            if not n.endswith(docfile.EXTENSION) or (exclude_key and n == f"{exclude_key}{docfile.EXTENSION}"):
+            # (recovery copies are .mff; ones left by an earlier mosaic, .mosaic: offered back too)
+            key = docfile.strip_extension(n)
+            if not docfile.has_extension(n) or (exclude_key and key == exclude_key):
                 continue
-            if self._kept_elsewhere(n[:-len(docfile.EXTENSION)]):
+            if self._kept_elsewhere(key):
                 continue
             p = os.path.join(d, n)
             entry = {"path": p, "modified": os.path.getmtime(p), "bytes": os.path.getsize(p),
-                     "key": n[:-len(docfile.EXTENSION)], "doc_path": self._autosave_doc_path(p)}
+                     "key": key, "doc_path": self._autosave_doc_path(p)}
             try:
                 with zipfile.ZipFile(p) as z:
                     doc = json.loads(z.read(docfile.DOC_NAME))
@@ -796,8 +807,8 @@ class Api:
         d = os.path.realpath(os.path.join(config_dir(), "autosave"))
         for p in paths or []:
             real = os.path.realpath(p)
-            key = os.path.basename(real)[:-len(docfile.EXTENSION)]
-            if os.path.dirname(real) == d and real.endswith(docfile.EXTENSION) and os.path.isfile(real) \
+            key = docfile.strip_extension(os.path.basename(real))
+            if os.path.dirname(real) == d and docfile.has_extension(real) and os.path.isfile(real) \
                     and not self._kept_elsewhere(key):
                 os.remove(real)   # mosaic's own autosave file
                 self._forget_doc_path(key)
@@ -806,8 +817,8 @@ class Api:
 
     def discard_autosave(self, key: str) -> bool:
         """The work saved: the window's recovery copy goes (its history stays, kept.py)."""
-        p = os.path.join(config_dir(), "autosave", f"{key}{docfile.EXTENSION}")
-        if os.path.exists(p):
+        p = self.autosave_path(key)   # (.mff, or a .mosaic one recovered from an earlier mosaic)
+        if key.replace("-", "").isalnum() and os.path.exists(p):
             os.remove(p)   # mosaic's own autosave file
         self._forget_doc_path(key)
         self._unlock_autosave(key)
@@ -816,7 +827,7 @@ class Api:
     def _autosave_doc_path(self, copy: str) -> str | None:
         """The document file a recovery copy is of (its .json beside it), or None: never saved."""
         try:
-            with open(copy[:-len(docfile.EXTENSION)] + ".json", encoding="utf-8") as fh:
+            with open(docfile.strip_extension(copy) + ".json", encoding="utf-8") as fh:
                 return json.load(fh).get("path")
         except (OSError, ValueError, AttributeError):
             return None
@@ -1186,7 +1197,7 @@ class Api:
             return None
         import webview
         types = {
-            "document": ("mosaic or PowerPoint (*.mosaic;*.figasm;*.pptx;*.pptm;*.potx)", "All files (*.*)"),
+            "document": (f"mosaic or PowerPoint ({';'.join('*' + e for e in (*docfile.EXTENSIONS, *DECK_EXTENSIONS))})", "All files (*.*)"),
             "figures": ("Figures (*.pdf;*.svg;*.png;*.jpg;*.jpeg;*.tif;*.tiff)", "All files (*.*)"),
             "icc": ("ICC profiles (*.icc;*.icm)", "All files (*.*)"),
         }[kind]
@@ -1194,7 +1205,7 @@ class Api:
                                              file_types=types)
         return list(res) if res else None
 
-    def save_dialog(self, suggested: str = "Untitled.mosaic", directory: str = "") -> str | None:
+    def save_dialog(self, suggested: str = "Untitled" + docfile.EXTENSION, directory: str = "") -> str | None:
         if self.window is None:
             return None
         import webview

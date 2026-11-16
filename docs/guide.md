@@ -170,7 +170,7 @@ copy it there (on a Mac), or copy and paste it (anywhere). Several selected page
 Over that window's Pages list a line shows where they will go; over its page, they go after the
 page showing (the first taking a blank page's place). The pages stay in the first document too,
 and their pictures, swatches, symbols and styles come with them, as when you drop a whole
-`.mosaic` file.
+mosaic document (`.mff`).
 
 ## Pictures
 
@@ -1184,11 +1184,15 @@ under one name. As with exporting, the window then closes and a note names the f
 
 ## Saving, linked files and recovery
 
-- **Save** (⌘S) writes a `.mosaic` document. It holds your pages, the links to placed files, and
+- **Save** (⌘S) writes a `.mff` document ("mosaic figure file"). It holds your pages, the links to placed files, and
   a copy of each file, so it opens complete on another computer. **Save as** (⌘⇧S) saves a copy.
+- **Figures saved before November 2026 are `.mosaic` files** (and `.figasm`, from when mosaic was
+  called FigAssemble). They open in every way a `.mff` does, and **Save** keeps them as they are,
+  under their own names, the way Word keeps a `.doc` a `.doc`. **Save as** offers the `.mff` name;
+  the old file stays beside it, unchanged.
 - **Rename** the file while it's open: on a Mac, **double-click its name** in the window's title
   bar, or use **File ▸ Rename…** (on Windows, find Rename in command search, Ctrl+/). Type the
-  new name (the `.mosaic` stays) and press Rename. The file is renamed where it is, Open Recent
+  new name (the `.mff`, or an older figure's `.mosaic`, stays) and press Rename. The file is renamed where it is, Open Recent
   follows, and linked pictures still link up. A name another file in that folder has, or one
   with `/`, `\` or `:`, is refused, and the dialog says why. Unsaved changes stay unsaved: the
   title still says "edited". A figure never saved is named and then saved: the Save dialog
@@ -1197,7 +1201,7 @@ under one name. As with exporting, the window then closes and a note names the f
   **Show in Finder**, **Copy File Path** (handy for R scripts), and the file and each folder it's
   in, as ⌘-click on a title gives in Mac apps: choose one to show it in Finder. Elsewhere on the
   title bar, a double-click zooms or minimises the window as usual.
-- **Open** a `.mosaic` document by double-clicking it in Finder or Explorer, or by dropping it on
+- **Open** a `.mff` (or older `.mosaic`) document by double-clicking it in Finder or Explorer, or by dropping it on
   mosaic in the Dock. Or use **Open** (⌘O), which also opens slides from a PowerPoint deck
   (see [PowerPoint slides](#powerpoint-slides)).
 - **Each document has a window of its own.** New (⌘N), Open and Open Recent open a new window,
@@ -1216,7 +1220,7 @@ under one name. As with exporting, the window then closes and a note names the f
   front, and a Cancel stops the quit. On Windows the question's Yes saves and No doesn't.
 - **Rulers, grid, guides and snapping** are switched for each window on its own. A new window
   starts with the ones you switched last. Settings apply to every window.
-- **A `.mosaic` dropped on the window** adds its pages to the figure that's open: after the page
+- **A mosaic document (`.mff` or `.mosaic`) dropped on the window** adds its pages to the figure that's open: after the page
   you drop it on, or where you drop it in the Pages list. A blank page takes the first one's
   place, as for slides. The swatches, symbols and styles those pages use come with them.
 - **Linked files** are checked every couple of seconds while the document is open and its window
@@ -1473,11 +1477,11 @@ mosaic can also run from a terminal, with its conda environment active
 
 ```sh
 mosaic                                    # open the app
-mosaic figure.mosaic                      # open a document
-mosaic export figure.mosaic -f pdf,svg,png --dpi 600
-mosaic build figure.mosaic -f pdf,png     # read every linked plot again from its file, then export
-mosaic info figure.mosaic                 # its pages, their sizes and descriptions (--json for other programs)
-mosaic import-pptx deck.pptx --slides 13  # PowerPoint slides -> figure.mosaic
+mosaic figure.mff                         # open a document (an older figure.mosaic too)
+mosaic export figure.mff -f pdf,svg,png --dpi 600
+mosaic build figure.mff -f pdf,png        # read every linked plot again from its file, then export
+mosaic info figure.mff                    # its pages, their sizes and descriptions (--json for other programs)
+mosaic import-pptx deck.pptx --slides 13  # PowerPoint slides -> deck.mff
 mosaic --browser                          # use a web browser instead of the app window
 mosaic update                             # look for an update (--install installs it)
 ```
@@ -1490,7 +1494,7 @@ at the end of the script that makes the plots and the finished figure follows th
 opening mosaic:
 
 ```sh
-Rscript make_plots.R && mosaic build main_figures.mosaic -f pdf,png
+Rscript make_plots.R && mosaic build main_figures.mff -f pdf,png
 ```
 
 The document itself is left as it is; add `--save` to save it with the new plots too (the file
@@ -1506,7 +1510,7 @@ stored in the document, with a warning. `--journal`, `--pages`, `-o` and the res
 save_for_mosaic(depth.plot, "./Figures/depth/chr1_depth", width = 60, height = 45, units = "mm")
 
 # Runs `mosaic build`: returns the exported files
-mosaic_build("./Figures/main_figures.mosaic", formats = c("pdf", "png"))
+mosaic_build("./Figures/main_figures.mff", formats = c("pdf", "png"))
 ```
 
 With the figure open in mosaic, the first is enough: mosaic notices the new files within a
@@ -1597,11 +1601,11 @@ updates are in `~/.mosaic`; the GitHub sign-in is the "mosaic GitHub sign-in" it
 Keychain Access. From when mosaic was called FigAssemble, there may also be a `~/.figassemble`
 folder and a "FigAssemble GitHub sign-in" item; mosaic copied what it needed from them.
 
-**Windows:** delete the mosaic shortcuts from the desktop and Start menu. So that `.mosaic`
-files and decks no longer open in mosaic, run these two lines in a Command Prompt:
+**Windows:** delete the mosaic shortcuts from the desktop and Start menu. So that `.mff`
+and `.mosaic` files and decks no longer open in mosaic, run these two lines in a Command Prompt:
 
 ```bat
-for %k in (.mosaic .figasm mosaic.Document mosaic.Deck) do reg delete HKCU\Software\Classes\%k /f
+for %k in (.mff .mosaic .figasm mosaic.Document mosaic.Deck) do reg delete HKCU\Software\Classes\%k /f
 for %e in (.pptx .pptm .potx) do reg delete HKCU\Software\Classes\%e\OpenWithProgids /v mosaic.Deck /f
 ```
 

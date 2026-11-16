@@ -1,6 +1,6 @@
 """What the apps' kept copies (recovery copies, their history, earlier versions) are built from.
 
-Each app keeps its copies in its own form (mosaic: slim .mosaic files by the document's path;
+Each app keeps its copies in its own form (mosaic: slim mosaic documents by the document's path;
 prose: the saved parts by the document's id), so those stay in the apps. What they share is here:
 
 - files kept **once each**, named by their content (sha256.ext): put into a folder as hard links

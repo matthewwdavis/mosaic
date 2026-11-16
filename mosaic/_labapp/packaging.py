@@ -6,10 +6,11 @@ say what the app is (an AppSpec) and call these.
 
     spec = AppSpec(name="mosaic", module="mosaic", version=__version__, bundle_id="io.github.me.mosaic",
                    description="Assemble multi-panel scientific figures", tagline="assemble multi-panel figures",
-                   doc_kind="mosaic figure", doc_types=[("io.github.me.mosaic.document", "mosaic")],
+                   doc_kind="mosaic figure", doc_types=[("io.github.me.mosaic.mff", "mff"),
+                                                        ("io.github.me.mosaic.document", "mosaic")],
                    draw_icon=draw_icon, ...)
     mac_app(spec, dest)                 # dest/mosaic.app
-    windows_shortcuts(spec)             # Start menu, desktop, .mosaic opening in it
+    windows_shortcuts(spec)             # Start menu, desktop, .mff (and .mosaic) opening in it
     linux_desktop(spec, data)           # ~/.local/share: the entry, the file type, the icon
 """
 from __future__ import annotations
@@ -35,7 +36,9 @@ class AppSpec:
     description: str                            # a line for the applications menu
     tagline: str                                # after "<name>: " on a Windows shortcut
     doc_kind: str                               # what its documents are called: "mosaic figure"
-    doc_types: list                             # [(the Mac's type identifier, extension without its dot)], its own first
+    doc_types: list                             # [(the Mac's type identifier, extension without its dot)]: the one new
+                                                # documents get first, then older ones that still open (and save as
+                                                # themselves). Each is the app's own, with the same icon and kind
     draw_icon: object                           # draw_icon(size) -> a PIL image
     conforms: list = field(default_factory=lambda: ["public.data", "public.content"])   # what the Mac's type is a kind of
     alt_name: str = ""                          # files of another app it also opens (Open With): "PowerPoint deck"
@@ -50,7 +53,13 @@ class AppSpec:
 
     @property
     def extensions(self) -> list:
+        """Every extension its documents have, with their dots: new documents' first."""
         return ["." + ext for _, ext in self.doc_types]
+
+    @property
+    def extension(self) -> str:
+        """The extension new documents get."""
+        return self.extensions[0]
 
     @property
     def mime(self) -> str:
@@ -61,9 +70,11 @@ class AppSpec:
 
 def document_types(spec: AppSpec) -> dict:
     """What the app opens, for its Info.plist: its own documents (it owns their types, declared
-    here), and the other app's files as an alternative."""
+    here: the new extension's and the older ones', so a document of any of them opens with a
+    double-click), and the other app's files as an alternative. Its documents are one kind, so
+    every extension shows the same document icon: the one macOS draws from the app's icon."""
     kinds = [{"CFBundleTypeName": spec.doc_kind, "CFBundleTypeRole": "Editor", "LSHandlerRank": "Owner",
-              "LSItemContentTypes": [uti for uti, _ in spec.doc_types]}]
+              "LSItemContentTypes": [uti for uti, _ in spec.doc_types], "CFBundleTypeIconSystemGenerated": True}]
     if spec.alt_mac_types:
         kinds.append({"CFBundleTypeName": spec.alt_name, "CFBundleTypeRole": "Viewer", "LSHandlerRank": "Alternate",
                       "LSItemContentTypes": list(spec.alt_mac_types)})

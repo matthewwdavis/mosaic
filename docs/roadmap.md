@@ -188,6 +188,8 @@ Matthew's choices are in brackets.
       GitHub repo, folder); documents save as .mosaic and .figasm ones still open; settings and
       recovery copies copied over from ~/.figassemble once; a new icon, figure panels fitted
       together as a mosaic [Matthew's choices]
+- [x] Documents are .mff ("mosaic figure file", 2026-11-16); .mosaic and .figasm ones open
+      everywhere and save under their own names; Save As offers .mff [Matthew's choice]
 - [x] Dangerous mode (asked 2026-11-09; the 11-04 idea of editable text from placed figures): in the
       View menu, off at launch, a red status-bar badge; a double-click lifts a plot's text out as a
       text box (anything about it editable, and movable); each placed copy its own; edits re-applied

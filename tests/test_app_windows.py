@@ -111,16 +111,16 @@ def test_recovery_copies_being_kept_arent_offered_elsewhere(tmp_path, monkeypatc
     other.autosave(doc, "doc-left")
     other._unlock_autosave("doc-left")   # (as when that mosaic quits)
     names = lambda api: [os.path.basename(c["path"]) for c in api.autosaved()]   # noqa: E731
-    assert names(other) == ["doc-left.mosaic"]   # the other's live copy isn't offered back
-    assert sorted(names(one)) == ["doc-kept.mosaic", "doc-left.mosaic"]   # (a window's own: as before)
-    other.delete_autosaves([str(tmp_path / "autosave" / "doc-kept.mosaic")])
-    assert os.path.exists(tmp_path / "autosave" / "doc-kept.mosaic")   # nor deleted
+    assert names(other) == ["doc-left.mff"]   # the other's live copy isn't offered back
+    assert sorted(names(one)) == ["doc-kept.mff", "doc-left.mff"]   # (a window's own: as before)
+    other.delete_autosaves([str(tmp_path / "autosave" / "doc-kept.mff")])
+    assert os.path.exists(tmp_path / "autosave" / "doc-kept.mff")   # nor deleted
     one._remove_window("1")   # its window closed: left behind, offered next time
-    assert sorted(names(other)) == ["doc-kept.mosaic", "doc-left.mosaic"]
+    assert sorted(names(other)) == ["doc-kept.mff", "doc-left.mff"]
     # A recovered copy is claimed at once; saving discards it and lets go
     assert other.claim_autosave("doc-kept") and not one.claim_autosave("doc-kept")
     other.discard_autosave("doc-kept")
-    assert not os.path.exists(tmp_path / "autosave" / "doc-kept.mosaic") and one.claim_autosave("doc-kept")
+    assert not os.path.exists(tmp_path / "autosave" / "doc-kept.mff") and one.claim_autosave("doc-kept")
     assert not one.claim_autosave("../escape")   # only mosaic's own names
 
 
