@@ -1480,7 +1480,7 @@ mosaic                                    # open the app
 mosaic figure.mff                         # open a document (an older figure.mosaic too)
 mosaic export figure.mff -f pdf,svg,png --dpi 600
 mosaic build figure.mff -f pdf,png        # read every linked plot again from its file, then export
-mosaic info figure.mff                    # its pages, their sizes and descriptions (--json for other programs)
+mosaic info figure.mff                    # its pages, their sizes, descriptions and panel labels (--json for other programs)
 mosaic import-pptx deck.pptx --slides 13  # PowerPoint slides -> deck.mff
 mosaic --browser                          # use a web browser instead of the app window
 mosaic update                             # look for an update (--install installs it)
