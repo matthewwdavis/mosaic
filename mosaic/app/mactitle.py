@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 
+from .. import docfile
 from .._labapp.mac import title as _shared
 from .._labapp.mac.title import act, build_menu, on_press, path_chain, run_in_editor, smoke   # noqa: F401
 
@@ -20,4 +21,4 @@ def install(api) -> None:
                 return api._doc_of(w).get("path")
         return None
     _shared.install(api, path_of, lambda command: f"window.FA && window.FA.app.menu({json.dumps(command)})",
-                    sample=("Figures", "figure_3.mosaic"))
+                    sample=("Figures", "figure_3" + docfile.EXTENSION))

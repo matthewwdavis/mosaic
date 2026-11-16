@@ -26,6 +26,7 @@ export const store = {
   setDoc(doc, path = null) {
     this.doc = doc;
     this.path = path;
+    this.suggested = null;   // (the name Save offers a document never saved: a deck's, a rename's)
     this.dirty = false;
     this.pageIndex = 0;
     this.pageSel = [];

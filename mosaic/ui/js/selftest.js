@@ -1205,7 +1205,7 @@ async function macMenuChecks(app) {
 
 // Several windows: New and Open open another window unless this one is blank, the second of two
 // documents opened at once gets a window of its own, each window keeps its own view switches,
-// and a .mosaic dropped on the page adds its pages with what they use. The windows themselves
+// and a mosaic document dropped on the page adds its pages with what they use. The windows themselves
 // are the app's (macopen.smoke checks those): openWindow is stood in for here
 async function windowChecks(app, out) {
   const opened = [], realOpen = app.openWindow, realWindows = app.info.windows;
@@ -1260,7 +1260,7 @@ async function windowChecks(app, out) {
       "coming to the front, a window takes the settings changed in another, not its view switches", JSON.stringify(app.prefs));
     await rpc("prefs_set", { show_grid: before.grid, show_guides: before.guides, default_dpi: before.dpi });
     Object.assign(app.prefs, { show_grid: before.grid, show_guides: before.guides, default_dpi: before.dpi });
-    // A .mosaic dropped: its pages, with the swatches and symbols they use
+    // A mosaic document dropped: its pages, with the swatches and symbols they use
     store.setDoc(await rpc("new_document"));
     store.update("Swatches and a symbol here", (doc) => {
       doc.swatches = [{ id: "sw_same", name: "Same", color: "#112233" }, { id: "sw_clash", name: "Here", color: "#445566" }];
@@ -1281,7 +1281,7 @@ async function windowChecks(app, out) {
     const added = store.doc.pages[1], sw = store.doc.swatches, theirs = sw.find((s) => s.name === "Theirs");
     const sym = (store.doc.symbols || []).find((s) => s.name === "Theirs");
     check(store.doc.pages.length === 3 && store.pageIndex === 1 && added.width === 300 && added.id !== "pg_o1"
-      && added.items.every((it) => !["o1", "o2", "o3"].includes(it.id)), "a .mosaic dropped on a page in use adds its pages after it, with new ids",
+      && added.items.every((it) => !["o1", "o2", "o3"].includes(it.id)), "a mosaic document dropped on a page in use adds its pages after it, with new ids",
     `${store.doc.pages.length} pages, on ${store.pageIndex}`);
     check(sw.length === 3 && added.items[0].fill.swatch === "sw_same" && theirs && theirs.id !== "sw_clash"
       && added.items[1].fill.swatch === theirs.id && !sw.some((s) => s.id === "sw_unused"),
@@ -1301,7 +1301,7 @@ async function windowChecks(app, out) {
     check(store.doc.pages.length === 4 && store.pageIndex === 0 && store.doc.pages[0].width === 300 && store.doc.pages[2].items.length === 3,
       "dropped in the Pages list, they go in where it was dropped", `${store.doc.pages.length} pages, on ${store.pageIndex}`);
     await window.FA.onNativeDrop({ paths: [secondPath], x: 700, y: 450 });
-    check(store.doc.pages.length === 5, "a .mosaic file dropped on the window adds its pages", `${store.doc.pages.length} pages`);
+    check(store.doc.pages.length === 5, "a mosaic document dropped on the window adds its pages", `${store.doc.pages.length} pages`);
     // The close question's Save (closing.py): saved, the window may close; the Save dialog
     // cancelled or the save failing, it stays open, saying why
     const closePath = (await rpc("save_document", empty, `${out}/selftest-close.mosaic`)).path;
@@ -3160,8 +3160,9 @@ async function offPageChecks(app) {
 async function renameChecks(app, out) {
   store.setDoc(await rpc("new_document"));
   const run = Date.now().toString(36);   // (names of this run's own: the output folder can be an earlier run's)
-  const first = (await rpc("save_document", store.doc, `${out}/selftest-rename-a-${run}.mosaic`)).path;
-  await rpc("save_document", store.doc, `${out}/selftest-rename-taken-${run}.mosaic`);
+  const ext = app.info.doc_ext;   // (.mff: save_document gives a name without one the new documents' extension)
+  const first = (await rpc("save_document", store.doc, `${out}/selftest-rename-a-${run}`)).path;
+  await rpc("save_document", store.doc, `${out}/selftest-rename-taken-${run}`);
   store.markSaved(first);
   store.update("Something to save", (doc) => doc.pages[store.pageIndex].items.push(gRectFor("rn", 10, 10, 40, 30)));
   await settle();
@@ -3183,25 +3184,26 @@ async function renameChecks(app, out) {
   };
   let d = await begin();
   check(d.input.value === `selftest-rename-a-${run}` && d.input.selectionStart === 0 && d.input.selectionEnd === d.input.value.length
-    && d.dlg.querySelector(".rename-ext")?.textContent === ".mosaic" && d.dlg.querySelector("#rename-where").textContent.startsWith("In ")
-    && d.ok.textContent === "Rename", "Rename shows the name selected, without .mosaic, and the folder it's in",
+    && first.endsWith(`selftest-rename-a-${run}.mff`) && d.dlg.querySelector(".rename-ext")?.textContent === ".mff"
+    && d.dlg.querySelector("#rename-where").textContent.startsWith("In ")
+    && d.ok.textContent === "Rename", "Rename shows the name selected, without .mff, and the folder it's in",
   `‹${d.input.value}› ${d.input.selectionStart}-${d.input.selectionEnd} ${d.dlg.querySelector("#rename-where").textContent}`);
   await attempt(d, `selftest-rename-taken-${run}`);
   const taken = d.dlg.open && !d.error.hidden && /already a file/.test(d.error.textContent) && store.path === first;
   await attempt(d, "bad/name");
   check(taken && d.dlg.open && !d.error.hidden && /contain/.test(d.error.textContent) && store.path === first,
     "a name already taken in the folder, or with a /, is refused there, the dialog open to put it right", d.error.textContent);
-  await attempt(d, `selftest-rename-b-${run}.mosaic`);   // (typing the extension too is fine)
+  await attempt(d, `selftest-rename-b-${run}${ext}`);   // (typing the extension too is fine)
   await d.running;
   const renamed = store.path;
   const recent = (await rpc("prefs_get")).recent || [];
   let oldGone = false;
   try { await rpc("open_document", first); } catch { oldGone = true; }
   const reopened = await rpc("open_document", renamed).catch(() => null);
-  check(!d.dlg.open && renamed.endsWith(`selftest-rename-b-${run}.mosaic`) && oldGone && reopened
+  check(!d.dlg.open && renamed.endsWith(`selftest-rename-b-${run}${ext}`) && oldGone && reopened
     && recent.includes(renamed) && !recent.includes(first), "Rename renames the file where it is, and Open Recent follows",
   `${renamed}; old gone ${oldGone}; recent ${recent.slice(0, 3)}`);
-  check(store.dirty && document.title.startsWith(`selftest-rename-b-${run}.mosaic — edited`),
+  check(store.dirty && document.title.startsWith(`selftest-rename-b-${run}${ext} — edited`),
     "unsaved changes stay unsaved, and the title shows the new name", document.title);
   d = await begin();
   d.dlg.querySelector("button[value=close]").click();
@@ -3215,13 +3217,71 @@ async function renameChecks(app, out) {
   try {
     d = await begin();
     const label = `${d.dlg.querySelector("h2").textContent} / ${d.ok.textContent}`;
-    await attempt(d, "My figure.mosaic");
+    await attempt(d, "My figure.mff");
     await d.running;
-    check(label === "Name and save / Save…" && asked?.as === true && /(^|[\\/])My figure\.mosaic$/.test(asked.suggested || "") && !store.path,
+    check(label === "Name and save / Save…" && asked?.as === true && /(^|[\\/])My figure\.mff$/.test(asked.suggested || "") && !store.path,
       "renaming a document never saved names it and opens Save with that name", `${label}; ${JSON.stringify(asked)}`);
   } finally {
     app.save = save;
   }
+  await extensionChecks(app, out);
+}
+
+// The document's extension (docfile.py): a new document is saved as .mff; one with an older
+// extension (.mosaic, .figasm) opens, Save keeps it under its own name, Rename keeps its
+// extension, and Save As offers .mff; each is opened by File > Open's filter and added by a drop
+async function extensionChecks(app, out) {
+  const run = Date.now().toString(36);
+  const ext = app.info.doc_ext, legacy = (app.info.doc_exts || []).filter((e) => e !== ext);
+  check(ext === ".mff" && app.info.doc_exts[0] === ".mff" && legacy.join() === ".mosaic,.figasm",
+    "new documents are .mff, and older .mosaic and .figasm documents are still mosaic's", JSON.stringify(app.info.doc_exts));
+  store.setDoc(await rpc("new_document"));
+  const fresh = (await rpc("save_document", store.doc, `${out}/selftest-ext-new-${run}`)).path;
+  check(fresh.endsWith(`selftest-ext-new-${run}.mff`), "a new document is saved as .mff", fresh);
+  const pathDialog = panels.pathDialog, native = app.info.native;
+  for (const old of legacy) {
+    const oldPath = (await rpc("save_document", await rpc("new_document"), `${out}/selftest-ext-old-${run}${old}`)).path;
+    store.setDoc(await rpc("new_document"));
+    const opened = await app.open(oldPath);
+    store.update("Something to save", (doc) => doc.pages[0].items.push(gRectFor(`ext${old.slice(1)}`, 10, 10, 20, 20)));
+    await app.save();
+    const reread = await rpc("open_document", oldPath).catch(() => null);
+    check(opened && oldPath.endsWith(`selftest-ext-old-${run}${old}`) && store.path === oldPath && !store.dirty
+      && reread?.doc.pages[0].items.length === 1 && reread.path === oldPath,
+    `a ${old} document opens, and Save saves it in place under its ${old} name`, `${store.path}; ${store.dirty}`);
+    const d = app.run("rename");
+    await until(() => document.querySelector("dialog[open] .rename-ext"));
+    const dlg = [...document.querySelectorAll("dialog[open]")].pop();
+    const shown = `${dlg.querySelector("#rename-input").value}|${dlg.querySelector(".rename-ext").textContent}`;
+    dlg.querySelector("button[value=close]").click();
+    await d;
+    const renamed = await rpc("rename_document", oldPath, `selftest-ext-renamed-${run}`);
+    check(shown === `selftest-ext-old-${run}|${old}` && renamed.path?.endsWith(`selftest-ext-renamed-${run}${old}`),
+      `Rename keeps a ${old} document's extension`, `${shown}; ${JSON.stringify(renamed)}`);
+    store.markSaved(renamed.path);
+    let suggested = null;
+    panels.pathDialog = async (title, given) => { suggested = given; return null; };
+    app.info.native = false;   // (the Save dialog stood in for, in the app's window too)
+    try {
+      await app.save(true);
+    } finally {
+      panels.pathDialog = pathDialog;
+      app.info.native = native;
+    }
+    check(/(^|[\\/])selftest-ext-renamed-[a-z0-9]+\.mff$/.test(suggested || "") && store.path === renamed.path,
+      `Save As on a ${old} document offers its name as .mff, and the ${old} file stays as it was`, suggested);
+    store.setDoc(await rpc("new_document"));
+    store.update("Something here", (doc) => doc.pages[0].items.push(gRectFor(`extHere${old.slice(1)}`, 10, 10, 20, 20)));   // (not a blank page, which a drop replaces)
+    const pages = store.doc.pages.length;
+    await window.FA.onNativeDrop({ paths: [renamed.path], x: 700, y: 450 });
+    check(store.doc.pages.length === pages + 1, `a ${old} document dropped on the window adds its pages`, `${store.doc.pages.length} pages`);
+  }
+  store.setDoc(await rpc("new_document"));
+  store.update("Something here", (doc) => doc.pages[0].items.push(gRectFor("extHereMff", 10, 10, 20, 20)));
+  const pages = store.doc.pages.length;
+  await window.FA.onNativeDrop({ paths: [fresh], x: 700, y: 450 });
+  check(store.doc.pages.length === pages + 1, "a .mff document dropped on the window adds its pages", `${store.doc.pages.length} pages`);
+  store.setDoc(await rpc("new_document"));
 }
 
 // Keeping work safe: a recovery copy (saying which file it's of) 10 s after the last change, and

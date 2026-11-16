@@ -153,7 +153,7 @@ def test_picker_api(tmp_path, monkeypatch):
     assert got["report"][0].startswith("relinked image2.png") and got["report"][-1].startswith("slide 3:")
     opened = api.open_document(str(deck), [2, 4])
     assert [p["name"] for p in opened["doc"]["pages"]] == ["Slide 2", "Slide 4"] and opened["path"] is None
-    assert opened["suggested"].endswith("deck.mosaic") and opened["doc"]["meta"]["imported_from"] == str(deck)
+    assert opened["suggested"].endswith("deck.mff") and opened["doc"]["meta"]["imported_from"] == str(deck)
     assert len(api.open_document(str(deck))["doc"]["pages"]) == 4   # no slides chosen: all of them
     # Pages are copies: changing one doesn't change the next time they're asked for
     got["pages"][0]["items"].clear()

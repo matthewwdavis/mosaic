@@ -195,7 +195,7 @@ fine for slides. It only advises; your choices stay as they are.
 
 ## 9. Save it
 
-Press **⌘S** to save the document as a `.mosaic` file. It keeps the links to your plot files and
+Press **⌘S** to save the document as a `.mff` file. It keeps the links to your plot files and
 a copy of each one too, so you can send it to a labmate and it opens complete. If a linked file
 has moved, mosaic uses the stored copy and the Picture tab says so. To come back to it,
 double-click the file in Finder or Explorer. Each figure opens in a window of its own, so you

@@ -74,7 +74,7 @@ def _decks_dragged(pb) -> str | None:
     paths = [str(u.path() or "").lower() for u in urls]
     if any(p.endswith(powerpoint.DECK_EXTENSIONS) for p in paths):
         return "deck"
-    return "figure" if any(p.endswith(docfile.EXTENSIONS) for p in paths) else None
+    return "figure" if any(docfile.has_extension(p) for p in paths) else None
 
 
 def tell(view, name: str, value) -> None:

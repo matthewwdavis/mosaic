@@ -81,8 +81,8 @@ def main() -> int:
     ap.add_argument("--budget", type=int, default=240000, help="virtual time budget, ms (the whole run took about 120 s on 2026-11-13)")
     ap.add_argument("--only", help="run one part on its own, while working on it (objects: the Objects and Pages lists; slides: "
                     "PowerPoint slides; links: linked files updating; updates: updating mosaic; selection: selecting "
-                    "several objects and Select Same; windows: New and Open in windows of their own, a .mosaic "
-                    "dropped on the page; sizes: page sizes, the Size menu and new documents' size; vision: colour "
+                    "several objects and Select Same; windows: New and Open in windows of their own, a mosaic document "
+                    "dropped on the page; rename: renaming the file, and .mff and older documents' extensions; sizes: page sizes, the Size menu and new documents' size; vision: colour "
                     "vision side by side and in command search; export: the window closing after an export, and its note; guides: clicking the rulers for guides, and a guide's right-click menu; pictures: the Style tab's picture menus)")
     args = ap.parse_args()
     if not args.chrome:

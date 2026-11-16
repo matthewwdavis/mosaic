@@ -4,7 +4,7 @@
 # It installs conda (Miniforge, in ~/miniforge3) if you don't have conda yet, makes a conda
 # environment called "mosaic" with everything mosaic needs (its window uses Qt, which comes
 # with it: nothing is installed system-wide and no administrator password is asked for), and
-# puts mosaic in your desktop's applications menu, with .mosaic files opening in it. Running
+# puts mosaic in your desktop's applications menu, with mosaic documents opening in it. Running
 # it again updates an earlier installation. It needs an internet connection and about 2.5 GB
 # of disk space; the first run takes 5-15 minutes.
 #
@@ -77,7 +77,7 @@ step "Installing mosaic"
 mkdir -p "$PREFIX/etc/mosaic"
 echo linux > "$PREFIX/etc/mosaic/installer"
 
-# 5. The applications menu, and .mosaic files opening in mosaic
+# 5. The applications menu, and mosaic documents opening in mosaic
 DATA_DIR="${MOSAIC_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}}"
 step "Putting mosaic in the applications menu"
 "$PY" packaging/linux/make_desktop.py --data "$DATA_DIR" >/dev/null

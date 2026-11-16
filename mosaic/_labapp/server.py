@@ -17,16 +17,24 @@ names, and the server's allowed(method) agrees.
 """
 from __future__ import annotations
 
+import errno
 import json
 import mimetypes
 import os
 import secrets
+import sys
 import threading
+import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
 MAX_BODY = 512 * 1024 * 1024   # (a call's size: a pasted picture comes through here)
+CHUNK = 64 * 1024              # (what's handed to the network at a time)
+# macOS answers "No buffer space available" (ENOBUFS) when many answers go out at once (a window
+# opening: its files, previews and pages together); the answer is sent again a moment later
+RETRY = (errno.ENOBUFS, errno.EAGAIN, errno.EWOULDBLOCK, errno.EINTR)
+RETRY_FOR = 5.0                # seconds, before giving up on one answer
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -48,12 +56,37 @@ class Handler(BaseHTTPRequestHandler):
             for k, v in (headers or {}).items():
                 self.send_header(k, v)
             self.end_headers()
-            self.wfile.write(body)
+            self.write_all(body)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):   # (its window closed meanwhile)
             pass
         return True
 
     _send = send   # (the name the apps' handlers used before)
+
+    def write_all(self, data: bytes) -> None:
+        """Send data in pieces, each again after a short wait when the system is out of buffer
+        space for a moment (ENOBUFS), so a busy start-up doesn't lose an answer."""
+        view = memoryview(data)
+        give_up = None
+        while view:
+            try:
+                n = self.connection.send(view[:CHUNK])
+            except OSError as exc:
+                if exc.errno not in RETRY:
+                    raise
+                give_up = give_up or time.monotonic() + RETRY_FOR
+                if time.monotonic() > give_up:
+                    raise
+                time.sleep(0.005)
+                continue
+            view = view[n:]
+            give_up = None
+
+    def flush_headers(self):   # (the headers, sent the same way)
+        if hasattr(self, "_headers_buffer"):
+            data = b"".join(self._headers_buffer)
+            self._headers_buffer = []
+            self.write_all(data)
 
     def rest(self) -> str | None:
         """The path after the token; None (and a 403 sent) without the right token."""
@@ -156,6 +189,18 @@ class AppServer(ThreadingHTTPServer):
         self.api = api
         self.token = secrets.token_urlsafe(16)
         self.testing, self.test_prefix = testing, test_prefix
+
+    def handle_error(self, request, client_address):
+        """A request that failed, written to the log as one piece (threads answering at once
+        otherwise mix their tracebacks line by line)."""
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)):
+            return   # (the window went away mid-answer)
+        text = f"---- a request from {client_address} failed\n{traceback.format_exc()}"
+        try:
+            sys.stderr.write(text if text.endswith("\n") else text + "\n")
+        except Exception:   # noqa: BLE001 (nowhere to write it)
+            pass
 
     def allowed(self, method: str) -> bool:
         """The self-test's helpers (which may write files where they're told) answer only during

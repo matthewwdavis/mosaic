@@ -35,10 +35,10 @@ def test_the_settings_folder_is_copied_once_and_the_old_one_left_as_it_was(tmp_p
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     new = fonts.config_dir()
     assert new == str(tmp_path / ".mosaic")
-    # Settings, recovery copies (as .mosaic documents) and math fonts; not locks or caches
-    assert sorted(tree(new)) == ["autosave/doc-abc123.mosaic", "math-fonts/STIXTwoMath.otf", "prefs.json"]
+    # Settings, recovery copies (as mosaic documents: .mff) and math fonts; not locks or caches
+    assert sorted(tree(new)) == ["autosave/doc-abc123.mff", "math-fonts/STIXTwoMath.otf", "prefs.json"]
     assert json.loads((tmp_path / ".mosaic" / "prefs.json").read_text()) == {"units": "mm"}
-    assert (tmp_path / ".mosaic" / "autosave" / "doc-abc123.mosaic").read_bytes() == b"recovery copy"
+    assert (tmp_path / ".mosaic" / "autosave" / "doc-abc123.mff").read_bytes() == b"recovery copy"
     assert tree(old) == before   # nothing in the old folder moved, changed or went
     # Once: settings changed in mosaic aren't copied over again
     (tmp_path / ".mosaic" / "prefs.json").write_text(json.dumps({"units": "cm"}))
@@ -74,10 +74,10 @@ def test_figassemble_documents_open_and_save_as_themselves(tmp_path, monkeypatch
     opened = docfile.load(str(old))
     assert opened["mosaic"] == model.FORMAT_VERSION and "figassemble" not in opened
     assert opened["pages"][0]["items"][0]["text"] == doc["pages"][0]["items"][0]["text"]
-    # Saving it keeps its name; a name with no extension gets .mosaic
+    # Saving it keeps its name; a name with no extension gets .mff
     assert Api().save_document(opened, str(old))["path"] == str(old)
     assert docfile.load(str(old))["mosaic"] == model.FORMAT_VERSION
-    assert Api().save_document(opened, str(tmp_path / "copy"))["path"] == str(tmp_path / "copy.mosaic")
+    assert Api().save_document(opened, str(tmp_path / "copy"))["path"] == str(tmp_path / "copy.mff")
 
 
 def test_the_github_sign_in_is_read_from_figassemble_s_entry():

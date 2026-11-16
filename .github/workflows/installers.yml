@@ -55,19 +55,21 @@ jobs:
           cd "$RUNNER_TEMP"
           MOSAIC_HOME="$(mktemp -d)" MOSAIC_SMOKETEST=launch MOSAIC_NO_UPDATES=1 "$py" -P -m mosaic | tee smoke.txt
           grep -q 'SMOKE launch: {"ready": true' smoke.txt
-      - name: Double-clicking a .mosaic opens it in the installed app
+      - name: Double-clicking a .mff (or an older .mosaic or .figasm) opens it in the installed app
         run: |
           py="$RUNNER_TEMP/Applications/mosaic.app/Contents/MacOS/python"
           cd "$RUNNER_TEMP"
-          "$py" -c "from mosaic import docfile, model; docfile.save(model.new_document('Test'), 'test.mosaic')"
           "$py" -c "
           import os
           from AppKit import NSWorkspace
           from Foundation import NSURL
-          app = NSWorkspace.sharedWorkspace().URLForApplicationToOpenURL_(NSURL.fileURLWithPath_(os.path.abspath('test.mosaic')))
+          from mosaic import docfile, model
           want = os.path.realpath(os.path.join(os.environ['RUNNER_TEMP'], 'Applications', 'mosaic.app'))
-          assert app is not None and os.path.realpath(str(app.path())) == want, app
-          print('A .mosaic opens in', app.path())
+          for ext in docfile.EXTENSIONS:
+              docfile.save(model.new_document('Test'), 'test' + ext)
+              app = NSWorkspace.sharedWorkspace().URLForApplicationToOpenURL_(NSURL.fileURLWithPath_(os.path.abspath('test' + ext)))
+              assert app is not None and os.path.realpath(str(app.path())) == want, (ext, app)
+              print('A', ext, 'opens in', app.path())
           "
       - name: The installed copy updates itself, goes back and takes a test version
         run: |
@@ -121,7 +123,7 @@ jobs:
           $out = Get-Content smoke.txt -Raw
           if ($out -notmatch 'SMOKE ready errors=\[\]') { throw "the editor didn't start in the window" }
           if ($out -notmatch 'close confirmation: False before an edit, True after') { throw "an edit didn't reach the window" }
-      - name: Double-clicking a .mosaic opens it in mosaic; decks have it under Open with
+      - name: Double-clicking a .mff (or an older .mosaic or .figasm) opens it in mosaic; decks have it under Open with
         shell: pwsh
         run: |
           # Looked up as Explorer looks it up (assoc and ftype show only types registered for the
@@ -131,9 +133,11 @@ jobs:
             $sb = New-Object System.Text.StringBuilder 2048; $n = [uint32]2048
             [void][Shell.Assoc]::AssocQueryString(0, $what, $ext, 'open', $sb, [ref]$n); $sb.ToString()
           }
-          $command = Look '.mosaic' 1   # ASSOCSTR_COMMAND
-          if ($command -notmatch 'pythonw\.exe" -P -m mosaic "%1"$') { throw "a .mosaic opens with: $command" }
-          Write-Output "A .mosaic opens with: $command; named: $(Look '.mosaic' 4)"   # ASSOCSTR_FRIENDLYAPPNAME
+          foreach ($ext in '.mff', '.mosaic', '.figasm') {
+            $command = Look $ext 1   # ASSOCSTR_COMMAND
+            if ($command -notmatch 'pythonw\.exe" -P -m mosaic "%1"$') { throw "a $ext opens with: $command" }
+            Write-Output "A $ext opens with: $command; named: $(Look $ext 4)"   # ASSOCSTR_FRIENDLYAPPNAME
+          }
           $deck = (Get-ItemProperty 'HKCU:\Software\Classes\.pptx\OpenWithProgids' -ErrorAction SilentlyContinue).'mosaic.Deck'
           if ($null -eq $deck) { throw "decks don't have mosaic under Open with" }
       - name: The installed copy updates itself, goes back and takes a test version

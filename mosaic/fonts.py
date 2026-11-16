@@ -74,7 +74,7 @@ def config_dir() -> str:
 
 
 def copy_old_settings(old: str, new: str) -> None:
-    """FigAssemble's settings, recovery copies (now .mosaic documents) and downloaded math fonts,
+    """FigAssemble's settings, recovery copies (now mosaic documents: .mff) and downloaded math fonts,
     copied into a new settings folder: put together beside it, then moved into place in one step.
     Its caches are made again, and nothing in the old folder changes."""
     if not os.path.isdir(old):
@@ -88,8 +88,9 @@ def copy_old_settings(old: str, new: str) -> None:
             shutil.copytree(os.path.join(old, "math-fonts"), os.path.join(tmp, "math-fonts"), dirs_exist_ok=True)
         autosave = os.path.join(old, "autosave")
         for name in os.listdir(autosave) if os.path.isdir(autosave) else []:
-            if name.endswith(".figasm"):
-                shutil.copy2(os.path.join(autosave, name), os.path.join(tmp, "autosave", name[:-len(".figasm")] + ".mosaic"))
+            if name.endswith(".figasm"):   # (FigAssemble's own, the one extension it ever wrote)
+                from . import docfile
+                shutil.copy2(os.path.join(autosave, name), os.path.join(tmp, "autosave", docfile.strip_extension(name) + docfile.EXTENSION))
         os.replace(tmp, new)
     except OSError:   # (another mosaic starting at the same moment made it first, or the copy failed)
         shutil.rmtree(tmp, ignore_errors=True)   # this copy's own unfinished folder

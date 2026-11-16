@@ -309,7 +309,7 @@ pre-export check says so.
     Other presses on the title bar go on to macOS. Mac only: Windows renames through command
     search. The dialog is mosaic's own (`panels.renameDialog`): the name selected without its
     extension, the folder (home as ~), and the reason a name is refused, shown there to fix.
-    `api.rename_document` renames in place, keeping .mosaic or .figasm, never over another file
+    `api.rename_document` renames in place, keeping .mff (or an older .mosaic or .figasm), never over another file
     (a change of case alone is allowed), and moves the file's place in Open Recent and the
     window's record; unsaved changes stay unsaved (store.path changes and "saved" is emitted
     without clearing dirty). Linked pictures keep working since their relative paths are from the
@@ -563,9 +563,10 @@ pre-export check says so.
   (with dash), the fonts, sizes or colours of its text runs, or its kind (a preset's name, text
   box, line or arrow, picture, equation, zoom inset, one symbol's copies); "none" matches "none".
   It keeps to the working level like every selection, so a group's parts count only inside it.
-- **Documents and windows (2026-11-02):** a .mosaic double-clicked opens in mosaic, and each
+- **Documents and windows (2026-11-02):** a mosaic document double-clicked opens in mosaic, and each
   document has a window of its own (Matthew's choice, over replacing the open figure). The Mac
-  app owns the types (`io.github.matthewwdavis.mosaic.document` for .mosaic, and
+  app owns the types (`io.github.matthewwdavis.mosaic.mff` for .mff since 2026-11-16,
+  `io.github.matthewwdavis.mosaic.document` for .mosaic, and
   `org.figassemble.figasm` for .figasm, from when it was called FigAssemble; declared in its
   Info.plist, registered with LaunchServices as the app is made) and takes decks as an
   alternative, for Open With. macOS
@@ -583,7 +584,7 @@ pre-export check says so.
   registers the type in HKEY_CURRENT_USER (no administrator needed), and each double-click starts a
   mosaic of its own, as Notepad does (his choice, over sending it to the open window).
   Rulers, grid, guides, snap and the interface's state are each window's own (his choice), while
-  Settings are shared: a window takes changes from another when it comes to the front. A .mosaic
+  Settings are shared: a window takes changes from another when it comes to the front. A mosaic document
   dropped on the window adds its pages (his choice, over opening it), with the swatches,
   symbols, styles and pictures they use. One that's the same here is shared, and one whose id
   means something else here gets a new id. Recovery copies a window is writing are locked
@@ -819,6 +820,15 @@ pre-export check says so.
   his unpublished manuscript decks and scripts were reworded out of the current files (they
   remain in the git history). Open: whether UC Davis, as his employer, should be the copyright
   holder.
+- **Document extension .mff (2026-11-16, Matthew's choice):** "mosaic figure file". New
+  documents and Save As take .mff; .mosaic (until then) and .figasm documents open everywhere a
+  document opens (double-click, File ▸ Open, Open Recent, a drop, the command line, recovery) and
+  Save keeps them under their own names, as Word keeps a .doc a .doc. `docfile.EXTENSION` and
+  `docfile.LEGACY_EXTENSIONS` are the one list (the editor gets it through `app_info`); the Mac
+  app declares a type for each, all one kind with one document icon. Recovery copies and kept
+  versions are written as .mff and read as any of them; a recovery copy left as .mosaic goes on
+  being written under that name once recovered. A journal copy named without an extension
+  (`--copy`) is .mff. The settings folder stays ~/.mosaic, the conda environment as it was.
 - **Repository:** `~/Projects/mosaic`, private GitHub repo `matthewwdavis/mosaic`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   Called FigAssemble, a working name, until 2026-11-03, when Matthew named it mosaic.
@@ -832,7 +842,7 @@ pre-export check says so.
 ```
 mosaic/
   model.py        document JSON: defaults, validation, ids
-  docfile.py      .mosaic container (zip: document.json + embedded assets)
+  docfile.py      .mff container (zip: document.json + embedded assets); the extensions
   assets.py       linked/embedded files, sibling variants, intrinsic sizes, change detection
   geometry.py     matrices, paths, corner rounding, arrowheads, dashes
   presets.py      PowerPoint's 187 preset shapes from their formulas; handles; the Shapes menu
@@ -859,7 +869,7 @@ mosaic/
   apart from an asset cache. Save, export and preflight send the whole document.
 - **Coordinates:** points (1/72 in), page space, origin top-left, y down. Rotation is
   clockwise about the frame centre; flips apply before rotation (same as PowerPoint).
-- **Document file:** `.mosaic`, a zip holding `document.json` (stored uncompressed, readable
+- **Document file:** `.mff` (older ones `.mosaic`, `.figasm`), a zip holding `document.json` (stored uncompressed, readable
   with `unzip -p`) and `assets/<sha256>.<ext>` copies of every placed file and its variants.
 - **Shapes follow DrawingML** (PowerPoint's model): preset names, adjust values, line
   ends, dash presets and text-box insets, so imported slides render the same and the

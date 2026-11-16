@@ -9,9 +9,9 @@ The environment's Python is linked into the app and runs from there, so macOS ta
 name, icon and version from this bundle, as for any Mac app (run from its own folder, it would
 call the app "python").
 
-The app declares the .mosaic type as its own (and .figasm, its documents from when it was called
-FigAssemble), so double-clicking a mosaic document opens it in mosaic (macOS draws the
-documents' icon from the app's), and takes PowerPoint decks as
+The app declares the .mff type as its own, and the older documents' types too (.mosaic, and
+.figasm from when it was called FigAssemble), so double-clicking a mosaic document of any of them
+opens it in mosaic (macOS draws the documents' icon from the app's, the same for each), and takes PowerPoint decks as
 an alternative (in Open With, never instead of PowerPoint). The app is registered with macOS as
 it's made, so that works straight away; not a build in this folder's dist (macOS would have two
 apps of the same name to choose from), nor with --no-register (a test copy).
@@ -27,11 +27,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, ROOT)
 
-from mosaic import __version__  # noqa: E402
+from mosaic import __version__, docfile  # noqa: E402
 from mosaic._labapp import packaging  # noqa: E402
 
-DOCUMENT_TYPE = "io.github.matthewwdavis.mosaic.document"
-OLD_DOCUMENT_TYPE = "org.figassemble.figasm"   # .figasm, from when mosaic was called FigAssemble
+# The Mac's type for each of docfile.EXTENSIONS, in its order: .mff (new documents'), then the older ones
+DOCUMENT_TYPE = "io.github.matthewwdavis.mosaic.mff"
+LEGACY_DOCUMENT_TYPES = ["io.github.matthewwdavis.mosaic.document",   # .mosaic, until November 2026
+                         "org.figassemble.figasm"]                    # .figasm, from when mosaic was called FigAssemble
+assert len(LEGACY_DOCUMENT_TYPES) == len(docfile.LEGACY_EXTENSIONS), "a Mac type for each older extension"
+DOCUMENT_TYPES = list(zip([DOCUMENT_TYPE, *LEGACY_DOCUMENT_TYPES], [ext.lstrip(".") for ext in docfile.EXTENSIONS]))
 # PowerPoint's: decks, decks with macros, templates (macOS's own types for them)
 DECK_TYPES = ["org.openxmlformats.presentationml.presentation", "org.openxmlformats.presentationml.presentation.macroenabled",
               "org.openxmlformats.presentationml.template"]
@@ -43,7 +47,7 @@ from mosaic.icon import ICON_TILES, draw_icon  # noqa: E402,F401 (the icon, ligh
 SPEC = packaging.AppSpec(
     name="mosaic", module="mosaic", version=__version__, bundle_id="io.github.matthewwdavis.mosaic",
     description="Assemble multi-panel scientific figures", tagline="assemble multi-panel figures",
-    doc_kind="mosaic figure", doc_types=[(DOCUMENT_TYPE, "mosaic"), (OLD_DOCUMENT_TYPE, "figasm")],
+    doc_kind="mosaic figure", doc_types=DOCUMENT_TYPES,
     draw_icon=draw_icon, conforms=["public.data", "public.composite-content"],
     alt_name="PowerPoint deck", alt_key="Deck", alt_mac_types=DECK_TYPES, alt_extensions=[".pptx", ".pptm", ".potx"],
     alt_mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -52,8 +56,8 @@ SPEC = packaging.AppSpec(
 
 
 def document_types() -> dict:
-    """What the app opens: its own documents (it owns the .mosaic and .figasm types, declared
-    here), and decks as an alternative to PowerPoint."""
+    """What the app opens: its own documents (it owns the .mff, .mosaic and .figasm types,
+    declared here), and decks as an alternative to PowerPoint."""
     return packaging.document_types(SPEC)
 
 

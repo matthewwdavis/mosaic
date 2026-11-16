@@ -229,7 +229,7 @@ const app = {
     if (!windows && !(await this.confirmDiscard())) return false;
     if (!path) {
       if (this.info.native) path = (await rpc("open_dialog", "document"))?.[0];
-      else path = await panels.pathDialog("Open a document or PowerPoint deck", "/path/to/figure.mosaic", this.prefs.recent || []);
+      else path = await panels.pathDialog("Open a document or PowerPoint deck", `/path/to/figure${docExt()}`, this.prefs.recent || []);
     }
     if (!path) return false;
     if (windows && !isDeck(path) && (await rpc("show_document", path))) {
@@ -353,7 +353,9 @@ const app = {
   async save(as = false) {
     let path = store.path;
     if (as || !path) {
-      const suggested = store.suggested || `${store.doc.meta?.title || "Untitled figure"}.mosaic`;
+      // (Save As takes .mff, an older .mosaic's name too: the file saved under its own name stays as it was)
+      const suggested = (store.path && `${stripDocExt(store.path)}${docExt()}`) || store.suggested
+        || `${store.doc.meta?.title || "Untitled figure"}${docExt()}`;
       if (this.info.native) path = await rpc("save_dialog", suggested.split(/[\\/]/).pop(), dirOf(store.path || store.suggested));
       else path = await panels.pathDialog("Save as", suggested);
     }
@@ -386,13 +388,13 @@ const app = {
   // document never saved is named and then saved straight away (the Save dialog, that name in it)
   async rename() {
     const named = store.path;
-    const ext = named?.match(/\.(mosaic|figasm)$/i)?.[0] || ".mosaic";
+    const ext = docExtOf(named) || docExt();   // (an older document keeps its .mosaic or .figasm)
     let chosen = null;
-    const ok = await panels.renameDialog(docName().replace(/\.(mosaic|figasm)$/i, ""), ext, named ? dirOf(named) : null, async (name) => {
+    const ok = await panels.renameDialog(stripDocExt(docName()), ext, named ? dirOf(named) : null, async (name) => {
       if (!name) return "Type a name for the file.";
       if (!named) {
         if (/[\\/:]/.test(name) || name.startsWith(".")) return "A file name can't start with a full stop or contain / \\ or :.";
-        chosen = name.replace(/\.mosaic$/i, "");
+        chosen = stripDocExt(name);
         return null;
       }
       const res = await rpc("rename_document", named, name);
@@ -403,7 +405,7 @@ const app = {
     if (!ok) return;
     if (!named) {
       const dir = dirOf(store.suggested);
-      store.suggested = `${dir ? `${dir}/` : ""}${chosen}.mosaic`;
+      store.suggested = `${dir ? `${dir}/` : ""}${chosen}${docExt()}`;
       await this.save(true);
       return;
     }
@@ -2413,7 +2415,7 @@ const UPDATE_FROM_FILE = "Update from file";
 // Which version of its files a picture shows: its copies' (PDF, SVG, PNG…) content hashes, in a fixed order
 function fileVersion(asset) { return Object.keys(asset.variants).sort().map((k) => asset.variants[k].sha256); }
 function reidPage(p) { p.id = uid("pg"); p.items = copyItems(p.items); return p; }
-// Another figure's pages, for this one (figure_pages: a .mosaic dropped), with new ids. What they
+// Another figure's pages, for this one (figure_pages: a mosaic document dropped), with new ids. What they
 // use from that figure comes into doc too, only what they use (symbols' contents and styles'
 // swatches included): pictures, symbols, swatches, text and object styles. One that's here
 // already, the same, is shared; one whose id means something else here gets a new id
@@ -2833,7 +2835,15 @@ function isField(el) {
 // Drag and drop ------------------------------------------------------------------------------
 
 const isDeck = (path) => /\.(pptx|pptm|potx)$/i.test(path || "");
-const isFigure = (path) => /\.(mosaic|figasm)$/i.test(path || "");   // (.figasm: saved while mosaic was FigAssemble)
+// A mosaic document's extensions, docfile.py's (app_info): .mff, new documents', then the older
+// .mosaic and .figasm, which open and save under their own names
+const docExt = () => app.info?.doc_ext || "";
+const docExtOf = (path) => {
+  const name = (path || "").toLowerCase(), ext = (app.info?.doc_exts || []).find((e) => name.endsWith(e));
+  return ext ? path.slice(path.length - ext.length) : "";
+};
+const isFigure = (path) => !!docExtOf(path);
+const stripDocExt = (name) => (docExtOf(name) ? name.slice(0, name.length - docExtOf(name).length) : name);
 // Words for a gap in the Pages list, where slides would go in as pages
 function slideGap(at) {
   const n = store.doc.pages.length;
@@ -3062,7 +3072,7 @@ async function start() {
       const now = JSON.stringify([store.path, store.dirty, docName(), auto]);
       if (now !== state) {
         state = now;
-        rpc("doc_state", store.path, store.dirty, docName().replace(/\.(mosaic|figasm)$/i, ""), auto).catch(() => {});
+        rpc("doc_state", store.path, store.dirty, stripDocExt(docName()), auto).catch(() => {});
         app.syncMenus();   // (File > AutoSave's tick)
       }
       if (what === "doc") app.noteChange();
