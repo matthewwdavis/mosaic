@@ -5,7 +5,7 @@
     mosaic export fig.mff --journal Nature [--copy fig_nature.mff] [--dry-run] [--json]
                                                   the panel labels in a journal's look (relabel.py)
     mosaic build fig.mff -f pdf,png [--save]      read the linked plots again from their files, then export
-    mosaic info fig.mff [--json]                  its pages, sizes and descriptions
+    mosaic info fig.mff [--json]                  its pages, sizes, descriptions and panel labels
     mosaic import-pptx deck.pptx [--slides 13] [-o fig.mff] [--search DIR]
 
 Documents are .mff; older ones (.mosaic, .figasm) are read the same way and --save writes them
@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 
 
@@ -123,15 +124,57 @@ def cmd_export(args) -> int:
     return 0
 
 
+# A sub-panel's label: "i", "(ii)", "2", or a panel's letter with one ("a(i)", "b2", "c′")
+SUB_LABEL = re.compile(r"^(?:\(?(?:[ivx]{1,4}|\d{1,2})\)?|\(?[A-Za-z](?:\(?(?:[ivx]{1,4}|\d{1,2})\)?|[′″‴'])\)?)$")
+
+
+def page_panel_labels(page: dict) -> list[dict]:
+    """A page's panel labels, in the order they're read (rows from the top, each from the left):
+    [{"text", "x", "y", "level"}], x and y the top left of the label's box in points from the
+    page's top left; level 1 for a panel's letter ("a", "(B)"), 2 for a sub-panel's ("i", "a(ii)",
+    "b2"), which only a label made with the Label tool can be. prose reads them to fill a legend
+    with one line per panel."""
+    from .export.preflight import LETTER
+    from .export.preflight import _text as text_of
+    from .model import iter_items
+    found = []
+    for it in iter_items(page.get("items", [])):
+        if it.get("type") != "shape" or not it.get("textbox"):
+            continue
+        text = text_of(it)
+        level = 1 if LETTER.match(text) else 2 if it.get("panel_label") and SUB_LABEL.match(text) else 0
+        if not level:
+            continue
+        x, y, w, h = (list(it.get("frame") or [0, 0, 0, 0]) + [0, 0, 0, 0])[:4]
+        found.append({"text": text, "x": round(float(x), 2), "y": round(float(y), 2), "level": level, "_h": float(h or 0)})
+    # (an "i", "v" or "x" is a sub-panel's numeral, not a panel's letter, where the letter before
+    # it isn't on the page: i, ii, iii beside a, b, c)
+    letters = {d["text"].strip("().").lower() for d in found if d["level"] == 1}
+    for d in found:
+        if d["level"] == 1 and d["text"] in ("i", "v", "x") and chr(ord(d["text"]) - 1) not in letters:
+            d["level"] = 2
+    # (rows: a label whose top is within half a label's height of the row's first is in that row)
+    found.sort(key=lambda d: (d["y"], d["x"]))
+    rows: list[list[dict]] = []
+    for d in found:
+        if rows and d["y"] - rows[-1][0]["y"] <= max(rows[-1][0]["_h"], d["_h"], 1.0) * 0.5:
+            rows[-1].append(d)
+        else:
+            rows.append([d])
+    return [{k: v for k, v in d.items() if k != "_h"} for row in rows for d in sorted(row, key=lambda d: d["x"])]
+
+
 def cmd_info(args) -> int:
-    """What a document holds, for other programs (prose reads each page's description here)."""
+    """What a document holds, for other programs (prose reads each page's description and its
+    panel labels here)."""
     from .model import iter_items
     doc, _ = _load(args.document)
     pages = [{"number": i + 1, "name": pg.get("name", ""), "width_pt": float(pg["width"]), "height_pt": float(pg["height"]),
               "objects": len(pg.get("items", [])), "alt": (pg.get("alt") or "").strip(),
               # (its pictures' own descriptions, in the order they're stacked)
               "pictures": [{"name": it.get("name") or "", "alt": it["alt"].strip()} for it in iter_items(pg.get("items", []))
-                           if (it.get("alt") or "").strip()]} for i, pg in enumerate(doc["pages"])]
+                           if (it.get("alt") or "").strip()],
+              "labels": page_panel_labels(pg)} for i, pg in enumerate(doc["pages"])]
     info = {"title": (doc.get("meta") or {}).get("title", ""), "saved_by": (doc.get("meta") or {}).get("saved_by"), "pages": pages}
     if args.json:
         print(json.dumps(info, ensure_ascii=False))
@@ -139,7 +182,8 @@ def cmd_info(args) -> int:
     print(info["title"] or os.path.basename(args.document))
     for pg in pages:
         print(f"  {pg['number']}. {pg['name']}: {pg['width_pt']:g} x {pg['height_pt']:g} pt, {pg['objects']} objects"
-              + (f"\n     {pg['alt']}" if pg["alt"] else ""))
+              + (f"\n     {pg['alt']}" if pg["alt"] else "")
+              + (f"\n     panel labels: {', '.join(lb['text'] for lb in pg['labels'])}" if pg["labels"] else ""))
     return 0
 
 
@@ -209,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
     b.set_defaults(func=cmd_export, refresh=True)
     e.set_defaults(func=cmd_export)
 
-    n = sub.add_parser("info", help="a document's pages, their sizes and descriptions (alt text)")
+    n = sub.add_parser("info", help="a document's pages, their sizes, descriptions (alt text) and panel labels")
     n.add_argument("document")
     n.add_argument("--json", action="store_true", help="as JSON, for other programs")
     n.set_defaults(func=cmd_info)

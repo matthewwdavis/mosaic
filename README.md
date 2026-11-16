@@ -112,7 +112,8 @@ press **?**, then **Open the Sample Figure**).
 3. **Arrange them.** Drag them into place. Magenta lines show when edges and centres line up;
    hold ⌘ (Ctrl on Windows) to drag freely. The **Arrange** tab aligns and spaces several at once.
 4. **Label and annotate.** Press **P** and click to add panel labels (a, b, c…). Add text (T) and
-   arrows (A). Drop an arrow's end on an object's corner or edge to attach it.
+   arrows (A). Drop an arrow's end on an object's corner or edge to attach it. prose reads the
+   labels, so a figure placed there from a mosaic document starts its legend with a line for each.
 5. **Export.** Click **Check** to look for problems, then **Export** (⌘E) for PDF, SVG, PNG or TIFF,
    or an editable PowerPoint file for collaborators.
    Save your work with ⌘S as a `.mff` document, and double-click it to open it again (each
