@@ -67,7 +67,8 @@ def cmd_export(args) -> int:
         _journals.load_user()   # (your own journals are listed with the others)
         journal = relabel.find_journal(args.journal)
         if journal is None:
-            print(f"No journal called {args.journal!r}; mosaic knows " + ", ".join(j["name"] for j in JOURNALS), file=sys.stderr)
+            print(f"No journal called {args.journal!r}; mosaic knows these, by publisher:\n"
+                  + "\n".join(f"  {g}: " + ", ".join(j["name"] for j in js) for g, js in _journals.grouped(JOURNALS)), file=sys.stderr)
             return 2
         fonts = None
         if not args.dry_run:   # (the labels' boxes fitted to their new text, for the export and any copy)

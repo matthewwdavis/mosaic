@@ -17,6 +17,13 @@ const MMPT = 72 / 25.4;
 const gRectFor = (id, x, y, w, hh) => ({ id, type: "shape", geom: "rect", frame: [x, y, w, hh], rot: 0, flip_h: false, flip_v: false,
   stroke: { color: "#000000", width: 1, dash: "solid", cap: "flat", join: "miter", opacity: 1 }, fill: null });
 const near = (a, b, tol = 0.05) => Math.abs(a - b) < tol;
+// The publishers every journal list is grouped by, in order, as prose's Journal menu has them
+// (your own journals, "My journals", left out: the self-test may run with some)
+const PUBLISHER_GROUPS = "AAAS (Science),BMC (Springer Nature),Cell Press,Cold Spring Harbor Laboratory Press,"
+  + "Genetics Society of America,In house,National Academy of Sciences,Oxford University Press,PLOS,Springer Nature,Wiley";
+const groupsOf = (select) => [...(select?.querySelectorAll("optgroup") || [])].map((g) => g.label).filter((g) => g !== "My journals");
+const optionsIn = (select, group) => [...([...(select?.querySelectorAll("optgroup") || [])].find((g) => g.label === group)?.children || [])]
+  .map((o) => o.value);
 // Set a properties-panel dropdown by its label, as a person would: a picture menu by opening it and
 // clicking the choice (a greyed-out one does nothing)
 async function choose(label, value) {
@@ -456,6 +463,20 @@ async function myJournalsChecks(app) {
     const j = (app.info.journals || []).find((x) => x.name === "Selftest Journal");
     check(j && j.user && j.depth_mm === 230 && j.types.map((t) => t.width_mm).join() === "84,174",
       "a journal of your own is kept and listed with the others", JSON.stringify(j));
+    {
+      store.select([]);
+      const list = fieldByLabel("Journal");
+      const all = [...list.querySelectorAll("optgroup")].map((g) => g.label);
+      check(optionsIn(list, "My journals").join() === "Selftest Journal" && all.indexOf("My journals") === all.indexOf("In house") + 1,
+        "your own journals are listed in a group of their own, My journals, as prose lists them", all.join());
+      panels.pageSizeMenu();   // (over the My journals window, which stays open)
+      [...document.querySelectorAll(".context-menu .menu-item")].find((b) => b.querySelector(".menu-label").textContent === "Journal")?.click();
+      const heads = [...document.querySelectorAll(".context-menu.submenu .menu-heading")].map((x) => x.textContent);
+      const next = [...document.querySelectorAll(".context-menu.submenu .menu-heading")].find((x) => x.textContent === "My journals")
+        ?.nextElementSibling?.querySelector(".menu-label")?.textContent || "";
+      check(heads.includes("My journals") && /^Selftest Journal: /.test(next), "and under a My journals heading in Size ▸ Journal", `${heads.join()}; ${next}`);
+      document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));   // (a press elsewhere closes the menu)
+    }
     inspector.setJournalSize("Selftest Journal", "Double column");
     await settle();
     const pg = store.page(), mm = 72 / 25.4;
@@ -1344,6 +1365,11 @@ async function pageSizeChecks(app) {
   const groups = [...list.querySelectorAll("optgroup")].map((g) => `${g.label}: ${[...g.children].map((o) => o.value).join(", ")}`);
   check(groups.join("; ") === "Paper: A4, US Letter; Slides: Slide 16:9, Slide 4:3, Slide 16:10; Posters: Poster 48 × 36 in, Poster A0",
     "the Page panel's Standard size list has paper, slides and posters, in groups", groups.join("; "));
+  const journalList = fieldByLabel("Journal");
+  check(groupsOf(journalList).join() === PUBLISHER_GROUPS && optionsIn(journalList, "Springer Nature").join() === "Heredity,Nature"
+    && optionsIn(journalList, "In house").join() === "bioRxiv" && journalList.options[0].value === "",
+  "the Page panel's Journal list groups the journals by publisher, as prose's Journal menu does",
+  `${groupsOf(journalList).join()}; ${optionsIn(journalList, "Springer Nature")}`);
   await choose("Standard size", "Slide 4:3");
   check(sizeIs(254, 190.5) && store.page().preset?.standard === "Slide 4:3", "a 4:3 slide is 254 × 190.5 mm (10 × 7.5 in)", pageSize());
   await choose("Standard size", "Slide 16:9");
@@ -1371,6 +1397,22 @@ async function pageSizeChecks(app) {
   const allTypes = (app.info.journals || []).reduce((n, j) => n + j.types.length + (j.any_width ? 1 : 0), 0);
   check(nature && allTypes >= 35 && document.querySelectorAll(".context-menu.submenu .menu-item").length === allTypes,
     "its Journal submenu has every journal's figure types", `${document.querySelectorAll(".context-menu.submenu .menu-item").length} of ${allTypes}`);
+  {
+    const subEl = document.querySelector(".context-menu.submenu");
+    const heads = [...subEl.querySelectorAll(".menu-heading")].map((x) => x.textContent).filter((g) => g !== "My journals");
+    // (the lines under Springer Nature's heading, up to the next line between groups)
+    const under = [];
+    for (let el = [...subEl.querySelectorAll(".menu-heading")].find((x) => x.textContent === "Springer Nature")?.nextElementSibling;
+      el && el.classList.contains("menu-item"); el = el.nextElementSibling) under.push(el.querySelector(".menu-label").textContent.split(":")[0]);
+    check(heads.join() === PUBLISHER_GROUPS && [...new Set(under)].join() === "Heredity,Nature",
+      "the Journal submenu has a heading for each publisher, its journals under it, as prose's Journal menu groups them",
+      `${heads.join()}; Springer Nature: ${[...new Set(under)]}`);
+    const first = document.activeElement;
+    first?.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true, cancelable: true }));
+    const jumped = document.activeElement?.querySelector(".menu-label")?.textContent || "";
+    check(subEl.contains(first) && /^Nature: /.test(jumped), "a letter still jumps to the first journal starting with it, past the headings",
+      `${first?.textContent} -> ${jumped}`);
+  }
   nature?.click();
   check(sizeIs(180, 170) && store.page().preset?.journal === "Nature", "a journal's figure type from the menu", pageSize());
   sizeBtn.click();
@@ -1416,9 +1458,10 @@ async function pageSizeChecks(app) {
   prefs.close();
   await until(() => !document.querySelector("dialog[open]"));
   await app.newDocument();
-  check(journalsListed.slice(0, 4).join() === "Paper,Slides,Posters,bioRxiv" && sizeIs(254, 158.75)
-    && store.page().preset?.standard === "Slide 16:10", "Settings gives new documents a size: a 16:10 slide, 254 × 158.75 mm",
-  `${journalsListed.slice(0, 4)}; ${pageSize()}`);
+  check(journalsListed.slice(0, 4).join() === "Paper,Slides,Posters,AAAS (Science)"
+    && journalsListed.slice(3).filter((g) => g !== "My journals").join() === PUBLISHER_GROUPS && sizeIs(254, 158.75)
+    && store.page().preset?.standard === "Slide 16:10", "Settings gives new documents a size (journals' sizes in their publishers' groups): a 16:10 slide, 254 × 158.75 mm",
+  `${journalsListed}; ${pageSize()}`);
   await app.savePrefs({ new_page: { standard: "A4" } });
   store.setDoc(await rpc("new_document"));
   check(sizeIs(210, 297), "and back to A4", pageSize());
@@ -5267,6 +5310,8 @@ export async function run(app, params) {
     check(/Thinnest line: 0\.1 pt/.test(checkResults.textContent) && /its line is 0\.10 pt \(below 0\.25 pt\)/.test(checkResults.textContent),
       "Check gives the thinnest line and flags a line thinner than 0.25 pt", checkResults.textContent);
     const journalPick = checkDlg.querySelector("select");
+    check(groupsOf(journalPick).join() === PUBLISHER_GROUPS && optionsIn(journalPick, "Wiley").join() === "New Phytologist,The Plant Journal",
+      "Check's journal list groups the journals by publisher", groupsOf(journalPick).join());
     journalPick.value = "Nature";
     journalPick.dispatchEvent(new Event("change"));
     await until(() => /Nature figures/.test(checkResults.textContent) && app.prefs.check_journal === "Nature");   // (two requests)

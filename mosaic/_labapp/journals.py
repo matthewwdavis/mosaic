@@ -14,6 +14,10 @@ JOURNALS is the list, sorted by name; each entry:
     note        the sizes in a sentence
     source      where the numbers come from
     labels, text, lines, pictures, export   its rules (RULES[name]); absent where it states none
+    publisher   the group both apps list it under ("Springer Nature"; PUBLISHERS[name]): the journal
+                lists are grouped by it, groups and the journals in each in alphabetical order, a
+                person's own journals as "My journals"; bioRxiv's is "In house", beside prose's
+                in-house templates
 
 Where a journal publishes no figure sizes, the widths and depth were measured from a published
 open-access article (PubMed Central, 2025-26): the width of a text column, the full text width,
@@ -438,6 +442,32 @@ RULES = {
 }
 for _j in JOURNALS:
     _j.update(RULES.get(_j["name"], {}))
+
+
+# The group each journal is listed under in both apps' journal lists: its publisher, as prose's
+# Journal menu has always grouped them (a society journal under the society that publishes it;
+# bioRxiv, Matthew's own layout, "In house" with prose's in-house templates)
+PUBLISHERS = {
+    "bioRxiv": "In house",
+    "Nature": "Springer Nature",
+    "Heredity": "Springer Nature",
+    "Genome Biology": "BMC (Springer Nature)",
+    "Genome Research": "Cold Spring Harbor Laboratory Press",
+    "Genetics": "Genetics Society of America",
+    "G3": "Genetics Society of America",
+    "Cell": "Cell Press",
+    "Molecular Plant": "Cell Press",
+    "Science": "AAAS (Science)",
+    "PNAS": "National Academy of Sciences",
+    "PLOS Genetics": "PLOS",
+    "New Phytologist": "Wiley",
+    "The Plant Journal": "Wiley",
+    "Plant Cell": "Oxford University Press",
+    "Molecular Biology and Evolution": "Oxford University Press",
+    "Horticulture Research": "Oxford University Press",
+}
+for _j in JOURNALS:
+    _j["publisher"] = PUBLISHERS[_j["name"]]
 
 
 BUILT_IN = [j["name"] for j in JOURNALS]
