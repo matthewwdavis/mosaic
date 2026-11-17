@@ -2,7 +2,8 @@
 
 import { rpc } from "./api.js";
 import { canvas, visionMatrix } from "./canvas.js";
-import { alignToField, button, colourVisionField, gapField, inspector, numField, pagePreset, selectField, standardOptions, widestOf } from "./inspector.js";
+import { alignToField, button, colourVisionField, gapField, inspector, journalGroups, journalOptions, numField, pagePreset, selectField, standardOptions,
+  widestOf } from "./inspector.js";
 import { findItem, store } from "./store.js";
 import { PALETTES, colourHolders } from "./swatches.js";
 import { copiesOf } from "./symbols.js";
@@ -256,14 +257,16 @@ export const panels = {
       entries.push({ label: `${sz.name} (${len(sz.width_mm)} × ${len(sz.height_mm)})`, checked: standard?.name === sz.name,
         run: () => inspector.setStandardSize(sz.name) });
     });
-    // Every journal's figure types in one list, each journal's together (submenus go one level deep)
+    // Every journal's figure types in one list, under a heading for each publisher as prose's
+    // Journal menu groups them (submenus go one level deep), each journal's together
     // (a journal that takes any size, bioRxiv: first, the page kept at its own size within the text area)
-    const journals = (info.journals || []).flatMap((j, i) => [i ? "-" : null,
-      ...(j.any_width ? [{ label: `${j.name}: any size up to ${len(widestOf(j))} × ${len(j.depth_mm)} (keeps this page's size where it fits)`,
-        checked: journal?.name === j.name && !type, run: () => inspector.setJournalSize(j.name) }] : []),
-      ...j.types.map((t) => ({
-      label: `${j.name}: ${t.name} (${len(t.width_mm)} × ${len(j.depth_mm)})`,
-      checked: journal?.name === j.name && type?.name === t.name, run: () => inspector.setJournalSize(j.name, t.name) }))]);
+    const journals = journalGroups(info.journals).flatMap((g, i) => [i ? "-" : null, { heading: g.group },
+      ...g.journals.flatMap((j) => [
+        ...(j.any_width ? [{ label: `${j.name}: any size up to ${len(widestOf(j))} × ${len(j.depth_mm)} (keeps this page's size where it fits)`,
+          checked: journal?.name === j.name && !type, run: () => inspector.setJournalSize(j.name) }] : []),
+        ...j.types.map((t) => ({
+          label: `${j.name}: ${t.name} (${len(t.width_mm)} × ${len(j.depth_mm)})`,
+          checked: journal?.name === j.name && type?.name === t.name, run: () => inspector.setJournalSize(j.name, t.name) }))])]);
     entries.push("-", { label: "Journal", items: journals }, "-",
       { label: "Swap width and height", run: () => inspector.swapPage() },
       { label: "Custom size…", run: () => this.customSizeDialog() },
@@ -1447,7 +1450,7 @@ export const panels = {
       }
     };
     const checkDlg = this.dialog("Check before export", h("div", {},
-      selectField("Check against", start, [["", "No journal"], ...journals.map((j) => [j.name, j.name])],
+      selectField("Check against", start, [["", "No journal"], ...journalOptions(journals)],
         (v) => { this.app.savePrefs({ check_journal: v }); check(v); }),
       results,
       h("p", { class: "hint" }, "Fonts missing from placed PDFs are embedded automatically when you export."),
@@ -1525,8 +1528,9 @@ export const panels = {
     return [
       ...standardOptions(info.standard_sizes, len).map((g) => ({ ...g,
         options: g.options.map(([name, text]) => [JSON.stringify({ standard: name }), text]) })),
-      ...(info.journals || []).map((j) => ({ group: j.name, options: j.types.map((t) => [JSON.stringify({ journal: j.name, type: t.name }),
-        `${j.name}: ${t.name} (${len(t.width_mm)} × ${len(j.depth_mm)})`]) })),
+      // (each publisher's journals in a group of their own, as the Size menu has them)
+      ...journalGroups(info.journals).map((g) => ({ group: g.group, options: g.journals.flatMap((j) => j.types.map((t) =>
+        [JSON.stringify({ journal: j.name, type: t.name }), `${j.name}: ${t.name} (${len(t.width_mm)} × ${len(j.depth_mm)})`])) })),
     ];
   },
 

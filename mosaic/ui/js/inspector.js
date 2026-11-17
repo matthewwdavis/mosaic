@@ -281,7 +281,7 @@ export const inspector = {
         selectField("Standard size", standard ? standard.name : "",
           [["", journal ? "—" : "Custom size"], ...standardOptions(this.app.info.standard_sizes, len)],
           (v) => this.setStandardSize(v)),
-        selectField("Journal", journal ? journal.name : "", [["", "None"], ...journals.map((j) => [j.name, j.name])],
+        selectField("Journal", journal ? journal.name : "", [["", "None"], ...journalOptions(journals)],
           (v) => this.setJournalSize(v)),
         selectField("Figure type", type ? type.name : "",
           journal ? [...(journal.any_width ? [["", `Any size up to ${len(widestOf(journal))} × ${len(journal.depth_mm)}`]] : []),
@@ -1498,6 +1498,25 @@ function fileRules(e) {
 }
 // A journal's widest figure, in mm: its own limit (bioRxiv: 180 mm), else its widest type
 export const widestOf = (j) => j.max_width_mm || Math.max(...j.types.map((t) => t.width_mm));
+// The journals in the groups every list of them shows, as prose's Journal menu has them: each
+// journal's publisher (the shared table's "publisher": Springer Nature, Cell Press, Wiley, ...;
+// bioRxiv "In house"), your own under "My journals"; the groups, and the journals in each, in
+// alphabetical order. [{ group, journals }]
+export const MY_JOURNALS = "My journals";
+export const journalGroup = (j) => (j.user ? MY_JOURNALS : j.publisher || "Other");
+export function journalGroups(journals = []) {
+  const abc = (a, b) => a.localeCompare(b);
+  const groups = new Map();
+  for (const j of [...journals].sort((a, b) => abc(a.name, b.name))) {
+    const g = journalGroup(j);
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(j);
+  }
+  return [...groups].sort(([a], [b]) => (a === "Other") - (b === "Other") || abc(a, b)).map(([group, js]) => ({ group, journals: js }));
+}
+// The journals as a list's options in those groups: option(j) gives a journal's [value, text]
+export const journalOptions = (journals, option = (j) => [j.name, j.name]) =>
+  journalGroups(journals).map((g) => ({ group: g.group, options: g.journals.map(option) }));
 // The journal a page's size preset names, or null
 export const journalOf = (page, info) => (info.journals || []).find((j) => j.name === page?.preset?.journal) || null;
 // A page's preset for a journal that takes any width (bioRxiv): its type when the page is one of its widths
