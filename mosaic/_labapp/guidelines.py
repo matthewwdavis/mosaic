@@ -736,6 +736,9 @@ def _references(sents: list[tuple[str, str]]) -> list[dict]:
 
 # Putting it together --------------------------------------------------------------------------------------
 
+BY_TYPE = ("limits.main_text_words", "limits.references", "limits.display_items", "limits.figures", "limits.tables")
+
+
 def extract(text: str) -> list[dict]:
     """Proposals for a journal file from the guidelines' text: [{"field", "label", "value",
     "evidence" (the sentence, quoted as it is), "others": other values found, each with its
@@ -757,6 +760,8 @@ def extract(text: str) -> list[dict]:
             t = tally.setdefault(key, [0.0, f])
             t[0] += f.get("score", 1.0)
         ranked = sorted(tally.values(), key=lambda t: -t[0])
+        if ranked[0][0] < 0.5 and field in BY_TYPE:
+            continue   # (a length or count said only of other kinds of article: a review's, a letter's)
         best = ranked[0][1]
         prop = {"field": field, "label": LABELS[field], "value": best["value"], "evidence": _quote(best["evidence"]),
                 "others": [{"value": t[1]["value"], "evidence": _quote(t[1]["evidence"])} for t in ranked[1:4]]}
