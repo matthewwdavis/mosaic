@@ -91,18 +91,27 @@ def text_of_html(page: str) -> str:
     return _tidy("".join(p.out))
 
 
-def text_of_pdf(path_or_bytes) -> str:
-    """A PDF's text, page by page (pypdfium2, which both apps have)."""
-    import pypdfium2 as pdfium
-    doc = pdfium.PdfDocument(path_or_bytes)
-    try:
-        pages = []
-        for i in range(len(doc)):
-            tp = doc[i].get_textpage()
-            pages.append(tp.get_text_range())
-            tp.close()
-    finally:
-        doc.close()
+def text_of_pdf(path_or_bytes, pages_of=None) -> str:
+    """A PDF's text, page by page. pages_of(path_or_bytes) -> [each page's text]: the app's own PDF
+    reader (prose reads PDFs only through its PDF helper); else pypdfium2, which both apps have."""
+    if pages_of is not None:
+        pages = list(pages_of(path_or_bytes))
+    else:
+        import pypdfium2 as pdfium
+        doc = pdfium.PdfDocument(path_or_bytes)
+        try:
+            pages = []
+            for i in range(len(doc)):
+                tp = doc[i].get_textpage()
+                pages.append(tp.get_text_range())
+                tp.close()
+        finally:
+            doc.close()
+    return text_of_pages(pages)
+
+
+def text_of_pages(pages: list[str]) -> str:
+    """Text read from a PDF's pages, tidied: words hyphenated across lines joined."""
     text = "\n\n".join(pages).replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"-\n(?=[a-z])", "", text)   # (words hyphenated across lines)
     return _tidy(text)
@@ -121,10 +130,10 @@ def _tidy(text: str) -> str:
     return "\n".join(out).strip() + "\n"
 
 
-def text_of(data: bytes, name: str = "") -> str:
-    """Text from a saved page or PDF (bytes), whichever it is."""
+def text_of(data: bytes, name: str = "", pages_of=None) -> str:
+    """Text from a saved page or PDF (bytes), whichever it is (pages_of: as text_of_pdf takes)."""
     if data[:5] == b"%PDF-" or name.lower().endswith(".pdf"):
-        return text_of_pdf(data)
+        return text_of_pdf(data, pages_of)
     for enc in ("utf-8", "cp1252", "latin-1"):
         try:
             s = data.decode(enc)
