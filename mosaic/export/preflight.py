@@ -9,6 +9,7 @@ import re
 from .. import alphableed, picturekind, plottext, vectors
 from ..assets import PDFIUM_LOCK, SourceResolver, get_cache, resolve_link
 from ..geometry import DrawPath
+from .._labapp import journals as _shared_journals
 from ..journals import JOURNALS, MM
 from ..model import iter_items
 from ..progress import Progress
@@ -118,24 +119,34 @@ def _length(mm: float, unit: str) -> str:
 
 
 def _journal_fit(page: dict, journal: dict, unit: str) -> list[dict]:
-    """The page's size against a journal's figure widths and greatest depth."""
+    """The page's size against a journal's figure widths and greatest depth (a journal that takes
+    any width, bioRxiv, only minds a page bigger than its text area)."""
     w, h, name = float(page["width"]) / MM, float(page["height"]) / MM, journal["name"]
     types = sorted(journal["types"], key=lambda t: t["width_mm"])
-    fits = next((t for t in types if abs(t["width_mm"] - w) <= 0.05), None)
+    fit = _shared_journals.size_fit(journal, w, h)
+    fits = fit["type"]
     depth = _length(journal["depth_mm"], unit)
     out = []
-    if h > journal["depth_mm"] + 0.05:
+    if fit["deep"]:
         out.append(("warning", f"The page is {_length(h, unit)} tall; {name} figures can be at most {depth} tall"))
-    if w > types[-1]["width_mm"] + 0.05:
+    most = _shared_journals.widest(journal)
+    if fit["wide"]:
         out.append(("warning", f"The page is {_length(w, unit)} wide; the widest {name} figures are "
-                               f"{_length(types[-1]['width_mm'], unit)} ({types[-1]['name'].lower()})"))
-    elif fits is None:
+                               + (f"{_length(most, unit)}" if journal.get("max_width_mm") else
+                                  f"{_length(types[-1]['width_mm'], unit)} ({types[-1]['name'].lower()})")))
+    elif fit["odd"]:
         sizes = [f"{_length(t['width_mm'], unit)} ({t['name'].lower()})" for t in types]
         out.append(("info", f"The page is {_length(w, unit)} wide; {name} figures are "
                             + (", ".join(sizes[:-1]) + " or " + sizes[-1] if len(sizes) > 1 else sizes[0]) + " wide"))
     if not out:
         size = f"{_length(w, unit).rsplit(' ', 1)[0]} × {_length(h, unit)}"
-        out.append(("ok", f"The page, {size}, fits the {name} {fits['name'].lower()} size (at most {depth} tall)"))
+        if fits is None:   # (any width up to the widest: bioRxiv; one wider than its text width prints scaled to it)
+            out.append(("ok", f"The page, {size}, fits {name}'s figures (any size up to "
+                              f"{_length(most, unit).rsplit(' ', 1)[0]} × {depth})"
+                              + (f"; prose prints it scaled to the {_length(types[-1]['width_mm'], unit)} text width"
+                                 if w > types[-1]["width_mm"] + 0.05 else "")))
+        else:
+            out.append(("ok", f"The page, {size}, fits the {name} {fits['name'].lower()} size (at most {depth} tall)"))
     return [{"level": level, "page": page["id"], "message": message} for level, message in out]
 
 

@@ -7,6 +7,10 @@ JOURNALS is the list, sorted by name; each entry:
     name        "Nature"
     depth_mm    the deepest a figure may be
     types       [{"name": "Single column", "width_mm": 90.0}, ...]: the widths it takes
+    any_width   True where a figure may be any width up to the widest type (the types are then
+                handy presets, not the only widths: bioRxiv); absent for the rest
+    max_width_mm  the widest a figure may be where that's more than the widest type (bioRxiv: 180 mm,
+                which prose prints scaled to its 177.8 mm text width); absent for the rest
     note        the sizes in a sentence
     source      where the numbers come from
     labels, text, lines, pictures, export   its rules (RULES[name]); absent where it states none
@@ -17,6 +21,13 @@ and the depth of the text block. Measured widths are rounded to the nearest 0.5 
 down to the whole millimetre. Checked against PNAS's published sizes, the method gets the column
 width within 0.2 mm; the full text width can be up to ~3 mm wider than a journal's stated
 double-column figure width.
+
+bioRxiv is no journal's layout but Matthew's choice for the Monroe lab's preprints (2026-11-16):
+a figure may be any size within a US Letter page's text area (0.75 in margins: 7 x 9.5 in), with
+one column of the lab's two-column template (3.375 in) and the full width as presets, and up to
+180 mm wide (Nature's double column, which he has posted to bioRxiv before): prose prints one
+wider than 7 in scaled to the text width. Its panel letters are lower case, as he has posted them.
+bioRxiv itself sets no figure sizes or figure rules, so mosaic's own apply.
 
 Panel labels ("labels": font, size, bold, case, and form: how a letter is written, "a", "(a)")
 and the rules for the rest of a figure's text ("text": the smallest and largest size in points,
@@ -51,6 +62,19 @@ def _measured(pmcid: str, year: int = 2025) -> str:
 
 
 JOURNALS = sorted([
+    {
+        "name": "bioRxiv",
+        "depth_mm": 241.3,
+        "types": [{"name": "One column", "width_mm": 85.7}, {"name": "Full width", "width_mm": 177.8}],
+        "any_width": True,
+        "max_width_mm": 180.0,
+        "note": "Any size on a US Letter page's text area: up to 7 in (177.8 mm) wide and 9.5 in (241.3 mm) tall, "
+                "legend aside; up to 180 mm wide, printed scaled to the 7 in text width. One column (3.375 in, "
+                "85.7 mm) and full width are presets for the Monroe lab's two-column template.",
+        "source": "Matthew's choice for the Monroe lab's bioRxiv preprints (2026-11-16): a US Letter page with 0.75 in "
+                  "margins, as the lab's template has, and 180 mm figures, which he has posted there; bioRxiv itself "
+                  "sets no figure sizes",
+    },
     {
         "name": "Nature",
         "depth_mm": 170.0,
@@ -202,11 +226,22 @@ def _files(source: str, formats, colour="either", max_mb=None, firm=True, max_dp
 
 
 _CELL_PRESS = "Cell Press figure guidelines"
+_BIORXIV = "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF)"
 _OUP = "OUP's guidance for preparing artwork"
 
 
 # Panel labels and text rules (see the module's notes), read from each journal's guidelines
 RULES = {
+    "bioRxiv": {
+        "labels": _labels("Helvetica", 8.0, True, "lower", "Matthew's choice for bioRxiv (2026-11-16): bold lower-case a, b, "
+                          "c in 8 pt Helvetica, as his posted figures have them and prose's bioRxiv (Monroe lab) "
+                          "legends letter them, (a)"),
+        "text": _text(f"{_BIORXIV}: no sizes or fonts for figure text"),
+        "lines": _lines(f"{_BIORXIV}, so Check uses mosaic's 0.25 pt"),
+        "pictures": _pictures(f"{_BIORXIV}, so Check uses mosaic's 300 dpi", 300.0, 300.0, 300.0),
+        "export": _files(f"{_BIORXIV}: any of mosaic's files, in RGB or CMYK, to place in the manuscript",
+                         ["pdf", "svg", "png", "tiff", "jpeg", "eps", "pptx"], "either"),
+    },
     "Nature": {
         "labels": _labels("Helvetica", 8.0, True, "lower", "Nature's final submission guidelines: 8 pt bold, upright, lowercase a, b, c"),
         "text": _text("Nature's final submission guidelines: text 5–7 pt, sans-serif, preferably Helvetica or Arial "
@@ -406,6 +441,22 @@ for _j in JOURNALS:
 
 
 BUILT_IN = [j["name"] for j in JOURNALS]
+
+
+def widest(journal: dict) -> float:
+    """The widest figure a journal takes, in mm: its max_width_mm, else its widest type."""
+    return journal.get("max_width_mm") or max(t["width_mm"] for t in journal["types"])
+
+
+def size_fit(journal: dict, width_mm: float, height_mm: float, slack_mm: float = 0.05) -> dict:
+    """A figure's size against a journal: {"type": the type it is as wide as (within slack_mm), or
+    None; "wide": wider than the widest type; "deep": deeper than depth_mm; "odd": a width that is
+    none of the types, which only matters where the journal takes fixed widths (no "any_width")}."""
+    fits = next((t for t in sorted(journal["types"], key=lambda t: t["width_mm"])
+                 if abs(t["width_mm"] - width_mm) <= slack_mm), None)
+    wide = width_mm > widest(journal) + slack_mm
+    return {"type": fits, "wide": wide, "deep": height_mm > journal["depth_mm"] + slack_mm,
+            "odd": fits is None and not wide and not journal.get("any_width")}
 
 
 # A person's own journals ---------------------------------------------------------------------------

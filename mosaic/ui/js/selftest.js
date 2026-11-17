@@ -1367,7 +1367,8 @@ async function pageSizeChecks(app) {
   sizeBtn.click();
   menuItem("Journal").click();
   const nature = menuItem("Nature: Double column", true);
-  const allTypes = (app.info.journals || []).reduce((n, j) => n + j.types.length, 0);
+  // (each journal's figure types, and "any size" for one that takes any width: bioRxiv)
+  const allTypes = (app.info.journals || []).reduce((n, j) => n + j.types.length + (j.any_width ? 1 : 0), 0);
   check(nature && allTypes >= 35 && document.querySelectorAll(".context-menu.submenu .menu-item").length === allTypes,
     "its Journal submenu has every journal's figure types", `${document.querySelectorAll(".context-menu.submenu .menu-item").length} of ${allTypes}`);
   nature?.click();
@@ -1385,6 +1386,23 @@ async function pageSizeChecks(app) {
   check(sizeIs(100, 180) && !store.page().preset, "Custom size… types the page's width and height", pageSize());
   dlg.close();
   await until(() => !document.querySelector("dialog[open]"));
+  // bioRxiv takes a figure of any size within a US Letter page's text area (7 × 9.5 in): from the Size
+  // menu a page that fits keeps its size; a width typed in keeps the journal; Fit to content crops all round
+  sizeBtn.click();
+  menuItem("Journal").click();
+  menuItem("bioRxiv: any size up to", true)?.click();
+  const pre = () => JSON.stringify(store.page().preset);
+  check(sizeIs(100, 180) && store.page().preset?.journal === "bioRxiv" && !store.page().preset?.type,
+    "bioRxiv from the Size menu keeps a page within its 7 × 9.5 in text area at its own size", `${pageSize()}; ${pre()}`);
+  inspector.setPageWidth(120 * MMPT);
+  check(sizeIs(120, 180) && store.page().preset?.journal === "bioRxiv" && !store.page().preset?.type,
+    "a width typed in keeps a bioRxiv page bioRxiv's (any width up to 7 in)", `${pageSize()}; ${pre()}`);
+  inspector.setPageWidth(85.7 * MMPT);
+  check(store.page().preset?.type === "One column", "at 85.7 mm it's bioRxiv's one-column preset", pre());
+  await app.run("fitPage");
+  await settle();
+  check(store.page().width < 85 * MMPT && store.page().height < 60 * MMPT && store.page().preset?.journal === "bioRxiv" && !store.page().preset?.type,
+    "Fit to content crops a bioRxiv page all round, and it stays bioRxiv's", `${pageSize()}; ${pre()}`);
 
   // Settings: the size new documents start at
   await app.run("preferences");
@@ -1398,7 +1416,7 @@ async function pageSizeChecks(app) {
   prefs.close();
   await until(() => !document.querySelector("dialog[open]"));
   await app.newDocument();
-  check(journalsListed.slice(0, 4).join() === "Paper,Slides,Posters,Cell" && sizeIs(254, 158.75)
+  check(journalsListed.slice(0, 4).join() === "Paper,Slides,Posters,bioRxiv" && sizeIs(254, 158.75)
     && store.page().preset?.standard === "Slide 16:10", "Settings gives new documents a size: a 16:10 slide, 254 × 158.75 mm",
   `${journalsListed.slice(0, 4)}; ${pageSize()}`);
   await app.savePrefs({ new_page: { standard: "A4" } });

@@ -115,6 +115,14 @@ With nothing selected (click the grey area or press Escape), the right panel sho
   Molecular Plant, Nature, New Phytologist, Plant Cell, PLOS Genetics, PNAS, Science and The
   Plant Journal. The note below says where each size comes from. Some journals don't publish sizes; for those the sizes
   were measured from a recent published article, and the note says so.
+  - **bioRxiv** (for the Monroe lab's preprints, 16 Nov 2026) takes a figure of **any size** that
+    fits a US Letter page's text area: up to 7 in (177.8 mm) wide and 9.5 in (241.3 mm) tall, and
+    up to 180 mm wide (a Nature double-column figure), which prose prints scaled to the 7 in text
+    width. **One column** (3.375 in, the lab's two-column template) and **Full width** (7 in) are
+    only handy presets. Choosing bioRxiv keeps the page's own size when it fits (Figure type then
+    says **Any size**); a width typed in keeps the page bioRxiv's; and Check only warns about a
+    page wider than 180 mm or taller than 9.5 in. Its panel labels are bold lower-case letters
+    (**a**, **b**, **c**) in 8 pt Helvetica, as prose's bioRxiv legends letter them.
   - A journal also gives the page's panel labels its look (see
     [Text and panel labels](#text-and-panel-labels)), Check judges the page by its rules (text
     sizes and fonts, line widths, pictures' resolution), and Export says which files it takes.
@@ -123,11 +131,12 @@ With nothing selected (click the grey area or press Escape), the right panel sho
 - **Width** and **Height**: any size. The button beside them swaps width and height.
 - **Fit to content** (also **Fit page** in the Home tab): crops the page to what's on it, with
   no margin (objects parked wholly off the page don't count). On a journal page it keeps the column
-  width and fits only the height.
+  width and fits only the height; on a bioRxiv page, which takes any width, it crops all round and
+  the page stays bioRxiv's.
 - **Background**: transparent (the default, which journals prefer) or white.
 
 **Size** (Home tab) offers the same sizes whatever is selected, with every journal's figure sizes
-under **Journal**, then **Swap width and height** and **Custom size…** to type the width and
+under **Journal** (bioRxiv's first entry, **any size**, keeps the page's own size), then **Swap width and height** and **Custom size…** to type the width and
 height. The page's size now has a tick.
 
 **Your own journals.** If the journal you're writing for isn't listed, add it: **Size ▸ My
