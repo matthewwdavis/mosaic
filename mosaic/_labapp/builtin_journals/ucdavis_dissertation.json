@@ -1,0 +1,106 @@
+{
+ "format": 1,
+ "id": "ucdavis_dissertation",
+ "name": "UC Davis Dissertation (PhD)",
+ "version": "1.0.0",
+ "kind": "thesis",
+ "publisher": "Theses",
+ "verified": {
+  "status": "verified",
+  "by": "prose (built in)",
+  "date": "2026-11-16"
+ },
+ "maintainers": [
+  {
+   "name": "Matthew Davis",
+   "github": "matthewwdavis"
+  }
+ ],
+ "page": {
+  "paper": "letter",
+  "margin_mm": 25.4
+ },
+ "captions": {
+  "label": "Figure",
+  "bar": false
+ },
+ "text": {
+  "styles": {
+   "normal": {
+    "font": "Times New Roman",
+    "size": 12.0
+   },
+   "title": {
+    "font": "Times New Roman",
+    "size": 14.0
+   },
+   "h1": {
+    "font": "Times New Roman",
+    "size": 18.0
+   },
+   "h2": {
+    "font": "Times New Roman",
+    "size": 12.0
+   },
+   "h3": {
+    "font": "Times New Roman",
+    "size": 12.0
+   },
+   "quote": {
+    "font": "Times New Roman",
+    "size": 12.0
+   }
+  },
+  "leading_em": 1.25,
+  "look": {
+   "thesis": true
+  },
+  "numbered_headings": true
+ },
+ "legends": {
+  "sep": ".",
+  "title": {
+   "bold": true,
+   "line": false
+  },
+  "panels": {
+   "open": "(",
+   "close": ")",
+   "bold": null
+  },
+  "scale": 1.0,
+  "evidence": [
+   "(a dissertation: legends at text size)"
+  ]
+ },
+ "references": {
+  "csl": "nature",
+  "file": "nature.csl"
+ },
+ "latex": {
+  "template": "house",
+  "wrapper": "journal.latex",
+  "files": {},
+  "publisher": "Theses",
+  "citations": "csl",
+  "note": "A UC Davis doctoral dissertation in LaTeX: the ucdavisthesis class (CTAN, by Ryan Scott, v1.3, 2016; in TeX Live and on Overleaf), which makes the title page with blank signature lines, the copyright page, dedication, contents, lists of figures and tables, abstract and acknowledgments; chapters as \\chapter, each with its own reference list written out by pandoc in the citation style chosen",
+  "source_notes": "SOURCE.md"
+ },
+ "word": {
+  "reference_docx": "reference.docx"
+ },
+ "house": {
+  "starter": "starter.md",
+  "typst": "screen.typ",
+  "thesis": true
+ },
+ "figures": {
+  "types": [
+   {
+    "name": "Text width",
+    "width_mm": 165.1
+   }
+  ],
+  "listed": false
+ }
+}

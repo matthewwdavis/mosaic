@@ -1,0 +1,283 @@
+{
+ "format": 1,
+ "id": "biorxiv_monroe",
+ "name": "bioRxiv (in house)",
+ "version": "1.0.0",
+ "kind": "house",
+ "publisher": "In house",
+ "verified": {
+  "status": "verified",
+  "by": "prose (built in)",
+  "date": "2026-11-16"
+ },
+ "maintainers": [
+  {
+   "name": "Matthew Davis",
+   "github": "matthewwdavis"
+  }
+ ],
+ "page": {
+  "paper": "letter",
+  "margin_mm": 19.05
+ },
+ "captions": {
+  "label": "Figure",
+  "bar": false
+ },
+ "text": {
+  "styles": {
+   "normal": {
+    "font": "Arial",
+    "size": 11.0
+   },
+   "title": {
+    "font": "Arial",
+    "size": 26.0
+   },
+   "h1": {
+    "font": "Arial",
+    "size": 14.0
+   },
+   "h2": {
+    "font": "Arial",
+    "size": 14.0
+   },
+   "h3": {
+    "font": "Arial",
+    "size": 11.0
+   },
+   "quote": {
+    "font": "Arial",
+    "size": 11.0
+   }
+  },
+  "look": {
+   "h1-color": "#1c4587",
+   "h3-italic": false,
+   "title-align": "left",
+   "title-bold": false,
+   "caption-font": "Helvetica",
+   "caption-size": 10,
+   "xref-bold": true,
+   "running-head": true,
+   "authors-in-text": true,
+   "author-block": {
+    "last": ", & ",
+    "bold": true,
+    "correspondence": "*Correspondence to: ",
+    "correspondenceLast": ", & "
+   },
+   "header-logo": "biorxiv-logo.png",
+   "page-number-align": "left",
+   "repeat-figures": true,
+   "abstract-section": true,
+   "columns": {
+    "count": 2,
+    "width_mm": 85.725,
+    "gap_mm": 6.35,
+    "from": "introduction",
+    "to": "author_contributions"
+   }
+  }
+ },
+ "figure_refs": {
+  "main": [
+   "Fig.",
+   "Figs."
+  ],
+  "start": [
+   "Figure",
+   "Figures"
+  ],
+  "list": "and",
+  "panels": {
+   "case": "lower",
+   "style": {
+    "one": "closed",
+    "many": "closed",
+    "list": ",",
+    "range": "–"
+   }
+  },
+  "evidence": [
+   "(prose's bioRxiv (in house) template: lower-case panels as Nature writes them, \"Fig. 2b,c\";",
+   "supplementary references left as typed. Matthew's choice, 2026-11-16)"
+  ]
+ },
+ "legends": {
+  "sep": ".",
+  "title": {
+   "bold": true,
+   "line": true
+  },
+  "panels": {
+   "open": "(",
+   "close": ")",
+   "bold": "letter"
+  },
+  "scale": 0.9,
+  "evidence": [
+   "(its look sets Helvetica 10 pt; title on its own line, Matthew 2026-11-16)"
+  ]
+ },
+ "house_style": {
+  "latin": {
+   "italic": true
+  }
+ },
+ "structure": {
+  "front": [
+   {
+    "kind": "short_summary",
+    "name": "Short summary",
+    "required": true,
+    "hint": "Two or three sentences for a general reader."
+   },
+   {
+    "kind": "graphical_abstract",
+    "name": "Graphical abstract (optional)"
+   }
+  ],
+  "body": [
+   {
+    "kind": "introduction",
+    "name": "Introduction"
+   },
+   {
+    "kind": "methods",
+    "name": "Materials and Methods"
+   },
+   {
+    "kind": "results",
+    "name": "Results"
+   },
+   {
+    "kind": "discussion",
+    "name": "Discussion"
+   }
+  ],
+  "back": [
+   {
+    "kind": "acknowledgements",
+    "name": "Acknowledgments"
+   },
+   {
+    "kind": "data_availability",
+    "name": "Data availability"
+   },
+   {
+    "kind": "code_availability",
+    "name": "Code availability"
+   },
+   {
+    "kind": "author_contributions",
+    "name": "Author contributions"
+   },
+   {
+    "kind": "figures",
+    "name": "Figures"
+   },
+   {
+    "kind": "tables",
+    "name": "Tables"
+   },
+   {
+    "kind": "supplementary",
+    "name": "Supplemental Materials"
+   },
+   {
+    "kind": "references",
+    "name": "References"
+   }
+  ]
+ },
+ "references": {
+  "csl": "nature",
+  "file": "nature.csl"
+ },
+ "latex": {
+  "template": "house",
+  "wrapper": "journal.latex",
+  "files": {
+   "biorxiv-logo.png": "56e7efb5150fd740c5bf4aeda4ad043bef3de39c5bc2c484167bec96035a0adf"
+  },
+  "publisher": "In house",
+  "citations": "csl",
+  "note": "The in-house bioRxiv template (an in-house Google Docs template) in LaTeX: article class, US Letter, 0.75 in margins, Helvetica 11 pt, 1.15 spacing, the template's headings, running head with the bioRxiv logo, Nature's reference style written out by pandoc",
+  "source_notes": "SOURCE.md"
+ },
+ "word": {
+  "reference_docx": "reference.docx",
+  "header_placeholder": "Author et al. Short Title"
+ },
+ "house": {
+  "starter": "starter.md",
+  "figure_fit_text": true
+ },
+ "figures": {
+  "name": "bioRxiv",
+  "depth_mm": 241.3,
+  "types": [
+   {
+    "name": "One column",
+    "width_mm": 85.7
+   },
+   {
+    "name": "Full width",
+    "width_mm": 177.8
+   }
+  ],
+  "any_width": true,
+  "max_width_mm": 180.0,
+  "note": "Any size on a US Letter page's text area: up to 7 in (177.8 mm) wide and 9.5 in (241.3 mm) tall, legend aside; up to 180 mm wide, printed scaled to the 7 in text width. One column (3.375 in, 85.7 mm) and full width are presets for prose's in-house bioRxiv two-column template.",
+  "source": "Matthew's choice for the Monroe lab's bioRxiv preprints (2026-11-16): a US Letter page with 0.75 in margins, as the lab's template has, and 180 mm figures, which he has posted there; bioRxiv itself sets no figure sizes",
+  "labels": {
+   "font": "Helvetica",
+   "size": 8.0,
+   "bold": true,
+   "case": "lower",
+   "form": "a",
+   "source": "Matthew's choice for bioRxiv (2026-11-16): bold lower-case a, b, c in 8 pt Helvetica, as his posted figures have them and prose's bioRxiv (in house) legends letter them, (a)",
+   "measured": false
+  },
+  "text": {
+   "min_pt": null,
+   "max_pt": null,
+   "fonts": [],
+   "fonts_only": false,
+   "about": false,
+   "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF): no sizes or fonts for figure text"
+  },
+  "lines": {
+   "min_pt": null,
+   "max_pt": null,
+   "about": false,
+   "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF), so Check uses mosaic's 0.25 pt"
+  },
+  "pictures": {
+   "photo": 300.0,
+   "combination": 300.0,
+   "line_art": 300.0,
+   "vector": [],
+   "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF), so Check uses mosaic's 300 dpi"
+  },
+  "export": {
+   "formats": [
+    "pdf",
+    "svg",
+    "png",
+    "tiff",
+    "jpeg",
+    "eps",
+    "pptx"
+   ],
+   "colour": "either",
+   "max_mb": null,
+   "firm": true,
+   "max_dpi": null,
+   "embed_fonts": false,
+   "no_alpha": false,
+   "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF): any of mosaic's files, in RGB or CMYK, to place in the manuscript"
+  }
+ }
+}

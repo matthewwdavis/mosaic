@@ -1,0 +1,340 @@
+{
+ "format": 1,
+ "id": "general",
+ "name": "General (no journal)",
+ "version": "1.0.0",
+ "kind": "general",
+ "publisher": "",
+ "verified": {
+  "status": "verified",
+  "by": "prose (built in)",
+  "date": "2026-11-16"
+ },
+ "maintainers": [
+  {
+   "name": "Matthew Davis",
+   "github": "matthewwdavis"
+  }
+ ],
+ "page": {
+  "paper": "a4"
+ },
+ "captions": {
+  "label": "Figure",
+  "bar": false
+ },
+ "legends": {
+  "sep": ".",
+  "title": {
+   "bold": true,
+   "line": false
+  },
+  "panels": {
+   "open": "(",
+   "close": ")",
+   "bold": null
+  },
+  "scale": 0.9,
+  "evidence": [
+   "prose's own templates: sensible values (no journal to copy)"
+  ]
+ },
+ "references": {
+  "csl": "nature",
+  "file": "general.csl"
+ },
+ "latex": {
+  "template": "standard",
+  "wrapper": "journal.latex",
+  "files": {},
+  "publisher": "",
+  "note": "A standard LaTeX article (article class, natbib with numbered references), for documents with no journal"
+ },
+ "word": {
+  "layout": {
+   "measured_from": "A standard LaTeX article (article class, natbib with numbered references), for documents with no journal; prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display re-measured on 2026-11-16",
+   "page": {
+    "width_mm": 210.0,
+    "height_mm": 297.0,
+    "margins_mm": {
+     "top": 26.2,
+     "bottom": 24.4,
+     "left": 25.0,
+     "right": 24.9
+    }
+   },
+   "columns": {
+    "count": 1,
+    "gap_mm": 0.0
+   },
+   "mirror_margins": false,
+   "body": {
+    "pdf_font": "LMRoman12-Regular",
+    "size": 12.0,
+    "bold": false,
+    "italic": false,
+    "caps": false,
+    "line_pt": 14.4,
+    "justify": true,
+    "indent_mm": 6.3,
+    "first_indent_mm": 0.1,
+    "space_after_pt": 0.0,
+    "font": "Century Schoolbook"
+   },
+   "styles": {
+    "title": {
+     "pdf_font": "LMRoman17-Regular",
+     "size": 20.5,
+     "bold": false,
+     "italic": false,
+     "caps": false,
+     "align": "center",
+     "before_pt": 37.1,
+     "line_pt": 24.9,
+     "run_in": false,
+     "font": "Century Schoolbook"
+    },
+    "author": {
+     "pdf_font": "LMRoman12-Regular",
+     "size": 14.5,
+     "bold": false,
+     "italic": false,
+     "caps": false,
+     "align": "center",
+     "before_pt": 18.1,
+     "run_in": false,
+     "font": "Century Schoolbook"
+    },
+    "affiliation": {
+     "pdf_font": "LMRoman12-Regular",
+     "size": 14.5,
+     "bold": false,
+     "italic": false,
+     "caps": false,
+     "align": "center",
+     "before_pt": 7.0,
+     "run_in": false,
+     "font": "Century Schoolbook"
+    },
+    "abstract": {
+     "pdf_font": "LMRoman10-Regular",
+     "size": 11.0,
+     "bold": false,
+     "italic": false,
+     "caps": false,
+     "align": "both",
+     "indent_mm": {
+      "left": 10.6,
+      "right": 10.9
+     },
+     "before_pt": 6.0,
+     "line_pt": 13.5,
+     "run_in": false,
+     "font": "Century Schoolbook"
+    },
+    "abstract_title": {
+     "pdf_font": "LMRoman10-Bold",
+     "size": 11.0,
+     "bold": true,
+     "italic": false,
+     "caps": false,
+     "align": "center",
+     "before_pt": 11.0,
+     "run_in": false,
+     "text": "Abstract",
+     "font": "Century Schoolbook"
+    },
+    "h1": {
+     "pdf_font": "LMRoman12-Bold",
+     "size": 17.0,
+     "bold": true,
+     "italic": false,
+     "caps": false,
+     "align": "left",
+     "before_pt": 19.5,
+     "run_in": false,
+     "after_pt": 11.9,
+     "font": "Century Schoolbook"
+    },
+    "h2": {
+     "pdf_font": "LMRoman12-Bold",
+     "size": 14.5,
+     "bold": true,
+     "italic": false,
+     "caps": false,
+     "align": "left",
+     "before_pt": 17.3,
+     "run_in": false,
+     "after_pt": 7.8,
+     "font": "Century Schoolbook"
+    },
+    "h3": {
+     "pdf_font": "LMRoman12-Bold",
+     "size": 12.0,
+     "bold": true,
+     "italic": false,
+     "caps": false,
+     "align": "left",
+     "before_pt": 16.8,
+     "run_in": false,
+     "after_pt": 7.8,
+     "font": "Century Schoolbook"
+    },
+    "caption": {
+     "pdf_font": "LMRoman10-Regular",
+     "size": 11.0,
+     "bold": false,
+     "italic": false,
+     "caps": false,
+     "align": "both",
+     "before_pt": 5.7,
+     "line_pt": 13.5,
+     "run_in": false,
+     "font": "Century Schoolbook"
+    },
+    "table_caption": {
+     "pdf_font": "LMRoman10-Regular",
+     "size": 11.0,
+     "bold": false,
+     "italic": false,
+     "caps": false,
+     "align": "center",
+     "before_pt": 10.3,
+     "run_in": false,
+     "font": "Century Schoolbook"
+    },
+    "references": {
+     "pdf_font": "LMRoman12-Regular",
+     "size": 12.0,
+     "bold": false,
+     "italic": false,
+     "caps": false,
+     "align": "both",
+     "hanging_mm": 6.1,
+     "before_pt": 11.9,
+     "line_pt": 14.4,
+     "run_in": false,
+     "font": "Century Schoolbook"
+    },
+    "table_note": {
+     "pdf_font": "LMRoman10-Regular",
+     "size": 10.0,
+     "bold": false,
+     "italic": false,
+     "caps": false,
+     "align": "left",
+     "before_pt": 11.8,
+     "run_in": false,
+     "font": "Century Schoolbook"
+    }
+   },
+   "line_numbers": false,
+   "page_number": "footer-center",
+   "running_head": false,
+   "fonts": {
+    "LMMathItalic12-Regular": "Times New Roman",
+    "LMMathItalic8-Regular": "Times New Roman",
+    "LMRoman10-Bold": "Century Schoolbook",
+    "_chosen_by_width": [
+     "LMRoman10-Bold",
+     "LMRoman10-Regular",
+     "LMRoman12-Bold",
+     "LMRoman12-Italic",
+     "LMRoman12-Regular",
+     "LMRoman17-Regular",
+     "LMRoman7-Regular",
+     "LMRoman8-Regular"
+    ],
+    "LMRoman10-Regular": "Century Schoolbook",
+    "LMRoman12-Bold": "Century Schoolbook",
+    "LMRoman12-Italic": "Century Schoolbook",
+    "LMRoman12-Regular": "Century Schoolbook",
+    "LMRoman17-Regular": "Century Schoolbook",
+    "LMRoman7-Regular": "Century Schoolbook",
+    "LMRoman8-Regular": "Century Schoolbook"
+   },
+   "submission": {
+    "columns": {
+     "count": 1,
+     "gap_mm": 0.0
+    },
+    "line_numbers": true,
+    "line_pt": 23.9,
+    "running": null,
+    "table": {
+     "row_pt": 23.9,
+     "gaps_pt": {
+      "caption": 14.5,
+      "top": 20.5,
+      "header": 9.5,
+      "mid": 20.4,
+      "bottom": 9.7
+     }
+    },
+    "run_in": [],
+    "display": {
+     "above_pt": 12.0,
+     "below_pt": 12.0,
+     "above_short_pt": 0.0,
+     "below_short_pt": 6.5,
+     "printed_above_pt": 23.9,
+     "printed_below_pt": 10.7
+    }
+   },
+   "hand": [
+    "styles.abstract_title.before_pt"
+   ],
+   "running": null,
+   "table": {
+    "pdf_font": "LMRoman12-Regular",
+    "size": 12.0,
+    "header_bold": false,
+    "rules": {
+     "top": {
+      "pt": 0.94,
+      "color": "000000"
+     },
+     "header": {
+      "pt": 0.59,
+      "color": "000000"
+     },
+     "bottom": {
+      "pt": 0.94,
+      "color": "000000"
+     }
+    },
+    "vertical": false,
+    "caption": "above",
+    "row_pt": 14.4,
+    "gaps_pt": {
+     "caption": 14.5,
+     "top": 13.9,
+     "header": 6.7,
+     "mid": 13.8,
+     "bottom": 6.9
+    },
+    "align": "center",
+    "outer_pt": 1.4,
+    "col_gap_pt": 12.9,
+    "font": "Century Schoolbook"
+   },
+   "display": {
+    "above_pt": 12.0,
+    "below_pt": 12.0,
+    "above_short_pt": 0.0,
+    "below_short_pt": 6.5,
+    "printed_above_pt": 14.5,
+    "printed_below_pt": 6.5
+   }
+  }
+ },
+ "figures": {
+  "types": [
+   {
+    "name": "Text width",
+    "width_mm": 160.0
+   }
+  ],
+  "listed": false
+ }
+}
