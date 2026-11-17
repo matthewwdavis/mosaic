@@ -454,6 +454,7 @@ class SourceResolver:
         self.cache = cache or get_cache()
         self.doc_dir = doc_dir
         self.notes: list[str] = []
+        self.bleed: dict[str, dict] = {}   # asset id -> what cleaning its see-through pixels found (alphableed)
 
     def asset(self, asset_id: str) -> dict:
         return self.doc["assets"][asset_id]
@@ -482,11 +483,15 @@ class SourceResolver:
         """(kind, path) of what to embed in a PDF: a PDF page or a raster image."""
         kind = self._pick(asset_id, ("pdf", "svg", "png", "tiff", "jpeg"), override)
         path = self.file(asset_id, kind)
+        sha = self.asset(asset_id)["variants"][kind]["sha256"]
         if kind == "svg":
             name = self.asset(asset_id).get("name", asset_id)
             self.notes.append(f"{name}: converted SVG to PDF (no PDF copy found)")
-            return "pdf", self.svg_to_pdf(path, self.asset(asset_id)["variants"]["svg"]["sha256"])
-        return kind, path
+            kind, path, sha = "pdf", self.svg_to_pdf(path, sha), sha + ".rsvg"
+        # The colour hidden under see-through pixels, filled from the visible ones (alphableed.py)
+        from . import alphableed
+        self.bleed[asset_id], clean = alphableed.cleaned(self.cache, sha, kind, path)
+        return ("png" if clean != path and kind == "tiff" else kind), clean
 
     def for_svg(self, asset_id: str, override: str = "auto") -> tuple[str, str]:
         """(kind, path) of what to place in an SVG: SVG markup or a raster image."""

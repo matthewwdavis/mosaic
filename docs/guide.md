@@ -216,6 +216,12 @@ picture instead.
   | SVG | converted to PDF, only if there's no PDF copy | the SVG, unchanged | drawn once from the vectors |
   | PNG, JPEG, TIFF | the image data, unchanged | embedded, unchanged | resampled once to the export resolution |
 
+  One exception: some see-through pictures hide a dark colour under their fully see-through
+  parts. Pictures from PowerPoint, and pictures inside plots from R, often do. Chrome and prose
+  show that colour as thin grey edges around the picture, but Preview doesn't. On export, mosaic
+  fills those hidden parts with the colour of the picture next to them. Nothing you can see
+  changes. Check lists the pictures this applies to.
+
 The **Picture** tab of a selected picture shows its file, whether the link works, the copies found,
 and its **scale**. A picture that isn't at 100% says so, with a warning that its text has shrunk
 or grown. One stretched unevenly, its frame a different shape from the file (PowerPoint can leave

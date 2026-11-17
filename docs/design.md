@@ -17,6 +17,13 @@ placed file in its original form and writes it once, straight into the output:
 | SVG | SVG -> PDF conversion, only if no PDF copy exists | markup copied in unchanged (IDs prefixed) | rendered from the PDF copy or converted SVG |
 | PNG / JPEG / TIFF | image data embedded losslessly (JPEG bytes passed through) | embedded as a data URI, byte-identical | resampled once to the export DPI |
 
+One exception to "unchanged" (2026-11-16): a picture with transparency, on its own or inside a
+placed PDF, whose fully see-through pixels hide a contrasting colour (black, as Cairo and
+PowerPoint leave it) has that hidden colour filled from the visible pixels around it before it
+is written to a PDF (and so to PNG/TIFF/JPEG exports and PDF previews). Visible pixels and the
+transparency stay byte for byte; PDFium (Chrome, prose) otherwise shows the hidden colour as thin
+grey edges. See [alpha-bleed.md](alpha-bleed.md).
+
 R notebooks save every plot as PDF + SVG + PNG under one name. mosaic links all
 copies of a plot ("variants") and uses the matching original for each export, so the
 normal case involves no conversion at all. When a conversion is unavoidable, the
