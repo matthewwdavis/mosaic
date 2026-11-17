@@ -96,6 +96,7 @@
    "large_rows": {"type": "integer", "minimum": 1}, "contents": {"enum": ["includes", null]}, "cover_title": {"type": ["string", "null"]},
    "files": {"enum": ["one", "each"]}, "file_names": {"type": ["object", "null"], "additionalProperties": {"type": "string"}},
    "formats": {"type": "array", "items": {"enum": ["pdf", "docx"]}}, "legends_file": {"type": "boolean"},
+   "legend_link": {"enum": ["related", "supports", null], "description": "Each supplementary figure's legend names the main figure it goes with: \"related\" (Cell's \", related to Figure 1\"), \"supports\" (The Plant Cell's \"Supports Figure 1\")."},
    "evidence": {"$ref": "#/$defs/evidence"}}},
   "table_notes": {"type": "object", "additionalProperties": false, "properties": {
    "marks": {"anyOf": [{"const": "letters"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}]}, "italic": {"type": "boolean"},

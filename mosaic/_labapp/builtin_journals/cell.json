@@ -126,8 +126,10 @@
    ]
   },
   "note": null,
+  "legend_link": "related",
   "evidence": [
-   "(tables over 3 pages as Excel)"
+   "(tables over 3 pages as Excel)",
+   "Cell's supplemental information guidelines: each supplementary figure's legend ends \"…, related to Figure 1\" (moved from editor/src/check.js, 2026-11-17)"
   ]
  },
  "house_style": {

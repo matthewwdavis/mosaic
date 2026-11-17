@@ -125,8 +125,10 @@
    ]
   },
   "note": null,
+  "legend_link": "supports",
   "evidence": [
-   "(tables over 1–2 pages as Excel Supplementary Data Sets)"
+   "(tables over 1–2 pages as Excel Supplementary Data Sets)",
+   "The Plant Cell's general instructions: each supplementary figure's legend says \"Supports Figure 1\" (moved from editor/src/check.js, 2026-11-17)"
   ]
  },
  "house_style": {
