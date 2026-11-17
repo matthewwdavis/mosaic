@@ -445,6 +445,36 @@ async function myJournalsChecks(app) {
     await until(() => top()?.querySelector("h2")?.textContent === "My journals");
     const listDlg = top();
     check(/None yet/.test(listDlg.textContent), "My Journals starts with none");
+    const fill = (el, v) => { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); };
+    {
+      // Add a Journal ▸ Start from a Journal's Reference Style…, then its figure sizes from the guidelines
+      press(listDlg, "Add a Journal…");
+      await until(() => top()?.querySelector("h2")?.textContent === "Add a journal");
+      const start = top();
+      press(start, "Start from a Journal's Reference Style…");
+      await until(() => top()?.querySelector("h2")?.textContent === "Start from a journal's reference style");
+      const styles = top();
+      fill(styles.querySelector("input[type=search]"), "1614-2942");
+      await until(() => /Tree Genetics/.test(styles.querySelector(".csl-results")?.textContent || ""));
+      check(/Tree Genetics & Genomes/.test(styles.querySelector(".csl-result")?.textContent || ""),
+        "Start from a Journal's Reference Style finds Tree Genetics by its ISSN", styles.querySelector(".csl-results").textContent);
+      styles.querySelector(".csl-pick").click();
+      await until(() => top() === start && start.querySelector("input[type=text]").value);
+      check(start.querySelector("input[type=text]").value === "Tree Genetics & Genomes" && /tree-genetics-and-genomes/.test(start.querySelector(".journal-start").textContent),
+        "choosing it fills in the journal's name and keeps its reference style and ISSN", start.querySelector(".journal-start").textContent);
+      press(start, "Read Figure Sizes from the Author Guidelines…");
+      await until(() => top()?.querySelector("h2")?.textContent === "Figure sizes from the author guidelines");
+      const guide = top();
+      fill(guide.querySelector("input[type=url]"), "http://127.0.0.1:9/author-guidelines");
+      press(guide, "Read the Page");
+      const said = () => guide.querySelector("[role=status]").textContent;
+      await until(() => said() && said() !== "Reading…", 15000);
+      check(/couldn't be read/.test(said()) && guide.querySelector("button.primary").disabled,
+        "a guidelines page that can't be reached says so in words and offers nothing to use", said());
+      guide.close();
+      start.close();
+      await until(() => top() === listDlg);
+    }
     press(listDlg, "Add a Journal…");
     await until(() => top()?.querySelector("h2")?.textContent === "Add a journal");
     let form = top();
@@ -452,7 +482,6 @@ async function myJournalsChecks(app) {
     await until(() => form.querySelector("[role=alert]").textContent);
     check(/name/i.test(form.querySelector("[role=alert]").textContent) && top() === form,
       "a journal without a name isn't kept, and the form says why", form.querySelector("[role=alert]").textContent);
-    const fill = (el, v) => { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); };
     fill(form.querySelector("input[type=text]"), "Selftest Journal");
     const rows = form.querySelectorAll(".journal-width");
     fill(rows[0].querySelector("input[type=number]"), "84");
