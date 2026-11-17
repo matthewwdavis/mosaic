@@ -62,10 +62,13 @@ class Handler(_shared.Handler):
                 return self._send(400, b"bad page or scale", "text/plain")
             if not 0 <= page < 100000 or scale != scale:   # (scale != scale: not a number)
                 return self._send(400, b"bad page or scale", "text/plain")
-            out = cache.derived(f"{sha}.p{page}.s{scale:g}", ".png")
+            # (drawn from the copy with the colour under see-through pixels cleaned, as exported;
+            # "b1" keeps previews drawn before that from being used)
+            out = cache.derived(f"{sha}.p{page}.s{scale:g}.b1", ".png")
             with _preview_lock:
                 if not os.path.exists(out):
-                    render_pdf_preview(src, page, scale, out)
+                    from ..alphableed import cleaned
+                    render_pdf_preview(cleaned(cache, sha, "pdf", src)[1], page, scale, out)
             with open(out, "rb") as fh:
                 return self._send(200, fh.read(), "image/png", cache=True)
         if kind == "tiff":
