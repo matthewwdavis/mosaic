@@ -6,8 +6,8 @@ import math
 import os
 import re
 
-from .. import picturekind, plottext, vectors
-from ..assets import PDFIUM_LOCK, get_cache, resolve_link
+from .. import alphableed, picturekind, plottext, vectors
+from ..assets import PDFIUM_LOCK, SourceResolver, get_cache, resolve_link
 from ..geometry import DrawPath
 from .._labapp import journals as _shared_journals
 from ..journals import JOURNALS, MM
@@ -165,6 +165,7 @@ def preflight(doc: dict, options: dict, progress: Progress | None = None) -> dic
     pages = options.get("pages")
     sel = [doc["pages"][i] for i in (pages if pages is not None else range(len(doc["pages"])))]
     resolver = Resolver(doc)
+    sources = SourceResolver(doc, cache)   # (as export reads the pictures: for see-through colour)
     found: list[dict] = []
     smallest = thinnest = None
     min_dpi = float(options.get("min_dpi", MIN_PHOTO_DPI))
@@ -286,6 +287,9 @@ def preflight(doc: dict, options: dict, progress: Progress | None = None) -> dic
                                                  f"puts it back)"})
                     for level, message in plottext.notes(name, item, asset):
                         found.append({"level": level, "item": item.get("id"), "page": page["id"], "message": message})
+                    bleed = alphableed.check_note(sources, prim.asset_id, prim.source, name)
+                    if bleed:
+                        found.append({"level": "info", "item": item.get("id"), "page": page["id"], "message": bleed})
                     linked = doc["assets"].get(asset.get("lifted_from")) or asset   # (its own file, not the copy without lifted texts)
                     prim_var = linked["variants"].get(linked.get("primary")) or next(iter(linked["variants"].values()))
                     if prim_var.get("src") and not resolve_link(prim_var, None):
