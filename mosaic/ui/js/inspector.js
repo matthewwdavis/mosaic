@@ -225,6 +225,19 @@ export const inspector = {
   setJournalSize(jname, tname) {
     const j = (this.app.info.journals || []).find((x) => x.name === jname);
     if (!j) { this.editPage("No journal size", (p) => { delete p.preset; }); return; }
+    // A journal that takes any size (bioRxiv) chosen on its own: a page within its text area keeps its size
+    const page = store.page();
+    if (!tname && j.any_width && page.width <= widestOf(j) * MM_PT + 0.05 * MM_PT && page.height <= j.depth_mm * MM_PT + 0.05 * MM_PT) {
+      let kept = 0;
+      this.editPage(`${j.name} page`, (p) => {
+        const was = pageLabels(p, this.app.info.journals);
+        p.preset = journalPreset(j, p.width);
+        if (j.labels) kept = restyleLabels(p.items, was, j.labels);
+      });
+      announce(`Page is now a ${j.name} figure, kept at ${this.pageLength(page.width / MM_PT)} by ${this.pageLength(page.height / MM_PT)}`
+        + (kept ? `; ${kept} panel label${kept === 1 ? "" : "s"} in ${j.name}'s style` : ""));
+      return;
+    }
     const t = j.types.find((x) => x.name === tname) || j.types.reduce((a, b) => (b.width_mm > a.width_mm ? b : a));
     let restyled = 0;
     this.editPage(`${j.name} ${t.name.toLowerCase()} page`, (p) => {
@@ -239,7 +252,15 @@ export const inspector = {
     announce(`Page is now a ${j.name} ${t.name.toLowerCase()} figure, ${this.pageLength(t.width_mm)} wide and ${this.pageLength(j.depth_mm)} deep`
       + (restyled ? `; ${restyled} panel label${restyled === 1 ? "" : "s"} in ${j.name}'s style` : ""));
   },
-  setPageWidth(v) { this.editPage("Page width", (p) => { p.width = Math.max(v, 1); delete p.preset; }); },
+  // A width typed in: the page leaves its journal size, except for a journal that takes any width
+  // (bioRxiv), which it stays with (Check says when it's wider than the journal's text area)
+  setPageWidth(v) {
+    const j = journalOf(store.page(), this.app.info);
+    this.editPage("Page width", (p) => {
+      p.width = Math.max(v, 1);
+      if (j?.any_width) p.preset = journalPreset(j, p.width); else delete p.preset;
+    });
+  },
   setPageHeight(v) {
     this.editPage("Page height", (p) => {
       p.height = Math.max(v, 1);
@@ -263,8 +284,9 @@ export const inspector = {
         selectField("Journal", journal ? journal.name : "", [["", "None"], ...journals.map((j) => [j.name, j.name])],
           (v) => this.setJournalSize(v)),
         selectField("Figure type", type ? type.name : "",
-          journal ? journal.types.map((t) => [t.name, `${t.name} — ${len(t.width_mm)} wide`]) : [["", "Choose a journal first"]],
-          (v) => this.setJournalSize(journal.name, v), { disabled: !journal }),
+          journal ? [...(journal.any_width ? [["", `Any size up to ${len(widestOf(journal))} × ${len(journal.depth_mm)}`]] : []),
+            ...journal.types.map((t) => [t.name, `${t.name} — ${len(t.width_mm)} wide`])] : [["", "Choose a journal first"]],
+          (v) => v && this.setJournalSize(journal.name, v), { disabled: !journal }),
         journal ? h("p", { class: "hint" }, `${journal.name}: ${journal.note} Source: ${journal.source}.`) : null,
         journal ? this.journalRules(journal) : null,
         row(numField("Width", page.width, pu, (v) => this.setPageWidth(v), { min: 1 }),
@@ -1474,12 +1496,23 @@ function fileRules(e) {
       cmyk_preferred: "CMYK (preferred for print) or RGB", cmyk: "CMYK" }[e.colour || "either"]} colour`
     + `${e.max_mb ? `, ${e.firm === false ? "under" : "at most"} ${fmt(e.max_mb, 1)} MB each${e.firm === false ? " where possible" : ""}` : ""}.`;
 }
+// A journal's widest figure, in mm
+export const widestOf = (j) => Math.max(...j.types.map((t) => t.width_mm));
+// The journal a page's size preset names, or null
+export const journalOf = (page, info) => (info.journals || []).find((j) => j.name === page?.preset?.journal) || null;
+// A page's preset for a journal that takes any width (bioRxiv): its type when the page is one of its widths
+export function journalPreset(j, width) {
+  const t = j.types.find((x) => Math.abs(x.width_mm * MM_PT - width) < 0.05);
+  return t ? { journal: j.name, type: t.name } : { journal: j.name };
+}
 export function pagePreset(page, info) {
   const near = (a, b) => Math.abs(a - b) < 0.05;
   const p = page.preset || {};
   const journal = (info.journals || []).find((j) => j.name === p.journal);
   const type = journal?.types.find((t) => t.name === p.type && near(t.width_mm * MM_PT, page.width)) || null;
   if (journal && type) return { journal, type, standard: null };
+  // (a journal that takes any width keeps its page at a width of its own: no type)
+  if (journal?.any_width) return { journal, type: null, standard: null };
   const standard = (info.standard_sizes || []).find((s) => near(s.width_mm * MM_PT, page.width)
     && near(s.height_mm * MM_PT, page.height)) || null;
   return { journal: null, type: null, standard };

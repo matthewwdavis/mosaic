@@ -18,7 +18,7 @@ import { contextMenu } from "./contextmenu.js";
 import { gridFor } from "./gridlayout.js";
 import { canHold, copiesOf, editGroup, finishEdits, makeSymbol, placedItems, symbolOf } from "./symbols.js";
 import { middle, panelAt } from "./labels.js";
-import { button, inspector } from "./inspector.js";
+import { button, inspector, journalOf, journalPreset } from "./inspector.js";
 import { panels } from "./panels.js";
 import { textRibbon } from "./textribbon.js";
 import { updates } from "./updates.js";
@@ -2385,8 +2385,10 @@ const app = {
     if (!boxes.length) return;
     const b = [Math.min(...boxes.map((x) => x[0])), Math.min(...boxes.map((x) => x[1])),
       Math.max(...boxes.map((x) => x[2])), Math.max(...boxes.map((x) => x[3]))];
-    // A journal figure keeps its column width; only the height is cropped
-    const journalPage = !!store.page().preset?.journal;
+    // A journal figure keeps its column width; only the height is cropped (a journal that takes any
+    // width, bioRxiv, is cropped all round and stays that journal's figure)
+    const anyWidth = journalOf(page, this.info)?.any_width ? journalOf(page, this.info) : null;
+    const journalPage = !!store.page().preset?.journal && !anyWidth;
     store.update(journalPage ? "Fit page height to content" : "Fit page to content", (doc) => {
       const p = doc.pages[store.pageIndex];
       if (journalPage) {
@@ -2398,7 +2400,7 @@ const app = {
         shiftGuides(p, -b[0], -b[1]);
         p.width = b[2] - b[0];
         p.height = b[3] - b[1];
-        delete p.preset;
+        if (anyWidth) p.preset = journalPreset(anyWidth, p.width); else delete p.preset;
       }
     });
     canvas.fit();

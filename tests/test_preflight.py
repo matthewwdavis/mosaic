@@ -194,6 +194,24 @@ def test_the_page_size_against_a_journal():
     assert messages(doc) == []
 
 
+def test_biorxiv_takes_any_size_within_its_text_area():
+    # Any width up to 7 in and any depth up to 9.5 in (a US Letter page less 0.75 in margins), with no
+    # note for a width that's neither of its presets; only a bigger page is warned about
+    doc = page_with(width=120 * MM, height=200 * MM)
+    doc["pages"][0]["preset"] = {"journal": "bioRxiv"}
+    assert messages(doc) == ["The page, 120 × 200 mm, fits bioRxiv's figures (any size up to 177.8 × 241.3 mm)"]
+    assert messages(doc, units="in") == ["The page, 4.72 × 7.87 in, fits bioRxiv's figures (any size up to 7 × 9.5 in)"]
+    doc["pages"][0]["width"] = 85.7 * MM
+    assert messages(doc) == ["The page, 85.7 × 200 mm, fits the bioRxiv one column size (at most 241.3 mm tall)"]
+    doc["pages"][0]["width"], doc["pages"][0]["height"] = 180 * MM, 250 * MM
+    assert messages(doc) == ["The page is 250 mm tall; bioRxiv figures can be at most 241.3 mm tall",
+                             "The page is 180 mm wide; the widest bioRxiv figures are 177.8 mm (full width)"]
+    # The same page against Nature (fixed widths): a width in between is still noted there
+    doc["pages"][0]["width"], doc["pages"][0]["height"] = 120 * MM, 150 * MM
+    assert messages(doc, journal="Nature") == ["The page is 120 mm wide; Nature figures are 90 mm (single column) or 180 mm "
+                                               "(double column) wide"]
+
+
 # A page's text against its journal's rules (journals.py: "text" and "labels")
 JOURNAL = {"name": "Test Journal", "depth_mm": 200.0, "types": [{"name": "Full", "width_mm": 180.0}], "note": "", "source": "",
            "labels": {"font": "Arial", "size": 8.0, "bold": True, "case": "upper", "form": "a"},

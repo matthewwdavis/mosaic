@@ -25,7 +25,7 @@ def test_journal_figure_sizes():
     names = [j["name"] for j in journals.JOURNALS]
     assert journals.journal_size("Horticulture Research", "Double column") == pytest.approx((178 * MM, 241 * MM))
     assert journals.journal_size("The Plant Journal", "Single column") == pytest.approx((80 * MM, 226 * MM))
-    assert len(names) == 16 and names == sorted(names, key=str.lower)
+    assert len(names) == 17 and names == sorted(names, key=str.lower)   # (16 journals and bioRxiv)
     for j in journals.JOURNALS:
         types = [t["name"] for t in j["types"]]
         assert len(types) == len(set(types)) and j["depth_mm"] > 0 and j["source"]

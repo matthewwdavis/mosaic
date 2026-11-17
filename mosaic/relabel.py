@@ -81,10 +81,14 @@ def restyle_label(item: dict, before: dict | None, look: dict) -> bool:
     return json.dumps(item["text"], sort_keys=True) != was
 
 
-def figure_type(journal: dict, width_pt: float) -> str:
-    """The journal's figure type a page of this width is: the one as wide, else the nearest."""
+def figure_type(journal: dict, width_pt: float) -> str | None:
+    """The journal's figure type a page of this width is: the one as wide, else the nearest; for a
+    journal that takes any width (bioRxiv), the one as wide or None (a width of its own)."""
     w = width_pt / MM
-    return min(journal["types"], key=lambda t: (abs(t["width_mm"] - w) > 0.05, abs(t["width_mm"] - w)))["name"]
+    best = min(journal["types"], key=lambda t: (abs(t["width_mm"] - w) > 0.05, abs(t["width_mm"] - w)))
+    if journal.get("any_width") and abs(best["width_mm"] - w) > 0.05:
+        return None
+    return best["name"]
 
 
 def fit_label(resolver, item: dict, page_width: float) -> None:
@@ -137,6 +141,7 @@ def relabel(doc: dict, journal: dict, fonts=None) -> list[int]:
                 for item in changed:
                     if id(item) in top and not item.get("rot"):
                         fit_label(resolver, item, float(page["width"]))
-        page["preset"] = {"journal": journal["name"], "type": figure_type(journal, float(page["width"]))}
+        kind = figure_type(journal, float(page["width"]))
+        page["preset"] = {"journal": journal["name"], **({"type": kind} if kind else {})}
         counts.append(len(changed))
     return counts

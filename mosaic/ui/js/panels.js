@@ -2,7 +2,7 @@
 
 import { rpc } from "./api.js";
 import { canvas, visionMatrix } from "./canvas.js";
-import { alignToField, button, colourVisionField, gapField, inspector, numField, pagePreset, selectField, standardOptions } from "./inspector.js";
+import { alignToField, button, colourVisionField, gapField, inspector, numField, pagePreset, selectField, standardOptions, widestOf } from "./inspector.js";
 import { findItem, store } from "./store.js";
 import { PALETTES, colourHolders } from "./swatches.js";
 import { copiesOf } from "./symbols.js";
@@ -257,7 +257,11 @@ export const panels = {
         run: () => inspector.setStandardSize(sz.name) });
     });
     // Every journal's figure types in one list, each journal's together (submenus go one level deep)
-    const journals = (info.journals || []).flatMap((j, i) => [i ? "-" : null, ...j.types.map((t) => ({
+    // (a journal that takes any size, bioRxiv: first, the page kept at its own size within the text area)
+    const journals = (info.journals || []).flatMap((j, i) => [i ? "-" : null,
+      ...(j.any_width ? [{ label: `${j.name}: any size up to ${len(widestOf(j))} × ${len(j.depth_mm)} (keeps this page's size where it fits)`,
+        checked: journal?.name === j.name && !type, run: () => inspector.setJournalSize(j.name) }] : []),
+      ...j.types.map((t) => ({
       label: `${j.name}: ${t.name} (${len(t.width_mm)} × ${len(j.depth_mm)})`,
       checked: journal?.name === j.name && type?.name === t.name, run: () => inspector.setJournalSize(j.name, t.name) }))]);
     entries.push("-", { label: "Journal", items: journals }, "-",

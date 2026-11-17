@@ -55,6 +55,19 @@ def test_a_page_without_a_journal_takes_all_of_it_and_bracketed_forms():
     assert doc["pages"][0]["preset"] == {"journal": "New Phytologist", "type": "Single column"}
 
 
+def test_biorxiv_labels_are_bold_capitals_and_its_page_keeps_a_width_of_its_own():
+    # As prose's bioRxiv (Monroe lab) legends letter panels: (A), the letter bold
+    a = label("a", size=8.0, bold=True)
+    doc = figure(a, width=120.0)
+    assert relabel.relabel(doc, relabel.find_journal("biorxiv")) == [1]
+    assert runs(a) == [("A", "Helvetica", 8.0, True)]
+    assert doc["pages"][0]["preset"] == {"journal": "bioRxiv"}, "any width: no figure type"
+    assert doc["pages"][0]["width"] == 120.0 * MM
+    doc = figure(label("b"), width=177.8)
+    relabel.relabel(doc, relabel.find_journal("bioRxiv"))
+    assert doc["pages"][0]["preset"] == {"journal": "bioRxiv", "type": "Full width"}
+
+
 def test_journal_names_and_file_names():
     assert relabel.find_journal("plos_genetics")["name"] == "PLOS Genetics"
     assert relabel.find_journal("MBE")["name"] == "Molecular Biology and Evolution"
