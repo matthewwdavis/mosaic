@@ -1,12 +1,12 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "2c630ff",
+ "commit": "8449f56",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "closing.py": "c43a3addf2eaa6b6dad4ee88883d4e5a897d0b7f456d154770c93e4047e58752",
   "diagnostics.py": "7c1267ac6e189bb63dc679289ce9a1360cdec2c59552329ecd8b0d504049b37a",
-  "journals.py": "609617406a58f185ce8c474ca549e34fe6f9291193a3bc0496a7814b2442db85",
+  "journals.py": "4fef03a9782f4fddc9b57e31c3d69d496c22c8a6e8d5d6bf9dd17586c3edcb40",
   "kept.py": "084b8e46999a16bbdbe1aa0a0d7cbed177ae5d4830070990240603e7a2bdfcf0",
   "oslock.py": "6c362ca83197458df3b23ae5b72c13e48fcf90ddd52500e5c1006be7ee33522e",
   "packaging.py": "ad85c817abd9877c9572019d06fd4b5821253f2a2f171a1805974e503ad8f79c",

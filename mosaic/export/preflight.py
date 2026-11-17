@@ -129,18 +129,22 @@ def _journal_fit(page: dict, journal: dict, unit: str) -> list[dict]:
     out = []
     if fit["deep"]:
         out.append(("warning", f"The page is {_length(h, unit)} tall; {name} figures can be at most {depth} tall"))
+    most = _shared_journals.widest(journal)
     if fit["wide"]:
         out.append(("warning", f"The page is {_length(w, unit)} wide; the widest {name} figures are "
-                               f"{_length(types[-1]['width_mm'], unit)} ({types[-1]['name'].lower()})"))
+                               + (f"{_length(most, unit)}" if journal.get("max_width_mm") else
+                                  f"{_length(types[-1]['width_mm'], unit)} ({types[-1]['name'].lower()})")))
     elif fit["odd"]:
         sizes = [f"{_length(t['width_mm'], unit)} ({t['name'].lower()})" for t in types]
         out.append(("info", f"The page is {_length(w, unit)} wide; {name} figures are "
                             + (", ".join(sizes[:-1]) + " or " + sizes[-1] if len(sizes) > 1 else sizes[0]) + " wide"))
     if not out:
         size = f"{_length(w, unit).rsplit(' ', 1)[0]} × {_length(h, unit)}"
-        if fits is None:   # (any width up to the widest: bioRxiv)
+        if fits is None:   # (any width up to the widest: bioRxiv; one wider than its text width prints scaled to it)
             out.append(("ok", f"The page, {size}, fits {name}'s figures (any size up to "
-                              f"{_length(types[-1]['width_mm'], unit).rsplit(' ', 1)[0]} × {depth})"))
+                              f"{_length(most, unit).rsplit(' ', 1)[0]} × {depth})"
+                              + (f"; prose prints it scaled to the {_length(types[-1]['width_mm'], unit)} text width"
+                                 if w > types[-1]["width_mm"] + 0.05 else "")))
         else:
             out.append(("ok", f"The page, {size}, fits the {name} {fits['name'].lower()} size (at most {depth} tall)"))
     return [{"level": level, "page": page["id"], "message": message} for level, message in out]

@@ -1496,8 +1496,8 @@ function fileRules(e) {
       cmyk_preferred: "CMYK (preferred for print) or RGB", cmyk: "CMYK" }[e.colour || "either"]} colour`
     + `${e.max_mb ? `, ${e.firm === false ? "under" : "at most"} ${fmt(e.max_mb, 1)} MB each${e.firm === false ? " where possible" : ""}` : ""}.`;
 }
-// A journal's widest figure, in mm
-export const widestOf = (j) => Math.max(...j.types.map((t) => t.width_mm));
+// A journal's widest figure, in mm: its own limit (bioRxiv: 180 mm), else its widest type
+export const widestOf = (j) => j.max_width_mm || Math.max(...j.types.map((t) => t.width_mm));
 // The journal a page's size preset names, or null
 export const journalOf = (page, info) => (info.journals || []).find((j) => j.name === page?.preset?.journal) || null;
 // A page's preset for a journal that takes any width (bioRxiv): its type when the page is one of its widths

@@ -116,12 +116,13 @@ With nothing selected (click the grey area or press Escape), the right panel sho
   Plant Journal. The note below says where each size comes from. Some journals don't publish sizes; for those the sizes
   were measured from a recent published article, and the note says so.
   - **bioRxiv** (for the Monroe lab's preprints, 16 Nov 2026) takes a figure of **any size** that
-    fits a US Letter page's text area: up to 7 in (177.8 mm) wide and 9.5 in (241.3 mm) tall.
-    **One column** (3.375 in, the lab's two-column template) and **Full width** (7 in) are only
-    handy presets. Choosing bioRxiv keeps the page's own size when it fits (Figure type then
+    fits a US Letter page's text area: up to 7 in (177.8 mm) wide and 9.5 in (241.3 mm) tall, and
+    up to 180 mm wide (a Nature double-column figure), which prose prints scaled to the 7 in text
+    width. **One column** (3.375 in, the lab's two-column template) and **Full width** (7 in) are
+    only handy presets. Choosing bioRxiv keeps the page's own size when it fits (Figure type then
     says **Any size**); a width typed in keeps the page bioRxiv's; and Check only warns about a
-    page bigger than the text area. Its panel labels are bold capitals (**A**, **B**, **C**),
-    as prose's bioRxiv legends letter them.
+    page wider than 180 mm or taller than 9.5 in. Its panel labels are bold lower-case letters
+    (**a**, **b**, **c**) in 8 pt Helvetica, as prose's bioRxiv legends letter them.
   - A journal also gives the page's panel labels its look (see
     [Text and panel labels](#text-and-panel-labels)), Check judges the page by its rules (text
     sizes and fonts, line widths, pictures' resolution), and Export says which files it takes.

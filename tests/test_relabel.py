@@ -55,16 +55,17 @@ def test_a_page_without_a_journal_takes_all_of_it_and_bracketed_forms():
     assert doc["pages"][0]["preset"] == {"journal": "New Phytologist", "type": "Single column"}
 
 
-def test_biorxiv_labels_are_bold_capitals_and_its_page_keeps_a_width_of_its_own():
-    # As prose's bioRxiv (Monroe lab) legends letter panels: (A), the letter bold
-    a = label("a", size=8.0, bold=True)
-    doc = figure(a, width=120.0)
-    assert relabel.relabel(doc, relabel.find_journal("biorxiv")) == [1]
-    assert runs(a) == [("A", "Helvetica", 8.0, True)]
+def test_biorxiv_labels_are_bold_lower_case_and_its_page_keeps_a_width_of_its_own():
+    # Matthew's labels (bold lower-case 8 pt Helvetica, as his figures have them) are bioRxiv's already
+    a, big = label("a", size=8.0, bold=True), label("B", size=12.0, bold=False, font="Arial")
+    doc = figure(a, width=120.0)   # (a Nature page before, as his are)
+    assert relabel.relabel(doc, relabel.find_journal("biorxiv")) == [0]
+    assert runs(a) == [("a", "Helvetica", 8.0, True)]
     assert doc["pages"][0]["preset"] == {"journal": "bioRxiv"}, "any width: no figure type"
     assert doc["pages"][0]["width"] == 120.0 * MM
-    doc = figure(label("b"), width=177.8)
-    relabel.relabel(doc, relabel.find_journal("bioRxiv"))
+    doc = figure(big, journal=None, width=177.8)   # (no journal before: all of bioRxiv's look)
+    assert relabel.relabel(doc, relabel.find_journal("bioRxiv")) == [1]
+    assert runs(big) == [("b", "Helvetica", 8.0, True)]
     assert doc["pages"][0]["preset"] == {"journal": "bioRxiv", "type": "Full width"}
 
 
