@@ -1,0 +1,75 @@
+{
+ "format": 1,
+ "id": "cover_letter",
+ "name": "Cover Letter",
+ "version": "1.0.0",
+ "kind": "letter",
+ "publisher": "Letters",
+ "verified": {
+  "status": "verified",
+  "by": "prose (built in)",
+  "date": "2026-11-16"
+ },
+ "maintainers": [
+  {
+   "name": "Matthew Davis",
+   "github": "matthewwdavis"
+  }
+ ],
+ "page": {
+  "paper": "letter",
+  "margin_mm": 25.4
+ },
+ "captions": {
+  "label": "Figure",
+  "bar": false
+ },
+ "text": {
+  "styles": {
+   "normal": {
+    "font": "Palatino",
+    "size": 11.0
+   },
+   "title": {
+    "font": "Palatino",
+    "size": 14.0
+   },
+   "h1": {
+    "font": "Palatino",
+    "size": 11.0
+   },
+   "h2": {
+    "font": "Palatino",
+    "size": 11.0
+   },
+   "h3": {
+    "font": "Palatino",
+    "size": 11.0
+   },
+   "quote": {
+    "font": "Palatino",
+    "size": 11.0
+   }
+  },
+  "leading_em": 0.62,
+  "look": {
+   "letter": true
+  }
+ },
+ "references": {
+  "csl": "nature",
+  "file": "nature.csl"
+ },
+ "latex": {
+  "template": "house",
+  "wrapper": "journal.latex",
+  "files": {},
+  "publisher": "",
+  "note": "A cover letter in prose's own design, typeset with Tectonic",
+  "source_notes": "SOURCE.md"
+ },
+ "house": {
+  "typst": "screen.typ",
+  "letter": true
+ }
+}

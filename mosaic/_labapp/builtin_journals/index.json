@@ -1,0 +1,162 @@
+{
+ "format": 1,
+ "journals": [
+  {
+   "id": "nature",
+   "file": "nature.json",
+   "name": "Nature",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "heredity",
+   "file": "heredity.json",
+   "name": "Heredity",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "genome_biology",
+   "file": "genome_biology.json",
+   "name": "Genome Biology",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "genome_research",
+   "file": "genome_research.json",
+   "name": "Genome Research",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "genetics",
+   "file": "genetics.json",
+   "name": "Genetics",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "g3",
+   "file": "g3.json",
+   "name": "G3",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "cell",
+   "file": "cell.json",
+   "name": "Cell",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "molecular_plant",
+   "file": "molecular_plant.json",
+   "name": "Molecular Plant",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "science",
+   "file": "science.json",
+   "name": "Science",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "pnas",
+   "file": "pnas.json",
+   "name": "PNAS",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "plos_genetics",
+   "file": "plos_genetics.json",
+   "name": "PLOS Genetics",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "new_phytologist",
+   "file": "new_phytologist.json",
+   "name": "New Phytologist",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "plant_journal",
+   "file": "plant_journal.json",
+   "name": "The Plant Journal",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "plant_cell",
+   "file": "plant_cell.json",
+   "name": "Plant Cell",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "mbe",
+   "file": "mbe.json",
+   "name": "Molecular Biology and Evolution",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "horticulture_research",
+   "file": "horticulture_research.json",
+   "name": "Horticulture Research",
+   "kind": "journal",
+   "version": "1.0.0"
+  },
+  {
+   "id": "biorxiv_monroe",
+   "file": "biorxiv_monroe.json",
+   "name": "bioRxiv (in house)",
+   "kind": "house",
+   "version": "1.0.0"
+  },
+  {
+   "id": "cover_letter",
+   "file": "cover_letter.json",
+   "name": "Cover Letter",
+   "kind": "letter",
+   "version": "1.0.0"
+  },
+  {
+   "id": "ucdavis_dissertation",
+   "file": "ucdavis_dissertation.json",
+   "name": "UC Davis Dissertation (PhD)",
+   "kind": "thesis",
+   "version": "1.0.0"
+  },
+  {
+   "id": "general",
+   "file": "general.json",
+   "name": "General (no journal)",
+   "kind": "general",
+   "version": "1.0.0"
+  }
+ ],
+ "about": {
+  "files": "One journal file per built-in journal (docs/journal-format.md). The apps list them in this order.",
+  "limits": "Word and item limits for each journal's research article, looked up 2026-11-13 from the journals' own pages (limits) or, where a page refused automated reading, from search excerpts of it (unverified: shown in prose with ≈ and a note to check). count: what prose's main-text count takes in for the journal.",
+  "guidelines_reading": "Each value comes from one of three kinds of reading. 'read': the official page or PDF (or the journal's official template) was fetched and read. 'wayback': the official page refused automated reading, and the Internet Archive's copy of that same official URL was read instead (the copy's date is given; it is the newest copy the Archive had). 'excerpt': neither could be read and the value comes from a web-search excerpt of the official URL; such values are repeated under 'unconfirmed' and should be checked in a browser. null = not read on any official page. 2026-11-14: first reading. 2026-11-16: every item in 'differs_from_prose' re-checked against the official sources; settled items were corrected in prose and removed, and what is still open stays there with what was tried. 'browser': the official page was read in a browser on 2026-11-16 (Cell's revise-manuscript page, Science's initial- and revised-manuscript pages, The Plant Journal's Author Guidelines); those values are confirmed. 2026-11-16 (template audit): Nature, Genome Biology, New Phytologist, PNAS, Molecular Plant (live page), Cell (final submission, article types, Cell Press SI guidelines), Science (information for authors, editorial policies), Genome Research (live page and AI page), MBE, GENETICS, G3 and The Plant Cell were read in a browser ('browser'); see docs/fix-plan-2026-11-16/status/template-audit.md. Matthew's decisions on what the pages left open (2026-11-16) are recorded in 'differs_from_prose' as 'Decided'.",
+  "guidelines_checked": "2026-11-16",
+  "word_layout": "Each journal's printed layout, measured from its LaTeX class by tools/measure_journal_layout.py; Word export (exporting.word_layout) applies it. Lengths in mm, sizes and spacing in points.",
+  "csl_overrides": "prose's own corrections to the reference styles fetched from the CSL repository (tools/fetch_csl.py applies them after each download, so a new download keeps them; prose/cslpatch.py). Each sets how many authors a reference list shows before 'et al.' (et-al-min: from how many authors it shortens; et-al-use-first: how many it then shows), as the journal's typeset reference lists print it: counted in the publisher's own XML of recent articles (PMC open-data store), 2026-11-16 (docs/fix-plan-2026-11-16/status/template-audit.md). Matthew's decision, 2026-11-16.",
+  "figure_refs": "How each journal names figures in its running text (2026-11-13: the author instructions where they say, else publisher-typeset open-access articles on Europe PMC, 2022–Nov 2026; ~210 articles): main     the figure singular and plural, \"Fig.\" / \"Figs.\" start    spelled out at a sentence's start (Nature: \"Figure 4c illustrates\") outside  spelled out outside parentheses (Genome Research: \"Figure 2\" but \"(Fig. 2C)\") range    what joins a range of figures: an en dash, Science's \" to \" list     how a list of figures is joined: \"and\" (2, 3 and 5), \"serial\" (2, 3, and 5), \"commas\" (2, 3, 5); absent: as typed panels   {\"case\": \"lower\" | \"upper\" | None, \"style\": how letters attach and join (editor/src/ figrefs.js: one, many, list, range, repeat, plural, outside), or None: as typed, in the journal's case}. Panel case follows mosaic, which draws the figures' letters the same way. extended Nature's Extended Data figures (a category of its own; supplementary figures become them on a switch that chooses it) supp     supplementary figures: \"one\" and \"many\" (the words before and after the numbers), \"s\" (numbers written S3), \"first\" (words the document's first supplementary item gets, New Phytologist's \"Supporting Information\"), \"outside\" (as above). None: no one confirmed form (journals that print what the author wrote, or need what can't be made up, like BMC's \"Additional file 1:\"): typed supplementary references are left as they are. Genetics and The Plant Cell follow their author instructions (\"See Figure S1\", \"Supplementary Figure 1\"), which their copyeditors change for print. (editor/src/figrefs.js rewrites typed references into these; live ones take them too.)",
+  "legends": "How each journal prints a figure's legend (editor/src/legends.js restyles legends as you type, on paste, on a switch and from Check; the filter's style_legend() prints them on the pages, in PDF, LaTeX and Word): sep     what follows the legend's number: \" |\" (Nature's \"Fig. 1 | \"), \".\" (\"Figure 1. \") or \"\" (Springer's and New Phytologist's \"Fig. 1 Title\"); the label itself is bold everywhere title   the legend's first sentence, its title: {\"bold\": printed bold, \"line\": on a line of its own (Cell Press), else run in with the rest} panels  how a panel letter starts the description of its panel: \"open\" and \"close\" around the letter (\"\", \",\" is Nature's **a**,  \"(\", \")\" Cell's (A)  \"\", \")\" OUP's a)  \"\", \"\" a bare letter, Springer's **a**), \"bold\": \"letter\" (only the letter: Science's (**A**)), \"all\" (letter and brackets: Cell's **(A)**) or None, \"italic\": the letter in italics (PNAS's (*A*)). The letters' case is the journal's own (FIGURE_REFS panels, as mosaic draws them). table   how a table's caption starts: {\"sep\": what follows \"Table 1\" (\" |\", \".\" or \"\"), \"title\": {\"bold\": the caption's first sentence printed bold}}; the label itself is bold. Absent: as the figure legends (sep, title bold). Measured 2026-11-16 in the typeset PDFs (PMC open-data store, fonts read with pdfminer; docs/fix-plan-2026-11-16/status/template-audit.md) \"newline\": True starts each panel's description on a line of its own within the legend (still one caption: a line break, not a new paragraph), as Cell, Molecular Plant and The Plant Journal print them (legend-facts.md; Matthew's decision 2026-11-16) scale   the legend's size, as a fraction of the main text's (the journal's printed legend size over its printed text size, from its LaTeX class where prose has the publisher's, else its typeset articles, to the nearest 0.05): pages, PDF and Word print legends at it Sources (2026-11-15): the panel letters and whether a legend has a title of its own from each journal's publisher-tagged full text on Europe PMC (two 2025-26 open-access articles each: the letters' bold/italic and brackets as typeset, <title> for a tagged title); the title's weight and line and the separator from the journals' typeset PDFs and author guidelines; sizes from the publisher's class (Genome Research: 0.94, its typeset 7.5/8 pt, Matthew's decision 2026-11-16; sn-jnl 8/10 pt, oup-authoring 7.5/9.5 pt, USG 8/10 pt, pnas-new 6.5/9 pt, PLOS 10/10 pt), else typeset articles. Confidence notes in docs/fix-plan-2026-11-15/status/w7-legends.md. Measured 2026-11-16 (docs/fix-plan-2026-11-16/status/legend-facts.md): the label, separator and title weight/line of Heredity, Genome Research, PNAS, The Plant Journal and Molecular Plant, from the fonts of the legends in the publishers' typeset PDFs (PMC copies of the version of record, plus two Molecular Plant PDFs from university repositories), each legend also rendered and looked at.",
+  "house_style": "Each journal's house style (editor/src/housestyle.js puts the text in it as you type, on paste, on a switch and from Check for Submission): \"p\" P values ({letter, italic, space, zero}), \"etal\" ({italic}), \"unit_space\" (\"nbsp\": a non-breaking space between a number and its unit), \"range\" (\"–\" or \" to \"), \"small\" (numbers under ten before a noun: \"words\" or \"numerals\"), \"thousands\" ({sep: \",\" or a thin space or \"\", from: 4 or 5 digits}), \"percent\" and \"celsius\" ({space}), \"latin\" ({italic}: in vitro, de novo…), \"units\" (unit spellings after a number: {h, s, mL, uL, L}). A field left out is left as typed. From each journal's author pages where they say (2026-11-14: Nature's spaced units and commas, Heredity's h, s and commas, Genetics' numerals and commas, New Phytologist's and The Plant Journal's words under ten), else from its typeset open-access articles on Europe PMC, 2023–2026 (HOUSE_FROM: \"stated\" or \"print\"): 14 articles each (Molecular Plant 6; Science 2, too few: left as typed), a convention taken only where print is clear (3:1, at least 8 cases). Heredity's litre is left as typed: its guide says l, its print (20 of 20) L.",
+  "abbreviations": "Each journal's abbreviation rules (editor/src/abbrev.js spells each one out where it's first used): \"abstract\": \"own\" (defined again in the abstract: the default), \"none\" (none in it: the long form each time); \"legends\": each figure legend and table defines its own; \"min\": the fewest uses worth an abbreviation (PLOS: 3; else 2, so one used once is printed as its long form). From the journals' author pages (2026-11-14; Science, Cell, New Phytologist, The Plant Journal's from summaries of them).",
+  "table_notes": "Each journal's table-note markers (editor/src/tablenotes.js): superscript lower-case letters (a, b, c) unless it says otherwise; a list of symbols goes on doubled (**, ††). From the journals' author pages (2026-11-14): Nature, Genome Biology, Cell and Molecular Plant say letters; Genetics and G3 italic letters; Science and PNAS (its symbol order for footnotes; no separate one for tables) symbols from *; The Plant Journal from † (*, **, *** kept for P values). The rest don't say: letters.",
+  "cover_letter": "Each journal's cover letter (File ▸ Cover Letter…, editor/src/letter.js): the article type it's submitted as; the points its author pages ask the letter to cover (the letter's starting paragraphs, to rewrite); and where suggested and excluded reviewers go: \"letter\" (both in it), \"excluded\" (the exclusions and their reasons in it, the suggestions in the submission form), \"form\" (both in the form: none in the letter unless you want them), None (not said: in the letter). From the journals' author pages (2026-11-14).",
+  "submission": "2026-11-13, from each journal's author instructions (research article). Where a page refused automated reading: search summaries of it, the journal's official LaTeX template, and the publisher's general artwork rules (\"from\": \"unconfirmed\"). TIFFs where a journal takes no PDF figures.",
+  "statements": "How each journal takes the statements entered once (the editor's statements.js). \"contributions\": \"credit_list\" (Role: A.B., C.D.) where the journal asks for CRediT roles listed, else sentences (\"A.B. conceived the study.\"). Filled from the journals' own author pages (STATEMENT_SOURCES). \"ai\": where a declaration of generative-AI use goes when the journal has no section for it: \"methods\" or \"acknowledgements\" (absent: it stays with the document's information, for the cover letter and the submission form). From journal_front_matter.json (each journal's own author pages, read 2026-11-14, with their sources; \"excerpt\": the page refused automated reading, so the value is from a search excerpt of it and is to be confirmed).",
+  "figures": "The journals both apps know: each one's figure sizes, the look of its panel labels, and its\nrules for a figure's text, lines, pictures and files. mosaic sizes pages and checks figures by\nthem; prose sizes and relabels the figures of a manuscript by the same table.\n\nJOURNALS is the list, sorted by name; each entry:\n\n    name        \"Nature\"\n    depth_mm    the deepest a figure may be\n    types       [{\"name\": \"Single column\", \"width_mm\": 90.0}, ...]: the widths it takes\n    any_width   True where a figure may be any width up to the widest type (the types are then\n                handy presets, not the only widths: bioRxiv); absent for the rest\n    max_width_mm  the widest a figure may be where that's more than the widest type (bioRxiv: 180 mm,\n                which prose prints scaled to its 177.8 mm text width); absent for the rest\n    note        the sizes in a sentence\n    source      where the numbers come from\n    labels, text, lines, pictures, export   its rules (RULES[name]); absent where it states none\n\nWhere a journal publishes no figure sizes, the widths and depth were measured from a published\nopen-access article (PubMed Central, 2025-26): the width of a text column, the full text width,\nand the depth of the text block. Measured widths are rounded to the nearest 0.5 mm and depths\ndown to the whole millimetre. Checked against PNAS's published sizes, the method gets the column\nwidth within 0.2 mm; the full text width can be up to ~3 mm wider than a journal's stated\ndouble-column figure width.\n\nbioRxiv is no journal's layout but Matthew's choice for his lab's preprints (prose's \"bioRxiv (in house)\" template) (2026-11-16):\na figure may be any size within a US Letter page's text area (0.75 in margins: 7 x 9.5 in), with\none column of the lab's two-column template (3.375 in) and the full width as presets, and up to\n180 mm wide (Nature's double column, which he has posted to bioRxiv before): prose prints one\nwider than 7 in scaled to the text width. Its panel letters are lower case, as he has posted them.\nbioRxiv itself sets no figure sizes or figure rules, so mosaic's own apply.\n\nPanel labels (\"labels\": font, size, bold, case, and form: how a letter is written, \"a\", \"(a)\")\nand the rules for the rest of a figure's text (\"text\": the smallest and largest size in points,\nand the fonts it accepts; \"fonts_only\" when it accepts no others, \"about\" when its sizes are\napproximate) come from the journal's own guidelines, read on 2026-11-04. Where those don't say\nhow labels look, the labels in a figure of a published open-access article in the journal were\nmeasured (\"measured\"). \"lines\": the thinnest and thickest line in points; \"pictures\": the\nresolution it asks of a placed picture of each kind (photo, combination, line_art), with \"vector\"\nnaming the kinds it wants as vector artwork; \"export\": the files it takes, their colour, the\nlargest file in MB (\"firm\" unless asked \"where possible\"), the highest resolution, and whether\nfonts must be embedded or alpha channels are refused. Where a journal states none, its\npublisher's guide gives them, and each source says so.\n\n**A person's own journals** (user journals) sit beside these: a name, widths and a depth they\ntyped in, kept in one JSON file that both apps read (shared_user_file; read_user, write_user), so\na journal added in either is in both. They carry \"user\": True, an \"id\" that stays when the name\nchanges, no rules unless given, and whatever else an app keeps with them under its own key\n(\"manuscript\": prose's page, reference style and sections), which the other app hands back\nuntouched. with_user() puts them into a list with the built-in ones."
+ }
+}
