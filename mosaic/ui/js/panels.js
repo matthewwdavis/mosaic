@@ -17,6 +17,7 @@ import { zoomShapePicture } from "./pictures.js";
 import { ZOOM_SHAPES } from "./zoom.js";
 import { cropMenu } from "./crop.js";
 import { textRibbon } from "./textribbon.js";
+import { describeResult, typeLabels } from "./journalfind.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon, s, shapeName, toUnit, uid } from "./util.js";
 
 const PROGRESS_EVERY = 250;        // ms between asking how far a long job has got
@@ -270,6 +271,7 @@ export const panels = {
     entries.push("-", { label: "Journal", items: journals }, "-",
       { label: "Swap width and height", run: () => inspector.swapPage() },
       { label: "Custom size…", run: () => this.customSizeDialog() },
+      { label: "Find a Journal…", run: () => this.findJournalDialog() },
       { label: "My Journals…", run: () => this.journalsDialog() });
     const r = btn.getBoundingClientRect();
     contextMenu.show(entries, r.left, r.bottom + 2, btn);
@@ -310,6 +312,62 @@ export const panels = {
       h("p", { class: "hint" }, `The size of ${page.name}. Objects stay where they are on it.`)));
   },
 
+  // Size > Find a Journal… (journalfind.js): mosaic's journals, your own and the journal library's,
+  // by name, ISSN or abbreviation; one from the library is fetched the first time it's chosen. Then
+  // its figure types: choosing one sizes the page. Resolves when the page is sized (or cancelled)
+  findJournalDialog(query = "") {
+    const info = this.app.info;
+    const input = h("input", { type: "search", value: query, placeholder: "Journal name, ISSN or abbreviation", autocomplete: "off",
+      "aria-label": "Journal name, ISSN or abbreviation", style: { width: "100%" } });
+    const note = h("p", { class: "hint journal-find-where" }, "");
+    const list = h("ul", { class: "report journal-find-list" });
+    const dlg = this.dialog("Find a Journal", h("div", {}, input, note, list));
+    let seq = 0;
+    const badge = (b) => (b ? h("span", { class: `journal-badge journal-badge-${b.label.toLowerCase().replace(/\W+/g, "-")}`, title: b.title,
+      style: { display: "inline-block", fontSize: "10px", lineHeight: "14px", padding: "0 5px", marginLeft: "6px", borderRadius: "7px", color: "#fff", background: b.colour } }, b.label) : "");
+    const chooseType = (journal) => {
+      note.textContent = `${journal.name}: choose the figure's size.`;
+      list.replaceChildren(...typeLabels(journal).map((t) => {
+        const b = h("button", { type: "button", class: "btn journal-find-type" }, t.label);
+        b.addEventListener("click", () => { inspector.setJournalSize(journal.name, t.type || undefined); dlg.close(); });
+        return h("li", {}, b);
+      }));
+      list.querySelector("button")?.focus();
+    };
+    const pick = async (r) => {
+      let journal = r.listed && info.journals.find((j) => j.name === r.listed);
+      if (!journal) {
+        note.textContent = `Fetching ${r.name} from the library…`;
+        try {
+          const got = await rpc("use_library_journal", r.id);
+          info.journals.splice(0, info.journals.length, ...got.journals);   // (the same list everything reads)
+          inspector.render();
+          journal = got.journal;
+        } catch (err) { note.textContent = `${r.name} couldn't be fetched: ${String(err.message || err).replace(/^\w+Error: /, "")}`; return; }
+      }
+      chooseType(journal);
+    };
+    const show = async (refresh) => {
+      const mine = ++seq;
+      let got;
+      try { got = await rpc("find_journals", input.value, !!refresh); } catch (err) { note.textContent = String(err.message || err); return; }
+      if (mine !== seq) return;
+      note.textContent = got.offline ? `The library (${got.where}) can't be reached just now: searching what's known from its last list. A journal not on this computer yet needs a connection the first time.`
+        : `Searching mosaic's journals, your own, and the library (${got.where}).`;
+      const rows = got.results.filter((r) => r.kind === "journal" || r.where === "library");
+      list.replaceChildren(...(rows.length ? rows.map((r) => {
+        const [name, b, line] = describeResult(r);
+        const use = h("button", { type: "button", class: "btn journal-find-use", "data-id": r.id }, "Use…");
+        use.addEventListener("click", () => pick(r));
+        return h("li", { class: "journal-find-row" }, h("span", {}, h("b", {}, name), badge(b), h("br"), h("span", { class: "hint" }, line)), " ", use);
+      }) : [h("li", { class: "hint" }, input.value.trim() ? `No journal matches “${input.value.trim()}”. Size ▸ My Journals… adds one of your own.` : "")]));
+    };
+    input.addEventListener("input", () => show(false));
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); list.querySelector(".journal-find-use")?.click(); } });
+    show(true);
+    return dlg;
+  },
+
   // Your own journals (Size > My Journals…): a name, the figure widths it takes and the deepest a
   // figure may be, kept on this computer (journals.py) and listed with the others under Size >
   // Journal and in the Page panel. A list first; Add or Edit opens the form.
@@ -333,13 +391,23 @@ export const panels = {
       list.replaceChildren(...(mine.length ? mine.map((j, i) => {
         const edit = h("button", { type: "button", class: "btn" }, "Edit…");
         const del = h("button", { type: "button", class: "btn" }, "Delete");
+        const share = h("button", { type: "button", class: "btn", title: "Offer it to the journal library, for others to use" }, "Share…");
+        share.addEventListener("click", async () => {
+          if (!(await this.confirm(`Share ${j.name}?`, `It goes to the journal library (the one prose uses too), where others can find it: its name and figure sizes, and what prose keeps with it. Check its numbers against the journal's own author instructions first: others will rely on them.`, "Share"))) return;
+          try {
+            const got = await rpc("user_journal_share", j.name);
+            this.reportDialog(got.pull_request ? `${j.name}: shared for review` : `${j.name} is shared`,
+              got.pull_request ? [`Shared for review: ${got.pull_request}`, "It joins the library when a maintainer accepts it. Until a maintainer checks it, it's marked Community."]
+                : [`It's in ${got.where}.`]);
+          } catch (err) { this.reportDialog("Couldn't share it", [plain(err)]); }
+        });
         edit.addEventListener("click", async () => { const got = await this.journalForm(j, mine, i, keep); if (got) { mine = got; draw(); } });
         del.addEventListener("click", async () => {
           if (!(await this.confirm("Delete this journal?", `${j.name} goes from your list. Pages already sized by it keep their size.`, "Delete"))) return;
           try { mine = await keep(mine.filter((_, k) => k !== i)); draw(); } catch (err) { this.reportDialog("Couldn't delete it", [plain(err)]); }
         });
         return h("li", { class: "my-journal" },
-          h("span", {}, `${j.name}: ${j.types.map((t) => `${t.name} ${t.width_mm} mm`).join(", ")}; up to ${j.depth_mm} mm deep `), edit, " ", del);
+          h("span", {}, `${j.name}: ${j.types.map((t) => `${t.name} ${t.width_mm} mm`).join(", ")}; up to ${j.depth_mm} mm deep `), edit, " ", share, " ", del);
       }) : [h("li", { class: "hint" }, "None yet.")]));
     };
     const plain = (err) => String(err.message || err).replace(/^ValueError: /, "");

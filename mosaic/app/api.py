@@ -362,9 +362,18 @@ class Api:
         library (on), or the setting put back (off). Only while testing (MOSAIC_HOME)."""
         if not os.environ.get("MOSAIC_HOME"):
             raise PermissionError("only while testing")
-        if not on:
+        from .. import journals
+        if not on:   # (the setting back, and what it fetched gone from the test copy's cache)
             self.prefs_set({"journal_library": ""})
-            return {"source": None}
+            folder = os.path.join(journals.library_cache() or "", "journals")
+            for name in os.listdir(folder) if os.path.isdir(folder) else []:
+                if name.startswith("tree_genetics_genomes@"):
+                    os.remove(os.path.join(folder, name))
+            index = os.path.join(journals.library_cache() or "", "index.json")
+            if os.path.isfile(index):
+                os.remove(index)
+            journals.load_user()
+            return {"source": None, "journals": journals.JOURNALS}
         from .._labapp import fakelibrary
         folder = tempfile.mkdtemp(prefix="mosaic-selftest-library-")
         fakelibrary.make(folder)

@@ -22,6 +22,16 @@ mosaic does the job people usually do in PowerPoint, without PowerPoint's damage
   panel-label look and figure rules, with their sources); a journal of your own is one too and can
   hold the same rules. prose's `docs/journal-format.md` explains the format and how to check a file
   (`python -m mosaic._labapp.journalfile validate FILE`).
+- **Find a Journal…** (Size ▸ Find a Journal…). Type a journal's name, its ISSN or its usual
+  abbreviation: mosaic looks through its own journals, yours, and the library of journals others
+  have shared (the one prose uses). Each shows a badge: **Verified** (a maintainer checked it
+  against the journal's own pages) or **Community** (shared and checked by machine, not yet by a
+  maintainer). Choose one, then its figure size, and the page takes that size. One from the
+  library is brought onto this computer the first time (checked to be exactly the file the library
+  lists), listed under **From the library** in Size ▸ Journal, and works offline from then on;
+  prose has it too. **Size ▸ My Journals… ▸ Share…** offers one of your own journals to the
+  library: for the public library it goes for review (a "pull request" on GitHub, made for you
+  with GitHub's tool `gh`), and mosaic shows the link.
 - **Your PowerPoint figures come along.** Open a `.pptx` and choose its slides, drop a deck on the
   page or the Pages list, or copy slides and shapes in PowerPoint and paste them. Pictures, text,
   lines and shapes come in where they were, as objects you can edit. Pictures are relinked to the
