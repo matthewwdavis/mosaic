@@ -369,7 +369,14 @@ def apply_form(journal: dict, form: dict, shown: dict | None = None) -> dict:
     fields changed since are set, so what the file holds beyond the form (a structure with hints,
     styles of its own) stays."""
     j = copy.deepcopy(journal)
-    f = {**LEGACY_FORM, **(form or {})}
+    f = {**LEGACY_FORM, **{k: v for k, v in (form or {}).items() if v is not None or k == "latex"}}
+    for k in ("margin_mm", "size_pt", "line_spacing"):   # (an older form may hold numbers as text)
+        try:
+            f[k] = float(f[k])
+        except (TypeError, ValueError):
+            f[k] = LEGACY_FORM[k]
+    f["columns"] = 2 if str(f.get("columns")) == "2" else 1
+    f["limits"] = {k: _whole(v) for k, v in (f.get("limits") or {}).items() if _whole(v) is not None}
     changed = (lambda k: True) if shown is None else (lambda k: f.get(k) != shown.get(k))   # noqa: E731
     page = j.setdefault("page", {})
     if changed("paper"):
@@ -436,6 +443,14 @@ def apply_form(journal: dict, form: dict, shown: dict | None = None) -> dict:
             lx["template"] = "standard"
     lx.setdefault("wrapper", "journal.latex")
     return j
+
+
+def _whole(value) -> int | None:
+    try:
+        v = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    return v if v >= 1 else None
 
 
 def form_of(journal: dict) -> dict:

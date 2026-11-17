@@ -1,13 +1,13 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "fb98899",
+ "commit": "f79e7aa",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "closing.py": "c43a3addf2eaa6b6dad4ee88883d4e5a897d0b7f456d154770c93e4047e58752",
   "diagnostics.py": "7c1267ac6e189bb63dc679289ce9a1360cdec2c59552329ecd8b0d504049b37a",
   "journal.schema.json": "054bf93ae5454f2b3ec22f3df3710270c6d28ea5ecfe451f278a0d525e4ae8f5",
-  "journalfile.py": "0ad769090ab152d27ea2b7d8e08936695360cb22c8fc4fbbe71b5abc9606c451",
+  "journalfile.py": "7a65607fc458ebfd2a3b5a74c9c6176c58b1ad42cfd22ea60053b11f5ad403ad",
   "journals.py": "30832c48819a7caacfab6b993d2258546731509309d88b943db7d93b9c7ff010",
   "kept.py": "084b8e46999a16bbdbe1aa0a0d7cbed177ae5d4830070990240603e7a2bdfcf0",
   "oslock.py": "6c362ca83197458df3b23ae5b72c13e48fcf90ddd52500e5c1006be7ee33522e",
