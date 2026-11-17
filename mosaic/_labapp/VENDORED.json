@@ -1,7 +1,7 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "6645b32",
+ "commit": "6645b32+changes",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "closing.py": "c43a3addf2eaa6b6dad4ee88883d4e5a897d0b7f456d154770c93e4047e58752",
@@ -10,7 +10,7 @@
   "fakelibrary.py": "3211ae4e659b895b5e03609cb2abf2bb6e933b3aad963a2ae4a737491a76d278",
   "journal.schema.json": "8416f1ccfd09f8263c047dec354a2208fbda48abbe603d108f18ea91c142abd5",
   "journalfile.py": "b4c0f8a4b47ec3562953a9316d638f9efa707035fcd0f7614ba9f3381edec35f",
-  "journallibrary.py": "1530c3cb06121ff723f56980b3ba8861996be5a1bad16ae07a6c7a90c486fc1f",
+  "journallibrary.py": "04a6857bfb204e80db9b679c8f3f79c605f4b551b65285a152a90e8700ecdbe1",
   "journals.py": "29e79bc8d19b54907f44f819600e8cf87f4c12677e3838be3358ca3010a37989",
   "kept.py": "084b8e46999a16bbdbe1aa0a0d7cbed177ae5d4830070990240603e7a2bdfcf0",
   "oslock.py": "6c362ca83197458df3b23ae5b72c13e48fcf90ddd52500e5c1006be7ee33522e",

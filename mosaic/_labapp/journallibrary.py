@@ -820,3 +820,61 @@ def share_by_pull_request(repo: str, journal: dict, dry_run: bool = False, check
                 "body": pull_request_body(j, login, checked, app), "maintainer_can_modify": True})
     del existing
     return {"name": j["name"], "pull_request": pr.get("html_url", ""), "updated": False, "branch": branch, "planned": planned}
+
+
+# Sharing, whatever the library is ----------------------------------------------------------------------
+
+def _sha_on_github(repo: str, rel: str) -> str | None:
+    try:
+        got = gh_api([f"repos/{repo}/contents/{safe(rel)}"])
+        return got.get("sha") if isinstance(got, dict) else None
+    except FileNotFoundError:
+        return None
+
+
+def write(source: str, rel: str, data: bytes, message: str) -> None:
+    """One file written into a library you can change (a folder, or a GitHub repository you have
+    write access to)."""
+    rel = safe(rel)
+    k = kind_of(source)
+    if k == "web":
+        raise LibraryError("A library on the web can only be read. Share to a folder or a GitHub repository.")
+    if k == "github":
+        repo = source.strip()[7:].strip("/")
+        sha = _sha_on_github(repo, rel)
+        body = {"message": message, "content": base64.b64encode(data).decode("ascii"), **({"sha": sha} if sha else {})}
+        gh_api(["--method", "PUT", f"repos/{repo}/contents/{rel}", "--input", "-"], stdin=json.dumps(body))
+        return
+    root = folder_of(source)
+    if not os.path.isdir(root):
+        raise LibraryError(f"The library's folder isn't there: {root}")
+    _write_atomic(os.path.join(root, *rel.split("/")), data)
+
+
+def share(source: str, journal: dict, app: str = "prose", dry_run: bool = False, checked: list[str] | None = None,
+          summary: str | None = None) -> dict:
+    """Offer a journal to the library. A GitHub library you can't change yourself (the public one)
+    gets a pull request (share_by_pull_request): {"name", "where", "pull_request", "updated",
+    "planned"}. One you can change (a lab's folder or repository) has the file written in, replacing
+    an earlier one of the same id, and listed: {"name", "where", "planned"}."""
+    where = describe(source)
+    if kind_of(source) == "github":
+        repo = source.strip()[7:].strip("/")
+        if not can_push(repo):
+            got = share_by_pull_request(repo, journal, dry_run=dry_run, app=app, checked=checked)
+            return {"name": journal["name"], "where": where, "pull_request": got["pull_request"], "updated": got["updated"],
+                    "planned": got["planned"]}
+    errors, _ = journalfile.validate(journal)
+    if errors:
+        raise LibraryError("The journal has problems to fix before it's shared: " + "; ".join(errors))
+    rel = f"journals/{journal['id']}.json"
+    if dry_run:
+        return {"name": journal["name"], "where": where, "planned": [["write", rel], ["write", "index.json"]]}
+    data = journalfile.dumps(journal).encode("utf-8")
+    write(source, rel, data, f"{journal['name']}: shared from {app}")
+    items = [j for j in read_index(source)["journals"] if j["id"] != journal["id"]]
+    record = index_entry(journal, rel, data)
+    if summary:
+        record["summary"] = summary
+    write(source, "index.json", write_index([*items, record]), f"List {journal['name']}")
+    return {"name": journal["name"], "where": where, "planned": []}

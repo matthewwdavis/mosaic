@@ -58,6 +58,9 @@ PREFS_DEFAULTS = {
     "check_journal": "",
     # The page size new documents start at: {"standard": name} or {"journal": name, "type": figure type}
     "new_page": {"standard": DEFAULT_SIZE},
+    # The journal library Size > Find a Journal… searches ("": the shared one, prose's default;
+    # github:owner/repository, a folder, or an https address)
+    "journal_library": "",
 }
 PREFS_VERSION = 2
 
@@ -311,10 +314,79 @@ class Api:
         mine = journals.save_user(items if isinstance(items, list) else [])
         return {"mine": mine, "journals": journals.JOURNALS}
 
+    # The journal library (Size > Find a Journal…; journals.py): journals people have shared, found
+    # by name, ISSN or alias, fetched the first time one is chosen, kept where prose reads them too
+
+    def _library(self) -> str:
+        from .._labapp import journallibrary
+        return str(self.prefs_get().get("journal_library") or journallibrary.DEFAULT_SOURCE)
+
+    def _library_offline(self) -> bool:
+        """A scratch mosaic (MOSAIC_HOME: tests, the self-test) never reads a GitHub library."""
+        return bool(os.environ.get("MOSAIC_HOME")) and self._library().startswith("github:")
+
+    def find_journals(self, query: str = "", refresh: bool = False) -> dict:
+        """{"results": [...] (journals.find), "offline": the library couldn't be read just now,
+        "where": the library, in words}."""
+        from .. import journals
+        from .._labapp import journallibrary
+        source = self._library()
+        offline = False
+        if refresh:
+            if self._library_offline():
+                offline = True
+            else:
+                try:
+                    offline = journallibrary.refresh(source, journals.library_cache())["offline"]
+                except ValueError:
+                    offline = True
+        return {"results": journals.find(source, str(query or "")), "offline": offline, "where": journallibrary.describe(source)}
+
+    def use_library_journal(self, ident: str) -> dict:
+        """A journal from the library made ready (fetched the first time): {"journal": its entry in
+        the list, "journals": every journal}. A sentence (ValueError) when it can't be had."""
+        from .. import journals
+        entry = journals.use_library_journal(self._library(), str(ident))
+        return {"journal": entry, "journals": journals.JOURNALS}
+
+    def user_journal_share(self, name: str) -> dict:
+        """My Journals > Share…: {"name", "where", "pull_request" (a pull request's address, when the
+        library takes journals by review)}."""
+        from .. import journals
+        if self._library_offline():
+            raise ValueError("This copy of mosaic is a test copy (MOSAIC_HOME): it doesn't share to GitHub.")
+        return journals.share_user_journal(self._library(), str(name))
+
+    def selftest_journal_library(self, on: bool = True) -> dict:
+        """A journal library in a scratch folder (Tree Genetics & Genomes, Community), set as the
+        library (on), or the setting put back (off). Only while testing (MOSAIC_HOME)."""
+        if not os.environ.get("MOSAIC_HOME"):
+            raise PermissionError("only while testing")
+        if not on:
+            self.prefs_set({"journal_library": ""})
+            return {"source": None}
+        from .._labapp import fakelibrary
+        folder = tempfile.mkdtemp(prefix="mosaic-selftest-library-")
+        fakelibrary.make(folder)
+        self.prefs_set({"journal_library": folder})
+        return {"source": folder}
+
     def app_info(self) -> dict:
         from ..journals import JOURNALS, STANDARD_SIZES
         from .. import journals as _journals
         _journals.load_user()   # (your own journals, with the built-in ones)
+        if not getattr(self, "_library_started", False) and not self._library_offline():
+            self._library_started = True   # (the journal library's list, read at most once a day, in the background)
+            import threading
+
+            from .._labapp import journallibrary
+
+            def read(source=self._library()):
+                try:
+                    journallibrary.refresh(source, _journals.library_cache())
+                except Exception as exc:   # noqa: BLE001 (a background read never stops mosaic)
+                    print(f"The journal library couldn't be read: {exc!r}")
+            threading.Thread(target=read, name="journal-library", daemon=True).start()
         win = self._caller_win()
         return {"version": __version__, "platform": sys.platform, "native": self.window is not None,
                 # Opening documents in windows of their own (else the editor replaces its figure),
