@@ -111,6 +111,7 @@
    "alt_text": {"type": "boolean"}, "from": {"enum": ["unconfirmed"]}, "evidence": {"$ref": "#/$defs/evidence"}}},
   "references": {"type": "object", "additionalProperties": false, "properties": {
    "csl": {"type": ["string", "null"], "pattern": "^[a-z0-9-]+$", "description": "The style's name in the Citation Style Language repository (zotero.org/styles): the end of its address."},
+   "citations": {"enum": ["numeric", "author-date", "note", "label", "author"], "description": "How the reference style cites in the text: numbers (numeric), author and year (author-date), footnotes (note), labels or author names. Read from the CSL style when a journal is started from it; the style itself decides."},
    "file": {"type": "string", "description": "A .csl file beside this one (for a built-in journal: prose's own copy, templates/csl/)."},
    "csl_text": {"type": "string", "description": "The style itself, when it isn't in the repository (a journal file passed on)."},
    "overrides": {"type": "object", "properties": {"citation": {"type": "object"}, "bibliography": {"type": "object"}, "evidence": {"type": "string"}}},

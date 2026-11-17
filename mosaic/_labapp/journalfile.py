@@ -335,6 +335,66 @@ def rules_of(journal: dict) -> dict:
     return {k: copy.deepcopy(fig[k]) for k in RULE_KEYS if k in fig}
 
 
+# Starting from a reference style (CSL) ----------------------------------------------------------------
+
+_STYLE_SUFFIX = re.compile(r"\s*\((?:author-date|numeric|numbered|note|author|label|harvard|vancouver|[^)]*edition[^)]*)\)\s*$", re.I)
+_GUIDE_WORDS = re.compile(r"author|instruction|guide|submi|gta|manuscript|prepar|style", re.I)
+_GENERIC_LINKS = ("springer.com/cda/content/document",)   # (Springer's own style points, not one journal's)
+
+
+def _clean_url(url: str) -> str | None:
+    url = (url or "").strip()
+    return url if re.match(r"^https?://\S+$", url) else None
+
+
+def starter(style: dict, today: str | None = None) -> dict:
+    """A starter journal file from what a reference style says about its journal (cslindex.info, or
+    an entry of the shipped list: cslindex.find / search): its name, ISSNs, publisher when the style
+    names one, the author guidelines' or the journal's page, how it cites (numbers or author and year)
+    and the style itself (references.csl). Everything else takes the defaults (complete), for the
+    person to fill in; it's "unverified" until someone checks it against the journal's guidelines."""
+    import datetime
+    title = _STYLE_SUFFIX.sub("", " ".join((style.get("title") or style.get("name") or "").split()))[:120] or "Journal"
+    name = re.sub(r"[^a-z0-9-]", "", (style.get("name") or "").lower())
+    j: dict = {"format": FORMAT, "id": slug(title), "name": title, "version": "1.0.0", "kind": "journal",
+               "publisher": style.get("publisher") or ""}
+    issn = {k: v for k, v in (("print", style.get("issn")), ("online", style.get("eissn")))
+            if v and re.fullmatch(r"[0-9]{4}-[0-9]{3}[0-9X]", v)}
+    if issn:
+        j["issn"] = issn
+    short = " ".join((style.get("short") or "").split())
+    if short and short.lower() != title.lower() and len(short) <= 120:
+        j["aliases"] = [short]
+    links = [u for u in (_clean_url(x) for x in style.get("links") or []) if u and not any(g in u for g in _GENERIC_LINKS)]
+    guide = next((u for u in links if _GUIDE_WORDS.search(u.split("//", 1)[-1].split("/", 1)[-1])), None)
+    home = next((u for u in links if u != guide), None)
+    if guide:
+        j["guidelines"] = guide
+    if home:
+        j["homepage"] = home
+    j["verified"] = {"status": "unverified", "note": "Started from its reference style: only the name, ISSNs, links and "
+                     "reference style come from there. Check the rest against the journal's author guidelines."}
+    j["captions"] = {"label": "Figure"}
+    ref: dict = {"csl": name or None}
+    if style.get("citations") in ("numeric", "author-date", "note", "label", "author"):
+        ref["citations"] = style["citations"]
+    where = f"https://www.zotero.org/styles/{name}" if name else ""
+    ref["evidence"] = (f"The Citation Style Language style {name}" + (f" (it takes its rules from {style['parent']})" if style.get("parent") else "")
+                       + f", read {today or datetime.date.today().isoformat()}.")
+    j["references"] = ref
+    if where:
+        j["sources"] = [{"url": where, "what": "Its reference style (Citation Style Language): name, ISSNs, links and how it cites."}]
+    return check(j, title)
+
+
+def from_csl(csl_text: str, csl_name: str | None = None) -> dict:
+    """A starter journal file from a CSL style's text (a .csl file): starter() of what its <info> says.
+    csl_name: the style's name in the repository (the end of its address on zotero.org/styles), when
+    the text doesn't say. ValueError when the text isn't a style."""
+    from . import cslindex
+    return starter(cslindex.info(csl_text, csl_name))
+
+
 # Older entries and files -----------------------------------------------------------------------------
 
 LEGACY_FORM = {"paper": "a4", "margin_mm": 25.0, "font": "Times New Roman", "size_pt": 12.0, "line_spacing": 1.0, "columns": 1,
