@@ -5,6 +5,13 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Oxford University Press",
+ "issn": {
+  "print": "1040-4651",
+  "online": "1532-298X"
+ },
+ "aliases": [
+  "The Plant Cell"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

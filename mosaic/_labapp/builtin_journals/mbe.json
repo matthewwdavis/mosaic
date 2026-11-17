@@ -5,6 +5,14 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Oxford University Press",
+ "issn": {
+  "print": "0737-4038",
+  "online": "1537-1719"
+ },
+ "aliases": [
+  "MBE",
+  "Mol Biol Evol"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

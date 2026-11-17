@@ -5,6 +5,13 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Springer Nature",
+ "issn": {
+  "print": "0028-0836",
+  "online": "1476-4687"
+ },
+ "aliases": [
+  "Nature (London)"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

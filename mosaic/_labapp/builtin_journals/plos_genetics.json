@@ -5,6 +5,14 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "PLOS",
+ "issn": {
+  "print": "1553-7390",
+  "online": "1553-7404"
+ },
+ "aliases": [
+  "PLoS Genetics",
+  "PLoS Genet"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

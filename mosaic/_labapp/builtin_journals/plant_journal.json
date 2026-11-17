@@ -5,6 +5,13 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Wiley",
+ "issn": {
+  "print": "0960-7412",
+  "online": "1365-313X"
+ },
+ "aliases": [
+  "Plant J"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

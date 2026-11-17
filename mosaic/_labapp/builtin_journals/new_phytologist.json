@@ -5,6 +5,13 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Wiley",
+ "issn": {
+  "print": "0028-646X",
+  "online": "1469-8137"
+ },
+ "aliases": [
+  "New Phytol"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

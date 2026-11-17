@@ -5,6 +5,10 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "AAAS (Science)",
+ "issn": {
+  "print": "0036-8075",
+  "online": "1095-9203"
+ },
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

@@ -296,16 +296,35 @@ def builtin_index() -> dict:
 
 
 def builtin() -> list[dict]:
-    """The built-in journals' files, in the index's order (each checked)."""
+    """The built-in journals' files, in the index's order (each checked). When the apps ship only
+    the core (journallibrary.ship_all() False), the other journals the index lists are the ones
+    fetched from the library (the newest kept version of each), in the same place in the order;
+    one not fetched yet is left out until it is (reload())."""
     global _BUILTIN
     if _BUILTIN is None:
+        from . import journallibrary
         out = []
+        everything = journallibrary.ship_all()
         for item in builtin_index()["journals"]:
-            path = os.path.join(BUILTIN_DIR, item["file"])
-            with open(path, encoding="utf-8") as fh:
-                out.append(check(json.load(fh), item["file"]))
+            if everything or item.get("core"):
+                with open(os.path.join(BUILTIN_DIR, item["file"]), encoding="utf-8") as fh:
+                    out.append(check(json.load(fh), item["file"]))
+                continue
+            versions = journallibrary.cached_versions(item["id"])
+            if versions:
+                try:
+                    out.append(journallibrary.load_cached(item["id"], versions[-1]))
+                except (OSError, ValueError):
+                    pass
         _BUILTIN = out
     return copy.deepcopy(_BUILTIN)
+
+
+def reload() -> list[dict]:
+    """builtin() read again (a journal was fetched from the library)."""
+    global _BUILTIN
+    _BUILTIN = None
+    return builtin()
 
 
 def figure_entry(journal: dict) -> dict | None:

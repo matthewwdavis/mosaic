@@ -6,140 +6,160 @@
    "file": "nature.json",
    "name": "Nature",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": true
   },
   {
    "id": "heredity",
    "file": "heredity.json",
    "name": "Heredity",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "genome_biology",
    "file": "genome_biology.json",
    "name": "Genome Biology",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "genome_research",
    "file": "genome_research.json",
    "name": "Genome Research",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "genetics",
    "file": "genetics.json",
    "name": "Genetics",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "g3",
    "file": "g3.json",
    "name": "G3",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "cell",
    "file": "cell.json",
    "name": "Cell",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "molecular_plant",
    "file": "molecular_plant.json",
    "name": "Molecular Plant",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "science",
    "file": "science.json",
    "name": "Science",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "pnas",
    "file": "pnas.json",
    "name": "PNAS",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "plos_genetics",
    "file": "plos_genetics.json",
    "name": "PLOS Genetics",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "new_phytologist",
    "file": "new_phytologist.json",
    "name": "New Phytologist",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "plant_journal",
    "file": "plant_journal.json",
    "name": "The Plant Journal",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "plant_cell",
    "file": "plant_cell.json",
    "name": "Plant Cell",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "mbe",
    "file": "mbe.json",
    "name": "Molecular Biology and Evolution",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "horticulture_research",
    "file": "horticulture_research.json",
    "name": "Horticulture Research",
    "kind": "journal",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": false
   },
   {
    "id": "biorxiv_monroe",
    "file": "biorxiv_monroe.json",
    "name": "bioRxiv (in house)",
    "kind": "house",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": true
   },
   {
    "id": "cover_letter",
    "file": "cover_letter.json",
    "name": "Cover Letter",
    "kind": "letter",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": true
   },
   {
    "id": "ucdavis_dissertation",
    "file": "ucdavis_dissertation.json",
    "name": "UC Davis Dissertation (PhD)",
    "kind": "thesis",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": true
   },
   {
    "id": "general",
    "file": "general.json",
    "name": "General (no journal)",
    "kind": "general",
-   "version": "1.0.0"
+   "version": "1.0.0",
+   "core": true
   }
  ],
  "about": {

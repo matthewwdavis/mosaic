@@ -537,6 +537,45 @@ async function myJournalsChecks(app) {
   }
 }
 
+// Size > Find a Journal… (journalfind.js): a journal library in a scratch folder; Tree Genetics &
+// Genomes found by its ISSN with its Community badge, fetched the first time it's chosen, listed
+// under From the library, and sizing a page; PNAS found by its full name, in mosaic already
+async function findJournalChecks(app) {
+  const prefs = app.info.prefs?.journal_library || "";
+  try {
+    await rpc("selftest_journal_library", true);
+    let dlg = panels.findJournalDialog("1614-2950");
+    await until(() => dlg.querySelector(".journal-find-row"), 5000);
+    const row = dlg.querySelector(".journal-find-row");
+    check(row && /Tree Genetics & Genomes/.test(row.textContent) && /from the library/.test(row.textContent)
+      && row.querySelector(".journal-badge-community")?.textContent === "Community",
+      "Find a Journal finds Tree Genetics & Genomes by its ISSN in the library, with its Community badge", row?.textContent);
+    row.querySelector(".journal-find-use").click();
+    await until(() => dlg.querySelector(".journal-find-type"), 5000);
+    const j = app.info.journals.find((x) => x.name === "Tree Genetics & Genomes");
+    check(j && j.library && j.verified === "community" && j.publisher === "From the library" && j.types.map((t) => t.width_mm).join() === "84,174",
+      "a journal from the library is fetched the first time it's chosen and listed From the library", JSON.stringify(j));
+    [...dlg.querySelectorAll(".journal-find-type")].find((b) => /^Double column/.test(b.textContent)).click();
+    await settle();
+    const pg = store.page(), mm = 72 / 25.4;
+    check(Math.abs(pg.width - 174 * mm) < 0.01 && Math.abs(pg.height - 234 * mm) < 0.01 && pg.preset?.journal === "Tree Genetics & Genomes",
+      "and sizes a page by its figure type", `${pg.width} x ${pg.height}`);
+    dlg = panels.findJournalDialog("Proceedings of the National Academy of Sciences");
+    await until(() => /PNAS/.test(dlg.querySelector(".journal-find-row")?.textContent || ""), 5000);
+    const first = dlg.querySelector(".journal-find-row");
+    check(/PNAS/.test(first?.textContent || "") && /in mosaic/.test(first.textContent) && !!first.querySelector(".journal-badge-verified"),
+      "a built-in journal is found by its full name, Verified", first?.textContent);
+    dlg.close();
+  } finally {
+    for (const d of document.querySelectorAll("dialog[open]")) d.close();
+    const back = await rpc("selftest_journal_library", false);
+    app.info.journals.splice(0, app.info.journals.length, ...back.journals);
+    if (prefs) await rpc("prefs_set", { journal_library: prefs });
+    store.setDoc(await rpc("new_document"));
+    await settle();
+  }
+}
+
 // Any dialog moves by its title (dragdialog.js): dragged, it follows the pointer and what's behind
 // is no longer dimmed; it can't be lost off the window; a click on the title or a drag from its
 // body doesn't move it; a double-click on the title puts it back in the middle
@@ -4259,7 +4298,7 @@ export async function run(app, params) {
     if (params.get("only") === "slides") { await slidesChecks(app, ppt); throw ONLY; }
     if (params.get("only") === "links") { await linkedFileChecks(app); throw ONLY; }
     if (params.get("only") === "problem") { await problemReportChecks(app); throw ONLY; }
-    if (params.get("only") === "journals") { await myJournalsChecks(app); throw ONLY; }
+    if (params.get("only") === "journals") { await myJournalsChecks(app); await findJournalChecks(app); throw ONLY; }
     if (params.get("only") === "dialogs") { await dialogDragChecks(app); throw ONLY; }
     if (params.get("only") === "updates") { await updateChecks(app); throw ONLY; }
     if (params.get("only") === "selection") { await selectionChecks(app); throw ONLY; }
@@ -5542,6 +5581,7 @@ export async function run(app, params) {
     await linkedFileChecks(app);
     await problemReportChecks(app);
     await myJournalsChecks(app);
+    await findJournalChecks(app);
     await dialogDragChecks(app);
     await updateChecks(app);
     await windowChecks(app, out);

@@ -117,8 +117,15 @@ def user_journals() -> list[dict]:
 
 
 def load_user() -> list[dict]:
-    """Put your own journals in the list with the others (as mosaic starts, and after a change)."""
-    return _shared.with_user(user_journals(), into=JOURNALS)
+    """Put your own journals, and those fetched from the library, in the list with the others (as
+    mosaic starts, and after a change)."""
+    base = [j for j in JOURNALS if not j.get("user") and not j.get("library")]
+    names = {j["name"].lower() for j in base}
+    mine = user_journals()
+    names |= {j["name"].lower() for j in mine}
+    fetched = [j for j in library_journals() if j["name"].lower() not in names]
+    JOURNALS[:] = sorted(base + mine + fetched, key=lambda j: j["name"].lower())
+    return JOURNALS
 
 
 def save_user(journals: list[dict]) -> list[dict]:
@@ -127,3 +134,76 @@ def save_user(journals: list[dict]) -> list[dict]:
     kept = _shared.write_user(user_file(), journals)
     _shared.with_user(kept, into=JOURNALS)
     return kept
+
+
+# The journal library (Size > Find a Journal…): journals people have shared, found by name, ISSN or
+# alias, fetched the first time one is chosen and kept in the cache prose reads too ------------------
+
+from ._labapp import journalfile as _files            # noqa: E402
+from ._labapp import journallibrary as _library      # noqa: E402
+
+FROM_LIBRARY = "From the library"
+
+
+def library_cache() -> str | None:
+    """The cache of fetched journals: the one mosaic and prose share, or "library" in MOSAIC_HOME
+    when that's set (tests, and trying mosaic out)."""
+    if os.environ.get("MOSAIC_HOME"):
+        return os.path.join(os.environ["MOSAIC_HOME"], "library")
+    return None   # (the shared library's own: beside the list of your own journals)
+
+
+def library_journals() -> list[dict]:
+    """The journals fetched from the library that mosaic doesn't have built in, as the journal list
+    has them, with "library": True, their version and their badge ("verified"), under
+    "From the library"."""
+    builtin = {j["id"] for j in _files.builtin()}
+    out = []
+    for j in _library.fetched(library_cache()):
+        if j["id"] in builtin:
+            continue
+        entry = _files.figure_entry(j)
+        if not entry:
+            continue
+        entry.update({"publisher": FROM_LIBRARY, "library": True, "id": j["id"], "library_version": j.get("version", "1.0.0"),
+                      "verified": (j.get("verified") or {}).get("status", "unverified")})
+        out.append(entry)
+    return out
+
+
+def find(source: str, query: str, limit: int = 30) -> list[dict]:
+    """Size > Find a Journal…: [{id, name, publisher, issn, aliases, badge, verified, where,
+    on_this_computer, summary, listed: its name in the journal list once it's here, else None}]."""
+    mine = []
+    for e in user_journals():
+        j = e.get("journal") if isinstance(e.get("journal"), dict) else None
+        if j:
+            mine.append({**j, "id": "my_" + j["id"]})
+    got = _library.search(query, limit=limit, cache=library_cache(), source=source, mine=mine)
+    listed = {j["name"] for j in JOURNALS}
+    for g in got:
+        g["listed"] = g["name"] if g["name"] in listed and g["kind"] == "journal" else None
+    return got
+
+
+def use_library_journal(source: str, ident: str) -> dict:
+    """A journal from the library made ready (fetched the first time, from the shared cache after
+    that) and listed: its entry in the journal list. OfflineError when it needs a connection the
+    first time; ValueError when it has no figure sizes."""
+    j = _library.fetch(ident, source=source, cache=library_cache())
+    load_user()
+    entry = next((x for x in JOURNALS if x.get("id") == ident or x["name"] == j["name"]), None)
+    if entry is None:
+        raise ValueError(f"{j['name']} gives no figure sizes, so mosaic can't size a page by it.")
+    return entry
+
+
+def share_user_journal(source: str, name: str, dry_run: bool = False) -> dict:
+    """My Journals > Share…: one of your own offered to the library (a pull request on GitHub when you
+    can't change the library yourself; else written in). {"name", "where", "pull_request"?}."""
+    e = next((e for e in user_journals() if e["name"] == name), None)
+    if e is None:
+        raise ValueError("There's no such journal in your list.")
+    j = e.get("journal") if isinstance(e.get("journal"), dict) else _files.from_legacy(e)
+    return _library.share(source, j, app="mosaic", dry_run=dry_run,
+                          checked=["the file passes mosaic's journal-file check", "a page was sized by it in mosaic"])

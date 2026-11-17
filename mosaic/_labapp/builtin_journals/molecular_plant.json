@@ -5,6 +5,13 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Cell Press",
+ "issn": {
+  "print": "1674-2052",
+  "online": "1752-9867"
+ },
+ "aliases": [
+  "Mol Plant"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",
