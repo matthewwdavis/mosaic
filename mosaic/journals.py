@@ -81,6 +81,26 @@ def preset_size(preset) -> tuple[float, float] | None:
     return None
 
 
+# The groups every list of journals shows -----------------------------------------------------------
+
+MY_JOURNALS = "My journals"
+
+
+def group_of(journal: dict) -> str:
+    """The group a journal is listed under, as prose's Journal menu has them: its publisher (the
+    shared table's "publisher"; bioRxiv "In house"), "My journals" for your own."""
+    return MY_JOURNALS if journal.get("user") else (journal.get("publisher") or "Other")
+
+
+def grouped(journals: list[dict] | None = None) -> list[tuple[str, list[dict]]]:
+    """[(group, its journals)], the groups and the journals in each in alphabetical order ("Other"
+    last), as the editor's lists show them (journalGroups in inspector.js)."""
+    groups: dict[str, list[dict]] = {}
+    for j in sorted(JOURNALS if journals is None else journals, key=lambda j: j["name"].lower()):
+        groups.setdefault(group_of(j), []).append(j)
+    return sorted(groups.items(), key=lambda g: (g[0] == "Other", g[0].lower()))
+
+
 # Your own journals ------------------------------------------------------------------------------
 
 def user_file() -> str:

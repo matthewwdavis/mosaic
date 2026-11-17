@@ -64,7 +64,8 @@
     "embed_fonts": false,
     "no_alpha": false,
     "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF): any of mosaic's files, in RGB or CMYK, to place in the manuscript"
-   }
+   },
+   "publisher": "In house"
   },
   {
    "name": "Cell",
@@ -131,7 +132,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "Cell Press figure guidelines: TIFF or PDF preferred, EPS and JPEG accepted; RGB; at most 20 MB a figure; fonts embedded"
-   }
+   },
+   "publisher": "Cell Press"
   },
   {
    "name": "G3",
@@ -193,7 +195,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "G3's guidelines: TIFF and other raster files, PDF for vector figures, not Word, AI or JPEG; OUP's guidance for preparing artwork: EPS, SVG and PNG too, RGB recommended, fonts embedded"
-   }
+   },
+   "publisher": "Genetics Society of America"
   },
   {
    "name": "Genetics",
@@ -255,7 +258,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "Genetics's guidelines: TIFF and other raster files, PDF for vector figures, not Word, AI or JPEG; OUP's guidance for preparing artwork: EPS, SVG and PNG too, RGB recommended, fonts embedded"
-   }
+   },
+   "publisher": "Genetics Society of America"
   },
   {
    "name": "Genome Biology",
@@ -318,7 +322,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "Genome Biology's guidelines: EPS, PDF, PowerPoint, TIFF, JPEG or PNG (or Word, BMP, CDX); no colour mode stated; figures at most 10 MB; fonts embedded"
-   }
+   },
+   "publisher": "BMC (Springer Nature)"
   },
   {
    "name": "Genome Research",
@@ -382,7 +387,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "Genome Research's digital art guidelines: TIFF, EPS, PDF, JPEG or AI only; original RGB colour; fonts embedded"
-   }
+   },
+   "publisher": "Cold Spring Harbor Laboratory Press"
   },
   {
    "name": "Heredity",
@@ -448,7 +454,8 @@
     "embed_fonts": false,
     "no_alpha": false,
     "source": "Nature Portfolio's guide to preparing final artwork: AI, EPS, PDF or editable PowerPoint, not JPEG, PNG or TIFF; RGB; each figure under 50 MB where possible"
-   }
+   },
+   "publisher": "Springer Nature"
   },
   {
    "name": "Horticulture Research",
@@ -515,7 +522,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "Horticulture Research's guidelines: TIFF for photographs; EPS, AI or PDF for charts and diagrams; not Word or JPEG; OUP's guidance for preparing artwork: SVG and PNG too, RGB recommended, fonts embedded"
-   }
+   },
+   "publisher": "Oxford University Press"
   },
   {
    "name": "Molecular Biology and Evolution",
@@ -577,7 +585,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "MBE's guidelines: .tif, .eps, .ppt, .xls, .doc, .pdf, .gif or .jpg; OUP's guidance for preparing artwork: RGB recommended, fonts embedded"
-   }
+   },
+   "publisher": "Oxford University Press"
   },
   {
    "name": "Molecular Plant",
@@ -646,7 +655,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "Molecular Plant's final file checklist: TIFF, EPS, PDF, AI, PPT or JPG; RGB, at most 20 MB a figure and fonts embedded (Cell Press figure guidelines)"
-   }
+   },
+   "publisher": "Cell Press"
   },
   {
    "name": "Nature",
@@ -714,7 +724,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "Nature's figure guide: vector files (PDF or EPS preferred, SVG accepted), not JPEG, TIFF or PNG; RGB recommended, CMYK accepted; files under 50 MB where possible; fonts embedded"
-   }
+   },
+   "publisher": "Springer Nature"
   },
   {
    "name": "New Phytologist",
@@ -777,7 +788,8 @@
     "embed_fonts": false,
     "no_alpha": false,
     "source": "New Phytologist author guidelines: RGB; Wiley's figure guidelines: any standard file type after acceptance (SVG isn't among those listed), under 10 MB each preferred"
-   }
+   },
+   "publisher": "Wiley"
   },
   {
    "name": "Plant Cell",
@@ -840,7 +852,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "The Plant Cell author guidelines: tif, jpeg or eps (the page dropped PDF in 2026; its 2020 figure guidelines still prefer it); RGB, not CMYK; OUP's guidance for preparing artwork: fonts embedded"
-   }
+   },
+   "publisher": "Oxford University Press"
   },
   {
    "name": "PLOS Genetics",
@@ -908,7 +921,8 @@
     "embed_fonts": true,
     "no_alpha": true,
     "source": "PLOS figure guidelines: TIFF or EPS only; RGB or greyscale; 300–600 dpi; 10 MB or less; no alpha channels; fonts embedded"
-   }
+   },
+   "publisher": "PLOS"
   },
   {
    "name": "PNAS",
@@ -981,7 +995,8 @@
     "embed_fonts": true,
     "no_alpha": false,
     "source": "PNAS's submission guidelines: TIFF, EPS, PDF or PPT; its Digital Art Guidelines: original RGB colour, fonts embedded"
-   }
+   },
+   "publisher": "National Academy of Sciences"
   },
   {
    "name": "Science",
@@ -1047,7 +1062,8 @@
     "embed_fonts": false,
     "no_alpha": false,
     "source": "Science's revised-manuscript instructions: PDF, EPS or AI preferred, TIFF for raster figures, not Word or PowerPoint; its 2022 figure guide asks for CMYK colour unless the paper is online only"
-   }
+   },
+   "publisher": "AAAS (Science)"
   },
   {
    "name": "The Plant Journal",
@@ -1112,7 +1128,8 @@
     "embed_fonts": false,
     "no_alpha": false,
     "source": "Wiley's figure guidelines: PDF or EPS for line art, TIFF or PNG for images, any standard file type after acceptance (SVG isn't among those listed), under 10 MB each preferred; no colour mode stated"
-   }
+   },
+   "publisher": "Wiley"
   }
  ],
  "RULES": {

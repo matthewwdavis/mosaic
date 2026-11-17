@@ -6,160 +6,140 @@
    "file": "nature.json",
    "name": "Nature",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "b641bb5d8fcded79e2f90a7196376ae0063c6647b09f7feda3523a41cd17698d"
+   "version": "1.0.0"
   },
   {
    "id": "heredity",
    "file": "heredity.json",
    "name": "Heredity",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "09e5f7bb604e410c82b0a034a81bbf3d969410dcd5a653ccfa4b46c41b243ef8"
+   "version": "1.0.0"
   },
   {
    "id": "genome_biology",
    "file": "genome_biology.json",
    "name": "Genome Biology",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "8625f87d41be8f6f9fb6211ab3355f10dd92ceadd57958abec408fc8b30906e0"
+   "version": "1.0.0"
   },
   {
    "id": "genome_research",
    "file": "genome_research.json",
    "name": "Genome Research",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "e4042cbaf7760e377271091a51713c2fba338131c97e2893244e4d78ded31817"
+   "version": "1.0.0"
   },
   {
    "id": "genetics",
    "file": "genetics.json",
    "name": "Genetics",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "31ae4df90910b45dfffa46e9af0e8fddda345b0f29efec38ebe12f285eebfb61"
+   "version": "1.0.0"
   },
   {
    "id": "g3",
    "file": "g3.json",
    "name": "G3",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "a42af7996eff146c1415bbe0bf864de6bf76a76b8d07b35b71d8c570dee54118"
+   "version": "1.0.0"
   },
   {
    "id": "cell",
    "file": "cell.json",
    "name": "Cell",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "aef7db07e9b65c05524d9a7dd08520849e99592cdd1fe854c58181b0462f68e7"
+   "version": "1.0.0"
   },
   {
    "id": "molecular_plant",
    "file": "molecular_plant.json",
    "name": "Molecular Plant",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "6329ccd3c6aa85c61da960ceaf3fa11b3469609b71e88330dd1d870540ecbc97"
+   "version": "1.0.0"
   },
   {
    "id": "science",
    "file": "science.json",
    "name": "Science",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "3cdea9ae850b15b91ae72e3aa4fb0d25b0749fae9d481977d629614486dec39b"
+   "version": "1.0.0"
   },
   {
    "id": "pnas",
    "file": "pnas.json",
    "name": "PNAS",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "2d7b0d22258eb12d74c752414a968ddbff9f8191be15c6a88774a7ef8162aec8"
+   "version": "1.0.0"
   },
   {
    "id": "plos_genetics",
    "file": "plos_genetics.json",
    "name": "PLOS Genetics",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "9cd84c3aa8fb0e332c1aefb37f44c4b991aa1d13fdf84ed0febf61d9ce8a6f92"
+   "version": "1.0.0"
   },
   {
    "id": "new_phytologist",
    "file": "new_phytologist.json",
    "name": "New Phytologist",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "09187e5c98f3030822dfdc4dfa6ef53de26fc7784c6bc5d2e5b9a9fdac5284e6"
+   "version": "1.0.0"
   },
   {
    "id": "plant_journal",
    "file": "plant_journal.json",
    "name": "The Plant Journal",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "aa2fe49fb298d61a43c6fd7d95d7fd99efa9c00f32c8140b3a299560dbe7da2a"
+   "version": "1.0.0"
   },
   {
    "id": "plant_cell",
    "file": "plant_cell.json",
    "name": "Plant Cell",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "df86683bead5a7ab3d46c849b4ae22ac83a9572c1fca04bbaec979da65aa911f"
+   "version": "1.0.0"
   },
   {
    "id": "mbe",
    "file": "mbe.json",
    "name": "Molecular Biology and Evolution",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "a43abd6b59080a3ce78cae65ca24ed348a2ad6eccf8597eadc36e4bb988d9588"
+   "version": "1.0.0"
   },
   {
    "id": "horticulture_research",
    "file": "horticulture_research.json",
    "name": "Horticulture Research",
    "kind": "journal",
-   "version": "1.0.0",
-   "sha256": "6d70a41362aa17a20e8582635abbff6cb32e324cc3207de3ad0bbfdf2f9de772"
+   "version": "1.0.0"
   },
   {
    "id": "biorxiv_monroe",
    "file": "biorxiv_monroe.json",
    "name": "bioRxiv (in house)",
    "kind": "house",
-   "version": "1.0.0",
-   "sha256": "1f388e55e37347045b3583d12a9c0f076a7126f61cd64faf978d45456d7c61fe"
+   "version": "1.0.0"
   },
   {
    "id": "cover_letter",
    "file": "cover_letter.json",
    "name": "Cover Letter",
    "kind": "letter",
-   "version": "1.0.0",
-   "sha256": "2a6e3c93670440f10a4d641360a26f7638a0fcbe5b2881ab7d32975152e3913f"
+   "version": "1.0.0"
   },
   {
    "id": "ucdavis_dissertation",
    "file": "ucdavis_dissertation.json",
    "name": "UC Davis Dissertation (PhD)",
    "kind": "thesis",
-   "version": "1.0.0",
-   "sha256": "d0fbcb0336dfaf09683f1a90d1ab235776c4d9fd0a1420b14c652969a756df4c"
+   "version": "1.0.0"
   },
   {
    "id": "general",
    "file": "general.json",
    "name": "General (no journal)",
    "kind": "general",
-   "version": "1.0.0",
-   "sha256": "84f2ca2e42b67daa23a600c167bb22b9c6c7fc1ac5407b80767cc92c4b83e1e6"
+   "version": "1.0.0"
   }
  ],
  "about": {

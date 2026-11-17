@@ -18,7 +18,10 @@ mosaic does the job people usually do in PowerPoint, without PowerPoint's damage
 - **Journal page sizes** are built in (Nature, Science, Cell, PNAS, PLOS Genetics and more), along
   with slides and posters, and fonts that R leaves out of its PDFs are embedded when you export.
   For bioRxiv preprints a figure can be any size that fits a US Letter page's text area (7 × 9.5 in),
-  or up to 180 mm wide.
+  or up to 180 mm wide. Each journal is one **journal file** shared with prose (its figure sizes,
+  panel-label look and figure rules, with their sources); a journal of your own is one too and can
+  hold the same rules. prose's `docs/journal-format.md` explains the format and how to check a file
+  (`python -m mosaic._labapp.journalfile validate FILE`).
 - **Your PowerPoint figures come along.** Open a `.pptx` and choose its slides, drop a deck on the
   page or the Pages list, or copy slides and shapes in PowerPoint and paste them. Pictures, text,
   lines and shapes come in where they were, as objects you can edit. Pictures are relinked to the

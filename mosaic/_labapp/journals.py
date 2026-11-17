@@ -14,6 +14,10 @@ JOURNALS is the list, sorted by name; each entry:
     note        the sizes in a sentence
     source      where the numbers come from
     labels, text, lines, pictures, export   its rules (RULES[name]); absent where it states none
+    publisher   the group both apps list it under ("Springer Nature"; PUBLISHERS[name]): the journal
+                lists are grouped by it, groups and the journals in each in alphabetical order, a
+                person's own journals as "My journals"; bioRxiv's is "In house", beside prose's
+                in-house templates
 
 Where a journal publishes no figure sizes, the widths and depth were measured from a published
 open-access article (PubMed Central, 2025-26): the width of a text column, the full text width,
@@ -71,6 +75,13 @@ JOURNALS = sorted([e for e in (_files.figure_entry(j) for j in _files.builtin() 
 RULES = {j["name"]: {k: j[k] for k in _files.RULE_KEYS if k in j} for j in JOURNALS}
 
 
+# The group each journal is listed under in both apps' journal lists: its publisher, as prose's
+# Journal menu has always grouped them (a society journal under the society that publishes it;
+# bioRxiv, Matthew's own layout, "In house" with prose's in-house templates): each journal file's
+# "group", else its "publisher" (journalfile.figure_entry)
+PUBLISHERS = {j["name"]: j["publisher"] for j in JOURNALS}
+
+
 BUILT_IN = [j["name"] for j in JOURNALS]
 
 
@@ -108,12 +119,16 @@ def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:40] or "journal"
 
 
-def clean(entry: dict) -> dict:
+def clean(entry: dict, kept: bool = False) -> dict:
     """A person's journal as it's kept: its journal file ("journal", journalfile.py) with the keys
     older versions read beside it ({"id", "name", "depth_mm", "types": [{"name", "width_mm"}], "note",
     "source", "user": True, rules, "manuscript": prose's form}). An entry with only the older keys
     is made a journal file; one with both takes what was changed through the older keys (an app's
-    form) into its file. Raises ValueError, in words for the person, when it can't be one."""
+    form) into its file. kept: an entry as read from the list, where the journal file is the truth
+    (one edited by hand) and the keys beside it only a copy for older versions. Raises ValueError, in
+    words for the person, when it can't be one."""
+    if kept and isinstance(entry, dict) and isinstance(entry.get("journal"), dict) and entry["journal"].get("format"):
+        entry = {"journal": entry["journal"]}
     legacy = _clean_legacy(entry)
     full = entry.get("journal") if isinstance(entry.get("journal"), dict) and entry["journal"].get("format") else None
     if full is None:
@@ -191,7 +206,7 @@ def read_user(path: str) -> list[dict]:
     out, names, ids = [], set(), set()
     for entry in (data.get("journals") if isinstance(data, dict) else data) or []:
         try:
-            j = clean(entry)
+            j = clean(entry, kept=True)
         except ValueError:
             continue
         if j["name"].lower() not in names and j["id"] not in ids:

@@ -86,6 +86,14 @@ export async function run(app, params) {
     setTimeout(() => app.run("pageSize"), 200);
     return finish();
   }
+  if (scene === "journalmenu") {
+    // Size ▸ Journal: each publisher's journals under its heading, as prose's Journal list groups them
+    setTimeout(() => {
+      app.run("pageSize");
+      [...document.querySelectorAll(".context-menu .menu-item")].find((b) => b.querySelector(".menu-label").textContent === "Journal")?.click();
+    }, 200);
+    return finish();
+  }
 
   // Step 2: the three sample plots, placed at true size (the last one stays selected)
   const placed = await rpc("add_files", ["growth_curves", "expression_bars", "dose_response"].map((n) => `${dir}/${n}.pdf`), false);

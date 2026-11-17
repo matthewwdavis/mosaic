@@ -113,7 +113,10 @@ With nothing selected (click the grey area or press Escape), the right panel sho
   figure depth, e.g. Nature double column, 180 × 170 mm. Built in: Cell, G3, Genetics, Genome
   Biology, Genome Research, Heredity, Horticulture Research, Molecular Biology and Evolution,
   Molecular Plant, Nature, New Phytologist, Plant Cell, PLOS Genetics, PNAS, Science and The
-  Plant Journal. The note below says where each size comes from. Some journals don't publish sizes; for those the sizes
+  Plant Journal. The list groups them by publisher, as prose's Journal list does (Cell Press, Oxford
+  University Press, Springer Nature, Wiley and so on, in alphabetical order; bioRxiv under **In
+  house**, beside prose's in-house template; your own under **My journals**). Typing a journal's
+  first letter still jumps to it. The note below says where each size comes from. Some journals don't publish sizes; for those the sizes
   were measured from a recent published article, and the note says so.
   - **bioRxiv** (for the Monroe lab's preprints, 16 Nov 2026) takes a figure of **any size** that
     fits a US Letter page's text area: up to 7 in (177.8 mm) wide and 9.5 in (241.3 mm) tall, and
@@ -136,18 +139,20 @@ With nothing selected (click the grey area or press Escape), the right panel sho
 - **Background**: transparent (the default, which journals prefer) or white.
 
 **Size** (Home tab) offers the same sizes whatever is selected, with every journal's figure sizes
-under **Journal** (bioRxiv's first entry, **any size**, keeps the page's own size), then **Swap width and height** and **Custom size…** to type the width and
+under **Journal**, under a heading for each publisher (bioRxiv's first entry, **any size**, keeps the page's own size), then **Swap width and height** and **Custom size…** to type the width and
 height. The page's size now has a tick.
 
 **Your own journals.** If the journal you're writing for isn't listed, add it: **Size ▸ My
 Journals… ▸ Add a Journal…**. Give it a name, the figure widths it takes (each with a name, such
 as "Single column", in millimetres) and the deepest a figure may be. It's then listed with the
-others under **Size ▸ Journal** and in the Page panel, and `mosaic export --journal` takes its
+others under **Size ▸ Journal** and in the Page panel, in a group of its own, **My journals**, and `mosaic export --journal` takes its
 name. Your journals are kept on this computer, in one list that prose reads too (a journal added
 in either app is in both); a page sized by one keeps its size on any computer. A journal of your own has no label or text
 rules, so Check uses mosaic's general ones for its pages.
 
 <img src="images/sizemenu.png" alt="The Size menu, with Slide 16:9 ticked" width="405">
+
+<img src="images/journalmenu.png" alt="Size ▸ Journal, each publisher’s journals under its heading: AAAS (Science), BMC (Springer Nature), Cell Press and on" width="445">
 
 **Around the page:** the grey area around the page works like the page. Scroll out to it, then
 click, drag and resize objects there, draw there, and drop or paste pictures there. An object can

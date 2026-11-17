@@ -311,7 +311,8 @@ def builtin() -> list[dict]:
 def figure_entry(journal: dict) -> dict | None:
     """The journal as the shared figure table has it (journals.py: JOURNALS), or None when it has
     no figure sizes to list: {"name", "depth_mm", "types", "any_width"?, "max_width_mm"?, "note",
-    "source", "labels"... (its rules)}."""
+    "source", "labels"... (its rules), "publisher" (the group the lists show it under: its "group",
+    else its publisher)}."""
     fig = journal.get("figures")
     if not fig or not fig.get("types"):
         return None
@@ -322,11 +323,10 @@ def figure_entry(journal: dict) -> dict | None:
             out[k] = fig[k]
     out["note"] = fig.get("note", "")
     out["source"] = fig.get("source", "")
-    if journal.get("group"):
-        out["group"] = journal["group"]
     for k in RULE_KEYS:
         if k in fig:
             out[k] = copy.deepcopy(fig[k])
+    out["publisher"] = journal.get("group") or journal.get("publisher") or "My journals"   # (the group both apps list it under)
     return out
 
 

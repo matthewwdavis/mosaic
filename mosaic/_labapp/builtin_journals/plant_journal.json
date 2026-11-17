@@ -340,6 +340,7 @@
  },
  "latex": {
   "template": "publisher",
+  "class": "USG",
   "wrapper": "journal.latex",
   "files": {
    "NJDnatbib.sty": "9e0864b9f0536111ead3c7766ef8921ac58dfc9c7d3c6afcf3e23f6cdf53671a",

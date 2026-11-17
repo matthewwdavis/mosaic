@@ -1,7 +1,7 @@
 """The journals moved from the shared library's hand-kept table into journal files (its
 builtin_journals, 2026-11-17) without changing anything they make mosaic do: tests/journal_snapshot.py
-takes the snapshot it took before the move (tests/data/journal_snapshot.json, at 72afdfc) and it
-must match byte for byte: the journal list, each journal's Check and Export check on a sample page,
+takes the snapshot it took before the move (tests/data/journal_snapshot.json) and it
+must match byte for byte (taken again at main 1ab8079, with journal-groups' publishers): the journal list, each journal's Check and Export check on a sample page,
 and the sample relabelled for each. Only RULES's keys are in another order (the files' order):
 nothing reads it in order."""
 import json
