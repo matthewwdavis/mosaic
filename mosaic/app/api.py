@@ -8,6 +8,7 @@ import io
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import tempfile
@@ -310,6 +311,73 @@ class Api:
         from .. import journals
         mine = journals.save_user(items if isinstance(items, list) else [])
         return {"mine": mine, "journals": journals.JOURNALS}
+
+    # Add a Journal ▸ Start from a Journal's Reference Style… (_labapp/cslindex.py: the reference
+    # styles' list, shipped, no connection needed) and Read Figure Sizes from the Author Guidelines…
+    # (_labapp/guidelines.py: by rules, nothing sent anywhere; the page is fetched only on that click)
+
+    def csl_search(self, query: str, limit: int = 20) -> list[dict]:
+        """Journals in the reference styles' list for a name or ISSN: [{"style", "name", "issn",
+        "publisher", "guidelines"}]."""
+        from .._labapp import cslindex
+        out = []
+        for e in cslindex.search(str(query or ""), int(limit or 20)):
+            out.append({"style": e["name"], "name": e["title"], "issn": ", ".join(x for x in (e["issn"], e["eissn"]) if x),
+                        "publisher": e["publisher"], "guidelines": next(iter(e["links"]), "")})
+        return out
+
+    def csl_starter(self, style: str) -> dict:
+        """A starter journal file for the journal of this reference style (journalfile.starter):
+        its name, ISSNs, publisher, guidelines link and reference style. ValueError when there's none."""
+        from .._labapp import cslindex, journalfile
+        e = cslindex.find(str(style or ""))
+        if e is None:
+            raise ValueError("That journal isn't in the reference styles' list.")
+        return journalfile.starter(e)
+
+    def guidelines_choose(self) -> str | None:
+        """A guidelines page or PDF saved from the browser (Choose a Saved Page…)."""
+        if self.window is None:
+            return None
+        import webview
+        res = self.window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False,
+                                             file_types=("Saved pages and PDFs (*.html;*.htm;*.pdf;*.txt;*.webarchive)", "All files (*.*)"))
+        return (res if isinstance(res, str) else res[0]) if res else None
+
+    _FIGURE_FIELDS = ("figures.types", "figures.depth_mm")
+
+    def guidelines_figures(self, where: str) -> dict:
+        """The figure sizes the author guidelines give (a web address, read now, or a saved page or
+        PDF): {"source", "proposals": [{"field", "label", "value", "evidence", "others"}]}, only the
+        widths and the depth. ValueError in words when the page can't be read."""
+        from .._labapp import guidelines
+        where = str(where or "").strip()
+        if re.match(r"^https?://", where):
+            try:
+                data, source = guidelines.fetch(where)
+            except (OSError, ValueError) as exc:
+                raise ValueError(str(exc)) from None
+        else:
+            try:
+                with open(where, "rb") as fh:
+                    data = fh.read(guidelines.MAX_BYTES + 1)
+            except OSError:
+                raise ValueError("That file couldn't be read.") from None
+            source = where
+        try:
+            text = guidelines.text_of(data, source)
+        except Exception:   # noqa: BLE001 (a PDF or page that can't be read: said in words)
+            raise ValueError("mosaic couldn't read text from that file. Save the page from your browser as a web page or PDF.") from None
+        props = [p for p in guidelines.extract(text) if p["field"] in self._FIGURE_FIELDS]
+        return {"source": source, "proposals": props, "chars": len(text)}
+
+    def guidelines_apply(self, journal: dict, accepted: list, source: str = "") -> dict:
+        """The journal file with the figure sizes the person accepted written in, each with the
+        sentence it came from (guidelines.apply)."""
+        from .._labapp import guidelines
+        keep = [p for p in (accepted or []) if isinstance(p, dict) and p.get("field") in self._FIGURE_FIELDS]
+        src = source if re.match(r"^https?://", str(source or "")) else ("a saved copy of the author guidelines" if source else None)
+        return guidelines.apply(journal if isinstance(journal, dict) else {}, keep, source=src)
 
     def app_info(self) -> dict:
         from ..journals import JOURNALS, STANDARD_SIZES

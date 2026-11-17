@@ -372,7 +372,39 @@ export const panels = {
       const problem = h("p", { class: "hint", role: "alert" }, "");
       const save = h("button", { type: "button", class: "btn primary" }, "Save");
       let done = false;
+      // (the journal file it'll be kept as: a starter from its reference style, with what the
+      // guidelines gave; null keeps the file it has)
+      let file = null;
+      const about = h("p", { class: "hint journal-start" }, "");
+      const describe = (j) => {
+        const issn = Object.values(j.issn || {}).join(", ");
+        about.textContent = [j.references?.csl ? `Reference style: ${j.references.csl}` : "", issn ? `ISSN ${issn}` : "",
+          j.publisher ? j.publisher : "", j.guidelines ? `guidelines: ${j.guidelines}` : ""].filter(Boolean).join("; ");
+      };
+      const fromStyle = h("button", { type: "button", class: "btn" }, "Start from a Journal's Reference Style…");
+      fromStyle.addEventListener("click", async () => {
+        const got = await this.referenceStyleDialog(name.value);
+        if (!got) return;
+        file = got;
+        name.value = got.name;
+        if (!note.value) note.value = `Started from its reference style (${got.references.csl})`;
+        describe(got);
+      });
+      const fromGuide = h("button", { type: "button", class: "btn" }, "Read Figure Sizes from the Author Guidelines…");
+      fromGuide.addEventListener("click", async () => {
+        const base = file || journal?.journal || { format: 1, id: "journal", name: name.value || "Journal" };
+        const got = await this.guidelineSizesDialog(base);
+        if (!got) return;
+        file = got.journal;
+        if (got.types) {
+          rows.replaceChildren();
+          got.types.forEach(addRow);
+        }
+        if (got.depth_mm) depth.value = got.depth_mm;
+        if (!note.value) note.value = "Sizes from the journal's author guidelines";
+      });
       const dlg = this.dialog(journal ? "Edit journal" : "Add a journal", h("div", {},
+        h("div", { class: "row journal-start-buttons" }, journal ? null : fromStyle, fromGuide), about,
         h("label", { for: `${id}-name` }, "Journal's name"), name,
         h("p", {}, h("label", {}, "Figure widths")), rows, more,
         h("p", {}, h("label", { for: `${id}-depth` }, "Deepest a figure may be "), depth, " mm"),
@@ -383,6 +415,7 @@ export const panels = {
             .filter((t) => t.name.trim() || String(t.width_mm).trim()) };
         // (what else is kept with it goes back as it came: its rules, its id, prose's own part)
         for (const k of ["id", "labels", "text", "lines", "pictures", "export", "manuscript"]) if (journal?.[k]) entry[k] = journal[k];
+        if (file) entry.journal = { ...file, name: name.value };   // (its ISSNs, links, reference style and where the sizes came from)
         const next = index >= 0 ? mine.map((j, k) => (k === index ? entry : j)) : [...mine, entry];
         save.disabled = true;
         try {
@@ -396,6 +429,97 @@ export const panels = {
         }
       });
       dlg.addEventListener("close", () => { if (!done) resolve(null); });
+    });
+  },
+
+  // Add a Journal ▸ Start from a Journal's Reference Style…: the reference styles' list (thousands
+  // of journals, by name or ISSN, on this computer); resolves to a starter journal file, or null
+  referenceStyleDialog(start = "") {
+    return new Promise((resolve) => {
+      const query = h("input", { type: "search", value: start, placeholder: "Journal name or ISSN", "aria-label": "Journal name or ISSN",
+        style: { width: "100%" } });
+      const list = h("ul", { class: "report csl-results", role: "listbox", "aria-label": "Journals" });
+      let answered = false, n = 0;
+      const dlg = this.dialog("Start from a journal's reference style", h("div", {},
+        h("p", {}, "Find the journal by its name or ISSN. Its name, ISSN, publisher, reference style and a link to its author guidelines come with it; you add the figure sizes."),
+        query, list,
+        h("p", { class: "hint" }, "From the Citation Style Language list (the styles behind zotero.org/styles), kept in mosaic: no connection needed.")));
+      const find = async () => {
+        const mine = ++n;
+        const got = query.value.trim() ? await rpc("csl_search", query.value, 20).catch(() => []) : [];
+        if (mine !== n) return;   // (a newer search is under way)
+        list.replaceChildren(...(got.length ? got.map((e) => {
+          const pick = h("button", { type: "button", class: "btn csl-pick", "data-style": e.style }, "Use");
+          pick.addEventListener("click", async () => {
+            try {
+              const j = await rpc("csl_starter", e.style);
+              answered = true;
+              dlg.close();
+              resolve(j);
+            } catch (err) { this.reportDialog("That journal couldn't be used", [String(err.message || err)]); }
+          });
+          return h("li", { class: "csl-result" }, h("span", {}, h("b", {}, e.name), ` ${[e.issn, e.publisher].filter(Boolean).join("; ")} `), pick);
+        }) : [h("li", { class: "hint" }, query.value.trim() ? "No journal by that name or ISSN." : "Type a name or an ISSN.")]));
+      };
+      let timer = null;
+      query.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(find, 150); });
+      find();
+      dlg.addEventListener("close", () => { if (!answered) resolve(null); });
+    });
+  },
+
+  // Read Figure Sizes from the Author Guidelines…: the guidelines page (read only now, when asked)
+  // or a copy saved from the browser; each size found shown with the sentence it came from, to
+  // take or leave. Resolves to {journal, types?, depth_mm?}, or null.
+  guidelineSizesDialog(base) {
+    return new Promise((resolve) => {
+      const where = h("input", { type: "url", value: base.guidelines || "", placeholder: "https://… the journal's author guidelines",
+        "aria-label": "Address of the author guidelines", style: { width: "100%" } });
+      const read = h("button", { type: "button", class: "btn" }, "Read the Page");
+      const saved = h("button", { type: "button", class: "btn" }, "Choose a Saved Page…");
+      const status = h("p", { class: "hint", role: "status" }, "");
+      const found = h("div", { class: "guideline-sizes" });
+      const use = h("button", { type: "button", class: "btn primary", disabled: true }, "Use These");
+      let got = null, answered = false;
+      const dlg = this.dialog("Figure sizes from the author guidelines", h("div", {},
+        h("p", {}, "mosaic reads the journal's author guidelines for its figure widths and the deepest a figure may be, and shows the sentence each comes from. Nothing is sent anywhere; the page is read only when you press Read the Page."),
+        where, h("div", { class: "row" }, read, saved), status, found), [use]);
+      const mm = (v) => `${Math.round(v * 10) / 10} mm`;
+      const show = (res) => {
+        got = res;
+        found.replaceChildren(...res.proposals.map((p, i) => {
+          const box = h("input", { type: "checkbox", checked: true, id: `gs-${i}`, "data-field": p.field });
+          const value = p.field === "figures.types" ? p.value.map((t) => `${t.name} ${mm(t.width_mm)}`).join(", ") : mm(p.value);
+          return h("div", { class: "guideline-size" }, h("label", { class: "check-line", for: `gs-${i}` }, box, h("span", {}, `${p.label}: ${value}`)),
+            h("blockquote", { class: "hint" }, `“${p.evidence}”`));
+        }));
+        use.disabled = !res.proposals.length;
+        status.textContent = res.proposals.length ? "Untick any that's wrong, then Use These." :
+          "No figure sizes found there. Journals often give them on a separate page about preparing figures or artwork: try that page's address.";
+      };
+      const run = async (src) => {
+        if (!src) return;
+        status.textContent = "Reading…";
+        found.replaceChildren();
+        use.disabled = true;
+        try { show(await rpc("guidelines_figures", src)); } catch (err) { status.textContent = String(err.message || err).replace(/^\w*Error: /, ""); }
+      };
+      read.addEventListener("click", () => run(where.value.trim()));
+      saved.addEventListener("click", async () => run(await rpc("guidelines_choose").catch(() => null)));
+      use.addEventListener("click", async () => {
+        const keep = got.proposals.filter((p, i) => found.querySelector(`#gs-${i}`)?.checked);
+        const journal = await rpc("guidelines_apply", base, keep, got.source);
+        const out = { journal };
+        for (const p of keep) {
+          if (p.field === "figures.types") out.types = p.value;
+          if (p.field === "figures.depth_mm") out.depth_mm = p.value;
+        }
+        answered = true;
+        dlg.close();
+        resolve(out);
+      });
+      dlg.addEventListener("close", () => { if (!answered) resolve(null); });
+      this.guidelineSizesRun = run;   // (the self-test reads a saved page with it)
     });
   },
 

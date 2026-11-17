@@ -22,6 +22,16 @@ mosaic does the job people usually do in PowerPoint, without PowerPoint's damage
   panel-label look and figure rules, with their sources); a journal of your own is one too and can
   hold the same rules. prose's `docs/journal-format.md` explains the format and how to check a file
   (`python -m mosaic._labapp.journalfile validate FILE`).
+- **A journal mosaic doesn't list takes a minute to add.** In **Size ▸ My Journals ▸ Add a
+  Journal**, click **Start from a Journal's Reference Style…** and type the journal's name or ISSN:
+  mosaic knows about 10,900 journals from the reference-style list behind Zotero (no connection
+  needed), and fills in its name, keeping its ISSN, publisher and guidelines link with it. Then
+  **Read Figure Sizes from the Author Guidelines…** reads the journal's instructions for authors
+  (the page is read only when you press **Read the Page**, or choose a copy you saved from your
+  browser with **File ▸ Save As**) and shows each width and depth it found beside the sentence it
+  came from. Untick anything wrong, **Use These**, and check the numbers before you save: the sizes
+  are often on a separate "preparing figures" page, and some sites turn programs away, in which
+  case save the page from your browser and choose it. Nothing is sent to any AI service.
 - **Your PowerPoint figures come along.** Open a `.pptx` and choose its slides, drop a deck on the
   page or the Pages list, or copy slides and shapes in PowerPoint and paste them. Pictures, text,
   lines and shapes come in where they were, as objects you can edit. Pictures are relinked to the
