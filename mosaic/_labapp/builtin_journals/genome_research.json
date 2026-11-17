@@ -5,6 +5,13 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Cold Spring Harbor Laboratory Press",
+ "issn": {
+  "print": "1088-9051",
+  "online": "1549-5469"
+ },
+ "aliases": [
+  "Genome Res"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

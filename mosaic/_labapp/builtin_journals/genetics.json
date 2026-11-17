@@ -5,6 +5,10 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Genetics Society of America",
+ "issn": {
+  "print": "0016-6731",
+  "online": "1943-2631"
+ },
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

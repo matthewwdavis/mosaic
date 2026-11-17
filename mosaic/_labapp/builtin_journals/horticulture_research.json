@@ -5,6 +5,13 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Oxford University Press",
+ "issn": {
+  "print": "2662-6810",
+  "online": "2052-7276"
+ },
+ "aliases": [
+  "Hortic Res"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

@@ -5,6 +5,13 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "BMC (Springer Nature)",
+ "issn": {
+  "print": "1465-6906",
+  "online": "1474-760X"
+ },
+ "aliases": [
+  "Genome Biol"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

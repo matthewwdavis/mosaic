@@ -5,6 +5,10 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Cell Press",
+ "issn": {
+  "print": "0092-8674",
+  "online": "1097-4172"
+ },
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

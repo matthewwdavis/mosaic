@@ -5,6 +5,10 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Springer Nature",
+ "issn": {
+  "print": "0018-067X",
+  "online": "1365-2540"
+ },
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

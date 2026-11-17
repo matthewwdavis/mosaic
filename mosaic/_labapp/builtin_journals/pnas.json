@@ -5,6 +5,14 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "National Academy of Sciences",
+ "issn": {
+  "print": "0027-8424",
+  "online": "1091-6490"
+ },
+ "aliases": [
+  "Proceedings of the National Academy of Sciences",
+  "Proc Natl Acad Sci USA"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",

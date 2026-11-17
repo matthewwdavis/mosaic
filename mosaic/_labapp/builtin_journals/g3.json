@@ -5,6 +5,14 @@
  "version": "1.0.0",
  "kind": "journal",
  "publisher": "Genetics Society of America",
+ "issn": {
+  "online": "2160-1836"
+ },
+ "aliases": [
+  "G3: Genes|Genomes|Genetics",
+  "G3 (Bethesda)",
+  "Genes Genomes Genetics"
+ ],
  "verified": {
   "status": "verified",
   "by": "prose (built in)",
