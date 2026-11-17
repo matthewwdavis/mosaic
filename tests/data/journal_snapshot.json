@@ -1,0 +1,4014 @@
+{
+ "JOURNALS": [
+  {
+   "name": "bioRxiv",
+   "depth_mm": 241.3,
+   "types": [
+    {
+     "name": "One column",
+     "width_mm": 85.7
+    },
+    {
+     "name": "Full width",
+     "width_mm": 177.8
+    }
+   ],
+   "any_width": true,
+   "max_width_mm": 180.0,
+   "note": "Any size on a US Letter page's text area: up to 7 in (177.8 mm) wide and 9.5 in (241.3 mm) tall, legend aside; up to 180 mm wide, printed scaled to the 7 in text width. One column (3.375 in, 85.7 mm) and full width are presets for prose's in-house bioRxiv two-column template.",
+   "source": "Matthew's choice for the Monroe lab's bioRxiv preprints (2026-11-16): a US Letter page with 0.75 in margins, as the lab's template has, and 180 mm figures, which he has posted there; bioRxiv itself sets no figure sizes",
+   "labels": {
+    "font": "Helvetica",
+    "size": 8.0,
+    "bold": true,
+    "case": "lower",
+    "form": "a",
+    "source": "Matthew's choice for bioRxiv (2026-11-16): bold lower-case a, b, c in 8 pt Helvetica, as his posted figures have them and prose's bioRxiv (in house) legends letter them, (a)",
+    "measured": false
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF): no sizes or fonts for figure text"
+   },
+   "lines": {
+    "min_pt": null,
+    "max_pt": null,
+    "about": false,
+    "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF), so Check uses mosaic's 0.25 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 300.0,
+    "vector": [],
+    "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF), so Check uses mosaic's 300 dpi"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "svg",
+     "png",
+     "tiff",
+     "jpeg",
+     "eps",
+     "pptx"
+    ],
+    "colour": "either",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": false,
+    "no_alpha": false,
+    "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF): any of mosaic's files, in RGB or CMYK, to place in the manuscript"
+   }
+  },
+  {
+   "name": "Cell",
+   "depth_mm": 200.0,
+   "types": [
+    {
+     "name": "1 column",
+     "width_mm": 85.0
+    },
+    {
+     "name": "1.5 columns",
+     "width_mm": 114.0
+    },
+    {
+     "name": "Full width",
+     "width_mm": 174.0
+    }
+   ],
+   "note": "85, 114 or 174 mm wide; Cell Press recommends figures at most 20 cm tall.",
+   "source": "Cell Press figure guidelines (two-column journals such as Cell)",
+   "labels": {
+    "font": "Arial",
+    "size": 9.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Cell Press figure guidelines: capital letters; size and weight measured from a published figure (PMC11813165, 2025): 9 pt bold",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 6.0,
+    "max_pt": 8.0,
+    "fonts": [
+     "Arial"
+    ],
+    "fonts_only": true,
+    "about": true,
+    "source": "Cell Press figure guidelines: text about 6–8 pt; Arial only"
+   },
+   "lines": {
+    "min_pt": 0.5,
+    "max_pt": 1.5,
+    "about": false,
+    "source": "Cell Press figure guidelines (Cell's page links to them): line weights 0.5–1.5 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 1000.0,
+    "vector": [],
+    "source": "Cell Press figure guidelines: colour or greyscale figures at least 300 dpi, line art at least 1,000 dpi"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "pdf",
+     "eps",
+     "jpeg"
+    ],
+    "colour": "rgb",
+    "max_mb": 20.0,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Cell Press figure guidelines: TIFF or PDF preferred, EPS and JPEG accepted; RGB; at most 20 MB a figure; fonts embedded"
+   }
+  },
+  {
+   "name": "G3",
+   "depth_mm": 243.0,
+   "types": [
+    {
+     "name": "Single column",
+     "width_mm": 85.5
+    },
+    {
+     "name": "Double column",
+     "width_mm": 177.5
+    }
+   ],
+   "note": "85.5 mm column, 177.5 mm full text width, 243 mm text depth (same layout as Genetics).",
+   "source": "measured from a published article (PMC12836119; depth from the Genetics article PMC12405997, 2025); the journal publishes no figure sizes",
+   "labels": {
+    "font": "Helvetica",
+    "size": 10.0,
+    "bold": true,
+    "case": "lower",
+    "form": "a",
+    "source": "G3 author guidelines: lowercase a, b, c at the top left; size and weight measured from a published figure (PMC12836119, 2025): 10 pt Helvetica Bold",
+    "measured": true
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "G3's guidelines set no sizes or fonts for figure text"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "OUP's guidance for preparing artwork (the journal's page refers authors to OUP's for the rest): line thickness 0.25–1 pt"
+   },
+   "pictures": {
+    "photo": 350.0,
+    "combination": 600.0,
+    "line_art": 600.0,
+    "vector": [],
+    "source": "G3's guidelines: printed pictures at least 350 dpi, line art at least 600 dpi (1200 for complex or fine line art); OUP's guidance for preparing artwork: combination half-tones 600–900 dpi"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "pdf",
+     "eps",
+     "svg",
+     "png"
+    ],
+    "colour": "rgb_preferred",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "G3's guidelines: TIFF and other raster files, PDF for vector figures, not Word, AI or JPEG; OUP's guidance for preparing artwork: EPS, SVG and PNG too, RGB recommended, fonts embedded"
+   }
+  },
+  {
+   "name": "Genetics",
+   "depth_mm": 243.0,
+   "types": [
+    {
+     "name": "Single column",
+     "width_mm": 85.5
+    },
+    {
+     "name": "Double column",
+     "width_mm": 177.5
+    }
+   ],
+   "note": "85.5 mm column, 177.5 mm full text width, 243 mm text depth (same layout as G3).",
+   "source": "measured from a published article (PMC12405997, 2025); the journal publishes no figure sizes",
+   "labels": {
+    "font": "Helvetica",
+    "size": 10.0,
+    "bold": true,
+    "case": "lower",
+    "form": "a",
+    "source": "Genetics author guidelines: lowercase a, b, c at the top left; size and weight measured from a published figure (PMC12693585, 2025): 10 pt bold",
+    "measured": true
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "Genetics's guidelines set no sizes or fonts for figure text"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "OUP's guidance for preparing artwork (the journal's page refers authors to OUP's for the rest): line thickness 0.25–1 pt"
+   },
+   "pictures": {
+    "photo": 350.0,
+    "combination": 600.0,
+    "line_art": 600.0,
+    "vector": [],
+    "source": "Genetics's guidelines: printed pictures at least 350 dpi, line art at least 600 dpi (1200 for complex or fine line art); OUP's guidance for preparing artwork: combination half-tones 600–900 dpi"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "pdf",
+     "eps",
+     "svg",
+     "png"
+    ],
+    "colour": "rgb_preferred",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Genetics's guidelines: TIFF and other raster files, PDF for vector figures, not Word, AI or JPEG; OUP's guidance for preparing artwork: EPS, SVG and PNG too, RGB recommended, fonts embedded"
+   }
+  },
+  {
+   "name": "Genome Biology",
+   "depth_mm": 225.0,
+   "types": [
+    {
+     "name": "Half page",
+     "width_mm": 85.0
+    },
+    {
+     "name": "Full page",
+     "width_mm": 170.0
+    }
+   ],
+   "note": "85 or 170 mm wide; at most 225 mm tall including the legend.",
+   "source": "BMC (Genome Biology's publisher) figure guidelines",
+   "labels": {
+    "font": "Helvetica",
+    "size": 10.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Genome Biology's guidelines don't say; measured from a published figure (PMC12849586, 2025): 10 pt bold capitals",
+    "measured": true
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "Genome Biology's guidelines ask only that text be legible at 85 or 170 mm wide"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": null,
+    "about": false,
+    "source": "Genome Biology's guidelines: all lines wider than 0.25 pt at 85 or 170 mm wide"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 300.0,
+    "vector": [],
+    "source": "Genome Biology's guidelines: about 300 dpi at the final size"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "pptx",
+     "tiff",
+     "jpeg",
+     "png"
+    ],
+    "colour": "either",
+    "max_mb": 10.0,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Genome Biology's guidelines: EPS, PDF, PowerPoint, TIFF, JPEG or PNG (or Word, BMP, CDX); no colour mode stated; figures at most 10 MB; fonts embedded"
+   }
+  },
+  {
+   "name": "Genome Research",
+   "depth_mm": 238.0,
+   "types": [
+    {
+     "name": "Single column",
+     "width_mm": 84.5
+    },
+    {
+     "name": "Double column",
+     "width_mm": 175.0
+    }
+   ],
+   "note": "84.5 mm column, 175 mm full text width, 238 mm text depth.",
+   "source": "measured from a published article (PMC12667386, 2025); the journal publishes no figure sizes",
+   "labels": {
+    "font": "Helvetica",
+    "size": 12.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Genome Research's digital art guidelines (final figures): capital A, B, C, 12 pt bold, Helvetica or Arial",
+    "measured": false
+   },
+   "text": {
+    "min_pt": 8.0,
+    "max_pt": 10.0,
+    "fonts": [
+     "Helvetica",
+     "Arial"
+    ],
+    "fonts_only": false,
+    "about": false,
+    "source": "Genome Research's guidelines: 8–10 pt, Helvetica or Arial"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": null,
+    "about": false,
+    "source": "Genome Research's digital art guidelines: rules 0.25 pt or heavier"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 1000.0,
+    "vector": [],
+    "source": "Genome Research's digital art guidelines: halftones 300 dpi, combination halftones 600–900 dpi, line art 1000–1200 dpi, at publication size"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps",
+     "pdf",
+     "jpeg"
+    ],
+    "colour": "rgb",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Genome Research's digital art guidelines: TIFF, EPS, PDF, JPEG or AI only; original RGB colour; fonts embedded"
+   }
+  },
+  {
+   "name": "Heredity",
+   "depth_mm": 238.0,
+   "types": [
+    {
+     "name": "Single column",
+     "width_mm": 87.5
+    },
+    {
+     "name": "Double column",
+     "width_mm": 181.0
+    }
+   ],
+   "note": "87.5 mm column, 181 mm full text width, 238 mm text depth.",
+   "source": "measured from a published article (PMC13545244, 2025); the journal publishes no figure sizes",
+   "labels": {
+    "font": "Helvetica",
+    "size": 9.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Heredity's guidelines don't say; measured from a published figure (PMC13031541, 2025): 9 pt bold capitals",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 5.0,
+    "max_pt": 7.0,
+    "fonts": [
+     "Helvetica",
+     "Arial"
+    ],
+    "fonts_only": false,
+    "about": false,
+    "source": "Springer Nature's artwork guide (linked from Heredity's): 5–7 pt, sans-serif, preferably Helvetica or Arial"
+   },
+   "lines": {
+    "min_pt": null,
+    "max_pt": null,
+    "about": false,
+    "source": "Heredity's house style asks for rules no thinner than 1 pt without saying whether that covers figure lines, and its artwork guide gives no line widths, so Check uses mosaic's 0.25 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": null,
+    "line_art": null,
+    "vector": [
+     "line_art",
+     "combination"
+    ],
+    "source": "Nature Portfolio's guide to preparing final artwork (linked from Heredity's): photos at least 300 dpi; graphs and line art as vector files; text and lines over photos as editable vectors"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "pptx"
+    ],
+    "colour": "rgb",
+    "max_mb": 50.0,
+    "firm": false,
+    "max_dpi": null,
+    "embed_fonts": false,
+    "no_alpha": false,
+    "source": "Nature Portfolio's guide to preparing final artwork: AI, EPS, PDF or editable PowerPoint, not JPEG, PNG or TIFF; RGB; each figure under 50 MB where possible"
+   }
+  },
+  {
+   "name": "Horticulture Research",
+   "depth_mm": 241.0,
+   "types": [
+    {
+     "name": "Single column",
+     "width_mm": 85.5
+    },
+    {
+     "name": "Double column",
+     "width_mm": 178.0
+    }
+   ],
+   "note": "85.5 mm column, 178 mm (7 in) full text width, 241 mm text depth.",
+   "source": "measured from a published article (PMC13102514; the same in PMC13091401 and PMC13255517, 2026); the journal publishes no figure sizes",
+   "labels": {
+    "font": "Arial",
+    "size": 10.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Horticulture Research's guidelines: capital letters A, B, C at each panel's upper left; the look measured in published figures (13 articles, 2026): mostly bold, sans-serif ones in Arial (PMC13102514's, kept as text, 8.95 pt Arial Bold), 10 pt the middle size",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 7.0,
+    "max_pt": null,
+    "fonts": [
+     "Arial",
+     "Times New Roman",
+     "Courier",
+     "Symbol"
+    ],
+    "fonts_only": false,
+    "about": true,
+    "source": "OUP's guidance for preparing artwork (linked from Horticulture Research's guidelines): text no less than 7 pt; Arial, Times New Roman, Courier or Symbol. OUP calls its guide tips rather than strict rules, so Check notes rather than warns"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "OUP's guidance for preparing artwork (linked from Horticulture Research's guidelines): line thickness 0.25–1 pt"
+   },
+   "pictures": {
+    "photo": 350.0,
+    "combination": 600.0,
+    "line_art": 600.0,
+    "vector": [],
+    "source": "Horticulture Research's guidelines: printed pictures at least 350 dpi, line art at least 600 dpi (1200 for complex or finely drawn line art); OUP's guidance for preparing artwork: combination half-tones 600–900 dpi"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps",
+     "pdf",
+     "svg",
+     "png"
+    ],
+    "colour": "rgb_preferred",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Horticulture Research's guidelines: TIFF for photographs; EPS, AI or PDF for charts and diagrams; not Word or JPEG; OUP's guidance for preparing artwork: SVG and PNG too, RGB recommended, fonts embedded"
+   }
+  },
+  {
+   "name": "Molecular Biology and Evolution",
+   "depth_mm": 236.0,
+   "types": [
+    {
+     "name": "Single column",
+     "width_mm": 86.0
+    },
+    {
+     "name": "Double column",
+     "width_mm": 178.0
+    }
+   ],
+   "note": "86 mm column, 178 mm full text width, 236 mm text depth (online-only journal).",
+   "source": "measured from a published article (PMC13223747, 2025); the journal publishes no figure sizes",
+   "labels": {
+    "font": "Helvetica",
+    "size": 10.0,
+    "bold": true,
+    "case": "lower",
+    "form": "(a)",
+    "source": "MBE's guidelines don't say; measured from a published figure (PMC13696352, 2026): (a), (b) in 10 pt bold",
+    "measured": true
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "MBE's guidelines set no sizes or fonts for figure text"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "OUP's guidance for preparing artwork (MBE's page refers authors to OUP's for the rest): line thickness 0.25–1 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 1200.0,
+    "vector": [],
+    "source": "MBE's guidelines: 300 dpi for colour and half-tone artwork, 1200 dpi for line drawings; OUP's guidance for preparing artwork: combination half-tones 600–900 dpi"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps",
+     "pptx",
+     "pdf",
+     "jpeg"
+    ],
+    "colour": "rgb_preferred",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "MBE's guidelines: .tif, .eps, .ppt, .xls, .doc, .pdf, .gif or .jpg; OUP's guidance for preparing artwork: RGB recommended, fonts embedded"
+   }
+  },
+  {
+   "name": "Molecular Plant",
+   "depth_mm": 200.0,
+   "types": [
+    {
+     "name": "1 column",
+     "width_mm": 85.0
+    },
+    {
+     "name": "1.5 columns",
+     "width_mm": 114.0
+    },
+    {
+     "name": "Full width",
+     "width_mm": 174.0
+    }
+   ],
+   "note": "A Cell Press journal: 85, 114 or 174 mm wide; at most 20 cm tall.",
+   "source": "Cell Press figure guidelines (Molecular Plant isn't among the journals with different sizes)",
+   "labels": {
+    "font": "Arial",
+    "size": 9.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Molecular Plant's guidelines: capital letters in Helvetica or Arial; size and weight measured from a published Cell figure (Cell Press publishes Molecular Plant, and no Molecular Plant figure PDF could be had; PMC11813165, 2025): 9 pt bold",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 6.0,
+    "max_pt": 8.0,
+    "fonts": [
+     "Helvetica",
+     "Arial"
+    ],
+    "fonts_only": true,
+    "about": true,
+    "source": "Molecular Plant's guidelines: Helvetica or Arial only; text about 6–8 pt (Cell Press figure guidelines)"
+   },
+   "lines": {
+    "min_pt": 0.5,
+    "max_pt": 1.5,
+    "about": false,
+    "source": "Cell Press figure guidelines (Molecular Plant's page links to them): line weights 0.5–1.5 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 1000.0,
+    "vector": [],
+    "source": "Molecular Plant's final file checklist: colour figures at least 300 dpi; line art at least 1,000 dpi (Cell Press figure guidelines)"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps",
+     "pdf",
+     "pptx",
+     "jpeg"
+    ],
+    "colour": "rgb",
+    "max_mb": 20.0,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Molecular Plant's final file checklist: TIFF, EPS, PDF, AI, PPT or JPG; RGB, at most 20 MB a figure and fonts embedded (Cell Press figure guidelines)"
+   }
+  },
+  {
+   "name": "Nature",
+   "depth_mm": 170.0,
+   "types": [
+    {
+     "name": "Single column",
+     "width_mm": 90.0
+    },
+    {
+     "name": "Double column",
+     "width_mm": 180.0
+    }
+   ],
+   "note": "90 mm single column, 180 mm double column; full page depth 170 mm.",
+   "source": "Nature's figure guidelines (research-figure-guide.nature.com)",
+   "labels": {
+    "font": "Helvetica",
+    "size": 8.0,
+    "bold": true,
+    "case": "lower",
+    "form": "a",
+    "source": "Nature's final submission guidelines: 8 pt bold, upright, lowercase a, b, c",
+    "measured": false
+   },
+   "text": {
+    "min_pt": 5.0,
+    "max_pt": 7.0,
+    "fonts": [
+     "Helvetica",
+     "Arial",
+     "Symbol",
+     "Courier"
+    ],
+    "fonts_only": false,
+    "about": false,
+    "source": "Nature's final submission guidelines: text 5–7 pt, sans-serif, preferably Helvetica or Arial (Symbol for Greek, Courier for sequences)"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "Nature's final submission guidelines: line weights 0.25–1 pt at final size"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": null,
+    "line_art": null,
+    "vector": [
+     "line_art",
+     "combination"
+    ],
+    "source": "Nature's final submission guidelines: photos at least 300 dpi at the largest size used; graphs, line art and text over photos as editable vector artwork"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "svg"
+    ],
+    "colour": "rgb_preferred",
+    "max_mb": 50.0,
+    "firm": false,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Nature's figure guide: vector files (PDF or EPS preferred, SVG accepted), not JPEG, TIFF or PNG; RGB recommended, CMYK accepted; files under 50 MB where possible; fonts embedded"
+   }
+  },
+  {
+   "name": "New Phytologist",
+   "depth_mm": 226.0,
+   "types": [
+    {
+     "name": "Single column",
+     "width_mm": 80.0
+    },
+    {
+     "name": "Double column",
+     "width_mm": 170.0
+    }
+   ],
+   "note": "80 mm column in a double-column format; largest printed figure 170 x 226 mm.",
+   "source": "New Phytologist author guidelines, 2011 (the current Wiley page couldn't be read automatically)",
+   "labels": {
+    "font": "Helvetica",
+    "size": 8.0,
+    "bold": true,
+    "case": "lower",
+    "form": "(a)",
+    "source": "New Phytologist author guidelines: bold lowercase (a), (b); size measured from a published figure (PMC13669809, 2026): 8 pt",
+    "measured": true
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "New Phytologist's guidelines set no sizes or fonts for figure text"
+   },
+   "lines": {
+    "min_pt": 0.7,
+    "max_pt": null,
+    "about": true,
+    "source": "New Phytologist author guidelines: lines about 0.5 mm thick on figures drawn at twice their printed size, so about 0.7 pt printed"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 600.0,
+    "vector": [],
+    "source": "Wiley's figure guidelines (New Phytologist refers authors to them): images 300 dpi, line art 600 dpi, and figures with both follow line art"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "tiff",
+     "png",
+     "jpeg",
+     "pptx"
+    ],
+    "colour": "rgb",
+    "max_mb": 10.0,
+    "firm": false,
+    "max_dpi": null,
+    "embed_fonts": false,
+    "no_alpha": false,
+    "source": "New Phytologist author guidelines: RGB; Wiley's figure guidelines: any standard file type after acceptance (SVG isn't among those listed), under 10 MB each preferred"
+   }
+  },
+  {
+   "name": "Plant Cell",
+   "depth_mm": 200.0,
+   "types": [
+    {
+     "name": "One column",
+     "width_mm": 82.5
+    },
+    {
+     "name": "Two columns",
+     "width_mm": 165.0
+    }
+   ],
+   "note": "3.25 in (8.25 cm) or 6.5 in (16.5 cm) wide; under 8 in (20 cm) tall to leave room for the legend.",
+   "source": "The Plant Cell author guidelines (academic.oup.com/plcell)",
+   "labels": {
+    "font": "Arial",
+    "size": 12.0,
+    "bold": true,
+    "case": "lower",
+    "form": "a",
+    "source": "The Plant Cell author guidelines: panel headers in a sans-serif font, 12 pt bold; lowercase as in its current figures (PMC13711675, 2026; its 2020 figure guide asks for capitals)",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 6.0,
+    "max_pt": null,
+    "fonts": [
+     "Arial",
+     "Helvetica"
+    ],
+    "fonts_only": true,
+    "about": false,
+    "source": "The Plant Cell author guidelines: 8 pt recommended, no smaller than 6 pt; Arial or Helvetica, not Times New Roman or Calibri"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "OUP's guidance for preparing artwork (The Plant Cell's pages give no line widths): line thickness 0.25–1 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 1000.0,
+    "vector": [],
+    "source": "The Plant Cell author guidelines: at least 300 PPI; its detailed figure guidelines (2020): 600 ppi for line graphs mixed with photographs, 1,000 ppi for line graphs saved as TIFF"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "jpeg",
+     "eps"
+    ],
+    "colour": "rgb",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "The Plant Cell author guidelines: tif, jpeg or eps (the page dropped PDF in 2026; its 2020 figure guidelines still prefer it); RGB, not CMYK; OUP's guidance for preparing artwork: fonts embedded"
+   }
+  },
+  {
+   "name": "PLOS Genetics",
+   "depth_mm": 222.3,
+   "types": [
+    {
+     "name": "Minimum width",
+     "width_mm": 66.8
+    },
+    {
+     "name": "Text column",
+     "width_mm": 132.0
+    },
+    {
+     "name": "Full width",
+     "width_mm": 190.5
+    }
+   ],
+   "note": "6.68 to 19.05 cm wide (13.2 cm lines up with the text column); at most 22.23 cm tall.",
+   "source": "PLOS figure guidelines (journals.plos.org)",
+   "labels": {
+    "font": "Arial",
+    "size": 12.0,
+    "bold": false,
+    "case": "upper",
+    "form": "a",
+    "source": "PLOS figure guidelines: lettered panels, (A) or (a); the look measured from a published figure (PMC12758814, 2025): 12 pt regular capitals",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 8.0,
+    "max_pt": 12.0,
+    "fonts": [
+     "Arial",
+     "Times",
+     "Times New Roman",
+     "Symbol"
+    ],
+    "fonts_only": true,
+    "about": false,
+    "source": "PLOS figure guidelines: Arial, Times or Symbol only, 8–12 pt"
+   },
+   "lines": {
+    "min_pt": null,
+    "max_pt": null,
+    "about": false,
+    "source": "PLOS figure guidelines set no line widths"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 300.0,
+    "vector": [],
+    "source": "PLOS figure guidelines: 300–600 dpi for every figure"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps"
+    ],
+    "colour": "rgb",
+    "max_mb": 10.0,
+    "firm": true,
+    "max_dpi": 600.0,
+    "embed_fonts": true,
+    "no_alpha": true,
+    "source": "PLOS figure guidelines: TIFF or EPS only; RGB or greyscale; 300–600 dpi; 10 MB or less; no alpha channels; fonts embedded"
+   }
+  },
+  {
+   "name": "PNAS",
+   "depth_mm": 225.0,
+   "types": [
+    {
+     "name": "1 column",
+     "width_mm": 87.0
+    },
+    {
+     "name": "1.5 columns",
+     "width_mm": 114.0
+    },
+    {
+     "name": "2 columns",
+     "width_mm": 178.0
+    }
+   ],
+   "note": "8.7, 11.4 or 17.8 cm wide; at most 22.5 cm tall to leave room for the legend.",
+   "source": "PNAS Digital Art Guidelines (pnas.org)",
+   "labels": {
+    "font": "Helvetica",
+    "size": 12.0,
+    "bold": false,
+    "case": "upper",
+    "form": "a",
+    "source": "PNAS's guidelines don't say; measured from a published figure (PMC12772206, 2025): 12 pt regular capitals",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 6.0,
+    "max_pt": 12.0,
+    "fonts": [
+     "Arial",
+     "Helvetica",
+     "Times",
+     "Times New Roman",
+     "Symbol",
+     "Mathematical Pi",
+     "European Pi"
+    ],
+    "fonts_only": false,
+    "about": false,
+    "source": "PNAS's guidelines: 6–12 pt after reduction; standard fonts such as Arial, Helvetica, Times, Symbol"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": null,
+    "about": false,
+    "source": "PNAS Digital Art Guidelines: graph lines at least 0.25 pt wide"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 1000.0,
+    "vector": [],
+    "source": "PNAS Digital Art Guidelines: photos at least 300 ppi, photos with type 600–900 ppi, line art 1000–1200 ppi, at publication size"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps",
+     "pdf",
+     "pptx"
+    ],
+    "colour": "rgb",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "PNAS's submission guidelines: TIFF, EPS, PDF or PPT; its Digital Art Guidelines: original RGB colour, fonts embedded"
+   }
+  },
+  {
+   "name": "Science",
+   "depth_mm": 199.0,
+   "types": [
+    {
+     "name": "1 column",
+     "width_mm": 57.0
+    },
+    {
+     "name": "2 columns",
+     "width_mm": 121.0
+    },
+    {
+     "name": "3 columns",
+     "width_mm": 184.0
+    }
+   ],
+   "note": "5.7, 12.1 or 18.4 cm wide; 19.9 cm deep leaves room for the legend below the figure.",
+   "source": "Science's manuscript instructions (widths) and the Science family figure guide, 2026 (depth)",
+   "labels": {
+    "font": "Helvetica",
+    "size": 10.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Science's manuscript instructions: capital A, B, C, 10 pt bold",
+    "measured": false
+   },
+   "text": {
+    "min_pt": 5.0,
+    "max_pt": null,
+    "fonts": [
+     "Helvetica"
+    ],
+    "fonts_only": false,
+    "about": false,
+    "source": "Science's manuscript instructions: about 7 pt and never below 5 pt; sans-serif, Helvetica preferred"
+   },
+   "lines": {
+    "min_pt": 0.5,
+    "max_pt": null,
+    "about": false,
+    "source": "Science's manuscript instructions: lines at least 0.5 pt at the final reduced size (its 2022 figure guide says 0.28 pt)"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 300.0,
+    "vector": [],
+    "source": "Science's revised-manuscript instructions: greyscale and colour images, and line art that isn't vector, at least 300 dpi at final size"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "tiff"
+    ],
+    "colour": "cmyk_preferred",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": false,
+    "no_alpha": false,
+    "source": "Science's revised-manuscript instructions: PDF, EPS or AI preferred, TIFF for raster figures, not Word or PowerPoint; its 2022 figure guide asks for CMYK colour unless the paper is online only"
+   }
+  },
+  {
+   "name": "The Plant Journal",
+   "depth_mm": 226.0,
+   "types": [
+    {
+     "name": "Single column",
+     "width_mm": 80.0
+    },
+    {
+     "name": "Double column",
+     "width_mm": 168.0
+    }
+   ],
+   "note": "8 cm column; 16.8 cm full width (the guidelines keep it for composite photographs, but published figures of every kind use it); 226 mm text depth.",
+   "source": "The Plant Journal author guidelines (an archived 2022 copy; the current Wiley page couldn't be read automatically): 8 cm, and 16.8 cm for full-page figures; the depth measured from published articles (PMC13725933, PMC13732550 and PMC13720327, 2026), whose columns match: 79.9 and 168.6 mm",
+   "labels": {
+    "font": "Helvetica",
+    "size": 8.0,
+    "bold": false,
+    "case": "lower",
+    "form": "(a)",
+    "source": "The Plant Journal author guidelines (2022 copy): lowercase letters, lettering in 8 pt Helvetica; brackets and regular weight as Wiley letters every label in its published figures (15 articles, 2026, where they print at about 9 pt)",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 8.0,
+    "max_pt": null,
+    "fonts": [
+     "Helvetica"
+    ],
+    "fonts_only": false,
+    "about": true,
+    "source": "The Plant Journal author guidelines (2022 copy): lettering in 8 pt Helvetica if possible, so Check notes rather than warns"
+   },
+   "lines": {
+    "min_pt": null,
+    "max_pt": null,
+    "about": false,
+    "source": "Neither The Plant Journal's guidelines nor Wiley's figure guidelines give line widths, so Check uses mosaic's 0.25 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 600.0,
+    "vector": [],
+    "source": "Wiley's figure guidelines (The Plant Journal's page links to them): images 300 dpi, line art 600 dpi, and figures with both follow line art"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "tiff",
+     "png",
+     "jpeg",
+     "pptx"
+    ],
+    "colour": "either",
+    "max_mb": 10.0,
+    "firm": false,
+    "max_dpi": null,
+    "embed_fonts": false,
+    "no_alpha": false,
+    "source": "Wiley's figure guidelines: PDF or EPS for line art, TIFF or PNG for images, any standard file type after acceptance (SVG isn't among those listed), under 10 MB each preferred; no colour mode stated"
+   }
+  }
+ ],
+ "RULES": {
+  "bioRxiv": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 8.0,
+    "bold": true,
+    "case": "lower",
+    "form": "a",
+    "source": "Matthew's choice for bioRxiv (2026-11-16): bold lower-case a, b, c in 8 pt Helvetica, as his posted figures have them and prose's bioRxiv (in house) legends letter them, (a)",
+    "measured": false
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF): no sizes or fonts for figure text"
+   },
+   "lines": {
+    "min_pt": null,
+    "max_pt": null,
+    "about": false,
+    "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF), so Check uses mosaic's 0.25 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 300.0,
+    "vector": [],
+    "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF), so Check uses mosaic's 300 dpi"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "svg",
+     "png",
+     "tiff",
+     "jpeg",
+     "eps",
+     "pptx"
+    ],
+    "colour": "either",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": false,
+    "no_alpha": false,
+    "source": "bioRxiv sets no rules for figures (a preprint is posted as the authors' own PDF): any of mosaic's files, in RGB or CMYK, to place in the manuscript"
+   }
+  },
+  "Nature": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 8.0,
+    "bold": true,
+    "case": "lower",
+    "form": "a",
+    "source": "Nature's final submission guidelines: 8 pt bold, upright, lowercase a, b, c",
+    "measured": false
+   },
+   "text": {
+    "min_pt": 5.0,
+    "max_pt": 7.0,
+    "fonts": [
+     "Helvetica",
+     "Arial",
+     "Symbol",
+     "Courier"
+    ],
+    "fonts_only": false,
+    "about": false,
+    "source": "Nature's final submission guidelines: text 5–7 pt, sans-serif, preferably Helvetica or Arial (Symbol for Greek, Courier for sequences)"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "Nature's final submission guidelines: line weights 0.25–1 pt at final size"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": null,
+    "line_art": null,
+    "vector": [
+     "line_art",
+     "combination"
+    ],
+    "source": "Nature's final submission guidelines: photos at least 300 dpi at the largest size used; graphs, line art and text over photos as editable vector artwork"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "svg"
+    ],
+    "colour": "rgb_preferred",
+    "max_mb": 50.0,
+    "firm": false,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Nature's figure guide: vector files (PDF or EPS preferred, SVG accepted), not JPEG, TIFF or PNG; RGB recommended, CMYK accepted; files under 50 MB where possible; fonts embedded"
+   }
+  },
+  "Science": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 10.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Science's manuscript instructions: capital A, B, C, 10 pt bold",
+    "measured": false
+   },
+   "text": {
+    "min_pt": 5.0,
+    "max_pt": null,
+    "fonts": [
+     "Helvetica"
+    ],
+    "fonts_only": false,
+    "about": false,
+    "source": "Science's manuscript instructions: about 7 pt and never below 5 pt; sans-serif, Helvetica preferred"
+   },
+   "lines": {
+    "min_pt": 0.5,
+    "max_pt": null,
+    "about": false,
+    "source": "Science's manuscript instructions: lines at least 0.5 pt at the final reduced size (its 2022 figure guide says 0.28 pt)"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 300.0,
+    "vector": [],
+    "source": "Science's revised-manuscript instructions: greyscale and colour images, and line art that isn't vector, at least 300 dpi at final size"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "tiff"
+    ],
+    "colour": "cmyk_preferred",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": false,
+    "no_alpha": false,
+    "source": "Science's revised-manuscript instructions: PDF, EPS or AI preferred, TIFF for raster figures, not Word or PowerPoint; its 2022 figure guide asks for CMYK colour unless the paper is online only"
+   }
+  },
+  "Cell": {
+   "labels": {
+    "font": "Arial",
+    "size": 9.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Cell Press figure guidelines: capital letters; size and weight measured from a published figure (PMC11813165, 2025): 9 pt bold",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 6.0,
+    "max_pt": 8.0,
+    "fonts": [
+     "Arial"
+    ],
+    "fonts_only": true,
+    "about": true,
+    "source": "Cell Press figure guidelines: text about 6–8 pt; Arial only"
+   },
+   "lines": {
+    "min_pt": 0.5,
+    "max_pt": 1.5,
+    "about": false,
+    "source": "Cell Press figure guidelines (Cell's page links to them): line weights 0.5–1.5 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 1000.0,
+    "vector": [],
+    "source": "Cell Press figure guidelines: colour or greyscale figures at least 300 dpi, line art at least 1,000 dpi"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "pdf",
+     "eps",
+     "jpeg"
+    ],
+    "colour": "rgb",
+    "max_mb": 20.0,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Cell Press figure guidelines: TIFF or PDF preferred, EPS and JPEG accepted; RGB; at most 20 MB a figure; fonts embedded"
+   }
+  },
+  "PNAS": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 12.0,
+    "bold": false,
+    "case": "upper",
+    "form": "a",
+    "source": "PNAS's guidelines don't say; measured from a published figure (PMC12772206, 2025): 12 pt regular capitals",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 6.0,
+    "max_pt": 12.0,
+    "fonts": [
+     "Arial",
+     "Helvetica",
+     "Times",
+     "Times New Roman",
+     "Symbol",
+     "Mathematical Pi",
+     "European Pi"
+    ],
+    "fonts_only": false,
+    "about": false,
+    "source": "PNAS's guidelines: 6–12 pt after reduction; standard fonts such as Arial, Helvetica, Times, Symbol"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": null,
+    "about": false,
+    "source": "PNAS Digital Art Guidelines: graph lines at least 0.25 pt wide"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 1000.0,
+    "vector": [],
+    "source": "PNAS Digital Art Guidelines: photos at least 300 ppi, photos with type 600–900 ppi, line art 1000–1200 ppi, at publication size"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps",
+     "pdf",
+     "pptx"
+    ],
+    "colour": "rgb",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "PNAS's submission guidelines: TIFF, EPS, PDF or PPT; its Digital Art Guidelines: original RGB colour, fonts embedded"
+   }
+  },
+  "PLOS Genetics": {
+   "labels": {
+    "font": "Arial",
+    "size": 12.0,
+    "bold": false,
+    "case": "upper",
+    "form": "a",
+    "source": "PLOS figure guidelines: lettered panels, (A) or (a); the look measured from a published figure (PMC12758814, 2025): 12 pt regular capitals",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 8.0,
+    "max_pt": 12.0,
+    "fonts": [
+     "Arial",
+     "Times",
+     "Times New Roman",
+     "Symbol"
+    ],
+    "fonts_only": true,
+    "about": false,
+    "source": "PLOS figure guidelines: Arial, Times or Symbol only, 8–12 pt"
+   },
+   "lines": {
+    "min_pt": null,
+    "max_pt": null,
+    "about": false,
+    "source": "PLOS figure guidelines set no line widths"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 300.0,
+    "vector": [],
+    "source": "PLOS figure guidelines: 300–600 dpi for every figure"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps"
+    ],
+    "colour": "rgb",
+    "max_mb": 10.0,
+    "firm": true,
+    "max_dpi": 600.0,
+    "embed_fonts": true,
+    "no_alpha": true,
+    "source": "PLOS figure guidelines: TIFF or EPS only; RGB or greyscale; 300–600 dpi; 10 MB or less; no alpha channels; fonts embedded"
+   }
+  },
+  "Genetics": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 10.0,
+    "bold": true,
+    "case": "lower",
+    "form": "a",
+    "source": "Genetics author guidelines: lowercase a, b, c at the top left; size and weight measured from a published figure (PMC12693585, 2025): 10 pt bold",
+    "measured": true
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "Genetics's guidelines set no sizes or fonts for figure text"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "OUP's guidance for preparing artwork (the journal's page refers authors to OUP's for the rest): line thickness 0.25–1 pt"
+   },
+   "pictures": {
+    "photo": 350.0,
+    "combination": 600.0,
+    "line_art": 600.0,
+    "vector": [],
+    "source": "Genetics's guidelines: printed pictures at least 350 dpi, line art at least 600 dpi (1200 for complex or fine line art); OUP's guidance for preparing artwork: combination half-tones 600–900 dpi"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "pdf",
+     "eps",
+     "svg",
+     "png"
+    ],
+    "colour": "rgb_preferred",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Genetics's guidelines: TIFF and other raster files, PDF for vector figures, not Word, AI or JPEG; OUP's guidance for preparing artwork: EPS, SVG and PNG too, RGB recommended, fonts embedded"
+   }
+  },
+  "G3": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 10.0,
+    "bold": true,
+    "case": "lower",
+    "form": "a",
+    "source": "G3 author guidelines: lowercase a, b, c at the top left; size and weight measured from a published figure (PMC12836119, 2025): 10 pt Helvetica Bold",
+    "measured": true
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "G3's guidelines set no sizes or fonts for figure text"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "OUP's guidance for preparing artwork (the journal's page refers authors to OUP's for the rest): line thickness 0.25–1 pt"
+   },
+   "pictures": {
+    "photo": 350.0,
+    "combination": 600.0,
+    "line_art": 600.0,
+    "vector": [],
+    "source": "G3's guidelines: printed pictures at least 350 dpi, line art at least 600 dpi (1200 for complex or fine line art); OUP's guidance for preparing artwork: combination half-tones 600–900 dpi"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "pdf",
+     "eps",
+     "svg",
+     "png"
+    ],
+    "colour": "rgb_preferred",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "G3's guidelines: TIFF and other raster files, PDF for vector figures, not Word, AI or JPEG; OUP's guidance for preparing artwork: EPS, SVG and PNG too, RGB recommended, fonts embedded"
+   }
+  },
+  "Genome Research": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 12.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Genome Research's digital art guidelines (final figures): capital A, B, C, 12 pt bold, Helvetica or Arial",
+    "measured": false
+   },
+   "text": {
+    "min_pt": 8.0,
+    "max_pt": 10.0,
+    "fonts": [
+     "Helvetica",
+     "Arial"
+    ],
+    "fonts_only": false,
+    "about": false,
+    "source": "Genome Research's guidelines: 8–10 pt, Helvetica or Arial"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": null,
+    "about": false,
+    "source": "Genome Research's digital art guidelines: rules 0.25 pt or heavier"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 1000.0,
+    "vector": [],
+    "source": "Genome Research's digital art guidelines: halftones 300 dpi, combination halftones 600–900 dpi, line art 1000–1200 dpi, at publication size"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps",
+     "pdf",
+     "jpeg"
+    ],
+    "colour": "rgb",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Genome Research's digital art guidelines: TIFF, EPS, PDF, JPEG or AI only; original RGB colour; fonts embedded"
+   }
+  },
+  "Genome Biology": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 10.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Genome Biology's guidelines don't say; measured from a published figure (PMC12849586, 2025): 10 pt bold capitals",
+    "measured": true
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "Genome Biology's guidelines ask only that text be legible at 85 or 170 mm wide"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": null,
+    "about": false,
+    "source": "Genome Biology's guidelines: all lines wider than 0.25 pt at 85 or 170 mm wide"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 300.0,
+    "vector": [],
+    "source": "Genome Biology's guidelines: about 300 dpi at the final size"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "pptx",
+     "tiff",
+     "jpeg",
+     "png"
+    ],
+    "colour": "either",
+    "max_mb": 10.0,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Genome Biology's guidelines: EPS, PDF, PowerPoint, TIFF, JPEG or PNG (or Word, BMP, CDX); no colour mode stated; figures at most 10 MB; fonts embedded"
+   }
+  },
+  "Heredity": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 9.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Heredity's guidelines don't say; measured from a published figure (PMC13031541, 2025): 9 pt bold capitals",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 5.0,
+    "max_pt": 7.0,
+    "fonts": [
+     "Helvetica",
+     "Arial"
+    ],
+    "fonts_only": false,
+    "about": false,
+    "source": "Springer Nature's artwork guide (linked from Heredity's): 5–7 pt, sans-serif, preferably Helvetica or Arial"
+   },
+   "lines": {
+    "min_pt": null,
+    "max_pt": null,
+    "about": false,
+    "source": "Heredity's house style asks for rules no thinner than 1 pt without saying whether that covers figure lines, and its artwork guide gives no line widths, so Check uses mosaic's 0.25 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": null,
+    "line_art": null,
+    "vector": [
+     "line_art",
+     "combination"
+    ],
+    "source": "Nature Portfolio's guide to preparing final artwork (linked from Heredity's): photos at least 300 dpi; graphs and line art as vector files; text and lines over photos as editable vectors"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "pptx"
+    ],
+    "colour": "rgb",
+    "max_mb": 50.0,
+    "firm": false,
+    "max_dpi": null,
+    "embed_fonts": false,
+    "no_alpha": false,
+    "source": "Nature Portfolio's guide to preparing final artwork: AI, EPS, PDF or editable PowerPoint, not JPEG, PNG or TIFF; RGB; each figure under 50 MB where possible"
+   }
+  },
+  "New Phytologist": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 8.0,
+    "bold": true,
+    "case": "lower",
+    "form": "(a)",
+    "source": "New Phytologist author guidelines: bold lowercase (a), (b); size measured from a published figure (PMC13669809, 2026): 8 pt",
+    "measured": true
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "New Phytologist's guidelines set no sizes or fonts for figure text"
+   },
+   "lines": {
+    "min_pt": 0.7,
+    "max_pt": null,
+    "about": true,
+    "source": "New Phytologist author guidelines: lines about 0.5 mm thick on figures drawn at twice their printed size, so about 0.7 pt printed"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 600.0,
+    "vector": [],
+    "source": "Wiley's figure guidelines (New Phytologist refers authors to them): images 300 dpi, line art 600 dpi, and figures with both follow line art"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "tiff",
+     "png",
+     "jpeg",
+     "pptx"
+    ],
+    "colour": "rgb",
+    "max_mb": 10.0,
+    "firm": false,
+    "max_dpi": null,
+    "embed_fonts": false,
+    "no_alpha": false,
+    "source": "New Phytologist author guidelines: RGB; Wiley's figure guidelines: any standard file type after acceptance (SVG isn't among those listed), under 10 MB each preferred"
+   }
+  },
+  "Molecular Plant": {
+   "labels": {
+    "font": "Arial",
+    "size": 9.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Molecular Plant's guidelines: capital letters in Helvetica or Arial; size and weight measured from a published Cell figure (Cell Press publishes Molecular Plant, and no Molecular Plant figure PDF could be had; PMC11813165, 2025): 9 pt bold",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 6.0,
+    "max_pt": 8.0,
+    "fonts": [
+     "Helvetica",
+     "Arial"
+    ],
+    "fonts_only": true,
+    "about": true,
+    "source": "Molecular Plant's guidelines: Helvetica or Arial only; text about 6–8 pt (Cell Press figure guidelines)"
+   },
+   "lines": {
+    "min_pt": 0.5,
+    "max_pt": 1.5,
+    "about": false,
+    "source": "Cell Press figure guidelines (Molecular Plant's page links to them): line weights 0.5–1.5 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 300.0,
+    "line_art": 1000.0,
+    "vector": [],
+    "source": "Molecular Plant's final file checklist: colour figures at least 300 dpi; line art at least 1,000 dpi (Cell Press figure guidelines)"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps",
+     "pdf",
+     "pptx",
+     "jpeg"
+    ],
+    "colour": "rgb",
+    "max_mb": 20.0,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Molecular Plant's final file checklist: TIFF, EPS, PDF, AI, PPT or JPG; RGB, at most 20 MB a figure and fonts embedded (Cell Press figure guidelines)"
+   }
+  },
+  "Plant Cell": {
+   "labels": {
+    "font": "Arial",
+    "size": 12.0,
+    "bold": true,
+    "case": "lower",
+    "form": "a",
+    "source": "The Plant Cell author guidelines: panel headers in a sans-serif font, 12 pt bold; lowercase as in its current figures (PMC13711675, 2026; its 2020 figure guide asks for capitals)",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 6.0,
+    "max_pt": null,
+    "fonts": [
+     "Arial",
+     "Helvetica"
+    ],
+    "fonts_only": true,
+    "about": false,
+    "source": "The Plant Cell author guidelines: 8 pt recommended, no smaller than 6 pt; Arial or Helvetica, not Times New Roman or Calibri"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "OUP's guidance for preparing artwork (The Plant Cell's pages give no line widths): line thickness 0.25–1 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 1000.0,
+    "vector": [],
+    "source": "The Plant Cell author guidelines: at least 300 PPI; its detailed figure guidelines (2020): 600 ppi for line graphs mixed with photographs, 1,000 ppi for line graphs saved as TIFF"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "jpeg",
+     "eps"
+    ],
+    "colour": "rgb",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "The Plant Cell author guidelines: tif, jpeg or eps (the page dropped PDF in 2026; its 2020 figure guidelines still prefer it); RGB, not CMYK; OUP's guidance for preparing artwork: fonts embedded"
+   }
+  },
+  "Molecular Biology and Evolution": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 10.0,
+    "bold": true,
+    "case": "lower",
+    "form": "(a)",
+    "source": "MBE's guidelines don't say; measured from a published figure (PMC13696352, 2026): (a), (b) in 10 pt bold",
+    "measured": true
+   },
+   "text": {
+    "min_pt": null,
+    "max_pt": null,
+    "fonts": [],
+    "fonts_only": false,
+    "about": false,
+    "source": "MBE's guidelines set no sizes or fonts for figure text"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "OUP's guidance for preparing artwork (MBE's page refers authors to OUP's for the rest): line thickness 0.25–1 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 1200.0,
+    "vector": [],
+    "source": "MBE's guidelines: 300 dpi for colour and half-tone artwork, 1200 dpi for line drawings; OUP's guidance for preparing artwork: combination half-tones 600–900 dpi"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps",
+     "pptx",
+     "pdf",
+     "jpeg"
+    ],
+    "colour": "rgb_preferred",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "MBE's guidelines: .tif, .eps, .ppt, .xls, .doc, .pdf, .gif or .jpg; OUP's guidance for preparing artwork: RGB recommended, fonts embedded"
+   }
+  },
+  "Horticulture Research": {
+   "labels": {
+    "font": "Arial",
+    "size": 10.0,
+    "bold": true,
+    "case": "upper",
+    "form": "a",
+    "source": "Horticulture Research's guidelines: capital letters A, B, C at each panel's upper left; the look measured in published figures (13 articles, 2026): mostly bold, sans-serif ones in Arial (PMC13102514's, kept as text, 8.95 pt Arial Bold), 10 pt the middle size",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 7.0,
+    "max_pt": null,
+    "fonts": [
+     "Arial",
+     "Times New Roman",
+     "Courier",
+     "Symbol"
+    ],
+    "fonts_only": false,
+    "about": true,
+    "source": "OUP's guidance for preparing artwork (linked from Horticulture Research's guidelines): text no less than 7 pt; Arial, Times New Roman, Courier or Symbol. OUP calls its guide tips rather than strict rules, so Check notes rather than warns"
+   },
+   "lines": {
+    "min_pt": 0.25,
+    "max_pt": 1.0,
+    "about": false,
+    "source": "OUP's guidance for preparing artwork (linked from Horticulture Research's guidelines): line thickness 0.25–1 pt"
+   },
+   "pictures": {
+    "photo": 350.0,
+    "combination": 600.0,
+    "line_art": 600.0,
+    "vector": [],
+    "source": "Horticulture Research's guidelines: printed pictures at least 350 dpi, line art at least 600 dpi (1200 for complex or finely drawn line art); OUP's guidance for preparing artwork: combination half-tones 600–900 dpi"
+   },
+   "export": {
+    "formats": [
+     "tiff",
+     "eps",
+     "pdf",
+     "svg",
+     "png"
+    ],
+    "colour": "rgb_preferred",
+    "max_mb": null,
+    "firm": true,
+    "max_dpi": null,
+    "embed_fonts": true,
+    "no_alpha": false,
+    "source": "Horticulture Research's guidelines: TIFF for photographs; EPS, AI or PDF for charts and diagrams; not Word or JPEG; OUP's guidance for preparing artwork: SVG and PNG too, RGB recommended, fonts embedded"
+   }
+  },
+  "The Plant Journal": {
+   "labels": {
+    "font": "Helvetica",
+    "size": 8.0,
+    "bold": false,
+    "case": "lower",
+    "form": "(a)",
+    "source": "The Plant Journal author guidelines (2022 copy): lowercase letters, lettering in 8 pt Helvetica; brackets and regular weight as Wiley letters every label in its published figures (15 articles, 2026, where they print at about 9 pt)",
+    "measured": true
+   },
+   "text": {
+    "min_pt": 8.0,
+    "max_pt": null,
+    "fonts": [
+     "Helvetica"
+    ],
+    "fonts_only": false,
+    "about": true,
+    "source": "The Plant Journal author guidelines (2022 copy): lettering in 8 pt Helvetica if possible, so Check notes rather than warns"
+   },
+   "lines": {
+    "min_pt": null,
+    "max_pt": null,
+    "about": false,
+    "source": "Neither The Plant Journal's guidelines nor Wiley's figure guidelines give line widths, so Check uses mosaic's 0.25 pt"
+   },
+   "pictures": {
+    "photo": 300.0,
+    "combination": 600.0,
+    "line_art": 600.0,
+    "vector": [],
+    "source": "Wiley's figure guidelines (The Plant Journal's page links to them): images 300 dpi, line art 600 dpi, and figures with both follow line art"
+   },
+   "export": {
+    "formats": [
+     "pdf",
+     "eps",
+     "tiff",
+     "png",
+     "jpeg",
+     "pptx"
+    ],
+    "colour": "either",
+    "max_mb": 10.0,
+    "firm": false,
+    "max_dpi": null,
+    "embed_fonts": false,
+    "no_alpha": false,
+    "source": "Wiley's figure guidelines: PDF or EPS for line art, TIFF or PNG for images, any standard file type after acceptance (SVG isn't among those listed), under 10 MB each preferred; no colour mode stated"
+   }
+  }
+ },
+ "BUILT_IN": [
+  "bioRxiv",
+  "Cell",
+  "G3",
+  "Genetics",
+  "Genome Biology",
+  "Genome Research",
+  "Heredity",
+  "Horticulture Research",
+  "Molecular Biology and Evolution",
+  "Molecular Plant",
+  "Nature",
+  "New Phytologist",
+  "Plant Cell",
+  "PLOS Genetics",
+  "PNAS",
+  "Science",
+  "The Plant Journal"
+ ],
+ "STANDARD_SIZES": [
+  {
+   "name": "A4",
+   "width_mm": 210.0,
+   "height_mm": 297.0,
+   "group": "Paper"
+  },
+  {
+   "name": "US Letter",
+   "width_mm": 215.9,
+   "height_mm": 279.4,
+   "group": "Paper"
+  },
+  {
+   "name": "Slide 16:9",
+   "width_mm": 338.66667,
+   "height_mm": 190.5,
+   "group": "Slides"
+  },
+  {
+   "name": "Slide 4:3",
+   "width_mm": 254.0,
+   "height_mm": 190.5,
+   "group": "Slides"
+  },
+  {
+   "name": "Slide 16:10",
+   "width_mm": 254.0,
+   "height_mm": 158.75,
+   "group": "Slides"
+  },
+  {
+   "name": "Poster 48 × 36 in",
+   "width_mm": 1219.2,
+   "height_mm": 914.4,
+   "group": "Posters"
+  },
+  {
+   "name": "Poster A0",
+   "width_mm": 841.0,
+   "height_mm": 1189.0,
+   "group": "Posters"
+  }
+ ],
+ "check": {
+  "bioRxiv": [
+   [
+    "warning",
+    "smallest text is 4.50 pt (below 5.0 pt)"
+   ],
+   [
+    "warning",
+    "thinnest line is 0.10 pt (below 0.25 pt)"
+   ],
+   [
+    "ok",
+    "The page, 85.7 × 120 mm, fits the bioRxiv one column size (at most 241.3 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt (below 0.25 pt)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in bioRxiv's style (a, b, c in bold 8 pt Helvetica)"
+   ]
+  ],
+  "Cell": [
+   [
+    "warning",
+    "smallest text is 4.50 pt (below 5.0 pt)"
+   ],
+   [
+    "ok",
+    "The page, 85 × 120 mm, fits the Cell 1 column size (at most 200 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; Cell asks for at least 0.5 pt"
+   ],
+   [
+    "info",
+    "Line: its line is 2.00 pt; Cell asks for at most 1.5 pt"
+   ],
+   [
+    "info",
+    "“Axis”: text at 4.50 pt; Cell asks for about 6–8 pt"
+   ],
+   [
+    "info",
+    "“Title”: text at 14.00 pt; Cell asks for about 6–8 pt"
+   ],
+   [
+    "warning",
+    "“a”: text in Helvetica; Cell accepts only Arial"
+   ],
+   [
+    "warning",
+    "“Title”: text in Times New Roman; Cell accepts only Arial"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in Cell's style (A, B, C in bold 9 pt Arial as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Cell's style (A, B, C in bold 9 pt Arial as measured in its published figures)"
+   ]
+  ],
+  "G3": [
+   [
+    "warning",
+    "smallest text is 4.50 pt (below 5.0 pt)"
+   ],
+   [
+    "ok",
+    "The page, 85.5 × 120 mm, fits the G3 single column size (at most 243 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; G3 asks for at least 0.25 pt"
+   ],
+   [
+    "info",
+    "Line: its line is 2.00 pt; G3 asks for at most 1 pt"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in G3's style (a, b, c in bold 10 pt Helvetica as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in G3's style (a, b, c in bold 10 pt Helvetica as measured in its published figures)"
+   ]
+  ],
+  "Genetics": [
+   [
+    "warning",
+    "smallest text is 4.50 pt (below 5.0 pt)"
+   ],
+   [
+    "ok",
+    "The page, 85.5 × 120 mm, fits the Genetics single column size (at most 243 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; Genetics asks for at least 0.25 pt"
+   ],
+   [
+    "info",
+    "Line: its line is 2.00 pt; Genetics asks for at most 1 pt"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in Genetics's style (a, b, c in bold 10 pt Helvetica as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Genetics's style (a, b, c in bold 10 pt Helvetica as measured in its published figures)"
+   ]
+  ],
+  "Genome Biology": [
+   [
+    "warning",
+    "smallest text is 4.50 pt (below 5.0 pt)"
+   ],
+   [
+    "ok",
+    "The page, 85 × 120 mm, fits the Genome Biology half page size (at most 225 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; Genome Biology asks for at least 0.25 pt"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in Genome Biology's style (A, B, C in bold 10 pt Helvetica as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Genome Biology's style (A, B, C in bold 10 pt Helvetica as measured in its published figures)"
+   ]
+  ],
+  "Genome Research": [
+   [
+    "ok",
+    "The page, 84.5 × 120 mm, fits the Genome Research single column size (at most 238 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; Genome Research asks for at least 0.25 pt"
+   ],
+   [
+    "warning",
+    "“Axis”: text at 4.50 pt; Genome Research asks for at least 8 pt"
+   ],
+   [
+    "warning",
+    "“Title”: text at 14.00 pt; Genome Research asks for at most 10 pt"
+   ],
+   [
+    "info",
+    "“Title”: text in Times New Roman; Genome Research prefers Helvetica or Arial"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in Genome Research's style (A, B, C in bold 12 pt Helvetica)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Genome Research's style (A, B, C in bold 12 pt Helvetica)"
+   ]
+  ],
+  "Heredity": [
+   [
+    "warning",
+    "thinnest line is 0.10 pt (below 0.25 pt)"
+   ],
+   [
+    "ok",
+    "The page, 87.5 × 120 mm, fits the Heredity single column size (at most 238 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt (below 0.25 pt)"
+   ],
+   [
+    "warning",
+    "“Axis”: text at 4.50 pt; Heredity asks for at least 5 pt"
+   ],
+   [
+    "warning",
+    "“Title”: text at 14.00 pt; Heredity asks for at most 7 pt"
+   ],
+   [
+    "info",
+    "“Title”: text in Times New Roman; Heredity prefers Helvetica or Arial"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in Heredity's style (A, B, C in bold 9 pt Helvetica as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Heredity's style (A, B, C in bold 9 pt Helvetica as measured in its published figures)"
+   ]
+  ],
+  "Horticulture Research": [
+   [
+    "warning",
+    "smallest text is 4.50 pt (below 5.0 pt)"
+   ],
+   [
+    "ok",
+    "The page, 85.5 × 120 mm, fits the Horticulture Research single column size (at most 241 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; Horticulture Research asks for at least 0.25 pt"
+   ],
+   [
+    "info",
+    "Line: its line is 2.00 pt; Horticulture Research asks for at most 1 pt"
+   ],
+   [
+    "info",
+    "“Axis”: text at 4.50 pt; Horticulture Research asks for at least 7 pt"
+   ],
+   [
+    "info",
+    "“a”: text in Helvetica; Horticulture Research prefers Arial, Times New Roman, Courier or Symbol"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in Horticulture Research's style (A, B, C in bold 10 pt Arial as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Horticulture Research's style (A, B, C in bold 10 pt Arial as measured in its published figures)"
+   ]
+  ],
+  "Molecular Biology and Evolution": [
+   [
+    "warning",
+    "smallest text is 4.50 pt (below 5.0 pt)"
+   ],
+   [
+    "ok",
+    "The page, 86 × 120 mm, fits the Molecular Biology and Evolution single column size (at most 236 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; Molecular Biology and Evolution asks for at least 0.25 pt"
+   ],
+   [
+    "info",
+    "Line: its line is 2.00 pt; Molecular Biology and Evolution asks for at most 1 pt"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in Molecular Biology and Evolution's style ((a), (b), (c) in bold 10 pt Helvetica as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Molecular Biology and Evolution's style ((a), (b), (c) in bold 10 pt Helvetica as measured in its published figures)"
+   ]
+  ],
+  "Molecular Plant": [
+   [
+    "warning",
+    "smallest text is 4.50 pt (below 5.0 pt)"
+   ],
+   [
+    "ok",
+    "The page, 85 × 120 mm, fits the Molecular Plant 1 column size (at most 200 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; Molecular Plant asks for at least 0.5 pt"
+   ],
+   [
+    "info",
+    "Line: its line is 2.00 pt; Molecular Plant asks for at most 1.5 pt"
+   ],
+   [
+    "info",
+    "“Axis”: text at 4.50 pt; Molecular Plant asks for about 6–8 pt"
+   ],
+   [
+    "info",
+    "“Title”: text at 14.00 pt; Molecular Plant asks for about 6–8 pt"
+   ],
+   [
+    "warning",
+    "“Title”: text in Times New Roman; Molecular Plant accepts only Helvetica or Arial"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in Molecular Plant's style (A, B, C in bold 9 pt Arial as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Molecular Plant's style (A, B, C in bold 9 pt Arial as measured in its published figures)"
+   ]
+  ],
+  "Nature": [
+   [
+    "ok",
+    "The page, 90 × 120 mm, fits the Nature single column size (at most 170 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; Nature asks for at least 0.25 pt"
+   ],
+   [
+    "info",
+    "Line: its line is 2.00 pt; Nature asks for at most 1 pt"
+   ],
+   [
+    "warning",
+    "“Axis”: text at 4.50 pt; Nature asks for at least 5 pt"
+   ],
+   [
+    "warning",
+    "“Title”: text at 14.00 pt; Nature asks for at most 7 pt"
+   ],
+   [
+    "info",
+    "“Title”: text in Times New Roman; Nature prefers Helvetica, Arial, Symbol or Courier"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Nature's style (a, b, c in bold 8 pt Helvetica)"
+   ]
+  ],
+  "New Phytologist": [
+   [
+    "warning",
+    "smallest text is 4.50 pt (below 5.0 pt)"
+   ],
+   [
+    "ok",
+    "The page, 80 × 120 mm, fits the New Phytologist single column size (at most 226 mm tall)"
+   ],
+   [
+    "info",
+    "Line: its line is 0.10 pt; New Phytologist asks for at least 0.7 pt"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in New Phytologist's style ((a), (b), (c) in bold 8 pt Helvetica as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in New Phytologist's style ((a), (b), (c) in bold 8 pt Helvetica as measured in its published figures)"
+   ]
+  ],
+  "Plant Cell": [
+   [
+    "ok",
+    "The page, 82.5 × 120 mm, fits the Plant Cell one column size (at most 200 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; Plant Cell asks for at least 0.25 pt"
+   ],
+   [
+    "info",
+    "Line: its line is 2.00 pt; Plant Cell asks for at most 1 pt"
+   ],
+   [
+    "warning",
+    "“Axis”: text at 4.50 pt; Plant Cell asks for at least 6 pt"
+   ],
+   [
+    "warning",
+    "“Title”: text in Times New Roman; Plant Cell accepts only Arial or Helvetica"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in Plant Cell's style (a, b, c in bold 12 pt Arial as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Plant Cell's style (a, b, c in bold 12 pt Arial as measured in its published figures)"
+   ]
+  ],
+  "PLOS Genetics": [
+   [
+    "warning",
+    "thinnest line is 0.10 pt (below 0.25 pt)"
+   ],
+   [
+    "ok",
+    "The page, 66.8 × 120 mm, fits the PLOS Genetics minimum width size (at most 222.3 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt (below 0.25 pt)"
+   ],
+   [
+    "warning",
+    "“Axis”: text at 4.50 pt; PLOS Genetics asks for at least 8 pt"
+   ],
+   [
+    "warning",
+    "“Title”: text at 14.00 pt; PLOS Genetics asks for at most 12 pt"
+   ],
+   [
+    "warning",
+    "“a”: text in Helvetica; PLOS Genetics accepts only Arial, Times, Times New Roman or Symbol"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in PLOS Genetics's style (A, B, C in 12 pt Arial as measured in its published figures)"
+   ]
+  ],
+  "PNAS": [
+   [
+    "ok",
+    "The page, 87 × 120 mm, fits the PNAS 1 column size (at most 225 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; PNAS asks for at least 0.25 pt"
+   ],
+   [
+    "warning",
+    "“Axis”: text at 4.50 pt; PNAS asks for at least 6 pt"
+   ],
+   [
+    "warning",
+    "“Title”: text at 14.00 pt; PNAS asks for at most 12 pt"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in PNAS's style (A, B, C in 12 pt Helvetica as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in PNAS's style (A, B, C in 12 pt Helvetica as measured in its published figures)"
+   ]
+  ],
+  "Science": [
+   [
+    "ok",
+    "The page, 57 × 120 mm, fits the Science 1 column size (at most 199 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt; Science asks for at least 0.5 pt"
+   ],
+   [
+    "warning",
+    "“Axis”: text at 4.50 pt; Science asks for at least 5 pt"
+   ],
+   [
+    "info",
+    "“B”: text in Arial; Science prefers Helvetica"
+   ],
+   [
+    "info",
+    "“Title”: text in Times New Roman; Science prefers Helvetica"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in Science's style (A, B, C in bold 10 pt Helvetica)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in Science's style (A, B, C in bold 10 pt Helvetica)"
+   ]
+  ],
+  "The Plant Journal": [
+   [
+    "warning",
+    "smallest text is 4.50 pt (below 5.0 pt)"
+   ],
+   [
+    "warning",
+    "thinnest line is 0.10 pt (below 0.25 pt)"
+   ],
+   [
+    "ok",
+    "The page, 80 × 120 mm, fits the The Plant Journal single column size (at most 226 mm tall)"
+   ],
+   [
+    "warning",
+    "Line: its line is 0.10 pt (below 0.25 pt)"
+   ],
+   [
+    "info",
+    "“Axis”: text at 4.50 pt; The Plant Journal asks for at least 8 pt"
+   ],
+   [
+    "info",
+    "“B”: text in Arial; The Plant Journal prefers Helvetica"
+   ],
+   [
+    "info",
+    "“Title”: text in Times New Roman; The Plant Journal prefers Helvetica"
+   ],
+   [
+    "info",
+    "Panel label “a” isn't in The Plant Journal's style ((a), (b), (c) in 8 pt Helvetica as measured in its published figures)"
+   ],
+   [
+    "info",
+    "Panel label “B” isn't in The Plant Journal's style ((a), (b), (c) in 8 pt Helvetica as measured in its published figures)"
+   ]
+  ]
+ },
+ "export_check": {
+  "bioRxiv": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "bioRxiv",
+     "message": "bioRxiv takes PDF, SVG, PNG, TIFF, JPEG, EPS or PowerPoint files in RGB or CMYK colour"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "bioRxiv",
+     "message": "bioRxiv takes PDF, SVG, PNG, TIFF, JPEG, EPS or PowerPoint files in RGB or CMYK colour"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "bioRxiv",
+     "message": "bioRxiv takes PDF, SVG, PNG, TIFF, JPEG, EPS or PowerPoint files in RGB or CMYK colour"
+    }
+   ]
+  },
+  "Cell": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Cell",
+     "message": "Cell takes TIFF, PDF, EPS or JPEG files in RGB colour, at most 20 MB each"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Cell",
+     "message": "Cell takes TIFF, PDF, EPS or JPEG files in RGB colour, at most 20 MB each"
+    },
+    {
+     "level": "warning",
+     "journal": "Cell",
+     "message": "TIFF at 300 dpi: Cell asks for at least 1000 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Cell",
+     "message": "Cell takes TIFF, PDF, EPS or JPEG files in RGB colour, at most 20 MB each"
+    },
+    {
+     "level": "warning",
+     "journal": "Cell",
+     "message": "Cell doesn't take SVG files for final figures"
+    }
+   ]
+  },
+  "G3": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "G3",
+     "message": "G3 takes TIFF, PDF, EPS, SVG or PNG files in RGB (preferred) or CMYK colour"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "G3",
+     "message": "G3 takes TIFF, PDF, EPS, SVG or PNG files in RGB (preferred) or CMYK colour"
+    },
+    {
+     "level": "warning",
+     "journal": "G3",
+     "message": "TIFF at 300 dpi: G3 asks for at least 600 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "G3",
+     "message": "G3 takes TIFF, PDF, EPS, SVG or PNG files in RGB (preferred) or CMYK colour"
+    }
+   ]
+  },
+  "Genetics": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Genetics",
+     "message": "Genetics takes TIFF, PDF, EPS, SVG or PNG files in RGB (preferred) or CMYK colour"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Genetics",
+     "message": "Genetics takes TIFF, PDF, EPS, SVG or PNG files in RGB (preferred) or CMYK colour"
+    },
+    {
+     "level": "warning",
+     "journal": "Genetics",
+     "message": "TIFF at 300 dpi: Genetics asks for at least 600 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Genetics",
+     "message": "Genetics takes TIFF, PDF, EPS, SVG or PNG files in RGB (preferred) or CMYK colour"
+    }
+   ]
+  },
+  "Genome Biology": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Genome Biology",
+     "message": "Genome Biology takes PDF, EPS, PowerPoint, TIFF, JPEG or PNG files in RGB or CMYK colour, at most 10 MB each"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Genome Biology",
+     "message": "Genome Biology takes PDF, EPS, PowerPoint, TIFF, JPEG or PNG files in RGB or CMYK colour, at most 10 MB each"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Genome Biology",
+     "message": "Genome Biology takes PDF, EPS, PowerPoint, TIFF, JPEG or PNG files in RGB or CMYK colour, at most 10 MB each"
+    },
+    {
+     "level": "warning",
+     "journal": "Genome Biology",
+     "message": "Genome Biology doesn't take SVG files for final figures"
+    }
+   ]
+  },
+  "Genome Research": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Genome Research",
+     "message": "Genome Research takes TIFF, EPS, PDF or JPEG files in RGB colour"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Genome Research",
+     "message": "Genome Research takes TIFF, EPS, PDF or JPEG files in RGB colour"
+    },
+    {
+     "level": "warning",
+     "journal": "Genome Research",
+     "message": "TIFF at 300 dpi: Genome Research asks for at least 1000 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Genome Research",
+     "message": "Genome Research takes TIFF, EPS, PDF or JPEG files in RGB colour"
+    },
+    {
+     "level": "warning",
+     "journal": "Genome Research",
+     "message": "Genome Research doesn't take SVG files for final figures"
+    }
+   ]
+  },
+  "Heredity": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Heredity",
+     "message": "Heredity takes PDF, EPS or PowerPoint files in RGB colour, under 50 MB each where possible"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Heredity",
+     "message": "Heredity takes PDF, EPS or PowerPoint files in RGB colour, under 50 MB each where possible"
+    },
+    {
+     "level": "warning",
+     "journal": "Heredity",
+     "message": "Heredity doesn't take TIFF files for final figures"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Heredity",
+     "message": "Heredity takes PDF, EPS or PowerPoint files in RGB colour, under 50 MB each where possible"
+    },
+    {
+     "level": "warning",
+     "journal": "Heredity",
+     "message": "Heredity doesn't take SVG files for final figures"
+    }
+   ]
+  },
+  "Horticulture Research": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Horticulture Research",
+     "message": "Horticulture Research takes TIFF, EPS, PDF, SVG or PNG files in RGB (preferred) or CMYK colour"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Horticulture Research",
+     "message": "Horticulture Research takes TIFF, EPS, PDF, SVG or PNG files in RGB (preferred) or CMYK colour"
+    },
+    {
+     "level": "warning",
+     "journal": "Horticulture Research",
+     "message": "TIFF at 300 dpi: Horticulture Research asks for at least 600 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Horticulture Research",
+     "message": "Horticulture Research takes TIFF, EPS, PDF, SVG or PNG files in RGB (preferred) or CMYK colour"
+    }
+   ]
+  },
+  "Molecular Biology and Evolution": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Molecular Biology and Evolution",
+     "message": "Molecular Biology and Evolution takes TIFF, EPS, PowerPoint, PDF or JPEG files in RGB (preferred) or CMYK colour"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Molecular Biology and Evolution",
+     "message": "Molecular Biology and Evolution takes TIFF, EPS, PowerPoint, PDF or JPEG files in RGB (preferred) or CMYK colour"
+    },
+    {
+     "level": "warning",
+     "journal": "Molecular Biology and Evolution",
+     "message": "TIFF at 300 dpi: Molecular Biology and Evolution asks for at least 1200 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Molecular Biology and Evolution",
+     "message": "Molecular Biology and Evolution takes TIFF, EPS, PowerPoint, PDF or JPEG files in RGB (preferred) or CMYK colour"
+    },
+    {
+     "level": "warning",
+     "journal": "Molecular Biology and Evolution",
+     "message": "Molecular Biology and Evolution doesn't take SVG files for final figures"
+    }
+   ]
+  },
+  "Molecular Plant": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Molecular Plant",
+     "message": "Molecular Plant takes TIFF, EPS, PDF, PowerPoint or JPEG files in RGB colour, at most 20 MB each"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Molecular Plant",
+     "message": "Molecular Plant takes TIFF, EPS, PDF, PowerPoint or JPEG files in RGB colour, at most 20 MB each"
+    },
+    {
+     "level": "warning",
+     "journal": "Molecular Plant",
+     "message": "TIFF at 300 dpi: Molecular Plant asks for at least 1000 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Molecular Plant",
+     "message": "Molecular Plant takes TIFF, EPS, PDF, PowerPoint or JPEG files in RGB colour, at most 20 MB each"
+    },
+    {
+     "level": "warning",
+     "journal": "Molecular Plant",
+     "message": "Molecular Plant doesn't take SVG files for final figures"
+    }
+   ]
+  },
+  "Nature": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Nature",
+     "message": "Nature takes PDF, EPS or SVG files in RGB (preferred) or CMYK colour, under 50 MB each where possible"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Nature",
+     "message": "Nature takes PDF, EPS or SVG files in RGB (preferred) or CMYK colour, under 50 MB each where possible"
+    },
+    {
+     "level": "warning",
+     "journal": "Nature",
+     "message": "Nature doesn't take TIFF files for final figures"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Nature",
+     "message": "Nature takes PDF, EPS or SVG files in RGB (preferred) or CMYK colour, under 50 MB each where possible"
+    }
+   ]
+  },
+  "New Phytologist": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "New Phytologist",
+     "message": "New Phytologist takes PDF, EPS, TIFF, PNG, JPEG or PowerPoint files in RGB colour, under 10 MB each where possible"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "New Phytologist",
+     "message": "New Phytologist takes PDF, EPS, TIFF, PNG, JPEG or PowerPoint files in RGB colour, under 10 MB each where possible"
+    },
+    {
+     "level": "warning",
+     "journal": "New Phytologist",
+     "message": "TIFF at 300 dpi: New Phytologist asks for at least 600 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "New Phytologist",
+     "message": "New Phytologist takes PDF, EPS, TIFF, PNG, JPEG or PowerPoint files in RGB colour, under 10 MB each where possible"
+    },
+    {
+     "level": "warning",
+     "journal": "New Phytologist",
+     "message": "New Phytologist doesn't take SVG files for final figures"
+    }
+   ]
+  },
+  "Plant Cell": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Plant Cell",
+     "message": "Plant Cell takes TIFF, JPEG or EPS files in RGB colour"
+    },
+    {
+     "level": "warning",
+     "journal": "Plant Cell",
+     "message": "Plant Cell doesn't take PDF files for final figures"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Plant Cell",
+     "message": "Plant Cell takes TIFF, JPEG or EPS files in RGB colour"
+    },
+    {
+     "level": "warning",
+     "journal": "Plant Cell",
+     "message": "TIFF at 300 dpi: Plant Cell asks for at least 1000 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Plant Cell",
+     "message": "Plant Cell takes TIFF, JPEG or EPS files in RGB colour"
+    },
+    {
+     "level": "warning",
+     "journal": "Plant Cell",
+     "message": "Plant Cell doesn't take SVG files for final figures"
+    }
+   ]
+  },
+  "PLOS Genetics": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "PLOS Genetics",
+     "message": "PLOS Genetics takes TIFF or EPS files in RGB colour, at most 10 MB each"
+    },
+    {
+     "level": "warning",
+     "journal": "PLOS Genetics",
+     "message": "PLOS Genetics doesn't take PDF files for final figures"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "PLOS Genetics",
+     "message": "PLOS Genetics takes TIFF or EPS files in RGB colour, at most 10 MB each"
+    },
+    {
+     "level": "warning",
+     "journal": "PLOS Genetics",
+     "message": "PLOS Genetics takes no transparency (alpha channels): set Background to White"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "PLOS Genetics",
+     "message": "PLOS Genetics takes TIFF or EPS files in RGB colour, at most 10 MB each"
+    },
+    {
+     "level": "warning",
+     "journal": "PLOS Genetics",
+     "message": "PLOS Genetics doesn't take SVG files for final figures"
+    }
+   ]
+  },
+  "PNAS": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "PNAS",
+     "message": "PNAS takes TIFF, EPS, PDF or PowerPoint files in RGB colour"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "PNAS",
+     "message": "PNAS takes TIFF, EPS, PDF or PowerPoint files in RGB colour"
+    },
+    {
+     "level": "warning",
+     "journal": "PNAS",
+     "message": "TIFF at 300 dpi: PNAS asks for at least 1000 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "PNAS",
+     "message": "PNAS takes TIFF, EPS, PDF or PowerPoint files in RGB colour"
+    },
+    {
+     "level": "warning",
+     "journal": "PNAS",
+     "message": "PNAS doesn't take SVG files for final figures"
+    }
+   ]
+  },
+  "Science": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "Science",
+     "message": "Science takes PDF, EPS or TIFF files in CMYK (preferred for print) or RGB colour"
+    },
+    {
+     "level": "info",
+     "journal": "Science",
+     "message": "Science asks for CMYK colour for print (More options)"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "Science",
+     "message": "Science takes PDF, EPS or TIFF files in CMYK (preferred for print) or RGB colour"
+    },
+    {
+     "level": "info",
+     "journal": "Science",
+     "message": "Science asks for CMYK colour for print (More options)"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "Science",
+     "message": "Science takes PDF, EPS or TIFF files in CMYK (preferred for print) or RGB colour"
+    },
+    {
+     "level": "warning",
+     "journal": "Science",
+     "message": "Science doesn't take SVG files for final figures"
+    },
+    {
+     "level": "info",
+     "journal": "Science",
+     "message": "Science asks for CMYK colour for print (More options)"
+    }
+   ]
+  },
+  "The Plant Journal": {
+   "pdf": [
+    {
+     "level": "info",
+     "journal": "The Plant Journal",
+     "message": "The Plant Journal takes PDF, EPS, TIFF, PNG, JPEG or PowerPoint files in RGB or CMYK colour, under 10 MB each where possible"
+    }
+   ],
+   "tiff": [
+    {
+     "level": "info",
+     "journal": "The Plant Journal",
+     "message": "The Plant Journal takes PDF, EPS, TIFF, PNG, JPEG or PowerPoint files in RGB or CMYK colour, under 10 MB each where possible"
+    },
+    {
+     "level": "warning",
+     "journal": "The Plant Journal",
+     "message": "TIFF at 300 dpi: The Plant Journal asks for at least 600 dpi for line art"
+    }
+   ],
+   "svg": [
+    {
+     "level": "info",
+     "journal": "The Plant Journal",
+     "message": "The Plant Journal takes PDF, EPS, TIFF, PNG, JPEG or PowerPoint files in RGB or CMYK colour, under 10 MB each where possible"
+    },
+    {
+     "level": "warning",
+     "journal": "The Plant Journal",
+     "message": "The Plant Journal doesn't take SVG files for final figures"
+    }
+   ]
+  }
+ },
+ "relabel": {
+  "bioRxiv": {
+   "counts": [
+    0
+   ],
+   "preset": {
+    "journal": "bioRxiv"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 8.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "a"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Cell": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "Cell",
+    "type": "Full width"
+   },
+   "labels": [
+    [
+     {
+      "font": "Arial",
+      "size": 9.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "A"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "G3": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "G3",
+    "type": "Double column"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 10.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "a"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Genetics": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "Genetics",
+    "type": "Double column"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 10.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "a"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Genome Biology": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "Genome Biology",
+    "type": "Full page"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 10.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "A"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Genome Research": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "Genome Research",
+    "type": "Double column"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 12.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "A"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Heredity": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "Heredity",
+    "type": "Double column"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 9.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "A"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Horticulture Research": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "Horticulture Research",
+    "type": "Double column"
+   },
+   "labels": [
+    [
+     {
+      "font": "Arial",
+      "size": 10.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "A"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Molecular Biology and Evolution": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "Molecular Biology and Evolution",
+    "type": "Double column"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 10.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "(a)"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Molecular Plant": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "Molecular Plant",
+    "type": "Full width"
+   },
+   "labels": [
+    [
+     {
+      "font": "Arial",
+      "size": 9.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "A"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Nature": {
+   "counts": [
+    0
+   ],
+   "preset": {
+    "journal": "Nature",
+    "type": "Double column"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 8.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "a"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "New Phytologist": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "New Phytologist",
+    "type": "Double column"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 8.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "(a)"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Plant Cell": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "Plant Cell",
+    "type": "Two columns"
+   },
+   "labels": [
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "a"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "PLOS Genetics": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "PLOS Genetics",
+    "type": "Full width"
+   },
+   "labels": [
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "A"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "PNAS": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "PNAS",
+    "type": "2 columns"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "A"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "Science": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "Science",
+    "type": "3 columns"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 10.0,
+      "bold": true,
+      "italic": false,
+      "color": "#000000",
+      "t": "A"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  },
+  "The Plant Journal": {
+   "counts": [
+    1
+   ],
+   "preset": {
+    "journal": "The Plant Journal",
+    "type": "Double column"
+   },
+   "labels": [
+    [
+     {
+      "font": "Helvetica",
+      "size": 8.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "(a)"
+     }
+    ],
+    [
+     {
+      "font": "Arial",
+      "size": 12.0,
+      "bold": false,
+      "italic": false,
+      "color": "#000000",
+      "t": "B"
+     }
+    ]
+   ]
+  }
+ },
+ "fit": {
+  "bioRxiv": [
+   {
+    "type": {
+     "name": "One column",
+     "width_mm": 85.7
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": false
+   }
+  ],
+  "Cell": [
+   {
+    "type": {
+     "name": "1 column",
+     "width_mm": 85.0
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "G3": [
+   {
+    "type": {
+     "name": "Single column",
+     "width_mm": 85.5
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "Genetics": [
+   {
+    "type": {
+     "name": "Single column",
+     "width_mm": 85.5
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "Genome Biology": [
+   {
+    "type": {
+     "name": "Half page",
+     "width_mm": 85.0
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "Genome Research": [
+   {
+    "type": {
+     "name": "Single column",
+     "width_mm": 84.5
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "Heredity": [
+   {
+    "type": {
+     "name": "Single column",
+     "width_mm": 87.5
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "Horticulture Research": [
+   {
+    "type": {
+     "name": "Single column",
+     "width_mm": 85.5
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "Molecular Biology and Evolution": [
+   {
+    "type": {
+     "name": "Single column",
+     "width_mm": 86.0
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "Molecular Plant": [
+   {
+    "type": {
+     "name": "1 column",
+     "width_mm": 85.0
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "Nature": [
+   {
+    "type": {
+     "name": "Single column",
+     "width_mm": 90.0
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "New Phytologist": [
+   {
+    "type": {
+     "name": "Single column",
+     "width_mm": 80.0
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "Plant Cell": [
+   {
+    "type": {
+     "name": "One column",
+     "width_mm": 82.5
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "PLOS Genetics": [
+   {
+    "type": {
+     "name": "Minimum width",
+     "width_mm": 66.8
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "PNAS": [
+   {
+    "type": {
+     "name": "1 column",
+     "width_mm": 87.0
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "Science": [
+   {
+    "type": {
+     "name": "1 column",
+     "width_mm": 57.0
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ],
+  "The Plant Journal": [
+   {
+    "type": {
+     "name": "Single column",
+     "width_mm": 80.0
+    },
+    "wide": false,
+    "deep": false,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": true,
+    "deep": true,
+    "odd": false
+   },
+   {
+    "type": null,
+    "wide": false,
+    "deep": false,
+    "odd": true
+   }
+  ]
+ }
+}
