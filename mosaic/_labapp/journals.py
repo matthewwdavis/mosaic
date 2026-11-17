@@ -22,7 +22,7 @@ down to the whole millimetre. Checked against PNAS's published sizes, the method
 width within 0.2 mm; the full text width can be up to ~3 mm wider than a journal's stated
 double-column figure width.
 
-bioRxiv is no journal's layout but Matthew's choice for the Monroe lab's preprints (2026-11-16):
+bioRxiv is no journal's layout but Matthew's choice for his lab's preprints (prose's "bioRxiv (in house)" template) (2026-11-16):
 a figure may be any size within a US Letter page's text area (0.75 in margins: 7 x 9.5 in), with
 one column of the lab's two-column template (3.375 in) and the full width as presets, and up to
 180 mm wide (Nature's double column, which he has posted to bioRxiv before): prose prints one
@@ -70,7 +70,7 @@ JOURNALS = sorted([
         "max_width_mm": 180.0,
         "note": "Any size on a US Letter page's text area: up to 7 in (177.8 mm) wide and 9.5 in (241.3 mm) tall, "
                 "legend aside; up to 180 mm wide, printed scaled to the 7 in text width. One column (3.375 in, "
-                "85.7 mm) and full width are presets for the Monroe lab's two-column template.",
+                "85.7 mm) and full width are presets for prose's in-house bioRxiv two-column template.",
         "source": "Matthew's choice for the Monroe lab's bioRxiv preprints (2026-11-16): a US Letter page with 0.75 in "
                   "margins, as the lab's template has, and 180 mm figures, which he has posted there; bioRxiv itself "
                   "sets no figure sizes",
@@ -234,7 +234,7 @@ _OUP = "OUP's guidance for preparing artwork"
 RULES = {
     "bioRxiv": {
         "labels": _labels("Helvetica", 8.0, True, "lower", "Matthew's choice for bioRxiv (2026-11-16): bold lower-case a, b, "
-                          "c in 8 pt Helvetica, as his posted figures have them and prose's bioRxiv (Monroe lab) "
+                          "c in 8 pt Helvetica, as his posted figures have them and prose's bioRxiv (in house) "
                           "legends letter them, (a)"),
         "text": _text(f"{_BIORXIV}: no sizes or fonts for figure text"),
         "lines": _lines(f"{_BIORXIV}, so Check uses mosaic's 0.25 pt"),
