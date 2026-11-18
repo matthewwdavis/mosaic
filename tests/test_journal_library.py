@@ -118,11 +118,15 @@ def test_the_find_dialogs_words():
     node = shutil.which("node") or os.path.join(os.path.dirname(sys.executable), "node")
     if not os.path.isfile(node):
         pytest.skip("no Node here")
+    import pathlib
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    code = ("import('" + os.path.join(here, "mosaic", "ui", "js", "journalfind.js").replace("\\", "/") + "').then((m) => {"
+    # (a file:// address: Node takes a Windows path's drive letter, D:, for an address's scheme)
+    module = pathlib.Path(here, "mosaic", "ui", "js", "journalfind.js").as_uri()
+    code = ("import('" + module + "').then((m) => {"
             "const [n, b, line] = m.describeResult({name: 'Tree', verified: 'community', publisher: 'Springer', issn: ['1614-2942'], where: 'library'});"
             "const t = m.typeLabels({types: [{name: 'Single column', width_mm: 84}], depth_mm: 234});"
             "console.log(JSON.stringify([n, b.label, line, t]));})")
-    out = subprocess.run([node, "-e", code], capture_output=True, text=True, check=True).stdout
+    # (Node writes UTF-8; Windows would read it in its own code page and garble "·" and "×")
+    out = subprocess.run([node, "-e", code], capture_output=True, text=True, encoding="utf-8", check=True).stdout
     assert json.loads(out) == ["Tree", "Community", "Springer · ISSN 1614-2942 · from the library",
                                [{"type": "Single column", "label": "Single column (84 mm × 234 mm)"}]]
