@@ -8,7 +8,11 @@ letter ("a", "(a)", "a."), as Check finds them (export/preflight.py is_label). E
 journal's font, size and weight, and its letter the journal's case and form, where it still has the
 look of the page's journal before, so what was changed by hand in a label stays; a page with no
 journal before takes all of it. The page then has the new journal's preset (its size kept), so
-Check judges it by that journal's rules."""
+Check judges it by that journal's rules.
+
+Significance brackets' quick-set p-values still as set ("p < 0.05", its p in italics) are written
+as the journal writes P values (follow_p_values; ui/js/brackets.js followPValues: keep the two in
+step), unless the figure says p or P throughout."""
 from __future__ import annotations
 
 import json
@@ -120,6 +124,76 @@ def fit_label(resolver, item: dict, page_width: float) -> None:
             item["frame"] = [x, y, fitted[2], fitted[3]] if wrap else fitted
 
 
+# Brackets' quick-set p-values (brackets.js) -------------------------------------------------------
+
+P_DEFAULT = {"letter": "p", "italic": True, "space": True, "zero": True}
+
+
+def p_style(journal_name: str | None, doc: dict) -> dict:
+    """How P values are written on a page of this journal (its house style; lowercase where it
+    doesn't say), with the figure's own choice of letter over it (meta.p_letter)."""
+    from .journals import p_styles
+    js = p_styles().get(journal_name or "", {}) if journal_name else {}
+    st = dict(P_DEFAULT)
+    for k in ("italic", "space", "zero"):
+        if isinstance(js.get(k), bool):
+            st[k] = js[k]
+    if js.get("letter") == "P":
+        st["letter"] = "P"
+    own = (doc.get("meta") or {}).get("p_letter")
+    if own in ("p", "P"):
+        st["letter"] = own
+    return st
+
+
+def p_text(v: str, st: dict) -> str:
+    """ "p < 0.05", or "P<.05" and the like, as the style says."""
+    return f"{st['letter']}{' < ' if st['space'] else '<'}{v if st['zero'] else re.sub(r'^0(?=\.)', '', v)}"
+
+
+def _runs(item: dict) -> list[dict]:
+    out = []
+    for i, p in enumerate((item.get("text") or {}).get("paragraphs") or []):
+        if i:
+            out.append({"t": "\n"})
+        out += p.get("runs") or []
+    return [r for r in out if r.get("t")]
+
+
+def _sig(item: dict) -> str:
+    """A rich label's letters and which are in italics, as brackets.js writes it (pset.sig)."""
+    marks = [[r["t"], bool(r["italic"] if r.get("italic") is not None else item.get("italic"))] for r in _runs(item)]
+    return json.dumps(marks, ensure_ascii=False, separators=(",", ":"))
+
+
+def follow_p_values(items: list, st: dict) -> int:
+    """Quick-set p-values still as set, written in this style (the letter's run keeping its own
+    look, the rest the last run's); one changed by hand lets go of its quick-set. How many changed."""
+    n = 0
+    for it in iter_items(items):
+        pset = it.get("pset")
+        if it.get("type") != "bracket" or not pset:
+            continue
+        if _sig(it) != pset.get("sig"):
+            del it["pset"]
+            continue
+        runs = _runs(it)
+        want = p_text(str(pset["v"]), st)
+        if "".join(r["t"] for r in runs) == want and bool(runs and runs[0].get("italic")) == bool(st["italic"]):
+            continue
+        lead, keep = (dict(runs[0]), dict(runs[-1])) if runs else ({}, {})
+        letter = {**lead, "t": st["letter"]}
+        letter.pop("italic", None)
+        if st["italic"]:
+            letter["italic"] = True
+        rest = {**keep, "t": want[1:]}
+        it["text"] = {"paragraphs": [{"runs": [letter, rest]}]}
+        it["label"] = want
+        pset["sig"] = _sig(it)
+        n += 1
+    return n
+
+
 def relabel(doc: dict, journal: dict, fonts=None) -> list[int]:
     """Every page's panel labels in the journal's look, and its preset the journal's (in place).
     Returns how many labels changed on each page. With a font index, each changed label's box is
@@ -143,5 +217,6 @@ def relabel(doc: dict, journal: dict, fonts=None) -> list[int]:
                         fit_label(resolver, item, float(page["width"]))
         kind = figure_type(journal, float(page["width"]))
         page["preset"] = {"journal": journal["name"], **({"type": kind} if kind else {})}
+        follow_p_values(page.get("items", []), p_style(journal["name"], doc))   # (brackets' quick-set p-values)
         counts.append(len(changed))
     return counts

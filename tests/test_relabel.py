@@ -168,3 +168,27 @@ def test_the_boxes_are_fitted_for_an_export_without_a_copy(tmp_path, monkeypatch
     assert cli.main(["export", str(src), "--journal", "New Phytologist", "--dry-run", "--json"]) == 0
     assert seen[0] is not None and seen[1] is None
     capsys.readouterr()
+
+
+def test_quick_set_p_values_follow_the_journal_and_hand_changes_stay():
+    import json
+    from mosaic.journals import p_styles
+    from mosaic.relabel import find_journal, relabel
+    styles = p_styles()
+    capital = next(n for n, v in styles.items() if v.get("letter") == "P")
+    sig = lambda runs: json.dumps([[r["t"], bool(r.get("italic"))] for r in runs], separators=(",", ":"))   # noqa: E731
+    as_set = [{"t": "p", "italic": True}, {"t": " < 0.05"}]
+    edited = [{"t": "p", "italic": True}, {"t": " < 0.04"}]
+    bracket = lambda i, runs, label, pset_runs: {"id": i, "type": "bracket", "frame": [10, 10, 60, 13], "label": label, "dir": "up",   # noqa: E731
+                                                 "text": {"paragraphs": [{"runs": runs}]}, "pset": {"v": "0.05", "sig": sig(pset_runs)}}
+    doc = {"mosaic": 1, "meta": {}, "assets": {}, "pages": [{"id": "pg", "width": 500, "height": 500, "items": [
+        bracket("a", as_set, "p < 0.05", as_set), bracket("b", edited, "p < 0.04", as_set)]}]}
+    relabel(doc, find_journal(capital))
+    a, b = doc["pages"][0]["items"]
+    assert a["label"] == "P < 0.05" and a["text"]["paragraphs"][0]["runs"] == [{"t": "P", "italic": True}, {"t": " < 0.05"}]
+    assert a["pset"]["sig"] == sig(a["text"]["paragraphs"][0]["runs"])   # (still as set: it follows the next journal too)
+    assert b["label"] == "p < 0.04" and "pset" not in b   # changed by hand: kept, no longer a quick-set
+    # The figure's own choice of letter wins
+    doc["meta"]["p_letter"] = "p"
+    relabel(doc, find_journal(capital))
+    assert doc["pages"][0]["items"][0]["label"] == "p < 0.05"

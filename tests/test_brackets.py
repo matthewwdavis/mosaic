@@ -53,3 +53,17 @@ def test_a_bracket_with_a_line_of_its_own_and_its_label_a_gap_from_it():
     text_only = resolver.resolve({**new, "stroke": {**new["stroke"], "opacity": 1},
                                   "outline": {"color": "#ffffff", "width": 0.5, "text": True, "lines": False}})
     assert len(lines_only.prims) > plain and len(both.prims) > len(lines_only.prims) and len(text_only.prims) == len(both.prims) - (len(lines_only.prims) - plain)
+
+
+def test_a_rich_label_only_its_p_in_italics():
+    from mosaic.resolve import DrawText, Resolver
+    bracket = {"id": "b", "type": "bracket", "frame": [10, 10, 60, 13], "label": "P < 0.05", "size": 7, "dir": "up", "tick": 4, "bold": True,
+               "stroke": {"color": "#0072b2", "width": 0.75}, "text": {"paragraphs": [{"runs": [{"t": "P", "italic": True}, {"t": " < 0.05"}]}]}}
+    r = Resolver({"assets": {}}).resolve(bracket)
+    runs = [run for p in r.prims if isinstance(p, DrawText) for run in p.runs]
+    assert "".join(run.text for run in runs) == "P < 0.05"
+    italic = [("Italic" in run.face.ps_name or "Oblique" in run.face.ps_name or run.skew > 0) for run in runs]
+    assert italic[0] and not any(italic[1:])   # only the P
+    assert all(run.size == 7 and run.color == "#0072b2" for run in runs)   # the whole label's size, in the line's colour
+    assert all("Bold" in run.face.ps_name for run in runs)   # the whole label's bold, on every letter
+    assert r.text_box is not None and len(r.text_box) == 4   # where the editor goes to type in it

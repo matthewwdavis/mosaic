@@ -10,7 +10,8 @@ import { fitFreehand, moveHandle, moveNode, nearestOn, ringsOf, segments, splitA
 import { followScaleBars, gapEdge, keepBar, measuredText, sourceToPage } from "./scalebar.js";
 import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
 import { followLifted, isLifted, isPlot, lift, plotTexts, plotTextsNow, quadOnPage, remapCopies, shownVariants, textAt } from "./liftedtext.js";
-import { across, bracketGapEdge, keepBar as keepBracketBar, labelRoom, upgradeItems } from "./brackets.js";
+import { across, bracketGapEdge, bracketStroke, keepBar as keepBracketBar, labelLook, labelRoom, plainOf, setPlainLabel, syncLabels, trimRuns,
+  upgradeItems } from "./brackets.js";
 import { applyTextStyle } from "./textstyles.js";
 import { collapsed, formatText, ordered, paraLength } from "./textformat.js";
 import {
@@ -501,11 +502,14 @@ export const canvas = {
     if (!e) return false;
     const [gk, origin] = key;
     e.g.innerHTML = r.svg;
+    // (a bracket's label being typed in stays hidden when it's drawn again; its lines show)
+    if (this.editing?.id === r.id && it.type === "bracket") for (const t of e.g.querySelectorAll("text")) t.style.visibility = "hidden";
     e.g.removeAttribute("transform");
     e.geomKey = gk;
     e.origin = origin;
     e.bbox = r.bbox;
     e.handles = r.handles || null;
+    e.textBox = r.text_box || null;
     if ((it.type === "scalebar" || it.type === "bracket") && e.labelGap !== (r.label_gap ?? null)) {
       e.labelGap = r.label_gap ?? null;
       if (store.selection.includes(it.id)) document.dispatchEvent(new CustomEvent("fa-labelgap"));   // (the Gap field shows it)
@@ -1160,7 +1164,7 @@ export const canvas = {
     else if (hit.equation) this.onEditEquation?.(hit.id);
     else if (hit.type === "picture") this.startCrop(hit.id);
     else if (hit.geom === "custom") this.startPointEdit(hit.id);
-    else if (hit.type === "shape") this.startEdit(hit.id);
+    else if (hit.type === "shape" || hit.type === "bracket") this.startEdit(hit.id);
   },
   // Dangerous mode (liftedtext.js): on, a double-click on a placed plot's text lifts it out, and the
   // texts of the plot under the pointer are outlined (the one a double-click would take, solid)
@@ -1960,6 +1964,7 @@ export const canvas = {
     followZooms(items, doc.assets);       // zoom insets show what's in their boxes
     followLifted(items, doc.assets);      // text lifted out of a plot goes with its picture (liftedtext.js)
     followScaleBars(items, doc.assets);   // scale bars keep their length and place on their pictures
+    syncLabels(items);                    // brackets' labels as their letters; quick-sets changed by hand let go
     followLabels(items);                  // panel labels go with their panels
     const lines = allLines(items).filter((l) => l.start_link || l.end_link);
     for (let pass = 0; pass < 3 && lines.length; pass++) {   // a few rounds for lines attached to lines
@@ -2642,7 +2647,17 @@ export const canvas = {
     if (this.editing?.id === id) return;
     if (this.editing) this.commitEdit();
     const it = store.item(id);
-    if (!it || it.type !== "shape" || it.geom === "region") return;   // an area fill holds no text
+    if (!it || (it.type !== "shape" && it.type !== "bracket") || it.geom === "region") return;   // an area fill holds no text
+    if (it.type === "bracket") {
+      // A bracket's label, typed in where it's drawn: its runs with the whole label's look while
+      // typing (trimmed back to what differs when typing ends)
+      if (!it.text) it.text = { paragraphs: [{ runs: [{ t: it.label || "" }] }] };
+      const look = labelLook(it), align = { right: "l", left: "r" }[it.dir] || "ctr";
+      for (const p of it.text.paragraphs) {
+        p.align = align;
+        p.runs = (p.runs?.length ? p.runs : [{ t: "" }]).map((r) => ({ ...look, ...r }));
+      }
+    }
     if (!it.text) it.text = { paragraphs: [{ align: "ctr", runs: [{ t: "", font: "Helvetica", size: 6, kern: true }] }],
       insets: [7.2, 3.6, 7.2, 3.6], wrap: true, anchor: "ctr", autofit: "none" };
     // (range: the words last highlighted, as positions; mine, top and redo: the undo steps changes
@@ -2650,7 +2665,9 @@ export const canvas = {
     this.editing = { id, isNew, before: JSON.stringify(it.text), range: null, domRange: null, mine: 0,
       top: store.history.length, redo: 0, typed: false };
     const e = this.els.get(id);
-    if (e) e.g.style.visibility = "hidden";
+    // (a bracket's lines stay in view: only its label goes while it's typed in)
+    if (e && it.type === "bracket") for (const t of e.g.querySelectorAll("text")) t.style.visibility = "hidden";
+    else if (e) e.g.style.visibility = "hidden";
     const ed = this.editor;
     this.fillEditor(it.text);
     this.editing.parsed = JSON.stringify(parseEditor(ed, it.text));
@@ -2698,20 +2715,32 @@ export const canvas = {
     if (!this.editing) return;
     const it = store.item(this.editing.id);
     if (!it) return;
-    const [x, y, w, hgt] = it.frame;
-    const ins = it.text.insets || [7.2, 3.6, 7.2, 3.6];
+    let [x, y, w, hgt] = it.frame;
+    let ins = it.text.insets || [7.2, 3.6, 7.2, 3.6];
+    let anchor = it.text.anchor || "t", wrap = it.text.wrap;
+    const bracket = it.type === "bracket";
+    if (bracket) {
+      // Over its label's box, as the engine laid it out (above the bar, below it, or beside it),
+      // in its line's colour
+      const tb = this.els.get(it.id)?.textBox || [0, 0, w, hgt];
+      [x, y, w, hgt] = [x + tb[0], y + tb[1], tb[2], tb[3]];
+      ins = [0, 0, 0, 0];
+      anchor = { up: "b", down: "t" }[it.dir || "up"] || "ctr";
+      wrap = false;
+    }
     const k = this.k;
     const [sx, sy] = this.toScreen(x, y);
     const ed = this.editor;
-    const anchor = it.text.anchor || "t", sunk = anchor === "ctr" || anchor === "b";
+    const sunk = anchor === "ctr" || anchor === "b";
     const fixed = sunk && it.text.autofit !== "shape";
+    ed.style.color = bracket ? bracketStroke(it).color : "";
     Object.assign(ed.style, {
       left: `${sx}px`, top: `${sy}px`, width: `${Math.max(w * k, 20)}px`,
       minHeight: fixed ? "" : `${hgt * k}px`, height: fixed ? `${hgt * k}px` : "",
       padding: `${ins[1] * k}px ${ins[2] * k}px ${(ins[3] + (sunk ? AUTOFIT_EXTRA : 0)) * k}px ${ins[0] * k}px`,
       transform: `rotate(${it.rot || 0}deg)`, transformOrigin: `${(w * k) / 2}px ${(hgt * k) / 2}px`,
       fontSize: `${(it.text.paragraphs[0]?.runs?.[0]?.size || 6) * k}px`,
-      whiteSpace: it.text.wrap === false ? "pre" : "pre-wrap",
+      whiteSpace: wrap === false ? "pre" : "pre-wrap",
     });
     ed.style.setProperty("--k", k);
     // (the middle or the bottom by the stylesheet, which leaves the editor hidden when it's done
@@ -2750,8 +2779,25 @@ export const canvas = {
       this.editor.hidden = true;
       const e = this.els.get(ed.id);
       if (e) e.g.style.visibility = "";
+      if (e) for (const t of e.g.querySelectorAll("text")) t.style.visibility = "";
       if (!it) return;
       const paragraphs = parseEditor(this.editor, it.text);
+      if (it.type === "bracket") {
+        // Its label: what was typed, the runs keeping only what differs from the whole label, the
+        // bar staying put (an empty label leaves the bracket without one)
+        const typed = JSON.stringify(paragraphs) !== ed.parsed;
+        const put = (o) => keepBracketBar(o, (b) => {
+          b.text = { paragraphs: typed ? paragraphs : b.text.paragraphs };
+          trimRuns(b);
+          if (!plainOf(b).trim()) setPlainLabel(b, "");
+          else b.label = plainOf(b);
+        });
+        if (typed) store.update("Edit label", (doc) => put(findDeep(doc.pages[store.pageIndex].items, ed.id)));
+        else store.silent((doc) => { const o = findDeep(doc.pages[store.pageIndex].items, ed.id); if (o) put(o); });
+        this.stage.focus({ preventScroll: true });
+        this.drawOverlay();
+        return;
+      }
       const empty = paragraphs.every((p) => p.runs.every((r) => !r.t.trim()));
       if (empty && it.textbox) {
         store.update(ed.isNew ? "Add text" : "Delete text", (doc) => {

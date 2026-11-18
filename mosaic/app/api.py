@@ -20,6 +20,7 @@ from .. import __version__, connect, docfile, model, presets, themes
 from ..progress import Cancelled, Progress
 from ..assets import KIND_EXT, get_cache, new_asset, new_asset_from_bytes, refresh_asset
 from ..fonts import config_dir, get_font_index
+from .. import journals as _journals
 from ..journals import DEFAULT_SIZE
 from ..resolve import Resolver, shape_outline
 from ..updates import parse_version
@@ -414,7 +415,7 @@ class Api:
         the list, "journals": every journal}. A sentence (ValueError) when it can't be had."""
         from .. import journals
         entry = journals.use_library_journal(self._library(), str(ident))
-        return {"journal": entry, "journals": journals.JOURNALS}
+        return {"journal": entry, "journals": journals.JOURNALS, "p_styles": journals.p_styles()}
 
     def user_journal_share(self, name: str) -> dict:
         """My Journals > Share…: {"name", "where", "pull_request" (a pull request's address, when the
@@ -476,6 +477,7 @@ class Api:
                 # A document's extensions (docfile.py): .mff for new ones, then the older ones that still open
                 "doc_ext": docfile.EXTENSION, "doc_exts": list(docfile.EXTENSIONS),
                 "prefs": self.prefs_get(), "standard_sizes": STANDARD_SIZES, "journals": JOURNALS,
+                "p_styles": _journals.p_styles(),   # (each journal's P values, for brackets' quick-sets)
                 "machine": platform.node(), "shapes": presets.catalog(), "clipboard": clipboard.backend() is not None,
                 "themes": themes.catalog()}
 
@@ -1150,6 +1152,8 @@ class Api:
                 if r.label_gap is not None:
                     # A scale bar's letters: how far from the bar, and the handle that moves them
                     res["handles"], res["label_gap"] = r.handles, r.label_gap
+                if r.text_box is not None:
+                    res["text_box"] = r.text_box   # (a bracket's label, where typing in it goes)
                 # Where line ends can attach: shapes as fractions of their frame, lines' dashes on the page
                 if it.get("type") == "shape":
                     res["sites"] = connect.shape_sites(it)

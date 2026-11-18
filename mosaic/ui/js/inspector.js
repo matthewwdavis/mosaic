@@ -18,7 +18,8 @@ import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePic
 import { ZOOM_SHAPES, zoomShape } from "./zoom.js";
 import { hiddenOf, liftedFrom } from "./liftedtext.js";
 import { cropToSize, drawnShapePicture, resetCrop } from "./crop.js";
-import { BRACKET_LABELS, P_LABELS, STAR_LABELS, across, bracketStroke, keepBar, labelRoom, upgradeItems } from "./brackets.js";
+import { STAR_LABELS, across, bracketStroke, followPValues, keepBar, labelRoom, pLabels, pStyle, plainOf, retext, setLabelKey, setPlainLabel,
+  setQuickP, upgradeItems } from "./brackets.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, isMac, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, luminance,
   parseHex, shapeCatalog, shapeName, toUnit,
@@ -235,6 +236,7 @@ export const inspector = {
         const was = pageLabels(p, this.app.info.journals);
         p.preset = journalPreset(j, p.width);
         if (j.labels) kept = restyleLabels(p.items, was, j.labels);
+        followPValues(p.items, pStyle(p, this.app.info, store.doc));   // (quick-set p-values as it writes them)
       });
       announce(`Page is now a ${j.name} figure, kept at ${this.pageLength(page.width / MM_PT)} by ${this.pageLength(page.height / MM_PT)}`
         + (kept ? `; ${kept} panel label${kept === 1 ? "" : "s"} in ${j.name}'s style` : ""));
@@ -249,6 +251,7 @@ export const inspector = {
       p.height = j.depth_mm * MM_PT;
       p.preset = { journal: j.name, type: t.name };
       if (j.labels) restyled = restyleLabels(p.items, was, j.labels);
+      followPValues(p.items, pStyle(p, this.app.info, store.doc));   // (quick-set p-values as it writes them)
     });
     canvas.fit();
     announce(`Page is now a ${j.name} ${t.name.toLowerCase()} figure, ${this.pageLength(t.width_mm)} wide and ${this.pageLength(j.depth_mm)} deep`
@@ -929,13 +932,29 @@ export const inspector = {
   bracketSection(it, several = null) {
     const set = (label, fn) => this.edit(label, (o) => { upgradeItems([o]); keepBar(o, fn); });
     const mx = (k) => this.mx(k);
-    const preset = BRACKET_LABELS.some(([v]) => v === it.label);
+    // The quick-sets: stars, and p-values written as the page's journal writes them (or as the
+    // figure says: p-values as), the p in italics; then any text. Whichever, the text can be
+    // changed in the box below (letters kept as formatted) or typed in on the page
+    const st = pStyle(store.page(), this.app.info, store.doc);
+    const star = !it.text && STAR_LABELS.some(([v]) => v === it.label);
+    const value = it.pset ? `p:${it.pset.v}` : star ? it.label : "custom";
     const kids = several ? [h("p", { class: "hint" }, `${several}: a change goes to them all.`)] : [];
-    kids.push(row(selectField("Label", preset ? it.label : "custom",
-      [{ group: "Stars", options: STAR_LABELS }, { group: "p-values", options: P_LABELS }, ["custom", "Other text…"]], (v) => {
-        set("Bracket label", (o) => { o.label = v === "custom" ? "p = 0.05" : v; });   // other text starts as a p-value to edit
-      }, { mixed: mx("label") }),
-    preset || mx("label") ? null : textField("Label text", it.label || "", (v) => set("Bracket label", (o) => { o.label = v; }), {})));
+    kids.push(selectField("Label", value, [{ group: "Stars", options: STAR_LABELS }, { group: "p-values", options: pLabels(st) },
+      ["custom", "Other text…"]], (v) => {
+      set("Bracket label", (o) => {
+        if (v.startsWith("p:")) setQuickP(o, v.slice(2), st);
+        else if (v !== "custom") setPlainLabel(o, v);
+        else if (o.pset || STAR_LABELS.some(([x]) => x === o.label)) setPlainLabel(o, "p = 0.05");   // other text starts as a p-value to edit
+      });
+    }, { mixed: mx("label") }));
+    if (!mx("label")) {
+      kids.push(textField("Label text", plainOf(it), (v) => set("Bracket label", (o) => retext(o, v)), {}));
+    }
+    kids.push(this.pLetterField(st));
+    if (!several && it.label) {
+      kids.push(h("div", { class: "button-row" }, button("Type in the label on the page: highlight letters to format them on their own "
+        + "with the Home tab's text tools (bold, italic, superscript, colour…)", () => canvas.startEdit(it.id), "Edit on the page…")));
+    }
     const sides = across(it) ? [["up", "Above"], ["down", "Below"]] : [["right", "Right"], ["left", "Left"]];
     kids.push(radioField("Label side", it.dir || "up", sides, (v) => this.edit("Bracket side", (o) => { o.dir = v; }), { mixed: mx("dir") }));
     if (across(it)) {
@@ -953,6 +972,14 @@ export const inspector = {
       + "to span other bars, and the top or bottom handle to lengthen the ticks. Several brackets selected can be stacked in "
       + "tidy levels (Stack, Figure tab)."));
     return section("Bracket", kids);
+  },
+  // The figure's p-values: as each page's journal writes them, or p or P throughout. Quick-set
+  // labels still as set follow (followPValues)
+  pLetterField(st) {
+    const own = store.doc.meta?.p_letter || "";
+    const journal = store.page().preset?.journal, js = (this.app.info.p_styles || {})[journal];
+    const theirs = journal ? `${journal}'s (${js?.letter === "P" ? "P" : "p"})` : "The journal's (p: none set)";
+    return selectField("p-values as", own, [["", theirs], ["p", "p, lowercase"], ["P", "P, capital"]], (v) => this.app.setPLetter(v));
   },
   // A bracket's line, as a line's: colour, width, dashes, ends, corners and transparency
   bracketLineSection(it) {
@@ -1026,13 +1053,13 @@ export const inspector = {
         button(`Put this label back to ${st.name}`, () => set("Clear label changes", (o) => applyToLabel(o, st)), "Clear changes")));
     }
     out.push(h("datalist", { id: "label-font-list" }, ...(this.app.fonts || []).map((f) => h("option", { value: f }))),
-      textField("Font", it.font || "Helvetica", (v) => set("Label font", (o) => { if (v) o.font = v; else delete o.font; }),
+      textField("Font", it.font || "Helvetica", (v) => set("Label font", (o) => setLabelKey(o, "font", v || null)),
         { list: "label-font-list", mixed: mx("font") }),
-      row(numField("Text size", it.size ?? 6, "pt", (v) => set("Label text size", (o) => { o.size = Math.max(v, 1); }),
+      row(numField("Text size", it.size ?? 6, "pt", (v) => set("Label text size", (o) => setLabelKey(o, "size", Math.max(v, 1))),
         { min: 1, step: 0.5, mixed: mx("size") }),
       h("div", { class: "button-row inline" },
-        toggle("Bold", !!it.bold, (on) => set("Bold", (o) => { o.bold = on; }), "B", "bold", mx("bold")),
-        toggle("Italic", !!it.italic, (on) => set("Italic", (o) => { o.italic = on; }), "I", "italic", mx("italic")))));
+        toggle("Bold", !!it.bold, (on) => set("Bold", (o) => setLabelKey(o, "bold", on)), "B", "bold", mx("bold")),
+        toggle("Italic", !!it.italic, (on) => set("Italic", (o) => setLabelKey(o, "italic", on)), "I", "italic", mx("italic")))));
     // Where the letters are now: the gap set, or (never set) where the engine put them
     const gap = it.gap ?? canvas.els.get(it.id)?.labelGap;
     const keep = it.type === "scalebar" ? (o, v) => keepScaleBar(o, (b) => { b.gap = v; }) : (o, v) => { o.gap = v; };

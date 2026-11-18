@@ -198,6 +198,24 @@ def use_library_journal(source: str, ident: str) -> dict:
     return entry
 
 
+def p_styles() -> dict:
+    """How each journal writes P values in its house style ("p": letter, italic, space round "<",
+    zero before the point), by name: the built-in journals' and those fetched from the library.
+    These are prose's house styles (house_style_from says "print" where they were read from the
+    journal's published articles, "stated" where its guidelines say so); a significance bracket's
+    quick-set p-values follow the page's journal by them. Journals without one aren't listed."""
+    out = {}
+    try:
+        files = [*_files.builtin(), *_library.fetched(library_cache())]
+    except (OSError, ValueError):
+        files = _files.builtin()
+    for j in files:
+        p = (j.get("house_style") or {}).get("p")
+        if isinstance(p, dict) and j.get("name"):
+            out[j["name"]] = {**p, "from": (j.get("house_style_from") or {}).get("p")}
+    return out
+
+
 def share_user_journal(source: str, name: str, dry_run: bool = False) -> dict:
     """My Journals > Share…: one of your own offered to the library (a pull request on GitHub when you
     can't change the library yourself; else written in). {"name", "where", "pull_request"?}."""

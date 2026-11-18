@@ -71,6 +71,7 @@ class Resolved:
     region: dict | None = None                  # an area fill's area now: {seed, frame, path}
     handles: list | None = None                 # a scale bar's text gap handle, in frame coordinates
     label_gap: float | None = None              # a scale bar's gap between its bar and its letters
+    text_box: list | None = None                # a bracket's label's box, in frame coordinates
 
 
 def union_bbox(boxes):
@@ -1018,10 +1019,17 @@ class Resolver:
             r.prims = fade_together(with_outline([even_dashes(DrawPath(path, stroke=stroke, meta={"item": item.get("id")}))],
                                                  around))
         if text:
-            run = {"t": text, "font": item.get("font") or "Helvetica", "size": size, "bold": bool(item.get("bold")),
-                   "italic": bool(item.get("italic")), "color": color, "opacity": alpha}
-            body = {"paragraphs": [{"align": align, "runs": [run]}], "insets": [0.0, 0.0, 0.0, 0.0], "wrap": False,
-                    "anchor": anchor, "autofit": "none"}
+            # The whole label's look, and each run's own where it's formatted letter by letter
+            # (text: a rich label, e.g. a quick-set p-value with only its p in italics)
+            look = {"font": item.get("font") or "Helvetica", "size": size, "bold": bool(item.get("bold")),
+                    "italic": bool(item.get("italic")), "color": color, "opacity": alpha}
+            paras = [p for p in ((item.get("text") or {}).get("paragraphs") or []) if any(r.get("t") for r in p.get("runs") or [])]
+            if paras:
+                paragraphs = [{"align": align, "runs": [{**look, **{k: v for k, v in r.items() if v is not None}} for r in p["runs"]]}
+                              for p in paras]
+            else:
+                paragraphs = [{"align": align, "runs": [{"t": text, **look}]}]
+            body = {"paragraphs": paragraphs, "insets": [0.0, 0.0, 0.0, 0.0], "wrap": False, "anchor": anchor, "autofit": "none"}
             layout = layout_text(body, box[2], box[3], self.fonts)
             if layout.runs:
                 left, top, right, bottom = ink_box(layout)
@@ -1049,6 +1057,7 @@ class Resolver:
                 else:
                     at, r.label_gap = (ox + right, oy + (top + bottom) / 2), (bar - half) - (ox + right)
                 r.handles = [[at[0] - x, at[1] - y]]   # (in frame coordinates)
+                r.text_box = [ox - x, oy - y, box[2], box[3]]   # (where the label is laid out: the editor goes there)
         return r
 
     def _line(self, item: dict) -> Resolved:

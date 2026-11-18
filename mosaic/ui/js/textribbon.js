@@ -151,7 +151,8 @@ export const textRibbon = {
   // the caret), or the text boxes selected; null for anything else
   target() {
     const ed = canvas.editing;
-    if (ed) return isTextBox(store.item(ed.id)) ? { typing: true, id: ed.id, range: canvas.editorRange() } : null;
+    // (typing in a text box, or in a bracket's label)
+    if (ed) return isTextBox(store.item(ed.id)) || store.item(ed.id)?.type === "bracket" ? { typing: true, id: ed.id, range: canvas.editorRange() } : null;
     const sel = store.doc ? store.selected() : [];
     return sel.length && sel.every(isTextBox) ? { typing: false, ids: sel.map((it) => it.id) } : null;
   },

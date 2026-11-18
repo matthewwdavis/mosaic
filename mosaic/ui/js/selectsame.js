@@ -29,7 +29,8 @@ const hasLine = (it) => it.type === "line" || (it.type === "shape" && it.geom !=
 // The text's runs with something in them (a shape's or a text box's)
 // (a scale bar's or bracket's label counts as one run of text, in its bar's or line's colour)
 const runsOf = (it) => (it.type === "scalebar" ? (it.label === "none" ? [] : [{ t: "label", font: it.font, size: it.size, color: it.color }])
-  : it.type === "bracket" ? (!it.label ? [] : [{ t: it.label, font: it.font, size: it.size, color: strokeOf(it).color }])
+  : it.type === "bracket" ? (!it.label ? [] : (it.text?.paragraphs || [{ runs: [{ t: it.label }] }]).flatMap((p) => p.runs || [])
+    .filter((r) => r.t).map((r) => ({ font: it.font, size: it.size, color: strokeOf(it).color, ...r })))
   : (it.text?.paragraphs || []).flatMap((p) => p.runs || []).filter((r) => (r.t || "").length));
 
 function kindOf(it) {

@@ -3835,18 +3835,18 @@ async function figureLookChecks(app) {
   store.select(["brNew"]);
   inspector.render();
   const labelList = fieldByLabel("Label"), groups = [...(labelList?.querySelectorAll("optgroup") || [])].map((g) => g.label).join();
-  const pValues = [...(labelList?.querySelectorAll('optgroup[label="p-values"] option') || [])].map((o) => o.value).join("|");
+  const pValues = [...(labelList?.querySelectorAll('optgroup[label="p-values"] option') || [])].map((o) => o.textContent).join("|");
   check(groups === "Stars,p-values" && pValues === "p < 0.1|p < 0.05|p < 0.01|p < 0.001|p < 0.0001",
     "a bracket's labels: stars and p-values, quick to choose", `${groups}; ${pValues}`);
-  await choose("Label", "p < 0.05");
-  press("Italic");
+  await choose("Label", "p:0.05");
+  const runsNow = () => (br("brNew").text?.paragraphs?.[0]?.runs || []).map((r) => `${r.t}${r.italic ? "/i" : ""}`).join("|");
   const barY = () => br("brNew").frame[1] + (br("brNew").gap == null ? 9 : 7.2 + br("brNew").gap);   // (the bar, across: under the label's room)
   const bar0 = barY();
   typeIn("Gap to text", "0.5");
   await settle();
-  check(br("brNew").label === "p < 0.05" && br("brNew").italic === true && br("brNew").gap === 0.5 && near(barY(), bar0, 1e-9)
-    && near(canvas.els.get("brNew")?.labelGap ?? -1, 0.5, 0.005),
-  "a p-value label, in italics, its letters 0.5 pt from the bar, which stays put", JSON.stringify([br("brNew"), canvas.els.get("brNew")?.labelGap]));
+  check(br("brNew").label === "p < 0.05" && runsNow() === "p/i| < 0.05" && !br("brNew").italic && br("brNew").gap === 0.5
+    && near(barY(), bar0, 1e-9) && near(canvas.els.get("brNew")?.labelGap ?? -1, 0.5, 0.005),
+  "a quick-set p-value, only its p in italics, its letters 0.5 pt from the bar, which stays put", JSON.stringify([br("brNew"), canvas.els.get("brNew")?.labelGap]));
   const gh = canvas.handlesFor(br("brNew")).find((hd) => hd.kind === "gap");
   {
     const f = br("brNew").frame, at = [f[0] + f[2] / 2, barY() - 0.375 - 0.5];
@@ -3881,7 +3881,7 @@ async function figureLookChecks(app) {
   app.copyStyle();
   store.select(["brOld"]);
   app.pasteStyle();
-  check(JSON.stringify(br("brOld").stroke) === JSON.stringify(br("brNew").stroke) && br("brOld").italic === true && br("brOld").gap === br("brNew").gap
+  check(JSON.stringify(br("brOld").stroke) === JSON.stringify(br("brNew").stroke) && br("brOld").gap === br("brNew").gap
     && JSON.stringify(br("brOld").outline) === JSON.stringify(br("brNew").outline),
   "Paste style puts a bracket's whole look on another", JSON.stringify(br("brOld")));
   store.select([sbId]);
@@ -3912,6 +3912,94 @@ async function figureLookChecks(app) {
   store.select(["brNew"]);
   inspector.render();
   document.getElementById("itab-bracket")?.click();
+}
+
+// Brackets' p-values and labels typed in on the page (2026-11-18): quick-sets with only the p in
+// italics, written as the page's journal writes them (or p or P for the whole figure) and following
+// a change while still as set; the label text changed in the panel keeping its letters' formatting;
+// typed in on the page with the Home tab's tools on highlighted letters
+async function pValueChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const mk = (id, x) => ({ id, type: "bracket", label: "*", size: 6, rot: 0, dir: "up", tick: 4, frame: [x, 60, 60, 13],
+    stroke: { color: "#000000", width: 0.75, dash: "solid", cap: "round", join: "miter", opacity: 1 } });
+  store.update("Brackets", (doc) => doc.pages[0].items.push(mk("pv1", 60), mk("pv2", 160)), { select: ["pv1"] });
+  await settle();
+  const br = (id) => store.item(id), runs = (id) => (br(id).text?.paragraphs || []).flatMap((p) => p.runs || [])
+    .map((r) => `${r.t}${r.italic ? "/i" : ""}${r.bold ? "/b" : ""}`).join("|");
+  const capital = Object.entries(app.info.p_styles || {}).find(([, v]) => v.letter === "P")?.[0];
+  const lower = Object.entries(app.info.p_styles || {}).find(([, v]) => v.letter === "p")?.[0];
+  check(capital && lower, "the journals' P values come with the app's info", JSON.stringify(app.info.p_styles));
+  await choose("Label", "p:0.01");
+  check(br("pv1").label === "p < 0.01" && runs("pv1") === "p/i| < 0.01" && br("pv1").pset?.v === "0.01",
+    "with no journal a quick-set reads p < 0.01, the p in italics", JSON.stringify(br("pv1")));
+  // The page's journal writes P: the list and the label still as set follow it
+  inspector.setJournalSize(capital, null);
+  await settle();
+  inspector.render();
+  const listed = [...(fieldByLabel("Label")?.querySelectorAll('optgroup[label="p-values"] option') || [])].map((o) => o.textContent)[1];
+  check(br("pv1").label === "P < 0.01" && runs("pv1") === "P/i| < 0.01" && listed === "P < 0.05",
+    `a page in ${capital} writes P: the quick-set label and the list follow`, JSON.stringify([br("pv1").label, listed]));
+  app.setPLetter("p");
+  check(br("pv1").label === "p < 0.01" && store.doc.meta.p_letter === "p", "p-values as p, for the whole figure, over the journal's P",
+    br("pv1").label);
+  app.setPLetter("");
+  check(br("pv1").label === "P < 0.01" && !("p_letter" in store.doc.meta), "and back to the journal's", br("pv1").label);
+  await app.run("undo");
+  check(br("pv1").label === "p < 0.01", "Undo takes the switch back, label and all", br("pv1").label);
+  await app.run("redo");
+  // Changed in the panel: the letters kept as formatted, no longer following
+  store.select(["pv1"]);
+  const field = fieldByLabel("Label text");
+  field.value = "P < 0.04";
+  field.dispatchEvent(new Event("change", { bubbles: true }));
+  check(br("pv1").label === "P < 0.04" && runs("pv1") === "P/i| < 0.04" && !br("pv1").pset,
+    "a quick-set changed in the Label text box keeps its italic P, and lets go of the quick-set", JSON.stringify([runs("pv1"), br("pv1").pset]));
+  inspector.setJournalSize(lower, null);
+  check(br("pv1").label === "P < 0.04", "so a journal writing p leaves it as it is", br("pv1").label);
+  // Typed in on the page: the Home tab's tools on the letters highlighted
+  store.select(["pv1"]);
+  canvas.stage.focus();
+  canvas.stage.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+  await settle();
+  check(canvas.editing?.id === "pv1" && canvas.editor.textContent === "P < 0.04", "Enter types in a bracket's label on the page",
+    `${canvas.editing?.id}; ${canvas.editor.textContent}`);
+  {
+    // The typing box over the label as drawn (its text hidden meanwhile, the bar still showing)
+    const er = canvas.editor.getBoundingClientRect(), g = canvas.els.get("pv1")?.g, tr = g?.querySelector("text")?.getBoundingClientRect();
+    const mid = tr && [tr.left + tr.width / 2, tr.top + tr.height / 2];
+    check(mid && mid[0] > er.left && mid[0] < er.right && mid[1] > er.top - 2 && mid[1] < er.bottom + 2
+      && g.querySelector("text").style.visibility === "hidden" && g.style.visibility !== "hidden",
+    "the typing box sits over the label, its drawn text hidden and the bar still showing",
+    `box ${[er.left, er.top, er.right, er.bottom].map((v) => v.toFixed(1))} text ${tr ? [tr.left, tr.top, tr.right, tr.bottom].map((v) => v.toFixed(1)) : "none"} `
+      + `${g?.querySelector("text")?.style.visibility}/${g?.style.visibility}`);
+  }
+  const group = document.querySelector("#rpanel-home .text-group"), btn = (cmd) => group?.querySelector(`[data-cmd="${cmd}"]`);
+  const node = [...canvas.editor.querySelectorAll("span")].map((sp) => sp.firstChild).find((n) => n?.textContent.includes("0.04"));
+  if (node) window.getSelection().setBaseAndExtent(node, node.textContent.indexOf("0.04"), node, node.textContent.indexOf("0.04") + 4);
+  await settle();
+  check(btn("textBold") && !btn("textBold").disabled, "the Home tab's text tools work on it while typing", String(btn("textBold")?.disabled));
+  btn("textBold")?.click();
+  await settle();
+  canvas.commitEdit();
+  await settle();
+  const own = (br("pv1").text?.paragraphs?.[0]?.runs || []);
+  check(br("pv1").label === "P < 0.04" && runs("pv1") === "P/i| < |0.04/b" && own.every((r) => !("font" in r) && !("size" in r)),
+    "bold on the highlighted letters only; the runs keep only what differs from the whole label", JSON.stringify(own));
+  // The whole label's look from the panel: every letter
+  inspector.render();
+  [...document.querySelectorAll("#inspector button")].find((b) => b.getAttribute("aria-label") === "Italic")?.click();
+  check(br("pv1").italic === true && runs("pv1") === "P| < |0.04/b", "Italic in the panel makes the whole label italic", runs("pv1"));
+  // A double-click on the label types in it too
+  canvas.commitEdit();
+  store.select(["pv2"]);
+  const f2 = br("pv2").frame;
+  const at = screenOf(f2[0] + f2[2] / 2, f2[1] + 3);
+  canvas.stage.dispatchEvent(new MouseEvent("dblclick", { clientX: at[0], clientY: at[1], bubbles: true }));
+  await settle();
+  check(canvas.editing?.id === "pv2", "a double-click on a bracket's label types in it", String(canvas.editing?.id));
+  canvas.commitEdit();
 }
 
 async function zoomShapeChecks(app) {
@@ -4623,6 +4711,7 @@ export async function run(app, params) {
     if (params.get("only") === "zoomshapes") { await zoomShapeChecks(app); throw ONLY; }
     if (params.get("only") === "scalebars") { await scaleBarChecks(app); throw ONLY; }
     if (params.get("only") === "figurelooks") { await figureLookChecks(app); throw ONLY; }
+    if (params.get("only") === "pvalues") { await pValueChecks(app); throw ONLY; }
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
     if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
     if (params.get("only") === "rename") { await renameChecks(app, out); throw ONLY; }
@@ -5907,6 +5996,7 @@ export async function run(app, params) {
     await zoomShapeChecks(app);
     await scaleBarChecks(app);
     await figureLookChecks(app);
+    await pValueChecks(app);
     await pasteboardChecks(app);
     await offPageChecks(app);
     if (out) await renameChecks(app, out);

@@ -874,6 +874,21 @@ pre-export check says so.
   the whole look; onto lines and shapes, colour, width and outline (a scale bar's thickness as
   a width); from a text box onto a label, its font, size, bold and italic. Object styles stay
   for lines and shapes.
+- **Bracket labels typed in, p-values as the journal writes them (2026-11-18, Matthew's choices):**
+  a bracket's label can be rich, `text` like a text box's, so the text box's in-place editor and
+  the Home tab's text tools work on it (the editor goes over the label's box as the engine laid it
+  out, `text_box`; the bar stays in view; runs get the whole label's look while typed in and are
+  trimmed back to what differs at the end, so the panel's whole-label font, size, bold and italic
+  still reach every letter: brackets.setLabelKey). `label` is kept as its letters (syncLabels, on
+  every change) for the list, descriptions and Select Same. Quick-set p-values (p < 0.1 to
+  p < 0.0001) have only the p in italics and keep `pset` {v, sig: the letters and their italics}
+  while as set: choosing a page's journal, the figure's p/P switch (meta.p_letter) and
+  `mosaic export --journal` (relabel.follow_p_values, the Python twin) re-letter them; a hand
+  change ends the link. Journals' P styles come from the shared library's house_style.p (prose's
+  manuscript style; all 12 read from published articles, "print"): P for Genetics, G3, Genome
+  Research, New Phytologist, Plant Cell, The Plant Journal and PNAS, p for Cell, Molecular Plant
+  and PLOS Genetics, unsaid (so p) for Nature and MBE. The Label text box edits any label keeping
+  letters' formatting (a common prefix and suffix kept, new letters like the one before).
 - **Repository:** `~/Projects/mosaic`, private GitHub repo `matthewwdavis/mosaic`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   Called FigAssemble, a working name, until 2026-11-03, when Matthew named it mosaic.

@@ -43,7 +43,11 @@ Every item has an `id` and a `type`:
             text)}: a significance bracket; across, its ticks are as long as the frame leaves below
             (or above) the label's room: a line of text and the gap (resolve._bracket). Brackets
             from before 2026-11-18 have color, swatch and line_width instead of stroke, and get
-            one when a figure opens or they're pasted (brackets.upgradeItems)
+            one when a figure opens or they're pasted (brackets.upgradeItems). A rich label has
+            text {paragraphs: [{runs}]}, a text box's, its runs holding only what differs from the
+            whole label's font, size, bold and italic (label is then its letters); a quick-set
+            p-value keeps pset {v: "0.05", sig} while it's as set, and is re-lettered as each
+            page's journal writes P values (house_style.p), or as meta.p_letter (p or P) says
 - group    {items: [...], clip, rot}   children keep page coordinates; with clip true it's a clipping
             mask: its last item, a shape, clips the others and isn't drawn. rot: how far the group
             has turned as a whole since it was made (degrees clockwise), for the editor's Rotation

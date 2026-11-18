@@ -416,11 +416,20 @@ height you drag at, with the label above. Drag upright instead for one with its 
 
 ![Brackets over a bar chart: two on one level, a wider one above them](images/brackets.png)
 
-- **Its tab:** the **Label**: stars (`*` to `****`, `ns`), p-values (`p < 0.1`, `p < 0.05`,
-  `p < 0.01`, `p < 0.001`, `p < 0.0001`), or **Other text…**; the side the label is on and the end
-  ticks' length; the label's **Text style**, **Font**, size, bold, italic and **Gap to text** (from
-  the bar to the letters themselves, 0 pt touching; or drag the yellow diamond on the page). The
-  bar stays put whatever the label does.
+- **Its tab:** the **Label**: stars (`*` to `****`, `ns`), p-values (`p < 0.1` to `p < 0.0001`,
+  only the *p* in italics), or **Other text…**; then **Label text**, where any label (a quick-set
+  too) can be changed, its letters keeping their formatting (`p < 0.05` to `p < 0.04` keeps the
+  italic *p*). The p-values are written as the page's journal writes P values (*P* for PNAS,
+  Genetics, New Phytologist…, *p* for Cell, PLOS Genetics…, *p* where a journal doesn't say: the
+  journals' house styles, read from their published articles); **p-values as** sets *p* or *P* for
+  the whole figure instead. A quick-set label still as set follows when the page's journal or
+  that choice changes (and in `mosaic export --journal`); once changed by hand, it stays as it is.
+- **Typing in the label:** double-click it, press Enter, or **Edit on the page…**: highlight letters
+  and use the Home tab's text tools on just them (bold, italic, underline, superscript and
+  subscript, colour, size, font). Escape when done. The panel's **Font**, size, **B** and **I**
+  set the whole label, every letter.
+- The label's **Text style** and **Gap to text** (from the bar to the letters themselves, 0 pt
+  touching; or drag the yellow diamond on the page). The bar stays put whatever the label does.
 - **Line:** everything a line has: colour (swatches too), width, dashes or dots, ends (round to
   start), corners (sharp to start) and transparency. The label is in the line's colour and
   transparency.

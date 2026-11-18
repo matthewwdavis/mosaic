@@ -4,6 +4,7 @@
 // A scale bar's or bracket's label can use one too (text_style: id), taking its font, size, bold
 // and italic (LABEL_FORMAT); its colour stays the bar's or line's, the object being one colour.
 import { clone } from "./util.js";
+import { setLabelKey } from "./brackets.js";
 
 export const RUN_FORMAT = ["font", "size", "bold", "italic", "underline", "color", "swatch"];
 export const PARA_FORMAT = ["align", "line_spacing", "space_before", "space_after"];
@@ -41,7 +42,7 @@ export function applyTextStyle(item, style) {
 // A scale bar's or bracket's label takes a style's font, size, bold and italic; whether it differs
 export function applyToLabel(bar, style) {
   bar.text_style = style.id;
-  for (const k of LABEL_FORMAT) setFormat(bar, k, style[k]);
+  for (const k of LABEL_FORMAT) setLabelKey(bar, k, style[k] ?? null);   // (a rich label's letters too)
 }
 export const labelDiffers = (bar, style) => LABEL_FORMAT.some((k) => !same(k, bar[k], style[k]));
 
@@ -86,7 +87,7 @@ export function restyle(doc, old, neu) {
     for (const r of p.runs || []) for (const k of RUN_FORMAT) if (same(k, r[k], old[k])) setFormat(r, k, neu[k]);
   }
   for (const bar of labelItems(doc)) {
-    if (bar.text_style === old.id) for (const k of LABEL_FORMAT) if (same(k, bar[k], old[k])) setFormat(bar, k, neu[k]);
+    if (bar.text_style === old.id) for (const k of LABEL_FORMAT) if (same(k, bar[k], old[k])) setLabelKey(bar, k, neu[k] ?? null);
   }
 }
 

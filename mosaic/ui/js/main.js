@@ -30,7 +30,7 @@ import { SAME, sameAs, sameCommand } from "./selectsame.js";
 import { barFrame, measuredText, niceLength, pageToSource, pxPerPt, scaleText } from "./scalebar.js";
 import { ZOOM_ROUNDING, zoomShape } from "./zoom.js";
 import { dropLost, hiddenOf, liftedFrom, lostAfterUpdate, putBack } from "./liftedtext.js";
-import { stackLevels } from "./brackets.js";
+import { followPValues, pStyle, stackLevels } from "./brackets.js";
 import { colourHolders, swatchById } from "./swatches.js";
 import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, labelItems, setFormat } from "./textstyles.js";
 import { KEYS as LOOK, applyObjectStyle, formatOf as lookOf, restyle as restyleObjects } from "./objectstyles.js";
@@ -1190,6 +1190,18 @@ const app = {
     });
     const pic = store.item(id);
     if (pic?.scale) announce(`Scale: ${scaleText(pic, store.doc.assets[pic.asset])}`);
+  },
+  // The figure's p-values as each page's journal writes them ("") or p or P throughout; quick-set
+  // bracket labels still as set follow, on every page (brackets.followPValues)
+  setPLetter(v) {
+    let n = 0;
+    store.update("p-values", (doc) => {
+      doc.meta = doc.meta || {};
+      if (v === "p" || v === "P") doc.meta.p_letter = v;
+      else delete doc.meta.p_letter;
+      for (const pg of doc.pages) n += followPValues(pg.items, pStyle(pg, this.info, doc));
+    });
+    announce(`p-values ${v ? `as ${v}` : "as each page's journal writes them"}${n ? `; ${n} bracket label${n === 1 ? "" : "s"} changed` : ""}`);
   },
   // Start over: no scale, and no measured line kept. Its scale bars stay where they are, at the
   // length they were, until it has a scale again
@@ -2847,7 +2859,7 @@ document.addEventListener("keydown", (e) => {
     else if (it.equation) app.editEquation(it.id);
     else if (it.type === "picture") canvas.startCrop(it.id);
     else if (it.geom === "custom" && !it.text?.paragraphs?.some((p) => p.runs?.some((r) => r.t))) canvas.startPointEdit(it.id);
-    else if (it.type === "shape") canvas.startEdit(it.id);
+    else if (it.type === "shape" || it.type === "bracket") canvas.startEdit(it.id);
     else if (it.type === "group") canvas.enterGroup(it.id);
     else if (it.type === "symbol") app.editSymbol(it.id);
     return;

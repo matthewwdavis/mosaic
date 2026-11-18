@@ -341,6 +341,7 @@ export const panels = {
         try {
           const got = await rpc("use_library_journal", r.id);
           info.journals.splice(0, info.journals.length, ...got.journals);   // (the same list everything reads)
+          if (got.p_styles) info.p_styles = got.p_styles;   // (its P values, for brackets' quick-sets)
           inspector.render();
           journal = got.journal;
         } catch (err) { note.textContent = `${r.name} couldn't be fetched: ${String(err.message || err).replace(/^\w+Error: /, "")}`; return; }

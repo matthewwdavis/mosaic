@@ -5,7 +5,7 @@
 // outline, and a label's font, size, bold and italic (from a text box's text too). Pictures copy
 // their transparency, border and its outline to pictures.
 import { clone, shapeCatalog } from "./util.js";
-import { bracketStroke, keepBar, upgradeItems } from "./brackets.js";
+import { bracketStroke, keepBar, setLabelKey, upgradeItems } from "./brackets.js";
 
 const RUN_KEYS = ["font", "size", "bold", "italic", "color", "swatch", "underline"];
 const PARA_KEYS = ["align", "line_spacing", "space_before", "space_after", "style"];   // with swatch and text style links
@@ -116,7 +116,11 @@ function labelOf(st) {
 }
 function putLabel(it, st) {
   const lab = labelOf(st);
-  if (lab) for (const k of lab.whole ? LABEL_KEYS : Object.keys(lab.look)) put(it, k, lab.look[k]);
+  if (!lab) return;
+  for (const k of lab.whole ? LABEL_KEYS : Object.keys(lab.look)) {
+    if (["font", "size", "bold", "italic"].includes(k)) setLabelKey(it, k, lab.look[k] ?? null);   // (a rich label's letters too)
+    else put(it, k, lab.look[k]);
+  }
 }
 // Onto a scale bar: another's whole look, or a line's colour and width as its colour and thickness
 function onScaleBar(it, st) {
