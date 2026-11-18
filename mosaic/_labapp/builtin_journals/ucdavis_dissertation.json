@@ -24,6 +24,14 @@
   "label": "Figure",
   "bar": false
  },
+ "manuscript_font": {
+  "status": "none",
+  "font": null,
+  "size": null,
+  "url": "https://grad.ucdavis.edu/preparing-filing-your-thesis-or-dissertation",
+  "read": "browser 2026-11-16: any legible font, used consistently, 10–13 pt, embedded",
+  "note": "A range, not one font: the template's own Times New Roman 12 pt stays."
+ },
  "text": {
   "styles": {
    "normal": {
