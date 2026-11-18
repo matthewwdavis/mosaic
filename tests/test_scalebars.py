@@ -66,8 +66,11 @@ def test_the_gap_is_to_the_letters_and_the_bar_turns_with_its_label():
     below = resolver.resolve({**bar, "label": "below", "gap": 1})
     assert abs(letters(below)[0] - below.prims[0].path.bbox()[3] - 1) < 1e-9 and abs(below.label_gap - 1) < 1e-9
     # A bar from before gaps: drawn as it was (the line box 0.3 sizes off), its letters' gap reported
+    # (how far depends on the font's line height: about 2 pt with the Mac's Helvetica, 0.8 pt with
+    # what Windows has for it)
     old = resolver.resolve({k: v for k, v in bar.items() if k != "gap"} | {"frame": [10, 10, 40, 11.2]})
-    assert old.prims[0].path.bbox() == (10, 19.2, 50, 21.2) and 1 < old.label_gap < 3
+    assert old.prims[0].path.bbox() == (10, 19.2, 50, 21.2) and 0 < old.label_gap < 6
+    assert abs(letters(old)[1] + old.label_gap - old.prims[0].path.bbox()[1]) < 1e-9
     # Italic, and a turn: a quarter turn makes it upright, its label beside it
     italic = resolver.resolve({**bar, "italic": True}).prims[1]
     assert italic.runs[0].skew or "Italic" in italic.runs[0].face.ps_name or "Oblique" in italic.runs[0].face.ps_name

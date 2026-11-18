@@ -3639,8 +3639,9 @@ async function scaleBarChecks(app) {
 
   // The gap: a bar from before says where its letters are; typed or dragged, the bar stays put
   const legacy = engineGap();
-  check(bar()?.type === "scalebar" && bar().gap === undefined && legacy > 1 && legacy < 3 && near(+fieldByLabel("Gap to text")?.value, legacy, 0.006),
-    "a scale bar's Gap to text shows how far its letters are from the bar (about 2 pt, as bars were)", `${legacy}`);
+  // (as bars were: about 2 pt with the Mac's Helvetica, 0.8 pt with what Windows has for it)
+  check(bar()?.type === "scalebar" && bar().gap === undefined && legacy > 0 && legacy < 6 && near(+fieldByLabel("Gap to text")?.value, legacy, 0.006),
+    "a scale bar's Gap to text shows how far its letters are from the bar, as the engine drew them", `${legacy}`);
   const mid0 = barMid();
   typeIn("Gap to text", "0.5");
   await settle();
