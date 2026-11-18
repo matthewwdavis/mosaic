@@ -255,6 +255,10 @@ Matthew's choices are in brackets.
 - [x] Progress while exporting (asked 2026-11-13): a filling bar with what it's on and the time
       left, settings greyed out, Keep working (the bar carries on over the page) and Stop (files
       removed); the figure report, Check and Refresh all pictures too [Matthew's choices]
+- [x] Scale bars (asked 2026-11-17): measure a picture's scale again (from the bar's tab too),
+      with the last line shown and its length offered; correct the measured length; remove a
+      scale to start over; the label's font, italic and text style; turning a bar (its label
+      with it); the gap from bar to letters, typed or dragged by a handle [Matthew's choices]
 
 ## Acceptance test (test slide)
 

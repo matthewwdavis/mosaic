@@ -1147,6 +1147,9 @@ class Api:
                 if it.get("type") == "shape" and not it.get("textbox") and presets.is_preset(it.get("geom", "")):
                     # Where the shape's adjust handles sit, in frame coordinates
                     res["handles"] = presets.handles(it["geom"], it["frame"][2], it["frame"][3], it.get("adj"))
+                if r.label_gap is not None:
+                    # A scale bar's letters: how far from the bar, and the handle that moves them
+                    res["handles"], res["label_gap"] = r.handles, r.label_gap
                 # Where line ends can attach: shapes as fractions of their frame, lines' dashes on the page
                 if it.get("type") == "shape":
                     res["sites"] = connect.shape_sites(it)

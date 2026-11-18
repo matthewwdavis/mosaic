@@ -1,10 +1,13 @@
 // Text styles: named text formats saved in the figure (doc.text_styles: [{id, name, ...format}]).
 // A paragraph using one has style: id and keeps the format on its own runs. A change made to one
 // text stays as an override: when the style changes, only what still matches the old style follows.
+// A scale bar's label can use one too (text_style: id), taking its font, size, bold and italic
+// (LABEL_FORMAT); its colour stays the bar's, since the bar and its label are one colour.
 import { clone } from "./util.js";
 
 export const RUN_FORMAT = ["font", "size", "bold", "italic", "underline", "color", "swatch"];
 export const PARA_FORMAT = ["align", "line_spacing", "space_before", "space_after"];
+export const LABEL_FORMAT = ["font", "size", "bold", "italic"];
 const DEFAULTS = { bold: false, italic: false, underline: false, swatch: null, align: "l", line_spacing: null, space_before: 0,
   space_after: 0 };
 const same = (k, a, b) => JSON.stringify(a ?? DEFAULTS[k] ?? null) === JSON.stringify(b ?? DEFAULTS[k] ?? null);
@@ -35,6 +38,21 @@ export function applyTextStyle(item, style) {
   for (const p of item.text?.paragraphs || []) applyToParagraph(p, style);
 }
 
+// A scale bar's label takes a style's font, size, bold and italic; whether it differs from it
+export function applyToLabel(bar, style) {
+  bar.text_style = style.id;
+  for (const k of LABEL_FORMAT) setFormat(bar, k, style[k]);
+}
+export const labelDiffers = (bar, style) => LABEL_FORMAT.some((k) => !same(k, bar[k], style[k]));
+
+// Every scale bar in the document
+export function scaleBars(doc) {
+  const out = [];
+  const walk = (items) => items.forEach((it) => { if (it.type === "group") walk(it.items); else if (it.type === "scalebar") out.push(it); });
+  for (const pg of doc.pages || []) walk(pg.items);
+  return out;
+}
+
 // Whether a paragraph differs anywhere from the style it uses
 export function differs(p, style) {
   return PARA_FORMAT.some((k) => !same(k, p[k], style[k]))
@@ -62,6 +80,9 @@ export function restyle(doc, old, neu) {
     if (p.style !== old.id) continue;
     for (const k of PARA_FORMAT) if (same(k, p[k], old[k])) setFormat(p, k, neu[k]);
     for (const r of p.runs || []) for (const k of RUN_FORMAT) if (same(k, r[k], old[k])) setFormat(r, k, neu[k]);
+  }
+  for (const bar of scaleBars(doc)) {
+    if (bar.text_style === old.id) for (const k of LABEL_FORMAT) if (same(k, bar[k], old[k])) setFormat(bar, k, neu[k]);
   }
 }
 

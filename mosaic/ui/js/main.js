@@ -27,12 +27,12 @@ import { splitters } from "./splitters.js";
 import { findItem, store } from "./store.js";
 import { applyStyle, styleOf } from "./styles.js";
 import { SAME, sameAs, sameCommand } from "./selectsame.js";
-import { barFrame, niceLength, pageScale, pxPerPt, scaleText } from "./scalebar.js";
+import { barFrame, measuredText, niceLength, pageToSource, pxPerPt, scaleText } from "./scalebar.js";
 import { ZOOM_ROUNDING, zoomShape } from "./zoom.js";
 import { dropLost, hiddenOf, liftedFrom, lostAfterUpdate, putBack } from "./liftedtext.js";
 import { stackLevels } from "./brackets.js";
 import { colourHolders, swatchById } from "./swatches.js";
-import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, setFormat } from "./textstyles.js";
+import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, scaleBars, setFormat } from "./textstyles.js";
 import { KEYS as LOOK, applyObjectStyle, formatOf as lookOf, restyle as restyleObjects } from "./objectstyles.js";
 import { installDialogDrag } from "./dragdialog.js";
 import { canMove, containerAt, moveItems } from "./layers.js";
@@ -1116,6 +1116,7 @@ const app = {
         });
         walk(pg.items);
       }
+      for (const bar of scaleBars(doc)) if (bar.text_style === id) delete bar.text_style;
     });
   },
   // Fonts: every run (and text style) in that font, on every page, in another (the Fonts dialog)
@@ -1125,6 +1126,7 @@ const app = {
       for (const it of items) {
         if (it.type === "group") walk(it.items);
         for (const p of it.text?.paragraphs || []) for (const r of p.runs || []) if (r.font === from) { r.font = to; n++; }
+        if (it.type === "scalebar" && (it.font || "Helvetica") === from) { it.font = to; n++; }
       }
     };
     store.update("Replace font", (doc) => {
@@ -1181,6 +1183,15 @@ const app = {
     const pic = store.item(id);
     if (pic?.scale) announce(`Scale: ${scaleText(pic, store.doc.assets[pic.asset])}`);
   },
+  // Start over: no scale, and no measured line kept. Its scale bars stay where they are, at the
+  // length they were, until it has a scale again
+  removePictureScale(id) {
+    store.update("Remove scale", (doc) => {
+      const p = findDeep(doc.pages[store.pageIndex].items, id);
+      if (p) { delete p.scale; delete p.measured; }
+    });
+    announce("Removed the picture's scale: type a pixel's size or measure a known length to give it one again");
+  },
   // A bar a round length long, just inside the picture's bottom right corner, white on a
   // photograph or micrograph and black on a plot
   addScaleBar(picId = store.selected().find((it) => it.type === "picture")?.id) {
@@ -1198,24 +1209,44 @@ const app = {
     }, { select: [bar.id] });
     announce(`Added a ${length} ${unit} scale bar to ${itemLabel(pic, store.doc)}`);
   },
+  // Measure on the selected picture, or on a selected scale bar's picture (to measure it again)
   measureScale() {
-    const pic = store.selected().find((it) => it.type === "picture");
-    if (!pic) { announce("Select a picture to measure on"); return; }
+    const sel = store.selected(), bar = sel.find((it) => it.type === "scalebar");
+    const pic = sel.find((it) => it.type === "picture") || (bar && store.item(bar.picture));
+    if (!pic) { announce(bar ? "This scale bar's picture has gone" : "Select a picture to measure on"); return; }
     canvas.startMeasure(pic.id);
   },
-  // A line drawn on a picture along something of known length: its real length sets the scale
-  async measured(picId, lenPage) {
+  // A line drawn on a picture along something of known length (a, b on the page): its real
+  // length sets the scale. The line and the length are kept on the picture (measured), so
+  // measuring again shows the line and starts from the length
+  async measured(picId, a, b) {
     const pic = store.item(picId), asset = pic && store.doc.assets[pic.asset];
     if (!pic) return;
-    const answer = await panels.promptDialog("How long is the line you drew?", "Its real length", "",
+    const was = pic.measured;
+    const answer = await panels.promptDialog("How long is the line you drew?", "Its real length", was ? measuredText(was) : "",
       `For example 100 µm (or just a number, in ${pic.scale?.unit || "µm"})`);
     if (!answer) return;
+    this.setMeasured(pic.id, [pageToSource(pic, asset, a), pageToSource(pic, asset, b)], answer);
+  },
+  // "100 µm" (or a number, in the picture's unit) for a line in the picture's source points
+  setMeasured(picId, line, answer) {
+    const pic = store.item(picId);
+    if (!pic) return;
     const m = /^\s*([0-9]*[.,]?[0-9]+(?:e[-+]?\d+)?)\s*(nm|µm|um|micron|microns|mm|cm|m)?\s*$/i.exec(answer);
     const value = m && parseFloat(m[1].replace(",", "."));
     if (!(value > 0)) { announce(`“${answer}” isn't a length: type a number and a unit, such as 100 µm`); return; }
     const said = m[2]?.toLowerCase();
-    const unit = { um: "µm", micron: "µm", microns: "µm" }[said] || said || pic.scale?.unit || "µm";
-    this.setPictureScale(pic.id, value / (lenPage / pageScale(pic, asset)), unit, "measured");
+    const unit = { um: "µm", micron: "µm", microns: "µm" }[said] || said || pic.measured?.unit || pic.scale?.unit || "µm";
+    const len = Math.hypot(line[1][0] - line[0][0], line[1][1] - line[0][1]);
+    if (!(len > 0)) return;
+    store.update("Measure scale", (doc) => {
+      const p = findDeep(doc.pages[store.pageIndex].items, picId);
+      if (!p) return;
+      p.scale = { per_pt: value / len, unit, how: "measured" };
+      p.measured = { line, length: value, unit };
+    });
+    const now = store.item(picId);
+    if (now?.scale) announce(`Scale: ${scaleText(now, store.doc.assets[now.asset])}`);
   },
   // Zoom insets (zoom.js): a box on a picture, the area enlarged beside it, and two lines between
   // them, all in one colour (Okabe-Ito's orange shows on dark images and white pages alike). The
@@ -1440,9 +1471,10 @@ const app = {
     announce(sel.length === 1 ? `Aligned to the page: ${how}` : `Aligned ${sel.length} objects' ${words} to the ${mode === "key" ? "key object" : mode}`);
   },
   // What Rotate and flip moves of the selection: not locked objects, area fills (they follow their
-  // lines), scale bars (their pictures) or a zoom inset's lines (its box)
-  turnable(sel = store.selected()) {
-    return sel.filter((it) => !it.locked && it.geom !== "region" && it.type !== "scalebar" && !it.zoomline);
+  // lines) or a zoom inset's lines (its box). Scale bars turn but don't flip (a mirrored length
+  // reads backwards)
+  turnable(sel = store.selected(), flipping = false) {
+    return sel.filter((it) => !it.locked && it.geom !== "region" && !(flipping && it.type === "scalebar") && !it.zoomline);
   },
   // Turn objects together by `angle` degrees clockwise about the middle of their outline, as one
   // undo step that Transform Again (⌘⇧D) then repeats. A line among them stays attached to what
@@ -1478,13 +1510,13 @@ const app = {
   // the selection as a whole, about its middle
   turnSelection(angle) {
     const sel = store.selected(), items = this.turnable(sel);
-    if (!items.length) return announce(sel.length ? "Locked objects, area fills and scale bars stay put" : "Select something to rotate first");
+    if (!items.length) return announce(sel.length ? "Locked objects and area fills stay put" : "Select something to rotate first");
     this.turnItems(angle > 0 ? "Rotate right" : "Rotate left", items.map((it) => it.id), angle);
     const way = `${angle > 0 ? "right" : "left"} 90°`;
     announce((items.length === 1 ? `Turned ${way}` : `Turned ${items.length} objects ${way}, together`) + leftOut(sel, items));
   },
   flipSelection(axis) {
-    const sel = store.selected(), items = this.turnable(sel), way = axis ? "vertically" : "horizontally";
+    const sel = store.selected(), items = this.turnable(sel, true), way = axis ? "vertically" : "horizontally";
     if (!items.length) return announce(sel.length ? "Locked objects, area fills and scale bars stay put" : "Select something to flip first");
     // (a level text box, or a bracket flipped along its bar, is the same flipped: no undo step)
     const b = itemsBBox(items), probe = clone(items);
@@ -2435,6 +2467,7 @@ function figurePages(doc, got) {
     if (o.type === "picture" && o.asset) used.assets.add(o.asset);
     if (typeof o.object_style === "string") used.object_styles.add(o.object_style);
     if (o.runs && typeof o.style === "string") used.text_styles.add(o.style);   // a paragraph's text style
+    if (o.type === "scalebar" && typeof o.text_style === "string") used.text_styles.add(o.text_style);
     if (o.type === "symbol" && typeof o.symbol === "string" && !used.symbols.has(o.symbol)) {
       used.symbols.add(o.symbol);
       if (symbolById.has(o.symbol)) note(symbolById.get(o.symbol).items);
@@ -2476,6 +2509,7 @@ function figurePages(doc, got) {
     if (o.type === "symbol" && maps.symbols.has(o.symbol)) o.symbol = maps.symbols.get(o.symbol);
     if (maps.object_styles.has(o.object_style)) o.object_style = maps.object_styles.get(o.object_style);
     if (o.runs && maps.text_styles.has(o.style)) o.style = maps.text_styles.get(o.style);
+    if (o.type === "scalebar" && maps.text_styles.has(o.text_style)) o.text_style = maps.text_styles.get(o.text_style);
     for (const v of Object.values(o)) remap(v);
   };
   remap(pages);
@@ -3030,7 +3064,7 @@ async function start() {
   canvas.onKeyClick = (id) => app.toggleKeyObject(id);
   canvas.onTransform = (t) => app.noteTransform(t);
   canvas.onPaint = (hit, keyboard) => app.paintStyle(hit, keyboard);
-  canvas.onMeasure = (id, len) => app.measured(id, len);
+  canvas.onMeasure = (id, a, b) => app.measured(id, a, b);
   canvas.onZoomBox = (id, box, shape) => app.addZoomInset(id, box, shape);
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.onEditSymbol = (id) => app.editSymbol(id);

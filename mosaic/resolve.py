@@ -67,6 +67,8 @@ class Resolved:
     autofit_frame: list[float] | None = None    # frame an auto-fitted text box should take
     warnings: list[str] = field(default_factory=list)
     region: dict | None = None                  # an area fill's area now: {seed, frame, path}
+    handles: list | None = None                 # a scale bar's text gap handle, in frame coordinates
+    label_gap: float | None = None              # a scale bar's gap between its bar and its letters
 
 
 def union_bbox(boxes):
@@ -460,6 +462,22 @@ def scalebar_label(item: dict) -> str:
     return f"{float(item.get('length', 1)):g} {item.get('unit', 'µm')}"
 
 
+def ink_extent(layout: TextLayout) -> tuple[float, float]:
+    """How high and how low laid-out text's letters reach (y down, in the layout's coordinates):
+    their outlines, so "50 µm" reaches down to the µ's tail and "50 nm" only to the line it sits
+    on. A font whose outlines can't be read counts its capitals' height and its descent."""
+    top, bottom = math.inf, -math.inf
+    for run in layout.runs:
+        for gid in run.gids:
+            ink = run.face.ink(gid)
+            if ink is not None:
+                top, bottom = min(top, run.y - ink[3] * run.size), max(bottom, run.y - ink[1] * run.size)
+    if top > bottom:   # (nothing with an outline)
+        run = layout.runs[0] if layout.runs else None
+        return (run.y - run.face.cap_height * run.size, run.y + run.face.descent * run.size) if run else (0.0, 0.0)
+    return top, bottom
+
+
 def make_stroke(d: dict | None) -> Stroke | None:
     if not d:
         return None
@@ -824,25 +842,41 @@ class Resolver:
         return r
 
     def _scalebar(self, item: dict) -> Resolved:
-        """A scale bar: a bar as long as its frame, the length written above or below it. The
-        editor keeps the frame in step with the picture's scale (scalebar.js)."""
+        """A scale bar: a bar as long as its frame, the length written above or below it, all of
+        it turned with the frame (rot, about its middle). The editor keeps the frame in step with
+        the picture's scale (scalebar.js). With `gap`, the letters stand that far from the bar
+        (to their outline: 0 touches); without it, as before 2026-11-17, the text's line box
+        stands 0.3 text sizes from it. label_gap says where the letters are either way, and the
+        handle sits there, halfway along."""
         r = Resolved(item.get("id", ""))
         x, y, w, h = item["frame"]
+        rot = float(item.get("rot", 0.0) or 0.0)
+        m = frame_matrix(item["frame"], rot) if rot % 360 else Matrix.translate(x, y)
         t, size = float(item.get("thickness", 2.0)), float(item.get("size", 6.0))
         color, label = item.get("color", "#ffffff"), item.get("label", "above")
-        bar_y = y + h - t if label == "above" else y
-        bar = Path().move_to(x, bar_y).line_to(x + w, bar_y).line_to(x + w, bar_y + t).line_to(x, bar_y + t).close()
-        r.prims.append(DrawPath(bar, fill=Fill(color=color), meta={"item": item.get("id")}))
+        bar_y = h - t if label == "above" else 0.0   # (in the frame)
+        bar = Path().move_to(0, bar_y).line_to(w, bar_y).line_to(w, bar_y + t).line_to(0, bar_y + t).close()
+        r.prims.append(DrawPath(bar.transformed(m), fill=Fill(color=color), meta={"item": item.get("id")}))
         if label != "none":
-            run = {"t": scalebar_label(item), "font": item.get("font", "Helvetica"), "size": size,
-                   "bold": bool(item.get("bold")), "italic": False, "color": color}
+            run = {"t": scalebar_label(item), "font": item.get("font") or "Helvetica", "size": size,
+                   "bold": bool(item.get("bold")), "italic": bool(item.get("italic")), "color": color}
             body = {"paragraphs": [{"align": "ctr", "runs": [run]}], "insets": [0.0, 0.0, 0.0, 0.0], "wrap": False,
                     "anchor": "t", "autofit": "none"}
-            gap = size * SCALEBAR_GAP
-            layout = layout_text(body, w, max(h - t - gap, size), self.fonts)
+            if item.get("gap") is None:
+                gap = size * SCALEBAR_GAP
+                layout = layout_text(body, w, max(h - t - gap, size), self.fonts)
+                ty = 0.0 if label == "above" else t + gap
+                top, bottom = ink_extent(layout)
+            else:
+                gap = max(float(item["gap"]), 0.0)
+                layout = layout_text(body, w, size, self.fonts)
+                top, bottom = ink_extent(layout)
+                ty = h - t - gap - bottom if label == "above" else t + gap - top
             if layout.runs:
-                ty = y if label == "above" else bar_y + t + gap
-                r.prims.append(DrawText(layout.runs, Matrix.translate(x, ty), meta={"item": item.get("id")}))
+                r.prims.append(DrawText(layout.runs, m @ Matrix.translate(0, ty), meta={"item": item.get("id")}))
+                edge = ty + (bottom if label == "above" else top)   # the letters' edge nearest the bar
+                r.label_gap = (h - t) - edge if label == "above" else edge - t
+                r.handles = [[w / 2, edge]]
         return r
 
     def _bracket(self, item: dict) -> Resolved:

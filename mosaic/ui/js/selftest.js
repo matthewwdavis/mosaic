@@ -8,7 +8,8 @@ import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
 import { store } from "./store.js";
 import { pageScale } from "./scalebar.js";
-import { isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog, toUnit } from "./util.js";
+import { apply, frameMatrix, isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog, toUnit } from "./util.js";
+import { restyle } from "./textstyles.js";
 import { sameCommand } from "./selectsame.js";
 import { ringsOf, toLocal, toPageOf } from "./pen.js";
 import { cropMenu, cropToDrawnShape, cropToRatio, cropToSize, parseRatio, resetCrop } from "./crop.js";
@@ -3603,6 +3604,147 @@ async function exportProgressChecks(app, out) {
 // circle beside the rectangle a plain click makes; the inset takes its box's shape, and the lines
 // run along the outside, touching both; the Zoom shape list changes both, or one alone with Same
 // shape unticked (ticked again, the other takes its shape); a circle's box stays round
+// Scale bars (2026-11-17): measuring a picture again (from the bar's own tab too), with the line and
+// length from last time kept; removing a scale; the label's gap to the letters (typed, or by its
+// handle, the bar staying put), font, italic and text style; turning a bar, its outline keeping its
+// corner of the picture
+async function scaleBarChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const plot = btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200pt" height="120pt" viewBox="0 0 200 120">'
+    + '<rect x="0" y="0" width="200" height="120" fill="#223344"/><rect x="20" y="20" width="100" height="4" fill="#ffffff"/></svg>');
+  const path = await rpc("selftest_scratch", "scalebar_plot.svg", plot);
+  await app.placeFiles([path], [60, 80], false);
+  const pic = () => store.items().find((it) => it.type === "picture");
+  if (!pic()) return log(false, "a picture is placed for the scale bars", path);
+  const picId = pic().id, asset = () => store.doc.assets[pic().asset];
+  app.setPictureScale(picId, 0.5, "µm", "typed");
+  app.addScaleBar(picId);
+  const barId = store.selected()[0]?.id, bar = () => store.item(barId);
+  await settle();
+  const buttonText = (text) => { inspector.render(); return [...document.querySelectorAll("#inspector button")].find((b) => b.textContent === text); };
+  const barMid = () => {
+    const b = bar(), [, , w, h] = b.frame, t = b.thickness ?? 2;
+    return apply(frameMatrix(b.frame, b.rot || 0), w / 2, b.label === "above" ? h - t / 2 : t / 2);
+  };
+  const typeIn = (label, v) => {
+    const f = fieldByLabel(label);
+    if (!f) return false;
+    f.value = v;
+    f.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  };
+  const engineGap = () => canvas.els.get(barId)?.labelGap;
+
+  // The gap: a bar from before says where its letters are; typed or dragged, the bar stays put
+  const legacy = engineGap();
+  check(bar()?.type === "scalebar" && bar().gap === undefined && legacy > 1 && legacy < 3 && near(+fieldByLabel("Gap to text")?.value, legacy, 0.006),
+    "a scale bar's Gap to text shows how far its letters are from the bar (about 2 pt, as bars were)", `${legacy}`);
+  const mid0 = barMid();
+  typeIn("Gap to text", "0.5");
+  await settle();
+  check(bar().gap === 0.5 && near(barMid()[0], mid0[0], 1e-6) && near(barMid()[1], mid0[1], 1e-6) && near(engineGap(), 0.5, 0.005),
+    "a typed gap puts the letters that far from the bar (to their outline), the bar staying put", JSON.stringify([bar().frame, engineGap()]));
+  const gapHandle = canvas.handlesFor(bar()).find((hd) => hd.kind === "gap");
+  check(gapHandle && canvas.handlesFor(bar()).map((hd) => hd.kind).join() === "gap,rotate",
+    "a scale bar has a gap handle and a rotation handle, and no resize handles", JSON.stringify(canvas.handlesFor(bar())));
+  {
+    const [x, y, w, h] = bar().frame, at = [x + w / 2, y + h - 2 - 0.5];
+    await drag(at, [at[0], at[1] - 2]);
+  }
+  check(near(bar().gap, 2.5, 0.15) && near(barMid()[1], mid0[1], 1e-6) && near(engineGap(), bar().gap, 0.005),
+    "dragging the gap handle 2 pt up moves the letters 2 pt further from the bar, which stays put", JSON.stringify([bar().gap, engineGap()]));
+  await app.run("undo");
+  check(bar().gap === 0.5, "and Undo puts the gap back", `${bar().gap}`);
+
+  // Font and italic, and a text style the label follows
+  typeIn("Font", "Courier");
+  [...document.querySelectorAll("#inspector button")].find((b) => b.getAttribute("aria-label") === "Italic")?.click();
+  await settle();
+  check(bar().font === "Courier" && bar().italic === true && near(engineGap(), 0.5, 0.005),
+    "a scale bar's label takes a font and italic, its letters still at the gap", JSON.stringify([bar().font, bar().italic, engineGap()]));
+  store.update("A text style", (doc) => { doc.text_styles = [...(doc.text_styles || []), { id: "tsBar", name: "Bar label", font: "Helvetica", size: 8, bold: true }]; });
+  await choose("Text style", "tsBar");
+  check(bar().text_style === "tsBar" && bar().font === "Helvetica" && bar().size === 8 && bar().bold === true && !bar().italic,
+    "a text style gives the label its font, size, bold and italic", JSON.stringify(bar()));
+  store.update("Restyle", (doc) => {
+    const st = doc.text_styles.find((x) => x.id === "tsBar"), old = JSON.parse(JSON.stringify(st));
+    st.size = 9;
+    restyle(doc, old, st);
+  });
+  check(bar().size === 9, "the label follows its style when the style changes", `${bar().size}`);
+  typeIn("Text size", "7");
+  const clear = buttonText("Clear changes");
+  clear?.click();
+  check(clear && bar().size === 9, "a label changed by hand can be put back to its style", `${bar().size}`);
+  app.deleteTextStyle("tsBar");
+  check(bar().text_style === undefined && bar().size === 9, "deleting the style leaves the label as it was", JSON.stringify(bar()));
+
+  // Turning: the label turns with the bar; its outline keeps its corner of the picture
+  store.select([barId]);
+  typeIn("Rotation", "270");
+  await settle();
+  const outline = () => itemBBox(bar()), pf = () => pic().frame;
+  const off = () => [outline()[2] - (pf()[0] + pf()[2]), outline()[3] - (pf()[1] + pf()[3])];
+  const drawn = canvas.els.get(barId)?.bbox;
+  check(bar().rot === 270 && drawn && drawn[3] - drawn[1] > drawn[2] - drawn[0],
+    "a scale bar turns (Rotation 270°), its label with it", JSON.stringify([bar().rot, drawn]));
+  const off0 = off(), len0 = bar().frame[2];
+  store.update("Bigger picture", (doc) => { const pp = findItem(doc, picId); pp.frame[2] *= 1.5; pp.frame[3] *= 1.5; });
+  check(near(bar().frame[2], len0 * 1.5, 1e-6) && near(off()[0], off0[0], 1e-6) && near(off()[1], off0[1], 1e-6),
+    "a turned bar's length follows its picture, its outline keeping its place from the picture's corner", JSON.stringify([off0, off()]));
+  app.run("rotateRight90");
+  check(!(bar().rot % 360), "Rotate right 90° turns a scale bar", `${bar().rot}`);
+  app.run("flipHorizontal");
+  check(!bar().flip_h, "but flipping leaves it alone (its length would read backwards)", JSON.stringify(bar()));
+
+  // Measuring again: from the bar's tab; the line and length kept, shown and offered next time
+  check(buttonText("Measure again…") === undefined && buttonText("Measure scale again…"), "the scale bar's tab offers to measure its picture again");
+  buttonText("Measure scale again…").click();
+  check(canvas.tool === "measure" && canvas.measuring === picId, "which measures on its picture", `${canvas.tool} ${canvas.measuring}`);
+  const p0 = pf().slice(), ps = () => pageScale(pic(), asset());
+  const answer = async (v) => {
+    await until(() => [...document.querySelectorAll("dialog[open] input")].length);
+    const dlg = [...document.querySelectorAll("dialog[open]")].pop(), input = dlg.querySelector("input"), was = input.value;
+    input.value = v;
+    [...dlg.querySelectorAll("button")].find((b) => b.textContent === "OK").click();
+    return was;
+  };
+  await drag([p0[0] + 10, p0[1] + 20], [p0[0] + 110, p0[1] + 20]);
+  const first = await answer("50 µm");
+  await until(() => pic().scale?.how === "measured");
+  const line = pic().measured?.line || [[0, 0], [0, 0]];
+  check(first === "" && pic().measured?.length === 50 && pic().measured.unit === "µm"
+    && near(Math.hypot(line[1][0] - line[0][0], line[1][1] - line[0][1]), 100 / ps(), 1e-6) && near(pic().scale.per_pt, 50 / (100 / ps()), 1e-9)
+    && near(bar().frame[2], (bar().length / pic().scale.per_pt) * ps(), 1e-6),
+  "measuring keeps the line drawn (in the picture's own points) and the length typed; the bar follows the new scale", JSON.stringify(pic().measured));
+  canvas.startMeasure(picId);
+  const before = canvas.overlay.querySelector(".measure-line.before"), want = canvas.toScreen(p0[0] + 10, p0[1] + 20);
+  check(before && near(+before.getAttribute("x1"), want[0], 0.01) && near(+before.getAttribute("y1"), want[1], 0.01),
+    "measuring again shows the line measured last time", before?.outerHTML);
+  await drag([p0[0] + 10, p0[1] + 40], [p0[0] + 60, p0[1] + 40]);
+  const second = await answer("25");
+  await until(() => pic().measured?.length === 25);
+  check(second === "50 µm" && pic().measured?.unit === "µm" && near(pic().scale.per_pt, 25 / (50 / ps()), 1e-9),
+    "and starts from the length typed last time (a number alone keeps its unit)", JSON.stringify([second, pic().measured]));
+  store.select([picId]);
+  check(fieldByLabel("Measured line's length")?.value === "25 µm" && buttonText("Measure again…"),
+    "the picture's tab shows the measured length, and Measure again…", fieldByLabel("Measured line's length")?.value);
+  const per0 = pic().scale.per_pt;
+  typeIn("Measured line's length", "50");
+  check(near(pic().scale.per_pt, per0 * 2, 1e-12) && pic().measured.length === 50, "a corrected length re-scales from the same line", JSON.stringify(pic().scale));
+  const w0 = bar().frame[2];
+  buttonText("Remove scale")?.click();
+  check(!pic().scale && !pic().measured && near(bar().frame[2], w0, 1e-9) && buttonText("Measure…"),
+    "Remove scale starts over: no scale and no line kept; its bar stays as it was", JSON.stringify(pic()));
+  // (ends with the bar selected on its own tab, for a screenshot of the run)
+  app.setPictureScale(picId, 0.5, "µm", "typed");
+  store.select([barId]);
+  inspector.render();
+  document.getElementById("itab-scalebar")?.click();
+}
+
 async function zoomShapeChecks(app) {
   store.setDoc(await rpc("new_document"));
   canvas.fit();
@@ -4310,6 +4452,7 @@ export async function run(app, params) {
     if (params.get("only") === "guides") { await rulerGuideChecks(app); throw ONLY; }
     if (params.get("only") === "pictures") { await pictureMenuChecks(app); throw ONLY; }
     if (params.get("only") === "zoomshapes") { await zoomShapeChecks(app); throw ONLY; }
+    if (params.get("only") === "scalebars") { await scaleBarChecks(app); throw ONLY; }
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
     if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
     if (params.get("only") === "rename") { await renameChecks(app, out); throw ONLY; }
@@ -5592,6 +5735,7 @@ export async function run(app, params) {
     await rulerGuideChecks(app);
     await pictureMenuChecks(app);
     await zoomShapeChecks(app);
+    await scaleBarChecks(app);
     await pasteboardChecks(app);
     await offPageChecks(app);
     if (out) await renameChecks(app, out);

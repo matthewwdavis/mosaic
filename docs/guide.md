@@ -340,7 +340,8 @@ resized or cropped.
      size, and mosaic uses it when you place them (the section says "from the file").
    - **Type it:** the size of one pixel (e.g. 0.65 µm) and its unit. For a PDF or SVG, it's the
      length of one point of the original.
-   - **Measure it:** click **Measure…** (or **Measure** on the Figure tab), drag along something of
+   - **Measure it:** click **Measure…** (or **Measure** on the Figure tab, with the picture or one of its
+     scale bars selected), drag along something of
      known length in the picture (a scale bar already in it, a ruler, a stage micrometer), and type
      its real length, such as `100 µm`.
 2. **Add the bar:** **Add scale bar** (Picture tab), or **Scale bar** on the Figure tab with the
@@ -349,9 +350,24 @@ resized or cropped.
    black on plots.
 
 The bar's own tab sets its length and unit (**Round length** picks one for you), the label above,
-below or none, its colour (swatches too), thickness, text size and bold. Drag it where you want
+below or none, its colour (swatches too) and thickness. Its label has a **Text style** (it then
+follows the style's font, size, bold and italic, like any text using it; its colour stays the
+bar's), a **Font**, text size, bold and italic, and a **Gap to text**: the space from the bar to
+the letters themselves, so 0 pt touches. Drag the yellow diamond on the label to change the gap
+on the page; either way the bar stays where it is and the text moves. Drag the bar where you want
 it: it moves with its picture, keeping its place relative to the corner it's set to stay with,
 and its length follows the picture's size, crop and scale.
+
+**Turning a bar:** drag its round handle, type a **Rotation** above the tabs, or use Rotate 90°
+(Arrange tab or right-click). The label turns with it, so a bar at 270° reads up its left side.
+Bars don't flip (the label would read backwards).
+
+**Measuring again:** mosaic keeps the line you measured and the length you typed. **Measure
+again…** (Picture tab) or **Measure scale again…** (the bar's tab) shows the old line, dashed,
+with its length; drag a new line and the length box starts from the old one. To correct only
+the length, change **Measured line's length** in the Picture tab: the scale is worked out again
+from the same line. **Remove scale** starts over, with no scale and no line kept; the picture's
+bars stay as they are until it has a scale again.
 
 ## Zoom insets
 

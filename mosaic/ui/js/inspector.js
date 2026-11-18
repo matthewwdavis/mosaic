@@ -7,8 +7,8 @@ import { icon } from "./panels.js";
 import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
 import { linked, swatchById } from "./swatches.js";
-import { applyToParagraph, differs } from "./textstyles.js";
-import { UNITS, anchorFor, convert, niceLength, pxPerPt, scaleText } from "./scalebar.js";
+import { applyToLabel, applyToParagraph, differs, labelDiffers } from "./textstyles.js";
+import { UNITS, anchorFor, convert, keepBar as keepScaleBar, measuredText, niceLength, pxPerPt, scaleText } from "./scalebar.js";
 import { DEFAULT_GAP } from "./gridlayout.js";
 import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
 import { differs as looksDiffer, takes } from "./objectstyles.js";
@@ -111,6 +111,7 @@ export const inspector = {
       if (["selection", "doc", "page", "saved"].includes(what)) this.schedule();
     });
     document.addEventListener("fa-areas", () => this.schedule());   // (an area fill's area lost or found again)
+    document.addEventListener("fa-labelgap", () => this.schedule());   // (where a scale bar's letters are, from the engine)
   },
   schedule() {
     if (this._raf) return;
@@ -183,6 +184,7 @@ export const inspector = {
     const u = this.units();
     if (key === "rot") return fmt(it.rot || 0, 2);
     if (key === "angle") return fmt(lineAngle(it), 2);
+    if (key === "gap") return it.gap == null ? undefined : fmt(it.gap, 2);
     if (it.frame && "xywh".includes(key)) return fmt(toUnit(it.frame["xywh".indexOf(key)], u), digits(u));
     if (it.type === "group" && "xywh".includes(key)) {
       const b = itemsBBox(it.items);
@@ -590,6 +592,17 @@ export const inspector = {
     const setRot = (v) => this.turnTogether("Rotate", [it.id], turnFrom(store.item(it.id).rot || 0, v));
     return row(numField("Rotation", it.rot || 0, "deg", setRot, { bind: "rot", step: 1 }), this.turnFlipButtons(it));
   },
+  // A scale bar's strip: where it is and how far it's turned (about its middle; its label turns
+  // with it). Its size comes from its picture's scale and its look, and it doesn't flip
+  scaleBarStrip(it) {
+    const u = this.units(), b = (cmd, ic) => iconButton(this.app, cmd, ic);
+    const setPos = (i) => (v) => this.edit("Move", (o) => { o.frame[i] = v; });
+    const setRot = (v) => this.turnTogether("Rotate", [it.id], turnFrom(store.item(it.id).rot || 0, v));
+    return h("div", { class: "insp-strip", role: "group", "aria-label": "Position and rotation" },
+      row(numField("X", it.frame[0], u, setPos(0), { bind: "x" }), numField("Y", it.frame[1], u, setPos(1), { bind: "y" })),
+      row(numField("Rotation", it.rot || 0, "deg", setRot, { bind: "rot", step: 1 }),
+        h("div", { class: "button-row inline icons turn-flip" }, b("rotateLeft90", "rotateLeft"), b("rotateRight90", "rotateRight"))));
+  },
   // A line's strip: its Angle, the way from its start to its end in degrees clockwise from
   // pointing right (90 points down, as rotation turns clockwise); a typed angle turns the whole
   // line about its middle. Beside it, the turn and flip buttons. No Angle for a line whose ends
@@ -609,10 +622,9 @@ export const inspector = {
   // Several objects: one Rotation for them all, turning them together about their middle. It
   // shows the angle they share (a line's being its way from start to end); typed, they turn
   // together until they're at it. At different angles it's blank (Mixed), and a typed angle turns
-  // them all by that much. Locked objects, area fills (they follow their lines) and scale bars
-  // (they follow their pictures) stay put
+  // them all by that much. Locked objects and area fills (they follow their lines) stay put
   multiStrip(sel) {
-    const ids = sel.filter((it) => !it.locked && it.geom !== "region" && it.type !== "scalebar").map((it) => it.id);
+    const ids = sel.filter((it) => !it.locked && it.geom !== "region").map((it) => it.id);
     if (!ids.length) return null;
     const shared = () => {
       const angles = ids.map((id) => angleOf(store.item(id))).filter((a) => a !== null);
@@ -633,6 +645,7 @@ export const inspector = {
   // scale bars have none
   sizeStrip(it) {
     if (it.type === "line") return this.lineStrip(it);
+    if (it.type === "scalebar") return this.scaleBarStrip(it);
     const isGroup = it.type === "group";
     if ((!it.frame && !isGroup) || it.geom === "region" || it.type === "scalebar") return null;
     const u = this.units();
@@ -878,9 +891,20 @@ export const inspector = {
       kids.push(h("p", { class: "hint" }, `The file says one pixel is ${+cal.per_px.toPrecision(6)} ${cal.unit} (${cal.from}).`),
         button("Use the scale saved in the file", () => this.app.setPictureScale(it.id, fileScale, cal.unit, "file"), "Use the file's scale"));
     }
+    const m = sc?.how === "measured" && it.measured?.line ? it.measured : null;
+    if (m) {
+      kids.push(textField("Measured line's length", measuredText(m), (v) => { if (v) this.app.setMeasured(it.id, m.line, v); }),
+        h("p", { class: "hint" }, "The line you drew is kept: change its length here to correct the scale, or Measure again "
+          + "to draw a new one (the old line shows, dashed, with its length filled in)."));
+    }
     kids.push(h("div", { class: "button-row" },
-      button("Measure a known length on the picture", () => canvas.startMeasure(it.id), "Measure…"),
+      button(sc ? "Measure a known length on the picture again, for a new scale" : "Measure a known length on the picture",
+        () => canvas.startMeasure(it.id), sc ? "Measure again…" : "Measure…"),
       sc ? button("Add a scale bar to this picture", () => this.app.addScaleBar(it.id), "Add scale bar") : null));
+    if (sc || it.measured) {
+      kids.push(h("div", { class: "button-row" }, button("Remove the picture's scale and its measured line, to start over "
+        + "(its scale bars stay as they are until it has a scale again)", () => this.app.removePictureScale(it.id), "Remove scale")));
+    }
     kids.push(h("p", { class: "hint" }, "Measure: drag along something of known length in the picture, then type its length. "
       + "Scale bars stay right when the picture is resized or cropped."));
     return section("Scale", kids);
@@ -912,13 +936,19 @@ export const inspector = {
       + "the ticks. Several brackets selected can be stacked in tidy levels (Stack, Figure tab)."));
     return section("Bracket", kids);
   },
-  // A scale bar: its length and look, and which corner of its picture it stays with
+  // A scale bar: its length and look, its label's text style, font and gap, and which corner of
+  // its picture it stays with; its picture's scale can be measured again from here
   scalebarSection(it) {
     const pic = store.item(it.picture), a = pic && store.doc.assets[pic.asset];
     const set = (label, fn) => this.edit(label, fn);
+    const how = { typed: "typed", measured: "measured", file: "from the file" }[pic?.scale?.how];
     const kids = [h("p", { class: "hint" }, !pic ? "Its picture has gone, so it no longer follows a scale."
-      : !pic.scale ? `${itemLabel(pic, store.doc)} has no scale any more: give it one in its Picture tab.`
-        : `On ${itemLabel(pic, store.doc)} (${scaleText(pic, a)}).`)];
+      : !pic.scale ? `${itemLabel(pic, store.doc)} has no scale any more: give it one in its Picture tab, or measure it.`
+        : `On ${itemLabel(pic, store.doc)} (${scaleText(pic, a)}${how ? `, ${how}` : ""}).`)];
+    if (pic) {
+      kids.push(h("div", { class: "button-row" }, button("Measure the picture's scale again: drag along something of known length "
+        + "in it, then type its length", () => canvas.startMeasure(pic.id), pic.scale ? "Measure scale again…" : "Measure scale…")));
+    }
     kids.push(row(numField("Length", it.length, "", (v) => set("Scale bar length", (o) => { o.length = Math.max(v, 1e-9); }), { min: 0, step: "any" }),
       selectField("Length unit", it.unit, UNITS.map(([u]) => [u, u]), (v) => set("Scale bar unit", (o) => { o.unit = v; }))));
     if (pic?.scale) {
@@ -930,15 +960,40 @@ export const inspector = {
       (v) => set("Scale bar label", (o) => { o.label = v; })));
     kids.push(row(colorField("Colour", it.color || "#ffffff", (v, sw) => set("Scale bar colour", (o) => { linked(o, sw).color = v; }), it.swatch),
       numField("Thickness", it.thickness ?? 2, "pt", (v) => set("Scale bar thickness", (o) => { o.thickness = Math.max(v, 0.1); }), { min: 0.1, step: 0.5 })));
-    kids.push(row(numField("Text size", it.size ?? 6, "pt", (v) => set("Scale bar text size", (o) => { o.size = Math.max(v, 1); }), { min: 1, step: 0.5 }),
-      h("div", { class: "button-row inline" }, toggle("Bold", !!it.bold, (on) => set("Bold", (o) => { o.bold = on; }), "B", "bold"))));
+    if (it.label !== "none") kids.push(...this.scaleLabelFields(it, set));
     if (pic) {
       kids.push(selectField("Stays with its picture's", it.anchor?.corner || "br", [["tl", "Top left corner"], ["tr", "Top right corner"],
         ["bl", "Bottom left corner"], ["br", "Bottom right corner"]], (v) => set("Scale bar corner", (o) => { o.anchor = anchorFor(o, pic, v); })));
     }
     kids.push(h("p", { class: "hint" }, "Drag it to place it; it moves with its picture, and its length follows the picture's "
-      + "size and crop."));
+      + "size and crop. Turn it by its round handle or the Rotation field: its label turns with it."));
     return section("Scale bar", kids);
+  },
+  // A scale bar's label: a text style (its font, size, bold and italic follow the style), the
+  // font and size by hand, and how far the letters stand from the bar
+  scaleLabelFields(it, set) {
+    const styles = store.doc.text_styles || [], st = styles.find((x) => x.id === it.text_style);
+    const out = [selectField("Text style", st ? st.id : "", [["", "None"], ...styles.map((x) => [x.id, x.name])], (v) => {
+      const pick = styles.find((x) => x.id === v);
+      set(pick ? "Text style" : "No text style", (o) => { if (pick) applyToLabel(o, pick); else delete o.text_style; });
+    })];
+    if (st && labelDiffers(it, st)) {
+      out.push(h("p", { class: "hint" }, `This label differs from ${st.name}.`), h("div", { class: "button-row" },
+        button(`Put this label back to ${st.name}`, () => set("Clear label changes", (o) => applyToLabel(o, st)), "Clear changes")));
+    }
+    out.push(h("datalist", { id: "sb-font-list" }, ...(this.app.fonts || []).map((f) => h("option", { value: f }))),
+      textField("Font", it.font || "Helvetica", (v) => set("Scale bar font", (o) => { if (v) o.font = v; else delete o.font; }), { list: "sb-font-list" }),
+      row(numField("Text size", it.size ?? 6, "pt", (v) => set("Scale bar text size", (o) => { o.size = Math.max(v, 1); }), { min: 1, step: 0.5 }),
+        h("div", { class: "button-row inline" },
+          toggle("Bold", !!it.bold, (on) => set("Bold", (o) => { o.bold = on; }), "B", "bold"),
+          toggle("Italic", !!it.italic, (on) => set("Italic", (o) => { o.italic = on; }), "I", "italic"))));
+    // Where the letters are now: the gap set, or (never set) where the engine put them
+    const gap = it.gap ?? canvas.els.get(it.id)?.labelGap;
+    out.push(numField("Gap to text", gap, "pt", (v) => set("Scale bar text gap", (o) => keepScaleBar(o, (b) => { b.gap = Math.max(v, 0); })),
+      { min: 0, step: 0.1, bind: "gap" }),
+    h("p", { class: "hint" }, "From the bar to the letters themselves (0 pt touches). The bar stays put; the yellow diamond "
+      + "on the page drags the text nearer or further."));
+    return out;
   },
   // The Check's guess at a picture's kind, named in the Kind list's Automatic choice
   async guessKind(asset, assetId, field) {

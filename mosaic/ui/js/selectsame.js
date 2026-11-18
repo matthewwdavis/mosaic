@@ -22,7 +22,9 @@ const lineOf = (it) => (it.stroke ? colour(it.stroke.color) : "none");
 const widthOf = (it) => (it.stroke ? String(Math.round(it.stroke.width * 1000) / 1000) : "none");
 const hasLine = (it) => it.type === "line" || (it.type === "shape" && it.geom !== "region");   // an area fill has none
 // The text's runs with something in them (a shape's or a text box's)
-const runsOf = (it) => (it.text?.paragraphs || []).flatMap((p) => p.runs || []).filter((r) => (r.t || "").length);
+// (a scale bar's label counts as one run of text)
+const runsOf = (it) => (it.type === "scalebar" ? (it.label === "none" ? [] : [{ t: "label", font: it.font, size: it.size, color: it.color }])
+  : (it.text?.paragraphs || []).flatMap((p) => p.runs || []).filter((r) => (r.t || "").length));
 
 function kindOf(it) {
   if (it.type === "picture") return it.equation ? "equation" : it.inset ? "inset" : "picture";

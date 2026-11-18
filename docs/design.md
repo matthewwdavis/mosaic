@@ -137,7 +137,8 @@ pre-export check says so.
     handle drag (`inspector.sizeStrip`, refreshValues). Groups got editable fields: their
     outline's, a width or height scaling everything from the top-left (`scaleItem`, as Match size
     and Transform Again do; groups have no resize handles). Lines keep their points in Arrange;
-    area fills and scale bars have none. Several objects selected show no size.
+    area fills have none; scale bars have X, Y and Rotation (their size comes from their picture's
+    scale). Several objects selected show no size.
   - *Dash spacing and dash pictures (2026-11-10, Matthew's choices):* `stroke.dash_spacing`
     scales a dash style's gaps (dash_pattern in geometry.py; the dashes keep their length), shown
     as a percentage in the Line section; PowerPoint gets a custDash. The Dash menu's pictures are
@@ -195,7 +196,8 @@ pre-export check says so.
     (none for elbow connectors, zoom inset lines or ends that meet). Groups got Rotation: `group.rot`
     keeps count of turns as a whole (`rotateItem` adds to it, so Transform Again does too; nothing
     draws it). Several objects get a strip with Rotation: their shared angle, or blank (Mixed) with a
-    typed angle turning them all by that much; locked objects, area fills and scale bars stay out.
+    typed angle turning them all by that much; locked objects and area fills stay out (scale bars
+    turn since 2026-11-17).
     Typed turns of lines, groups and selections go through `inspector.turnTogether` (as Transform
     Again: about the outline's middle, `detachMoved` first). `rotateItem` turns quarter turns
     exactly.
@@ -836,6 +838,23 @@ pre-export check says so.
   versions are written as .mff and read as any of them; a recovery copy left as .mosaic goes on
   being written under that name once recovered. A journal copy named without an extension
   (`--copy`) is .mff. The settings folder stays ~/.mosaic, the conda environment as it was.
+- **Scale bars measured again, turned, and their label's font and gap (2026-11-17, Matthew's
+  choices):** a picture keeps the line last measured on it and the length typed
+  (`picture.measured`, the line in the source's own points so it survives moves, resizes and
+  crops). Measure again… (Picture tab), Measure scale again… (the bar's tab) and the Figure
+  tab's Measure with a bar selected all measure its picture; the old line shows dashed with
+  "Last time: 100 µm", and the length box starts from it. The Picture tab's Measured line's
+  length corrects the scale from the same line; Remove scale starts over (no scale, no line;
+  bars stay as they are). Labels take a font (any installed), italic and a linked text style
+  (font, size, bold, italic; the colour stays the bar's, one colour for both). The gap is
+  measured to the letters' outlines (`Face.ink`, fontTools' BoundsPen; 0 touches, so "µm"
+  touches with the µ's tail), set in the tab or by a yellow diamond on the page, and keeps the
+  bar where it is (`scalebar.keepBar`). A bar without a gap draws exactly as before; the engine
+  reports where its letters are (about 2 pt above, 3.6 pt below at 6 pt), shown in the field.
+  Bars turn any angle (rotate handle, Rotation strip, Rotate 90°; not flips, which would mirror
+  the text), the label turning with them, and keep the corner of their outline as turned at its
+  offset from the picture's corner. Not covered: a turned *picture* (bars still anchor to its
+  unturned frame, as before).
 - **Repository:** `~/Projects/mosaic`, private GitHub repo `matthewwdavis/mosaic`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   Called FigAssemble, a working name, until 2026-11-03, when Matthew named it mosaic.

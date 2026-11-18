@@ -7,7 +7,7 @@ import { followGrids } from "./gridlayout.js";
 import { asLabel, followLabels, labelLetter, pageLabels, panelAt } from "./labels.js";
 import { finishEdits } from "./symbols.js";
 import { fitFreehand, moveHandle, moveNode, nearestOn, ringsOf, segments, splitAt, toLocal, toPageOf, toggleSmooth, writeRings } from "./pen.js";
-import { followScaleBars } from "./scalebar.js";
+import { followScaleBars, gapEdge, keepBar, measuredText, sourceToPage } from "./scalebar.js";
 import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
 import { followLifted, isLifted, isPlot, lift, plotTexts, plotTextsNow, quadOnPage, remapCopies, shownVariants, textAt } from "./liftedtext.js";
 import { across, labelRoom } from "./brackets.js";
@@ -16,7 +16,7 @@ import { collapsed, formatText, ordered, paraLength } from "./textformat.js";
 import {
   PX_PER_PT, announce, apply, clamp, describeItem, distToSegment, edgeReach, emptyShape, frameMatrix, h, hitItem, invert, isMac,
   itemBBox, itemLabel, itemCorners, itemsBBox, keepFieldKeys, lengthText, lineMidpoints, lineSamples, mul, nearestStretch,
-  fmt, pointInPoly, rotate, s, shapeCatalog, svgMatrix, translate, uid,
+  fmt, pointInPoly, rotate, roundStep, s, shapeCatalog, svgMatrix, translate, uid,
 } from "./util.js";
 
 const HANDLE = 8;             // handle size, CSS px
@@ -506,6 +506,10 @@ export const canvas = {
     e.origin = origin;
     e.bbox = r.bbox;
     e.handles = r.handles || null;
+    if (it.type === "scalebar" && e.labelGap !== (r.label_gap ?? null)) {
+      e.labelGap = r.label_gap ?? null;
+      if (store.selection.includes(it.id)) document.dispatchEvent(new CustomEvent("fa-labelgap"));   // (the Gap field shows it)
+    }
     e.outline = r.outline ? { fill: r.outline.fill.map((d) => new Path2D(d)), line: r.outline.line.map((d) => new Path2D(d)),
       evenOdd: r.outline.even_odd } : null;
     const before = JSON.stringify(e.sites || null);
@@ -535,6 +539,7 @@ export const canvas = {
       this.drawSites(o);
       return;
     }
+    if (this.tool === "measure") this.drawMeasuredBefore(o);
     if (this.op?.type === "measure") {
       const [a, b] = [this.toScreen(...this.op.start), this.toScreen(...this.op.cur)];
       o.append(s("line", { class: "measure-line", x1: a[0], y1: a[1], x2: b[0], y2: b[1] }));
@@ -565,6 +570,7 @@ export const canvas = {
       this.drawLostArea(o, sel[0]);
       this.drawHandles(sel[0]);
       if (this.op?.type === "rotate") this.drawRotateLabel(o, sel[0]);
+      if (this.op?.type === "gap") this.drawGapLabel(o, sel[0]);
     } else if (sel.length > 1) {
       const key = this.keyObject?.();
       for (const it of sel) {
@@ -692,9 +698,9 @@ export const canvas = {
       return [...pts, ...mids];
     }
     if (it.type === "group" || it.geom === "region") return [];   // an area fill takes its shape from its lines
-    if (it.type === "scalebar") return [];   // its length comes from its picture's scale
     const m = frameMatrix(it.frame, it.rot || 0, it.flip_h, it.flip_v);
     const [, , w, h] = it.frame;
+    if (it.type === "scalebar") return this.scaleBarHandles(it, m);
     const pts = { nw: [0, 0], n: [w / 2, 0], ne: [w, 0], e: [w, h / 2], se: [w, h], s: [w / 2, h], sw: [0, h], w: [0, h / 2] };
     // The shape's own adjust handles (PowerPoint's yellow ones) come first, so they win where
     // they sit on top of a resize handle
@@ -718,6 +724,20 @@ export const canvas = {
     out.push({ kind: "rotate", at: [tx + ux * up, ty + uy * up] });
     return out;
   },
+  // A scale bar's handles: its length comes from its picture's scale, so none to resize it; a
+  // diamond where its letters start (drag it to move them nearer the bar or further off) and the
+  // rotation handle
+  scaleBarHandles(it, m) {
+    const out = [], [, , w] = it.frame;
+    if (it.label !== "none") {
+      const { y, dir } = gapEdge(it), engine = this.els.get(it.id)?.handles?.[0];
+      const at = it.gap != null ? [w / 2, y + dir * Math.max(it.gap, 0)] : engine;
+      if (at) out.push({ kind: "gap", at: this.toScreen(...apply(m, ...at)) });
+    }
+    const [ux, uy] = apply(rotate(it.rot || 0), 0, -1), [tx, ty] = this.toScreen(...apply(m, w / 2, 0));
+    out.push({ kind: "rotate", at: [tx + ux * (ROT_OFFSET + SEL_GAP), ty + uy * (ROT_OFFSET + SEL_GAP)] });
+    return out;
+  },
   drawHandles(it) {
     const o = this.overlay;
     if (it.type === "line") {
@@ -738,9 +758,9 @@ export const canvas = {
         o.append(s("circle", { class: "handle mid", cx: hd.at[0], cy: hd.at[1], r: HANDLE / 2 - 0.5 }));
       } else if (hd.kind === "elbow") {
         o.append(s("rect", { class: "handle elbow", x: hd.at[0] - HANDLE / 2, y: hd.at[1] - HANDLE / 2, width: HANDLE, height: HANDLE, rx: 2 }));
-      } else if (hd.kind === "adjust") {
+      } else if (hd.kind === "adjust" || hd.kind === "gap") {
         const [x, y] = hd.at, d = HANDLE / 2 + 1;
-        o.append(s("path", { class: "handle adjust", d: `M${x} ${y - d}L${x + d} ${y}L${x} ${y + d}L${x - d} ${y}Z` }));
+        o.append(s("path", { class: `handle adjust${hd.kind === "gap" ? " gap" : ""}`, d: `M${x} ${y - d}L${x + d} ${y}L${x} ${y + d}L${x - d} ${y}Z` }));
       } else {
         o.append(s("rect", { class: `handle ${hd.kind}`, x: hd.at[0] - HANDLE / 2, y: hd.at[1] - HANDLE / 2,
           width: HANDLE, height: HANDLE }));
@@ -947,6 +967,7 @@ export const canvas = {
     if (op.type === "move") return this.moveTo(p, e);
     if (op.type === "resize") return this.resizeTo(p, e);
     if (op.type === "rotate") return this.rotateTo(p, e);
+    if (op.type === "gap") return this.gapTo(p, e);
     if (op.type === "end") return this.endTo(p, e);
     if (op.type === "adjust") return this.adjustTo(p);
     if (op.type === "elbow") return this.elbowTo(p);
@@ -1005,7 +1026,7 @@ export const canvas = {
       this.setTool("select");
       this.drawOverlay();
       const len = Math.hypot(op.cur[0] - op.start[0], op.cur[1] - op.start[1]);
-      if (!cancelled && len * this.k > 3) this.onMeasure?.(this.measuring, len);
+      if (!cancelled && len * this.k > 3) this.onMeasure?.(this.measuring, op.start, op.cur);
       return;
     }
     if (cancelled) { store.cancelLive(); return; }
@@ -1065,6 +1086,7 @@ export const canvas = {
       const hd = this.handleAt(pt);
       if (hd) {
         cursor = hd.kind === "rotate" ? "grab" : (hd.kind === "mid" || hd.kind === "adjust") ? "pointer"
+          : hd.kind === "gap" ? (Math.abs(Math.sin(((store.selected()[0]?.rot || 0) * Math.PI) / 180)) > 0.7 ? "col-resize" : "row-resize")
           : (hd.kind === "end" || hd.kind === "point") ? "move" : resizeCursor(hd.dir, store.selected()[0]);
       }
       else {
@@ -1172,11 +1194,24 @@ export const canvas = {
     announce(`Drag ${{ rect: "a box", round: "a rounded box", ellipse: "an ellipse", circle: "a circle" }[shape] || "a box"} on a picture `
       + "around the area to enlarge");
   },
-  // Measure a known length on a picture (for its scale): the next drag draws it
+  // Measure a known length on a picture (for its scale): the next drag draws it. Measured before,
+  // the line drawn then shows, dashed, with the length it was given
   startMeasure(id) {
     this.measuring = id;
     this.setTool("measure");
-    announce("Drag along something of known length in the picture: a scale bar already in it, a ruler, a stage micrometer");
+    this.drawOverlay();
+    const was = store.item(id)?.measured;
+    announce("Drag along something of known length in the picture: a scale bar already in it, a ruler, a stage micrometer"
+      + (was ? `. The dashed line is the one measured last time (${measuredText(was)})` : ""));
+  },
+  drawMeasuredBefore(o) {
+    const pic = store.item(this.measuring), asset = pic && store.doc.assets[pic.asset], m = pic?.measured;
+    if (!m?.line || !asset) return;
+    const [a, b] = m.line.map((q) => this.toScreen(...sourceToPage(pic, asset, q)));
+    o.append(s("line", { class: "measure-line before", x1: a[0], y1: a[1], x2: b[0], y2: b[1] }));
+    const label = s("text", { class: "guide-label", x: (a[0] + b[0]) / 2, y: Math.min(a[1], b[1]) - 8, "text-anchor": "middle" });
+    label.textContent = `Last time: ${measuredText(m)}`;
+    o.append(label);
   },
   enterGroup(id) {
     const g = store.item(id);
@@ -1644,6 +1679,11 @@ export const canvas = {
       this.op = { type: "resize", dir: d, orig, grab, moved: false, label: "Resize", targets: this.snapTargets([it.id]) };
     }
     else if (hd.kind === "rotate") this.op = { type: "rotate", orig, moved: false, label: "Rotate" };
+    else if (hd.kind === "gap") {
+      // The gap follows the pointer from where it was grabbed (the letters' edge), along the bar's up
+      const was = it.gap ?? this.els.get(it.id)?.labelGap ?? 0;
+      this.op = { type: "gap", orig, moved: false, label: "Scale bar text gap", offset: was - this.gapAt(orig, p) };
+    }
     else if (hd.kind === "adjust") this.op = { type: "adjust", index: hd.index, orig, moved: false, label: "Adjust shape" };
     else if (hd.kind === "end" || hd.kind === "point") {
       this.op = { type: "end", index: hd.index, orig, moved: false, label: hd.kind === "end" ? "Move end" : "Move point",
@@ -1746,6 +1786,34 @@ export const canvas = {
     op.pt = this.toScreen(...p);
     op.moved = true;
     store.live();
+  },
+  // How far a point is from a scale bar's edge facing its label, towards the label
+  gapAt(bar, p) {
+    const [, ly] = apply(invert(frameMatrix(bar.frame, bar.rot || 0)), ...p), { y, dir } = gapEdge(bar);
+    return (ly - y) * dir;
+  },
+  // A scale bar's label dragged nearer or further: the bar stays where it is. Rounded to a tidy
+  // amount (0.1 pt at 100%, finer zoomed in), or exact with ⌘/Ctrl held
+  gapTo(p, e) {
+    const op = this.op, it = store.selected()[0];
+    if (!it) return;
+    let gap = Math.max(this.gapAt(op.orig, p) + op.offset, 0);
+    if (!(e.metaKey || e.ctrlKey)) {
+      const step = roundStep(0.1 / this.zoom, "pt").pt;
+      gap = Math.round(gap / step) * step;
+    }
+    keepBar(it, (b) => { b.gap = +gap.toFixed(4); });
+    op.pt = this.toScreen(...p);
+    op.moved = true;
+    store.live();
+  },
+  drawGapLabel(o, it) {
+    const op = this.op;
+    if (!op.pt || it?.gap == null) return;
+    const r = this.stage.getBoundingClientRect();
+    const label = s("text", { class: "guide-label", x: clamp(op.pt[0] + 14, 4, r.width - 90), y: clamp(op.pt[1] - 12, 16, r.height - 6) });
+    label.textContent = `Gap ${fmt(it.gap, 2)} pt`;
+    o.append(label);
   },
   // The angle beside the pointer while an object turns, and on 0°, 45°, 90°… a dashed guide
   // through its middle along its own up and down, so the snap shows
@@ -2957,10 +3025,10 @@ export function lineAngle(it) {
   return turnedBy((Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI, 0);
 }
 // The angle the Rotation (or a line's Angle) field shows for an object: a line's way from start
-// to end, anything else its rot; null for what doesn't turn (an area fill, a scale bar)
+// to end, anything else its rot; null for what doesn't turn (an area fill)
 export function angleOf(it) {
   if (it.type === "line") return lineAngle(it);
-  if (it.geom === "region" || it.type === "scalebar") return null;
+  if (it.geom === "region") return null;
   return it.rot || 0;
 }
 

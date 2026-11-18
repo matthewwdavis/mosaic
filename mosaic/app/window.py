@@ -42,13 +42,15 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
 
     # Previews and conversions nothing has used for a month go (in the background; each is made again if wanted)
     threading.Thread(target=lambda: get_cache().prune_derived(), daemon=True).start()
-    srv = start_server(api, port)
-    base = srv.url + "ui/index.html"
     extra = os.environ.get("MOSAIC_SMOKE_QUERY")   # e.g. the editor self-test, for testing
     if extra and "selftest" in extra:
-        os.environ["MOSAIC_FAKE_CLIPBOARD"] = "1"   # the self-test's own clipboard, not the system's
+        # the self-test's own clipboard, not the system's (set before the server starts, which
+        # lets the self-test's helpers answer only then)
+        os.environ["MOSAIC_FAKE_CLIPBOARD"] = "1"
         if "out" not in parse_qs(extra):   # a folder for the files it saves (figures to drop, exports)
             extra += "&out=" + quote(tempfile.mkdtemp(prefix="mosaic-selftest-"))
+    srv = start_server(api, port)
+    base = srv.url + "ui/index.html"
     if browser:
         url = base + ("?open=" + quote(os.path.abspath(document)) if document else "")
         if extra:

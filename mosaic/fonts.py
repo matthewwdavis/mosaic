@@ -267,6 +267,9 @@ class Face:
         self.ps_name = ref.ps_name
         self.num_glyphs = len(order)
         self._kern = None   # read the first time it's wanted (kern)
+        self._ink: dict[int, tuple[float, float, float, float] | None] = {}   # glyph outlines' extents (ink)
+        self._glyphs = None
+        self._ink_lock = threading.Lock()
         tt.close()
 
     @property
@@ -297,6 +300,27 @@ class Face:
                     except Exception:   # (a font whose tables can't be read: no kerning)
                         self._kern = lambda a, b: 0.0
         return self._kern(left, right)
+
+    def ink(self, gid: int) -> tuple[float, float, float, float] | None:
+        """Where a glyph's outline reaches, (x min, y min, x max, y max) in em with y up from the
+        baseline; None for a glyph that draws nothing (a space) or can't be read. The outlines are
+        read the first time one is wanted."""
+        if gid in self._ink:
+            return self._ink[gid]
+        with self._ink_lock:
+            if gid not in self._ink:
+                try:
+                    from fontTools.pens.boundsPen import BoundsPen
+                    if self._glyphs is None:
+                        tt = TTFont(self.ref.path, fontNumber=self.ref.index, lazy=True)
+                        self._glyphs = (tt.getGlyphOrder(), tt.getGlyphSet())
+                    order, glyphs = self._glyphs
+                    pen = BoundsPen(glyphs)
+                    glyphs[order[gid]].draw(pen)
+                    self._ink[gid] = tuple(v / self.upm for v in pen.bounds) if pen.bounds else None
+                except Exception:   # (a font whose outlines can't be read)
+                    self._ink[gid] = None
+        return self._ink[gid]
 
     @property
     def embeddable(self) -> bool:

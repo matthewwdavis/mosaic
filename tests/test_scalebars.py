@@ -42,3 +42,37 @@ def test_the_bar_and_its_length_written_above_or_below_it():
     below = Resolver({"assets": {}}).resolve({**bar, "label": "below"}).prims
     assert below[0].path.bbox()[1] == 10 and below[1].bbox()[1] > 12
     assert len(Resolver({"assets": {}}).resolve({**bar, "label": "none", "frame": [10, 10, 40, 2]}).prims) == 1
+
+
+def test_the_gap_is_to_the_letters_and_the_bar_turns_with_its_label():
+    from mosaic.resolve import ink_extent
+    bar = {"id": "sb", "type": "scalebar", "frame": [10, 10, 40, 2 + 0.5 + 7.2], "length": 50, "unit": "µm", "thickness": 2,
+           "size": 6, "label": "above", "color": "#ffffff", "gap": 0.5}
+    resolver = Resolver({"assets": {}})
+
+    def letters(r):   # the letters' outline on the page, y down
+        text = r.prims[1]
+        top, bottom = ink_extent(text)
+        return text.matrix.apply(0, top)[1], text.matrix.apply(0, bottom)[1]
+
+    # Above: the µ's tail 0.5 pt over the bar's top; the engine says so, and puts the handle there
+    r = resolver.resolve(bar)
+    bar_top = r.prims[0].path.bbox()[1]
+    assert abs(bar_top - letters(r)[1] - 0.5) < 1e-9 and abs(r.label_gap - 0.5) < 1e-9
+    assert r.handles == [[20.0, bar["frame"][3] - 2 - 0.5]]
+    # 0 touches; below, the tops of the letters stand off the bar's underside
+    touching = resolver.resolve({**bar, "gap": 0})
+    assert abs(touching.prims[0].path.bbox()[1] - letters(touching)[1]) < 1e-9
+    below = resolver.resolve({**bar, "label": "below", "gap": 1})
+    assert abs(letters(below)[0] - below.prims[0].path.bbox()[3] - 1) < 1e-9 and abs(below.label_gap - 1) < 1e-9
+    # A bar from before gaps: drawn as it was (the line box 0.3 sizes off), its letters' gap reported
+    old = resolver.resolve({k: v for k, v in bar.items() if k != "gap"} | {"frame": [10, 10, 40, 11.2]})
+    assert old.prims[0].path.bbox() == (10, 19.2, 50, 21.2) and 1 < old.label_gap < 3
+    # Italic, and a turn: a quarter turn makes it upright, its label beside it
+    italic = resolver.resolve({**bar, "italic": True}).prims[1]
+    assert italic.runs[0].skew or "Italic" in italic.runs[0].face.ps_name or "Oblique" in italic.runs[0].face.ps_name
+    turned = resolver.resolve({**bar, "rot": 270})
+    x0, y0, x1, y1 = turned.prims[0].path.bbox()
+    assert abs((x1 - x0) - 2) < 1e-9 and abs((y1 - y0) - 40) < 1e-9
+    tx0, ty0, tx1, ty1 = turned.prims[1].bbox()
+    assert ty1 - ty0 > tx1 - tx0 and tx1 < x0   # upright text, left of the bar (its "above" turned)
