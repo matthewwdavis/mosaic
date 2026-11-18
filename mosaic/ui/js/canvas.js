@@ -517,6 +517,7 @@ export const canvas = {
     e.bbox = r.bbox;
     e.handles = r.handles || null;
     e.textBox = r.text_box || null;
+    e.labelW = r.label_w ?? null;   // (a scale bar's label beside it: its letters' width as the engine measured them)
     if ((it.type === "scalebar" || it.type === "bracket") && e.labelGap !== (r.label_gap ?? null)) {
       e.labelGap = r.label_gap ?? null;
       if (store.selection.includes(it.id)) document.dispatchEvent(new CustomEvent("fa-labelgap"));   // (the Gap field shows it)

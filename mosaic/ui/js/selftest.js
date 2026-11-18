@@ -3780,20 +3780,21 @@ async function scaleBarChecks(app) {
     await settle();
     await settle();   // (the engine measures the letters, and the frame makes room for them)
   };
-  // (the label and bar as drawn on the screen, and the label in page points: the text is drawn turned into place)
+  // (the label and bar as drawn on the screen: the text is drawn turned into place, in the
+  // browser's font, which on Windows isn't the engine's; the engine measures the letters' width)
   const onScreen = (sel) => canvas.els.get(barId)?.g.querySelector(sel)?.getBoundingClientRect();
   const perPt = () => onScreen("path").width / bodyBox().width;
-  const corner = () => itemBBox(bar()).slice(2), textWidth = () => onScreen("text").width / perPt();
+  const corner = () => itemBBox(bar()).slice(2);
   const textMid = () => (onScreen("text").left + onScreen("text").right) / 2;
   const bodyLeft = () => onScreen("path").left, bodyRight = () => onScreen("path").right;
   const len = bar().frame[2], c0 = corner();
   check(bar().label === "above" && bar().gap === 0.5 && near(bodyBox()?.width ?? 0, len, 0.01), "(a bar above its label to start)", JSON.stringify(bar()));
   await sideTo("right");
   check(bar().label === "right" && near(bar().bar_w, len, 1e-9) && near(bodyBox()?.width ?? 0, len, 0.01)
-    && near(bar().frame[2], len + 0.5 + bar().label_w, 1e-6) && near(bar().label_w, textWidth(), 1)
+    && near(bar().frame[2], len + 0.5 + bar().label_w, 1e-6) && near(bar().label_w, canvas.els.get(barId)?.labelW ?? -1, 0.006)
     && near(corner()[0], c0[0], 1e-6) && near(corner()[1], c0[1], 1e-6) && near(engineGap(), 0.5, 0.005) && textMid() > bodyRight(),
   "Label Right: the length written right of the bar, which keeps its length, the letters at the gap; the outline keeps its corner",
-  [bar().bar_w, len, bodyBox()?.width, bar().frame[2], bar().label_w, textWidth(), c0, corner(), engineGap(), textMid(), bodyRight()].join(" "));
+  [bar().bar_w, len, bodyBox()?.width, bar().frame[2], bar().label_w, canvas.els.get(barId)?.labelW, c0, corner(), engineGap(), textMid(), bodyRight()].join(" "));
   const barY = (onScreen("path").top + onScreen("path").bottom) / 2, textY = (onScreen("text").top + onScreen("text").bottom) / 2;
   check(near(textY / perPt(), barY / perPt(), 1.5) && canvas.gapAcross(bar())
     && canvas.handlesFor(bar()).map((hd) => hd.kind).join() === "gap,rotate",
