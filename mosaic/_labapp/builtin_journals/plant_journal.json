@@ -378,7 +378,7 @@
  },
  "word": {
   "layout": {
-   "measured_from": "Wiley's LaTeX authoring template (\"Wiley's PDF design\", USG.cls v6.0, the successor of the NJD template; package of 2026) with Wiley's Harvard reference style, for The Plant Journal; prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display re-measured on 2026-11-16",
+   "measured_from": "Wiley's LaTeX authoring template (\"Wiley's PDF design\", USG.cls v6.0, the successor of the NJD template; package of 2026) with Wiley's Harvard reference style, for The Plant Journal; prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display, styles re-measured on 2026-11-17",
    "page": {
     "width_mm": 210.0,
     "height_mm": 276.0,
@@ -529,7 +529,7 @@
      "italic": false,
      "caps": false,
      "align": "center",
-     "before_pt": 10.4,
+     "before_pt": 11.5,
      "run_in": false,
      "font": "Century Schoolbook"
     },
@@ -539,9 +539,9 @@
      "bold": false,
      "italic": false,
      "caps": false,
-     "align": "left",
-     "hanging_mm": 3.6,
-     "before_pt": 0.0,
+     "align": "both",
+     "hanging_mm": 3.7,
+     "before_pt": 5.6,
      "line_pt": 11.0,
      "run_in": false,
      "font": "Century Schoolbook"
@@ -881,7 +881,7 @@
  "sources": [
   {
    "url": "https://onlinelibrary.wiley.com/page/journal/1365313x/homepage/forauthors.html",
-   "what": "The Plant Journal Author Guidelines ('Author Guidelines updated June 2026'). Read: read in a browser 2026-11-16 (by the coordinator, through Matthew's Chrome)."
+   "what": "The Plant Journal Author Guidelines ('Author Guidelines updated June 2026'). Read: read in a browser 2026-11-16."
   },
   {
    "url": "https://www.sebiology.org/journals/the-plant-journal.html",

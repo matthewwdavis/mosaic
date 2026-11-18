@@ -12,8 +12,12 @@ kept in a cache both apps share, so each journal is set up once for everyone.
 
 The library is named in one of four forms:
 
-    github:owner/repository     read with GitHub's own tool, gh, signed in as the person (so a
-                                private library works for whoever its owner gave access)
+    github:owner/repository[@branch]
+                                a GitHub repository (its default branch, or the one named): read
+                                straight from raw.githubusercontent.com when it's public (no gh
+                                needed), else with GitHub's own tool, gh, signed in as the person
+                                (so a private library works for whoever its owner gave access);
+                                shared to by pull request, or written in by those who can change it
     https://…/                  a web address holding index.json and the files: read only
     file:///a/folder, /a/folder a folder (a lab's shared drive; and the tests' fake library)
 
@@ -54,9 +58,11 @@ import urllib.request
 
 from . import journalfile
 
-DEFAULT_SOURCE = "github:matthewwdavis/prose-journals"
+DEFAULT_SOURCE = "github:matthewwdavis/prose-journals@main"   # the public library: its main branch
 SNAPSHOT = os.path.join(journalfile.BUILTIN_DIR, "library_index.json")   # the library's list when the app was made
-READ_THROUGH_GH = True   # a GitHub library is read through gh (private); False: from raw.githubusercontent.com (public)
+READ_THROUGH_GH = False  # True: a GitHub library is read through gh first (for a private one); False: from
+                         # raw.githubusercontent.com (public), with gh only when the file isn't there (a private one)
+RAW_GITHUB = "https://raw.githubusercontent.com"   # (LABAPP_GITHUB_RAW: a folder laid out the same way, for tests)
 SHIP_ALL = True          # every built-in journal is shipped; False: only the core ("core": true in builtin_journals/index.json)
 DAY = 24 * 3600
 MAX_FILE = 256 * 1024    # (the library's own limit for a journal file)
@@ -115,10 +121,17 @@ def folder_of(source: str) -> str:
     return os.path.expanduser(s)
 
 
+def github_of(source: str) -> tuple[str, str | None]:
+    """("owner/repository", the branch or None for the default one) of a github: library."""
+    s = source.strip()[7:].strip().strip("/")
+    repo, _, ref = s.partition("@")
+    return repo.strip("/"), (ref.strip() or None)
+
+
 def describe(source: str) -> str:
     k = kind_of(source)
     if k == "github":
-        return f"the GitHub repository {source.strip()[7:]}"
+        return f"the GitHub repository {github_of(source)[0]}"
     return source if k == "web" else f"the folder {folder_of(source)}"
 
 
@@ -203,15 +216,17 @@ def read(source: str, rel: str, limit: int = 20_000_000) -> bytes:
     rel = safe(rel)
     k = kind_of(source)
     if k == "github":
-        repo = source.strip()[7:].strip("/")
+        repo, ref = github_of(source)
         if READ_THROUGH_GH and gh_path():
-            got = gh_api([f"repos/{repo}/contents/{rel}"])
-            if not isinstance(got, dict):
-                raise LibraryError(f"{rel} in the library is a folder, not a file.")
-            if got.get("content") is None and got.get("download_url"):   # (a file over 1 MB)
-                return _http(got["download_url"], limit)
-            return base64.b64decode(got.get("content") or "")
-        return _http(f"https://raw.githubusercontent.com/{repo}/HEAD/{rel}", limit)
+            return _read_through_gh(repo, ref, rel, limit)
+        try:
+            return _raw(repo, ref, rel, limit)
+        except FileNotFoundError:
+            # (not there, or the repository is private: raw.githubusercontent.com answers 404 for both;
+            # gh, signed in, can read a private one the person was given access to)
+            if not gh_path():
+                raise
+            return _read_through_gh(repo, ref, rel, limit)
     if k == "web":
         return _http(source.rstrip("/") + "/" + rel, limit)
     root = folder_of(source)
@@ -219,6 +234,25 @@ def read(source: str, rel: str, limit: int = 20_000_000) -> bytes:
         raise OfflineError(f"The library's folder isn't there (is its drive connected?): {root}")
     with open(os.path.join(root, *rel.split("/")), "rb") as fh:
         return fh.read(limit + 1)
+
+
+def _raw(repo: str, ref: str | None, rel: str, limit: int) -> bytes:
+    """A public GitHub repository's file, from raw.githubusercontent.com (or LABAPP_GITHUB_RAW's folder)."""
+    base = os.environ.get("LABAPP_GITHUB_RAW") or RAW_GITHUB
+    where = "/".join([repo, ref or "HEAD", rel])
+    if not base.startswith("https://"):   # (a folder: the tests' stand-in for raw.githubusercontent.com)
+        with open(os.path.join(folder_of(base), *where.split("/")), "rb") as fh:
+            return fh.read(limit + 1)
+    return _http(f"{base.rstrip('/')}/{where}", limit)
+
+
+def _read_through_gh(repo: str, ref: str | None, rel: str, limit: int) -> bytes:
+    got = gh_api([f"repos/{repo}/contents/{rel}" + (f"?ref={urllib.parse.quote(ref)}" if ref else "")])
+    if not isinstance(got, dict):
+        raise LibraryError(f"{rel} in the library is a folder, not a file.")
+    if got.get("content") is None and got.get("download_url"):   # (a file over 1 MB)
+        return _http(got["download_url"], limit)
+    return base64.b64decode(got.get("content") or "")
 
 
 # The index ---------------------------------------------------------------------------------------------
@@ -824,9 +858,9 @@ def share_by_pull_request(repo: str, journal: dict, dry_run: bool = False, check
 
 # Sharing, whatever the library is ----------------------------------------------------------------------
 
-def _sha_on_github(repo: str, rel: str) -> str | None:
+def _sha_on_github(repo: str, rel: str, ref: str | None = None) -> str | None:
     try:
-        got = gh_api([f"repos/{repo}/contents/{safe(rel)}"])
+        got = gh_api([f"repos/{repo}/contents/{safe(rel)}" + (f"?ref={urllib.parse.quote(ref)}" if ref else "")])
         return got.get("sha") if isinstance(got, dict) else None
     except FileNotFoundError:
         return None
@@ -840,9 +874,10 @@ def write(source: str, rel: str, data: bytes, message: str) -> None:
     if k == "web":
         raise LibraryError("A library on the web can only be read. Share to a folder or a GitHub repository.")
     if k == "github":
-        repo = source.strip()[7:].strip("/")
-        sha = _sha_on_github(repo, rel)
-        body = {"message": message, "content": base64.b64encode(data).decode("ascii"), **({"sha": sha} if sha else {})}
+        repo, ref = github_of(source)
+        sha = _sha_on_github(repo, rel, ref)
+        body = {"message": message, "content": base64.b64encode(data).decode("ascii"), **({"sha": sha} if sha else {}),
+                **({"branch": ref} if ref else {})}
         gh_api(["--method", "PUT", f"repos/{repo}/contents/{rel}", "--input", "-"], stdin=json.dumps(body))
         return
     root = folder_of(source)
@@ -859,7 +894,7 @@ def share(source: str, journal: dict, app: str = "prose", dry_run: bool = False,
     an earlier one of the same id, and listed: {"name", "where", "planned"}."""
     where = describe(source)
     if kind_of(source) == "github":
-        repo = source.strip()[7:].strip("/")
+        repo = github_of(source)[0]
         if not can_push(repo):
             got = share_by_pull_request(repo, journal, dry_run=dry_run, app=app, checked=checked)
             return {"name": journal["name"], "where": where, "pull_request": got["pull_request"], "updated": got["updated"],

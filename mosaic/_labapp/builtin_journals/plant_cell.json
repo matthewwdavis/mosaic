@@ -351,7 +351,7 @@
  },
  "word": {
   "layout": {
-   "measured_from": "OUP's general LaTeX template (oup-authoring-template v1.5, July 2026) with OUP's options for The Plant Cell: contemporary design, large page, unnumbered sections, author-date citations (oup-abbrvnat); prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display re-measured on 2026-11-16",
+   "measured_from": "OUP's general LaTeX template (oup-authoring-template v1.5, July 2026) with OUP's options for The Plant Cell: contemporary design, large page, unnumbered sections, author-date citations (oup-abbrvnat); prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display, styles re-measured on 2026-11-17",
    "page": {
     "width_mm": 210.0,
     "height_mm": 276.0,
@@ -388,7 +388,7 @@
      "italic": false,
      "caps": false,
      "align": "center",
-     "before_pt": 16.2,
+     "before_pt": 26.6,
      "line_pt": 24.0,
      "run_in": false,
      "font": "Arial"
@@ -481,7 +481,7 @@
      "italic": true,
      "caps": false,
      "align": "center",
-     "before_pt": 6.8,
+     "before_pt": 6.9,
      "run_in": false,
      "after_pt": 3.0,
      "font": "Arial"
@@ -505,7 +505,7 @@
      "italic": false,
      "caps": false,
      "align": "center",
-     "before_pt": 14.9,
+     "before_pt": 15.4,
      "run_in": false,
      "font": "Arial"
     },
@@ -546,6 +546,8 @@
     "CMSY8": "Times New Roman",
     "LMRoman8-Italic": "Century Schoolbook",
     "_chosen_by_width": [
+     "LMRoman5-Regular",
+     "LMRoman7-Regular",
      "LMRoman8-Italic",
      "LMRoman8-Regular"
     ],

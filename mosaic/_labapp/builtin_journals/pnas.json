@@ -339,7 +339,7 @@
  },
  "word": {
   "layout": {
-   "measured_from": "PNAS LaTeX template from pnas.org's author center, December 2025 (pnas-new.cls v1.47 with pnasresearcharticle.sty and pnas-new.bst), plus the jabbrv journal-abbreviation package the class needs. PNAS_Logo.pdf ships only with PNAS's Overleaf template; without it the page-1 header shows the word PNAS.; prose's sample manuscript compiled by Tectonic, 2026-11-15 (tools/measure_journal_layout.py); running, table, table_note, run_in, display re-measured on 2026-11-16",
+   "measured_from": "PNAS LaTeX template from pnas.org's author center, December 2025 (pnas-new.cls v1.47 with pnasresearcharticle.sty and pnas-new.bst), plus the jabbrv journal-abbreviation package the class needs. PNAS_Logo.pdf ships only with PNAS's Overleaf template; without it the page-1 header shows the word PNAS.; prose's sample manuscript compiled by Tectonic, 2026-11-15 (tools/measure_journal_layout.py); running, table, table_note, run_in, display, styles re-measured on 2026-11-17",
    "page": {
     "width_mm": 206.4,
     "height_mm": 276.1,
@@ -455,7 +455,7 @@
      "italic": true,
      "caps": false,
      "align": "left",
-     "before_pt": 15.8,
+     "before_pt": 10.8,
      "run_in": true,
      "after_pt": 0.0,
      "font": "Arial",
@@ -474,9 +474,9 @@
      "font": "Arial"
     },
     "table_caption": {
-     "pdf_font": "NimbusSanL-Bold",
+     "pdf_font": "NimbusSanL-Regu",
      "size": 7.5,
-     "bold": true,
+     "bold": false,
      "italic": false,
      "caps": false,
      "align": "center",
@@ -510,6 +510,17 @@
      "line_pt": 8.0,
      "run_in": false,
      "font": "Century Schoolbook"
+    },
+    "correspondence": {
+     "pdf_font": "NimbusSanL-Regu",
+     "size": 5.5,
+     "bold": false,
+     "italic": false,
+     "caps": false,
+     "align": "center",
+     "before_pt": 0.9,
+     "run_in": false,
+     "font": "Arial"
     }
    },
    "line_numbers": false,
@@ -699,7 +710,8 @@
     "styles.affiliation.indent_mm.left",
     "styles.affiliation.indent_mm.right",
     "styles.affiliation.align",
-    "styles.table_caption.before_pt"
+    "styles.table_caption.before_pt",
+    "styles.table_note.before_pt"
    ],
    "running": {
     "odd": [

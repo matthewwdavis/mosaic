@@ -306,7 +306,7 @@
  },
  "word": {
   "layout": {
-   "measured_from": "Science-family LaTeX template v1.0, July 2024 (the article class with Science's preamble, scicite.sty citations and the sciencemag reference style). Science's production converts LaTeX and asks authors to add no packages; this package adds the few pandoc's output needs (longtable, booktabs, multirow, calc, etoolbox, pdflscape, hyperref).; prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display re-measured on 2026-11-16",
+   "measured_from": "Science-family LaTeX template v1.0, July 2024 (the article class with Science's preamble, scicite.sty citations and the sciencemag reference style). Science's production converts LaTeX and asks authors to add no packages; this package adds the few pandoc's output needs (longtable, booktabs, multirow, calc, etoolbox, pdflscape, hyperref).; prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display, styles re-measured on 2026-11-17",
    "page": {
     "width_mm": 215.9,
     "height_mm": 279.4,
@@ -381,7 +381,7 @@
       "left": 10.6,
       "right": 10.8
      },
-     "before_pt": 42.1,
+     "before_pt": 35.0,
      "line_pt": 21.7,
      "run_in": false,
      "font": "Times New Roman"
@@ -441,7 +441,7 @@
      "italic": false,
      "caps": false,
      "align": "center",
-     "before_pt": 15.0,
+     "before_pt": 15.6,
      "run_in": false,
      "font": "Times New Roman"
     },
@@ -636,7 +636,7 @@
   },
   {
    "url": "https://www.science.org/content/page/instructions-preparing-initial-manuscript",
-   "what": "Instructions for preparing an initial manuscript. Read: read in a browser 2026-11-16 (by the coordinator, through Matthew's Chrome); also its Internet Archive copy of 2025-08-10, which says the same."
+   "what": "Instructions for preparing an initial manuscript. Read: read in a browser 2026-11-16; also its Internet Archive copy of 2025-08-10, which says the same."
   },
   {
    "url": "https://www.science.org/content/page/instructions-authors-new-research-articles",
@@ -648,7 +648,7 @@
   },
   {
    "url": "https://www.science.org/content/page/instructions-preparing-revised-manuscript",
-   "what": "Instructions for preparing a revised manuscript. Read: read in a browser 2026-11-16 (by the coordinator, through Matthew's Chrome) (programs got HTTP 403, and the Archive's copies hold no text)."
+   "what": "Instructions for preparing a revised manuscript. Read: read in a browser 2026-11-16 (programs got HTTP 403, and the Archive's copies hold no text)."
   }
  ],
  "evidence": {

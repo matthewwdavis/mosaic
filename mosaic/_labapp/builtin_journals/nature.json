@@ -393,7 +393,7 @@
  },
  "word": {
   "layout": {
-   "measured_from": "Springer Nature LaTeX template, December 2024 (sn-jnl with the sn-nature reference style); prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display re-measured on 2026-11-16",
+   "measured_from": "Springer Nature LaTeX template, December 2024 (sn-jnl with the sn-nature reference style); prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display, styles re-measured on 2026-11-17",
    "page": {
     "width_mm": 210.0,
     "height_mm": 297.0,
@@ -527,7 +527,7 @@
      "italic": false,
      "caps": false,
      "align": "left",
-     "before_pt": 13.8,
+     "before_pt": 11.5,
      "run_in": false,
      "after_pt": 6.0,
      "font": "Century Schoolbook"
@@ -551,7 +551,7 @@
      "italic": false,
      "caps": false,
      "align": "center",
-     "before_pt": 9.9,
+     "before_pt": 11.7,
      "run_in": false,
      "font": "Century Schoolbook"
     },
@@ -579,7 +579,7 @@
       "left": 5.3,
       "right": 0.0
      },
-     "before_pt": 12.6,
+     "before_pt": 12.4,
      "run_in": false,
      "font": "Century Schoolbook"
     }
@@ -600,6 +600,8 @@
      "LMRoman12-Bold",
      "LMRoman12-Regular",
      "LMRoman17-Regular",
+     "LMRoman5-Regular",
+     "LMRoman7-Regular",
      "LMRoman8-Bold",
      "LMRoman8-Regular",
      "LMRoman9-Bold",
@@ -628,7 +630,7 @@
     "table": {
      "row_pt": 20.0,
      "gaps_pt": {
-      "caption": 22.5,
+      "caption": 22.9,
       "top": 17.2,
       "header": 8.0,
       "mid": 17.1,
@@ -668,7 +670,7 @@
     "caption": "above",
     "row_pt": 12.0,
     "gaps_pt": {
-     "caption": 14.5,
+     "caption": 14.9,
      "top": 11.6,
      "header": 5.6,
      "mid": 11.5,

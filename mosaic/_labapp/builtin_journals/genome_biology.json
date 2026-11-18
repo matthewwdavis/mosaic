@@ -353,7 +353,7 @@
  },
  "word": {
   "layout": {
-   "measured_from": "Springer Nature LaTeX template, December 2024 (v3.1), which Genome Biology's submission guidelines recommend: sn-jnl with the Vancouver numbered reference style (sn-vancouver-num); prose's sample manuscript compiled by Tectonic, 2026-11-15 (tools/measure_journal_layout.py); running, table, table_note, run_in, display re-measured on 2026-11-16",
+   "measured_from": "Springer Nature LaTeX template, December 2024 (v3.1), which Genome Biology's submission guidelines recommend: sn-jnl with the Vancouver numbered reference style (sn-vancouver-num); prose's sample manuscript compiled by Tectonic, 2026-11-15 (tools/measure_journal_layout.py); running, table, table_note, run_in, display, styles re-measured on 2026-11-17",
    "page": {
     "width_mm": 210.0,
     "height_mm": 297.0,
@@ -440,7 +440,7 @@
      "italic": false,
      "caps": false,
      "align": "center",
-     "before_pt": 9.0,
+     "before_pt": 24.1,
      "run_in": false,
      "text": "Abstract",
      "font": "Century Schoolbook"
@@ -452,7 +452,7 @@
      "italic": false,
      "caps": false,
      "align": "left",
-     "before_pt": 12.1,
+     "before_pt": 12.0,
      "run_in": false,
      "after_pt": 9.0,
      "font": "Century Schoolbook"
@@ -464,7 +464,7 @@
      "italic": false,
      "caps": false,
      "align": "left",
-     "before_pt": 12.5,
+     "before_pt": 12.4,
      "run_in": false,
      "after_pt": 6.0,
      "font": "Century Schoolbook"
@@ -476,7 +476,7 @@
      "italic": false,
      "caps": false,
      "align": "left",
-     "before_pt": 13.9,
+     "before_pt": 13.8,
      "run_in": false,
      "after_pt": 6.0,
      "font": "Century Schoolbook"
@@ -500,7 +500,7 @@
      "italic": false,
      "caps": false,
      "align": "center",
-     "before_pt": 0.0,
+     "before_pt": 11.9,
      "run_in": false,
      "font": "Century Schoolbook"
     },
@@ -531,6 +531,17 @@
      "before_pt": 12.6,
      "run_in": false,
      "font": "Century Schoolbook"
+    },
+    "correspondence": {
+     "pdf_font": "LMRoman12-Regular",
+     "size": 11.0,
+     "bold": false,
+     "italic": false,
+     "caps": false,
+     "align": "center",
+     "before_pt": 28.2,
+     "run_in": false,
+     "font": "Century Schoolbook"
     }
    },
    "line_numbers": false,
@@ -548,6 +559,8 @@
      "LMRoman12-Bold",
      "LMRoman12-Regular",
      "LMRoman17-Regular",
+     "LMRoman5-Regular",
+     "LMRoman7-Regular",
      "LMRoman8-Bold",
      "LMRoman8-Regular",
      "LMRoman9-Bold",
@@ -592,9 +605,6 @@
      "printed_below_pt": 5.0
     }
    },
-   "hand": [
-    "styles.abstract_title.before_pt"
-   ],
    "running": null,
    "table": {
     "pdf_font": "LMRoman10-Regular",

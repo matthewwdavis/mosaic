@@ -318,7 +318,7 @@
  },
  "word": {
   "layout": {
-   "measured_from": "OUP's general LaTeX template (oup-authoring-template v1.5, July 2026), which Horticulture Research's author guidelines link to, with OUP's options for the journal: modern design, large page, unnumbered sections, numbered citations in the order cited (oup-plain without its sorting); prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display re-measured on 2026-11-16",
+   "measured_from": "OUP's general LaTeX template (oup-authoring-template v1.5, July 2026), which Horticulture Research's author guidelines link to, with OUP's options for the journal: modern design, large page, unnumbered sections, numbered citations in the order cited (oup-plain without its sorting); prose's sample manuscript compiled by Tectonic, 2026-11-15; legends and table captions re-measured 2026-11-16 after the legend labels changed (tools/measure_journal_layout.py); running, table, table_note, run_in, display, styles re-measured on 2026-11-17",
    "page": {
     "width_mm": 210.0,
     "height_mm": 276.0,
@@ -460,7 +460,7 @@
      "italic": false,
      "caps": false,
      "align": "left",
-     "before_pt": 4.8,
+     "before_pt": 4.9,
      "run_in": false,
      "after_pt": 1.9,
      "font": "Verdana"
@@ -484,7 +484,7 @@
      "italic": false,
      "caps": false,
      "align": "center",
-     "before_pt": 10.2,
+     "before_pt": 11.1,
      "run_in": false,
      "font": "Verdana"
     },
