@@ -56,7 +56,8 @@ def setup(app: str, root: str, updater, package: str | None = None, key_service:
     BACKUP_PREFIX = backup_prefix or f"{app}-release-key-1"
 
 
-SKIP = {".git", "__pycache__", "dist", "build", ".pytest_cache", "claude-commands.log", ".DS_Store"}
+SKIP = {".git", "__pycache__", "dist", "build", ".pytest_cache", "claude-commands.log", ".DS_Store",
+        ".worktrees"}   # the app's git worktrees live in <repo>/.worktrees/<name>
 
 
 def die(msg: str) -> None:
@@ -203,7 +204,9 @@ def zip_tree(src: str, version: str, out_zip: str) -> None:
     top = f"{APP}-{version}"
     with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as z:
         for d, dirs, files in os.walk(src):
-            dirs[:] = sorted(x for x in dirs if x not in SKIP and not x.endswith(".egg-info"))
+            # Leave out any folder that is its own git checkout (a worktree, prose's journals-library)
+            dirs[:] = sorted(x for x in dirs if x not in SKIP and not x.endswith(".egg-info")
+                             and not os.path.exists(os.path.join(d, x, ".git")))
             for f in sorted(files):
                 if f in SKIP or f.endswith((".pyc", ".tmp")):
                     continue

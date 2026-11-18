@@ -12,3 +12,6 @@ tools/output/
 
 # Per-machine command log written by Claude Code's reproducibility hook
 claude-commands.log
+
+# Git worktrees of this repo (git worktree add .worktrees/<name>)
+.worktrees/
