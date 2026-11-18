@@ -352,8 +352,8 @@ resized or cropped.
    picture's width, just inside its bottom right corner: white on photographs and micrographs,
    black on plots.
 
-The bar's own tab sets its length and unit (**Round length** picks one for you), the label above,
-below or none, its colour (swatches too), thickness, **Ends** (square, or round with the tip of
+The bar's own tab sets its length and unit (**Round length** picks one for you), the **Label**
+above, below, left or right of the bar, or none, its colour (swatches too), thickness, **Ends** (square, or round with the tip of
 each rounded end where the length ends) and **Transparency** (the bar, its label and its outline
 together). **Outline** has two switches, **round the bar** and **round the text** (each letter of
 the label), sharing a colour, thickness and transparency: a dark edge keeps a white bar and its
@@ -361,7 +361,11 @@ length readable on a bright part of a photo. Its label has a **Text style** (it 
 follows the style's font, size, bold and italic, like any text using it; its colour stays the
 bar's), a **Font**, text size, bold and italic, and a **Gap to text**: the space from the bar to
 the letters themselves, so 0 pt touches. Drag the yellow diamond on the label to change the gap
-on the page; either way the bar stays where it is and the text moves. Drag the bar where you want
+on the page; either way the bar stays where it is and the text moves. Beside the bar (Left or
+Right), the numbers are centred on the bar's thickness (the tail of the µ hangs below, as type
+sits) and the diamond drags sideways. Changing the label's side keeps the bar's length, and the
+bar and label together keep the corner of the picture they stay with: the bar moves over to make
+room for the text. Drag the bar where you want
 it: it moves with its picture, keeping its place relative to the corner it's set to stay with,
 and its length follows the picture's size, crop and scale.
 

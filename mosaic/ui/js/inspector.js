@@ -8,7 +8,7 @@ import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
 import { linked, swatchById } from "./swatches.js";
 import { applyToLabel, applyToParagraph, differs, labelDiffers } from "./textstyles.js";
-import { UNITS, anchorFor, convert, keepBar as keepScaleBar, measuredText, niceLength, pxPerPt, scaleText } from "./scalebar.js";
+import { UNITS, anchorFor, convert, keepBar as keepScaleBar, measuredText, niceLength, pxPerPt, scaleText, setLabelSide } from "./scalebar.js";
 import { DEFAULT_GAP } from "./gridlayout.js";
 import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
 import { differs as looksDiffer, takes } from "./objectstyles.js";
@@ -1012,8 +1012,9 @@ export const inspector = {
         if (p?.scale) o.length = niceLength(p, pa, o.unit);
       }), "Round length"));
     }
-    kids.push(radioField("Label", it.label || "above", [["above", "Above"], ["below", "Below"], ["none", "None"]],
-      (v) => set("Scale bar label", (o) => { o.label = v; }), { mixed: mx("label") }));
+    // The label's side: the bar keeps its length and its outline its corner, the bar moving over
+    kids.push(radioField("Label", it.label || "above", [["above", "Above"], ["below", "Below"], ["left", "Left"], ["right", "Right"],
+      ["none", "None"]], (v) => set("Scale bar label", (o) => setLabelSide(o, v)), { mixed: mx("label") }));
     kids.push(row(colorField("Colour", it.color || "#ffffff", (v, sw) => set("Scale bar colour", (o) => { linked(o, sw).color = v; }),
       mx("swatch") ? null : it.swatch, { mixed: mx("color") }),
     numField("Thickness", it.thickness ?? 2, "pt", (v) => set("Scale bar thickness", (o) => { o.thickness = Math.max(v, 0.1); }),

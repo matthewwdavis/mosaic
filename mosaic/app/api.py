@@ -1152,6 +1152,8 @@ class Api:
                 if r.label_gap is not None:
                     # A scale bar's letters: how far from the bar, and the handle that moves them
                     res["handles"], res["label_gap"] = r.handles, r.label_gap
+                if r.label_w is not None:
+                    res["label_w"] = r.label_w   # (a scale bar's label beside it: the editor makes room)
                 if r.text_box is not None:
                     res["text_box"] = r.text_box   # (a bracket's label, where typing in it goes)
                 # Where line ends can attach: shapes as fractions of their frame, lines' dashes on the page

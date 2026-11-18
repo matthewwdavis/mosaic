@@ -7,7 +7,7 @@ import { followGrids } from "./gridlayout.js";
 import { asLabel, followLabels, labelLetter, pageLabels, panelAt } from "./labels.js";
 import { finishEdits } from "./symbols.js";
 import { fitFreehand, moveHandle, moveNode, nearestOn, ringsOf, segments, splitAt, toLocal, toPageOf, toggleSmooth, writeRings } from "./pen.js";
-import { followScaleBars, gapEdge, keepBar, measuredText, sourceToPage } from "./scalebar.js";
+import { beside, followScaleBars, gapEdge, gapHandleAt, keepBar, measuredText, sourceToPage } from "./scalebar.js";
 import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
 import { followLifted, isLifted, isPlot, lift, plotTexts, plotTextsNow, quadOnPage, remapCopies, shownVariants, textAt } from "./liftedtext.js";
 import { across, bracketGapEdge, bracketStroke, keepBar as keepBracketBar, labelLook, labelRoom, plainOf, setPlainLabel, syncLabels, trimRuns,
@@ -455,11 +455,14 @@ export const canvas = {
     try {
       results = await rpc("resolve", this.assetSizes(), items, context, store.doc.symbols || []);
     } catch (err) { console.error(err); return; }
-    const autofit = [], areas = [];
+    const autofit = [], areas = [], widths = [];
     let lostNow = false;
     results.forEach((r, i) => {
       if (!this.showDrawn(items[i], r, keys[i])) return;
       if (r.autofit_frame) autofit.push([r.id, r.autofit_frame]);
+      // A scale bar's label beside it, its letters a new width: its frame makes room (scalebar.js)
+      if (r.label_w != null && items[i].type === "scalebar" && beside(items[i])
+        && Math.abs(r.label_w - (items[i].label_w ?? -1)) > 0.005) widths.push([r.id, r.label_w]);
       if (r.region) areas.push([r.id, r.region]);
       // An area fill whose lines no longer enclose an area: nothing to draw, but it keeps its last
       // outline, dashed when selected, and the panel says why (areaLost)
@@ -469,11 +472,15 @@ export const canvas = {
       }
     });
     if (lostNow) document.dispatchEvent(new CustomEvent("fa-areas"));
-    if (autofit.length || areas.length) {
+    if (autofit.length || areas.length || widths.length) {
       store.silent((doc) => {
         for (const [id, f] of autofit) {
           const it = findDeep(doc.pages[store.pageIndex].items, id);
           if (it) it.frame = f;
+        }
+        for (const [id, lw] of widths) {
+          const it = findDeep(doc.pages[store.pageIndex].items, id);
+          if (it && beside(it)) it.label_w = +lw.toFixed(4);
         }
         // An area fill's box and seed as its area is now; its path is kept for copying it
         for (const [id, a] of areas) {
@@ -730,13 +737,13 @@ export const canvas = {
     return out;
   },
   // A scale bar's handles: its length comes from its picture's scale, so none to resize it; a
-  // diamond where its letters start (drag it to move them nearer the bar or further off) and the
-  // rotation handle
+  // diamond where its letters start (drag it to move them nearer the bar or further off; beside
+  // the bar, level with it) and the rotation handle
   scaleBarHandles(it, m) {
     const out = [], [, , w] = it.frame;
     if (it.label !== "none") {
-      const { y, dir } = gapEdge(it), engine = this.els.get(it.id)?.handles?.[0];
-      const at = it.gap != null ? [w / 2, y + dir * Math.max(it.gap, 0)] : engine;
+      const engine = this.els.get(it.id)?.handles?.[0];
+      const at = it.gap != null ? gapHandleAt(it) : engine;
       if (at) out.push({ kind: "gap", at: this.toScreen(...apply(m, ...at)) });
     }
     const [ux, uy] = apply(rotate(it.rot || 0), 0, -1), [tx, ty] = this.toScreen(...apply(m, w / 2, 0));
@@ -1808,10 +1815,12 @@ export const canvas = {
     const e = it.type === "bracket" ? bracketGapEdge(it) : gapEdge(it);
     return e.x !== undefined ? (lx - e.x) * e.dir : (ly - e.y) * e.dir;
   },
-  // Whether a gap handle moves its letters across the screen (an upright bracket, a turned scale bar)
+  // Whether a gap handle moves its letters across the screen (an upright bracket; a scale bar
+  // turned upright with its label above or below, or level with its label beside it)
   gapAcross(it) {
     if (it?.type === "bracket") return !across(it);
-    return Math.abs(Math.sin(((it?.rot || 0) * Math.PI) / 180)) > 0.7;
+    const upright = Math.abs(Math.sin(((it?.rot || 0) * Math.PI) / 180)) > 0.7;
+    return it && beside(it) ? !upright : upright;
   },
   // A scale bar's or bracket's label dragged nearer or further: the bar stays where it is. Rounded to a tidy
   // amount (0.1 pt at 100%, finer zoomed in), or exact with ⌘/Ctrl held

@@ -27,7 +27,9 @@ Every item has an `id` and a `type`:
             fractions, a line's offset from its first point): dash numbers change with the dashes,
             so the editor holds it by place (canvas.linkSite)
 - scalebar {picture, length, unit, frame, rot, anchor {corner: tl|tr|bl|br, dx, dy}, thickness, size,
-            label: above|below|none, color, swatch, font, bold, italic, text_style, gap,
+            label: above|below|left|right|none, color, swatch, font, bold, italic, text_style, gap,
+            bar_w, label_w (left or right only: the bar's length and its letters' width as the
+            engine last measured them, in pt; the frame holds the bar, the gap and the letters),
             ends: square|round (round: half-round ends within the length, tips at its ends),
             opacity (all of it), outline {..., lines: false (not round the bar), text: true (round
             the label's letters too)}}: a bar
@@ -35,7 +37,9 @@ Every item has an `id` and a `type`:
             one point of its source. The editor keeps the frame in step with the picture
             (scalebar.js; the anchor is the corner of its outline as turned); the engine draws the
             frame, turned by rot about its middle, label and all. gap: from the bar to the
-            letters' outline in pt (absent: as before 2026-11-17, the line box 0.3 sizes off).
+            letters' outline in pt (absent: above or below, as before 2026-11-17, the line box
+            0.3 sizes off; left or right, the letters 0.3 sizes off). Left or right, the middle
+            of the numbers' height is level with the bar's middle.
             text_style: a text style whose font, size, bold and italic the label follows
 - bracket  {frame, label, dir: up|down|left|right (the label's side), tick (upright ones), size, font,
             bold, italic, text_style, gap, stroke (a line's: round ends and mitred corners to

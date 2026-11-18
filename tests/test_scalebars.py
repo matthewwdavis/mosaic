@@ -112,3 +112,53 @@ def test_an_outline_round_the_bar_and_the_text_and_see_through_bars():
     assert both[0].meta.get("role") == "outline" and isinstance(both[-1], DrawText)   # the letters' outline under all, the text on top
     see_through = resolver.resolve({**bar, "opacity": 0.5, "outline": outline}).prims
     assert len(see_through) == 1 and isinstance(see_through[0], DrawGroup) and see_through[0].opacity == 0.5
+
+
+def test_the_length_written_left_or_right_of_the_bar():
+    from mosaic.resolve import ink_box
+    # The frame holds the bar (bar_w), the gap and the letters (label_w, as last measured)
+    bar = {"id": "sb", "type": "scalebar", "frame": [10, 10, 40 + 0.5 + 15, 7.2], "length": 50, "unit": "µm", "thickness": 2,
+           "size": 6, "label": "right", "color": "#ffffff", "gap": 0.5, "bar_w": 40, "label_w": 15}
+    resolver = Resolver({"assets": {}})
+
+    def letters(r):   # the letters' outline on the page (left, top, right, bottom; y down)
+        text = r.prims[1]
+        left, top, right, bottom = ink_box(text)
+        return (*text.matrix.apply(left, top), *text.matrix.apply(right, bottom))
+
+    def figures_middle(r):   # halfway up the numbers, on the page
+        text = r.prims[1]
+        run = text.runs[0]
+        top = max(run.face.ink(g)[3] for ch, g in zip(run.text, run.gids) if ch.isdigit()) * run.size
+        return text.matrix.apply(0, run.y - top / 2)[1]
+
+    # Right: the bar along the frame's left side, as long as bar_w and level with the frame's
+    # middle; the letters 0.5 pt from its end, the numbers' middle level with the bar's
+    right = resolver.resolve(bar)
+    x0, y0, x1, y1 = right.prims[0].path.bbox()
+    assert (x0, x1) == (10, 50) and abs((y0 + y1) / 2 - 13.6) < 1e-9 and y1 - y0 == 2
+    assert abs(letters(right)[0] - (50 + 0.5)) < 1e-9 and abs(right.label_gap - 0.5) < 1e-9
+    assert abs(figures_middle(right) - 13.6) < 1e-9 and letters(right)[3] > 13.6 + 2   # (the µ's tail below)
+    assert right.handles == [[40.5, 3.6]]
+    # The engine says how wide the letters are, for the editor to make room
+    lw = right.label_w
+    assert abs(lw - (letters(right)[2] - letters(right)[0])) < 1e-9 and 10 < lw < 25
+    # Left: the bar along the right side, the letters' right edge 0.5 pt before its start
+    left = resolver.resolve({**bar, "label": "left"})
+    x0, _, x1, _ = left.prims[0].path.bbox()
+    assert abs(x0 - (10 + 15.5)) < 1e-9 and abs(x1 - 65.5) < 1e-9
+    assert abs(letters(left)[2] - (x0 - 0.5)) < 1e-9 and abs(left.label_gap - 0.5) < 1e-9
+    # The bar keeps its length when the letters are measured wider than the room kept for them
+    wide = resolver.resolve({**bar, "label_w": 5})
+    assert wide.prims[0].path.bbox()[2] - wide.prims[0].path.bbox()[0] == 40 and wide.label_w == lw
+    # No gap set: 0.3 text sizes; no bar_w: what the frame leaves after the gap and letters
+    plain = resolver.resolve({k: v for k, v in bar.items() if k not in ("gap", "bar_w")} | {"frame": [10, 10, 40 + 1.8 + 15, 7.2]})
+    x0, _, x1, _ = plain.prims[0].path.bbox()
+    assert abs(x1 - x0 - 40) < 1e-9 and abs(plain.label_gap - 1.8) < 1e-9
+    # Round ends stay within the bar; turned, the label turns with it
+    rounded = resolver.resolve({**bar, "ends": "round"}).prims[0].path.bbox()
+    assert abs(rounded[0] - 10) < 1e-9 and abs(rounded[2] - 50) < 1e-9
+    turned = resolver.resolve({**bar, "rot": 90})
+    bx0, by0, bx1, by1 = turned.prims[0].path.bbox()
+    tx0, ty0, tx1, ty1 = turned.prims[1].bbox()
+    assert abs(bx1 - bx0 - 2) < 1e-9 and abs(by1 - by0 - 40) < 1e-9 and ty0 > by1 - 1e-9   # upright, the label below its end

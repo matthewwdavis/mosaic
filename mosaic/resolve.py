@@ -71,6 +71,7 @@ class Resolved:
     region: dict | None = None                  # an area fill's area now: {seed, frame, path}
     handles: list | None = None                 # a scale bar's text gap handle, in frame coordinates
     label_gap: float | None = None              # a scale bar's gap between its bar and its letters
+    label_w: float | None = None                # a scale bar's label beside it: its letters' width
     text_box: list | None = None                # a bracket's label's box, in frame coordinates
 
 
@@ -927,36 +928,71 @@ class Resolver:
         return r
 
     def _scalebar(self, item: dict) -> Resolved:
-        """A scale bar: a bar as long as its frame, the length written above or below it, all of
-        it turned with the frame (rot, about its middle). The editor keeps the frame in step with
-        the picture's scale (scalebar.js). With `gap`, the letters stand that far from the bar
-        (to their outline: 0 touches); without it, as before 2026-11-17, the text's line box
-        stands 0.3 text sizes from it. label_gap says where the letters are either way, and the
-        handle sits there, halfway along. ends "round": half-round ends within the length."""
+        """A scale bar: a bar with its length written above, below, left or right of it, all of it
+        turned with the frame (rot, about its middle). The editor keeps the frame in step with the
+        picture's scale (scalebar.js). Above or below, the bar is as long as the frame. Left or
+        right (2026-11-18), the frame holds the bar (bar_w long; without it, what the frame leaves
+        after the gap and label_w), the gap and the label's letters (label_w wide, as last measured:
+        label_w here says how wide they are now, for the editor to make room); the bar runs
+        along the far side, the middle of the numbers' height level with its middle. With
+        `gap`, the letters stand that far from the bar (to their outline: 0 touches); without
+        it, above or below as before 2026-11-17 (the text's line box 0.3 text sizes off), beside
+        it 0.3 text sizes off. label_gap says where the letters are either way, and the handle
+        sits there, halfway along or level with the bar. ends "round": half-round ends within the
+        length."""
         r = Resolved(item.get("id", ""))
         x, y, w, h = item["frame"]
         rot = float(item.get("rot", 0.0) or 0.0)
         m = frame_matrix(item["frame"], rot) if rot % 360 else Matrix.translate(x, y)
         t, size = float(item.get("thickness", 2.0)), float(item.get("size", 6.0))
         color, label = item.get("color", "#ffffff"), item.get("label", "above")
-        bar_y = h - t if label == "above" else 0.0   # (in the frame)
-        around, letters = outline_parts(item.get("outline"))
-        if item.get("ends") == "round":
-            # Round ends inside the length: the tip of each is where the length ends (a bar shorter
-            # than it's thick has half-ellipses)
-            rx, ry = min(t, w) / 2.0, t / 2.0
-            bar = (Path().move_to(rx, bar_y).line_to(w - rx, bar_y).arc_to(rx, ry, 270, 180)
-                   .line_to(rx, bar_y + t).arc_to(rx, ry, 90, 180).close())
-        else:
-            bar = Path().move_to(0, bar_y).line_to(w, bar_y).line_to(w, bar_y + t).line_to(0, bar_y + t).close()
-        bar = bar.transformed(m)
-        r.prims += with_outline([DrawPath(bar, fill=Fill(color=color), meta={"item": item.get("id"), "role": "body"})],
-                                around, [(bar, False)])
+        beside = label in ("left", "right")
+        layout = None
         if label != "none":
             run = {"t": scalebar_label(item), "font": item.get("font") or "Helvetica", "size": size,
                    "bold": bool(item.get("bold")), "italic": bool(item.get("italic")), "color": color}
-            body = {"paragraphs": [{"align": "ctr", "runs": [run]}], "insets": [0.0, 0.0, 0.0, 0.0], "wrap": False,
-                    "anchor": "t", "autofit": "none"}
+            body = {"paragraphs": [{"align": "l" if beside else "ctr", "runs": [run]}], "insets": [0.0, 0.0, 0.0, 0.0],
+                    "wrap": False, "anchor": "t", "autofit": "none"}
+        # Where the bar is in the frame: x, y, length (in the frame)
+        bar_x, bar_y, bar_len = 0.0, (h - t if label == "above" else 0.0), w
+        if beside:
+            gap = max(float(item["gap"]), 0.0) if item.get("gap") is not None else size * SCALEBAR_GAP
+            layout = layout_text(body, max(w, size), size, self.fonts)
+            left, _, right, _ = ink_box(layout) if layout.runs else (0.0, 0.0, 0.0, 0.0)
+            ink_w = max(right - left, 0.0)
+            room = float(item["label_w"]) if item.get("label_w") is not None else ink_w
+            bar_len = float(item["bar_w"]) if item.get("bar_w") is not None else max(w - gap - room, 0.0)
+            bar_x, bar_y = (0.0 if label == "right" else w - bar_len), (h - t) / 2.0
+            r.label_w = ink_w
+        around, letters = outline_parts(item.get("outline"))
+        x0, x1 = bar_x, bar_x + bar_len
+        if item.get("ends") == "round":
+            # Round ends inside the length: the tip of each is where the length ends (a bar shorter
+            # than it's thick has half-ellipses)
+            rx, ry = min(t, bar_len) / 2.0, t / 2.0
+            bar = (Path().move_to(x0 + rx, bar_y).line_to(x1 - rx, bar_y).arc_to(rx, ry, 270, 180)
+                   .line_to(x0 + rx, bar_y + t).arc_to(rx, ry, 90, 180).close())
+        else:
+            bar = Path().move_to(x0, bar_y).line_to(x1, bar_y).line_to(x1, bar_y + t).line_to(x0, bar_y + t).close()
+        bar = bar.transformed(m)
+        r.prims += with_outline([DrawPath(bar, fill=Fill(color=color), meta={"item": item.get("id"), "role": "body"})],
+                                around, [(bar, False)])
+        if beside and layout.runs:
+            # The numbers' height (their outlines; a font that can't say, its capitals') centred
+            # on the bar: µ's tail hangs below, as type sits
+            left, _, right, _ = ink_box(layout)
+            run0 = layout.runs[0]
+            tops = [ink[3] * run.size for run in layout.runs for ch, gid in zip(run.text, run.gids)
+                    if ch.isdigit() and (ink := run.face.ink(gid)) is not None]
+            figures = max(tops) if tops else run0.face.cap_height * run0.size
+            ty = bar_y + t / 2.0 + figures / 2.0 - run0.y
+            tx = (x1 + gap) - left if label == "right" else (x0 - gap) - right
+            text = DrawText(layout.runs, m @ Matrix.translate(tx, ty), meta={"item": item.get("id")})
+            r.prims = text_halo([text], letters) + r.prims + [text]   # (the letters' outline under the bar too)
+            edge = tx + (left if label == "right" else right)   # the letters' edge nearest the bar
+            r.label_gap = edge - x1 if label == "right" else x0 - edge
+            r.handles = [[edge, bar_y + t / 2.0]]
+        elif label != "none" and not beside:
             if item.get("gap") is None:
                 gap = size * SCALEBAR_GAP
                 layout = layout_text(body, w, max(h - t - gap, size), self.fonts)

@@ -3767,6 +3767,75 @@ async function scaleBarChecks(app) {
   buttonText("Remove scale")?.click();
   check(!pic().scale && !pic().measured && near(bar().frame[2], w0, 1e-9) && buttonText("Measure…"),
     "Remove scale starts over: no scale and no line kept; its bar stays as it was", JSON.stringify(pic()));
+
+  // Left and right of the bar (2026-11-18): the frame holds the bar, the gap and the letters; the
+  // bar keeps its length and the outline its corner of the picture; the gap handle works sideways
+  app.setPictureScale(picId, 0.5, "µm", "typed");
+  store.select([barId]);
+  await settle();
+  const sideTo = async (v) => {
+    inspector.render();
+    const set = [...document.querySelectorAll("#inspector fieldset")].find((f) => f.querySelector("legend")?.textContent === "Label");
+    set?.querySelector(`input[value="${v}"]`)?.click();
+    await settle();
+    await settle();   // (the engine measures the letters, and the frame makes room for them)
+  };
+  // (the label and bar as drawn on the screen, and the label in page points: the text is drawn turned into place)
+  const onScreen = (sel) => canvas.els.get(barId)?.g.querySelector(sel)?.getBoundingClientRect();
+  const perPt = () => onScreen("path").width / bodyBox().width;
+  const corner = () => itemBBox(bar()).slice(2), textWidth = () => onScreen("text").width / perPt();
+  const textMid = () => (onScreen("text").left + onScreen("text").right) / 2;
+  const bodyLeft = () => onScreen("path").left, bodyRight = () => onScreen("path").right;
+  const len = bar().frame[2], c0 = corner();
+  check(bar().label === "above" && bar().gap === 0.5 && near(bodyBox()?.width ?? 0, len, 0.01), "(a bar above its label to start)", JSON.stringify(bar()));
+  await sideTo("right");
+  check(bar().label === "right" && near(bar().bar_w, len, 1e-9) && near(bodyBox()?.width ?? 0, len, 0.01)
+    && near(bar().frame[2], len + 0.5 + bar().label_w, 1e-6) && near(bar().label_w, textWidth(), 1)
+    && near(corner()[0], c0[0], 1e-6) && near(corner()[1], c0[1], 1e-6) && near(engineGap(), 0.5, 0.005) && textMid() > bodyRight(),
+  "Label Right: the length written right of the bar, which keeps its length, the letters at the gap; the outline keeps its corner",
+  [bar().bar_w, len, bodyBox()?.width, bar().frame[2], bar().label_w, textWidth(), c0, corner(), engineGap(), textMid(), bodyRight()].join(" "));
+  const barY = (onScreen("path").top + onScreen("path").bottom) / 2, textY = (onScreen("text").top + onScreen("text").bottom) / 2;
+  check(near(textY / perPt(), barY / perPt(), 1.5) && canvas.gapAcross(bar())
+    && canvas.handlesFor(bar()).map((hd) => hd.kind).join() === "gap,rotate",
+  "level with the bar, its gap handle beside it and dragged sideways",
+  [textY, barY, perPt(), canvas.gapAcross(bar()), canvas.handlesFor(bar()).map((hd) => hd.kind).join()].join(" "));
+  {
+    const [x, y, , h] = bar().frame, at = [x + bar().bar_w + 0.5, y + h / 2], bx = bodyBox().x;
+    await drag(at, [at[0] + 2, at[1]]);
+    await settle();
+    check(near(bar().gap, 2.5, 0.15) && near(bodyBox().x, bx, 1e-6) && near(bodyBox().width, len, 0.01) && near(engineGap(), bar().gap, 0.005),
+      "dragging the gap handle 2 pt right moves the letters 2 pt further from the bar, which stays put", JSON.stringify([bar(), engineGap()]));
+  }
+  await app.run("undo");
+  await settle();
+  check(bar().gap === 0.5 && near(engineGap(), 0.5, 0.005), "and Undo puts the gap back", `${bar().gap}`);
+  const offR = off();
+  store.update("Bigger picture", (doc) => { const pp = findItem(doc, picId); pp.frame[2] *= 1.2; pp.frame[3] *= 1.2; });
+  await settle();
+  const len2 = bar().bar_w;
+  check(near(len2, len * 1.2, 1e-6) && near(bodyBox().width, len * 1.2, 0.01) && near(off()[0], offR[0], 1e-6) && near(off()[1], offR[1], 1e-6),
+    "beside its label, the bar's length still follows its picture, its outline keeping its place from the corner", JSON.stringify([bar(), offR, off()]));
+  await sideTo("left");
+  check(bar().label === "left" && near(bar().bar_w, len2, 1e-9) && near(bodyBox().width, len2, 0.01) && textMid() < bodyLeft()
+    && near(off()[0], offR[0], 1e-6) && near(off()[1], offR[1], 1e-6) && near(engineGap(), 0.5, 0.005),
+  "Label Left: the length written left of the bar, the bar moving over, the outline keeping its corner", JSON.stringify([bar(), off()]));
+  await sideTo("above");
+  check(bar().label === "above" && near(bar().frame[2], len2, 1e-9) && !("bar_w" in bar()) && !("label_w" in bar())
+    && near(off()[0], offR[0], 1e-6) && near(off()[1], offR[1], 1e-6) && near(engineGap(), 0.5, 0.005),
+  "and back above: the frame as long as the bar again, keeping its corner", JSON.stringify([bar(), off()]));
+  // A bar whose picture has gone: beside its label, it still keeps its length and its corner
+  store.update("No picture", (doc) => { findItem(doc, barId).picture = "gone"; });
+  const lenO = bar().frame[2], cO = corner();
+  await sideTo("right");
+  check(near(bar().bar_w, lenO, 1e-9) && near(bodyBox().width, lenO, 0.01) && near(corner()[0], cO[0], 1e-6) && near(corner()[1], cO[1], 1e-6)
+    && near(bar().frame[2], lenO + 0.5 + bar().label_w, 1e-6),
+  "a bar with no picture keeps its length and its corner with its label beside it", JSON.stringify([bar(), cO, corner()]));
+  await sideTo("above");
+  check(near(bar().frame[2], lenO, 1e-9) && !("bar_w" in bar()) && near(corner()[0], cO[0], 1e-6) && near(corner()[1], cO[1], 1e-6),
+    "and back above", JSON.stringify([bar(), cO, corner()]));
+  store.update("Picture back", (doc) => { findItem(doc, barId).picture = picId; });
+  await settle();
+
   // (ends with the bar selected on its own tab, for a screenshot of the run)
   app.setPictureScale(picId, 0.5, "µm", "typed");
   store.select([barId]);
