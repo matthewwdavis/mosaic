@@ -259,6 +259,8 @@ Matthew's choices are in brackets.
       with the last line shown and its length offered; correct the measured length; remove a
       scale to start over; the label's font, italic and text style; turning a bar (its label
       with it); the gap from bar to letters, typed or dragged by a handle [Matthew's choices]
+- [x] Round ends for scale bars (asked 2026-11-17): an option (square stays the default), the
+      rounded tips at the length's ends [Matthew's choices]
 
 ## Acceptance test (test slide)
 

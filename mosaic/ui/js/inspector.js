@@ -960,6 +960,9 @@ export const inspector = {
       (v) => set("Scale bar label", (o) => { o.label = v; })));
     kids.push(row(colorField("Colour", it.color || "#ffffff", (v, sw) => set("Scale bar colour", (o) => { linked(o, sw).color = v; }), it.swatch),
       numField("Thickness", it.thickness ?? 2, "pt", (v) => set("Scale bar thickness", (o) => { o.thickness = Math.max(v, 0.1); }), { min: 0.1, step: 0.5 })));
+    // Round ends stay within the length: the tip of each is where the length ends
+    kids.push(radioField("Ends", it.ends === "round" ? "round" : "square", [["square", "Square"], ["round", "Round"]],
+      (v) => set("Scale bar ends", (o) => { if (v === "round") o.ends = "round"; else delete o.ends; })));
     if (it.label !== "none") kids.push(...this.scaleLabelFields(it, set));
     if (pic) {
       kids.push(selectField("Stays with its picture's", it.anchor?.corner || "br", [["tl", "Top left corner"], ["tr", "Top right corner"],

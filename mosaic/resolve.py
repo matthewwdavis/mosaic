@@ -847,7 +847,7 @@ class Resolver:
         the picture's scale (scalebar.js). With `gap`, the letters stand that far from the bar
         (to their outline: 0 touches); without it, as before 2026-11-17, the text's line box
         stands 0.3 text sizes from it. label_gap says where the letters are either way, and the
-        handle sits there, halfway along."""
+        handle sits there, halfway along. ends "round": half-round ends within the length."""
         r = Resolved(item.get("id", ""))
         x, y, w, h = item["frame"]
         rot = float(item.get("rot", 0.0) or 0.0)
@@ -855,7 +855,14 @@ class Resolver:
         t, size = float(item.get("thickness", 2.0)), float(item.get("size", 6.0))
         color, label = item.get("color", "#ffffff"), item.get("label", "above")
         bar_y = h - t if label == "above" else 0.0   # (in the frame)
-        bar = Path().move_to(0, bar_y).line_to(w, bar_y).line_to(w, bar_y + t).line_to(0, bar_y + t).close()
+        if item.get("ends") == "round":
+            # Round ends inside the length: the tip of each is where the length ends (a bar shorter
+            # than it's thick has half-ellipses)
+            rx, ry = min(t, w) / 2.0, t / 2.0
+            bar = (Path().move_to(rx, bar_y).line_to(w - rx, bar_y).arc_to(rx, ry, 270, 180)
+                   .line_to(rx, bar_y + t).arc_to(rx, ry, 90, 180).close())
+        else:
+            bar = Path().move_to(0, bar_y).line_to(w, bar_y).line_to(w, bar_y + t).line_to(0, bar_y + t).close()
         r.prims.append(DrawPath(bar.transformed(m), fill=Fill(color=color), meta={"item": item.get("id")}))
         if label != "none":
             run = {"t": scalebar_label(item), "font": item.get("font") or "Helvetica", "size": size,

@@ -79,3 +79,19 @@ def test_the_gap_is_to_the_letters_and_the_bar_turns_with_its_label():
     assert abs((x1 - x0) - 2) < 1e-9 and abs((y1 - y0) - 40) < 1e-9
     tx0, ty0, tx1, ty1 = turned.prims[1].bbox()
     assert ty1 - ty0 > tx1 - tx0 and tx1 < x0   # upright text, left of the bar (its "above" turned)
+
+
+def test_round_ends_stay_within_the_length():
+    bar = {"id": "sb", "type": "scalebar", "frame": [10, 10, 40, 11.2], "length": 50, "unit": "µm", "thickness": 2,
+           "size": 6, "label": "above", "color": "#ffffff"}
+    resolver = Resolver({"assets": {}})
+    square = resolver.resolve(bar).prims[0].path
+    assert all(s[0] != "C" for s in square.segs)   # square ends unless asked
+    rounded = resolver.resolve({**bar, "ends": "round"}).prims[0].path
+    x0, y0, x1, y1 = rounded.bbox()
+    # The rounded tips are the length's ends; the bar as thick as before
+    assert abs(x0 - 10) < 1e-9 and abs(x1 - 50) < 1e-9 and abs(y0 - 19.2) < 1e-9 and abs(y1 - 21.2) < 1e-9
+    assert sum(s[0] == "C" for s in rounded.segs) == 4
+    # Turned, the tips are still the length's ends
+    turned = resolver.resolve({**bar, "ends": "round", "rot": 90}).prims[0].path.bbox()
+    assert abs((turned[3] - turned[1]) - 40) < 1e-9

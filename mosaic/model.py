@@ -25,7 +25,8 @@ Every item has an `id` and a `type`:
             fractions, a line's offset from its first point): dash numbers change with the dashes,
             so the editor holds it by place (canvas.linkSite)
 - scalebar {picture, length, unit, frame, rot, anchor {corner: tl|tr|bl|br, dx, dy}, thickness, size,
-            label: above|below|none, color, swatch, font, bold, italic, text_style, gap}: a bar
+            label: above|below|none, color, swatch, font, bold, italic, text_style, gap,
+            ends: square|round (round: half-round ends within the length, tips at its ends)}: a bar
             `length` long on its picture, which has scale {per_pt, unit, how}: the real length of
             one point of its source. The editor keeps the frame in step with the picture
             (scalebar.js; the anchor is the corner of its outline as turned); the engine draws the

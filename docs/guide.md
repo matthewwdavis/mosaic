@@ -350,7 +350,8 @@ resized or cropped.
    black on plots.
 
 The bar's own tab sets its length and unit (**Round length** picks one for you), the label above,
-below or none, its colour (swatches too) and thickness. Its label has a **Text style** (it then
+below or none, its colour (swatches too), thickness and **Ends**: square, or round with the tip of
+each rounded end where the length ends. Its label has a **Text style** (it then
 follows the style's font, size, bold and italic, like any text using it; its colour stays the
 bar's), a **Font**, text size, bold and italic, and a **Gap to text**: the space from the bar to
 the letters themselves, so 0 pt touches. Drag the yellow diamond on the label to change the gap

@@ -3659,6 +3659,20 @@ async function scaleBarChecks(app) {
   await app.run("undo");
   check(bar().gap === 0.5, "and Undo puts the gap back", `${bar().gap}`);
 
+  // Round ends: an option (square unless chosen), the tips at the length's ends
+  const w1 = bar().frame[2];
+  inspector.render();
+  const endsSet = [...document.querySelectorAll("#inspector fieldset")].find((f) => f.querySelector("legend")?.textContent === "Ends");
+  check(!bar().ends && endsSet?.querySelector("input:checked")?.value === "square", "a scale bar's ends are square unless chosen", JSON.stringify(bar().ends));
+  endsSet?.querySelector('input[value="round"]')?.click();
+  await settle();
+  const bodyBox = () => {
+    const path = canvas.els.get(barId)?.g.querySelector("path");
+    return path ? path.getBBox() : null;
+  };
+  check(bar().ends === "round" && near(bar().frame[2], w1, 1e-9) && near(bodyBox()?.width ?? 0, w1, 0.01),
+    "round ends stay within the length: the bar is as long as before, tip to tip", JSON.stringify([bar().ends, w1, bodyBox()?.width]));
+
   // Font and italic, and a text style the label follows
   typeIn("Font", "Courier");
   [...document.querySelectorAll("#inspector button")].find((b) => b.getAttribute("aria-label") === "Italic")?.click();
