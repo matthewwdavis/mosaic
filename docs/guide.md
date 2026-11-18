@@ -1162,7 +1162,8 @@ blind" (or "color blind"), or a name such as "deuter".
   transparent background where the journal takes no transparency. Your settings stay as you
   set them. Once written, files bigger than the journal takes are flagged in the note.
 
-Click **Export…** and choose a name and folder; one file is written per format. A PDF holds all the
+Click **Export…** and choose a name and folder (it offers the document's own name, `main_figures_v4` for
+`main_figures_v4.mff`); one file is written per format. A PDF holds all the
 chosen pages; the other formats write one file per page.
 Your choices are remembered for next time.
 

@@ -415,8 +415,16 @@ const app = {
     }
     announce(`Renamed to ${chosen.split(/[\\/]/).pop()}`);
   },
+  // The name Export and the figure report offer: the document's file name without its extension (main_figures_v4.mff gives
+  // main_figures_v4), else for a document never saved the name Save offers, else its title. (Was the title alone, which a
+  // document copied from another keeps: v4 offered main_figures_v2)
+  exportStem() {
+    const named = store.path || store.suggested;
+    const stem = named ? stripDocExt(named.split(/[\\/]/).pop()) : (store.doc.meta?.title || "").replace(/[^\w.-]+/g, "_");
+    return stem || "figure";   // (a file's own name as it is; only a title is made safe for one)
+  },
   async chooseExportBase() {
-    const title = (store.doc.meta?.title || "figure").replace(/[^\w.-]+/g, "_");
+    const title = this.exportStem();
     if (this.info.native) {
       const p = await rpc("save_dialog", `${title}.pdf`, dirOf(store.path));
       return p ? p.replace(/\.(pdf|svg|png|tiff?|jpe?g|eps)$/i, "") : null;
@@ -427,7 +435,7 @@ const app = {
   },
 
   async chooseReportBase() {
-    const title = `${(store.doc.meta?.title || "figure").replace(/[^\w.-]+/g, "_")}_report`;
+    const title = `${this.exportStem()}_report`;
     const strip = (p) => p.replace(/\.(html?|md|csv|pdf)$/i, "");
     if (this.info.native) {
       const p = await rpc("save_dialog", `${title}.html`, dirOf(store.path));

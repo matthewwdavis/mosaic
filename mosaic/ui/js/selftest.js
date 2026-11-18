@@ -1576,6 +1576,20 @@ async function exportNoteChecks(app, out) {
   const press = (dlg, text) => [...dlg.querySelectorAll(".dialog-actions button")].find((b) => b.textContent === text).click();
   try {
     store.setDoc(await rpc("new_document"));
+    // The name Export and the figure report offer: the document's file name without its extension, whatever title it
+    // carries (a copy of main_figures_v2 saved as main_figures_v4.mff offered main_figures_v2); the title only before it's
+    // saved. (Path and title set and put back with nothing awaited between, so nothing is saved under them)
+    {
+      const realTitle = store.doc.meta.title;
+      store.doc.meta.title = "main_figures_v2";
+      store.path = "/figures/main_figures_v4.mff";
+      const fromFile = app.exportStem();
+      store.path = null;
+      const fromTitle = app.exportStem();
+      store.doc.meta.title = realTitle;
+      check(fromFile === "main_figures_v4" && fromTitle === "main_figures_v2",
+        "Export offers the document's file name without its extension, its title only before it's saved", `${fromFile}; ${fromTitle}`);
+    }
     store.update("Box", (doc) => doc.pages[0].items.push(gRectFor("exBox", 40, 40, 80, 50)), { select: ["exBox"] });
     await settle();
     await app.run("export");
