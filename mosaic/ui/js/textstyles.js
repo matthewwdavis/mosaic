@@ -1,8 +1,8 @@
 // Text styles: named text formats saved in the figure (doc.text_styles: [{id, name, ...format}]).
 // A paragraph using one has style: id and keeps the format on its own runs. A change made to one
 // text stays as an override: when the style changes, only what still matches the old style follows.
-// A scale bar's label can use one too (text_style: id), taking its font, size, bold and italic
-// (LABEL_FORMAT); its colour stays the bar's, since the bar and its label are one colour.
+// A scale bar's or bracket's label can use one too (text_style: id), taking its font, size, bold
+// and italic (LABEL_FORMAT); its colour stays the bar's or line's, the object being one colour.
 import { clone } from "./util.js";
 
 export const RUN_FORMAT = ["font", "size", "bold", "italic", "underline", "color", "swatch"];
@@ -38,18 +38,22 @@ export function applyTextStyle(item, style) {
   for (const p of item.text?.paragraphs || []) applyToParagraph(p, style);
 }
 
-// A scale bar's label takes a style's font, size, bold and italic; whether it differs from it
+// A scale bar's or bracket's label takes a style's font, size, bold and italic; whether it differs
 export function applyToLabel(bar, style) {
   bar.text_style = style.id;
   for (const k of LABEL_FORMAT) setFormat(bar, k, style[k]);
 }
 export const labelDiffers = (bar, style) => LABEL_FORMAT.some((k) => !same(k, bar[k], style[k]));
 
-// Every scale bar in the document
-export function scaleBars(doc) {
+// Every scale bar and bracket in the document (their labels can use a text style)
+export function labelItems(doc) {
   const out = [];
-  const walk = (items) => items.forEach((it) => { if (it.type === "group") walk(it.items); else if (it.type === "scalebar") out.push(it); });
+  const walk = (items) => items.forEach((it) => {
+    if (it.type === "group") walk(it.items);
+    else if (it.type === "scalebar" || it.type === "bracket") out.push(it);
+  });
   for (const pg of doc.pages || []) walk(pg.items);
+  for (const sym of doc.symbols || []) walk(sym.items);
   return out;
 }
 
@@ -81,7 +85,7 @@ export function restyle(doc, old, neu) {
     for (const k of PARA_FORMAT) if (same(k, p[k], old[k])) setFormat(p, k, neu[k]);
     for (const r of p.runs || []) for (const k of RUN_FORMAT) if (same(k, r[k], old[k])) setFormat(r, k, neu[k]);
   }
-  for (const bar of scaleBars(doc)) {
+  for (const bar of labelItems(doc)) {
     if (bar.text_style === old.id) for (const k of LABEL_FORMAT) if (same(k, bar[k], old[k])) setFormat(bar, k, neu[k]);
   }
 }

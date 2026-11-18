@@ -18,7 +18,7 @@ import { capPicture, dashPicture, fillPicture, headPicture, joinPicture, linePic
 import { ZOOM_SHAPES, zoomShape } from "./zoom.js";
 import { hiddenOf, liftedFrom } from "./liftedtext.js";
 import { cropToSize, drawnShapePicture, resetCrop } from "./crop.js";
-import { BRACKET_LABELS, across, keepBar } from "./brackets.js";
+import { BRACKET_LABELS, P_LABELS, STAR_LABELS, across, bracketStroke, keepBar, labelRoom, upgradeItems } from "./brackets.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, isMac, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, luminance,
   parseHex, shapeCatalog, shapeName, toUnit,
@@ -365,14 +365,18 @@ export const inspector = {
   itemTabs(it) {
     const arrange = ["arrange", "Arrange", [this.objectSection(it), this.arrangeSection(it), ...this.alignSections(1)]];
     if (it.lifted && liftedFrom(it)) arrange[2].splice(1, 0, this.liftedSection(it));
-    if (it.type === "picture" && it.equation) return [arrange, ["picture", "Equation", [this.equationSection(it), this.borderSection(it)]]];
+    if (it.type === "picture" && it.equation) {
+      return [arrange, ["picture", "Equation", [this.equationSection(it), this.borderSection(it), this.borderOutlineSection(it)]]];
+    }
     if (it.type === "picture") {
       return [arrange, ["picture", "Picture", [this.pictureSection(it), this.plotTextSection(it), this.borderSection(it),
-        it.inset ? this.insetSection(it) : null, this.scaleSection(it)]]];
+        this.borderOutlineSection(it), it.inset ? this.insetSection(it) : null, this.scaleSection(it)]]];
     }
     if (it.type === "scalebar") return [["arrange", "Arrange", [this.objectSection(it), ...this.alignSections(1)]],
-      ["scalebar", "Scale bar", [this.scalebarSection(it)]]];
-    if (it.type === "bracket") return [arrange, ["bracket", "Bracket", [this.bracketSection(it)]]];
+      ["scalebar", "Scale bar", [this.scalebarSection(it), this.figureOutlineSection(it)]]];
+    if (it.type === "bracket") {
+      return [arrange, ["bracket", "Bracket", [this.bracketSection(it), this.bracketLineSection(it), this.figureOutlineSection(it)]]];
+    }
     if (it.type === "symbol") {
       arrange[2].push(this.symbolSection(it));
       return [arrange];
@@ -818,20 +822,30 @@ export const inspector = {
     this.edit(a.label, (o) => { o.mask = { ...o.mask, adj: { ...(o.mask.adj || {}), [a.name]: stored } }; });
   },
   // A border round a picture (round the shape it's cropped to, if it is)
+  // A picture's border: a line round it (or round the shape it's cropped to) with all a line has:
+  // colour, width, dashes, ends, corners and transparency (flat ends and sharp corners to start)
   borderSection(it) {
     const b = it.border;
-    const kids = [checkField("Border round it", !!b?.width, (on) => this.edit(on ? "Add border" : "Remove border", (o) => {
+    const tick = checkField("Border round it", !!b?.width, (on) => this.edit(on ? "Add border" : "Remove border", (o) => {
       if (on) o.border = { color: "#000000", width: 1 };
-      else delete o.border;
-    }))];
-    if (b?.width) {
-      kids.push(row(colorField("Border colour", b.color || "#000000", (v, sw) => this.edit("Border colour", (o) => {
-        o.border = linked({ ...o.border, color: v }, sw);
-      }), b.swatch), numField("Border thickness", b.width, "pt", (v) => this.edit("Border thickness", (o) => {
-        o.border = { ...o.border, width: Math.max(v, 0.1) };
-      }), { min: 0.1, step: 0.25 })));
-    }
-    return section("Border", kids);
+      else { delete o.border; delete o.outline; }
+    }));
+    if (!b?.width) return section("Border", [tick]);
+    const ctx = Object.create(this);
+    ctx.edit = (label, fn) => this.edit(label, (o, doc) => {   // (the Line fields, on the border)
+      const shim = { type: "line", stroke: { cap: "flat", join: "miter", ...o.border } };
+      fn(shim, doc);
+      if (shim.stroke?.width > 0) o.border = shim.stroke;
+      else { delete o.border; delete o.outline; }
+    });
+    return this.strokeSection.call(ctx, { ...it, type: "line", stroke: { cap: "flat", join: "miter", ...b } }, { title: "Border", lead: [tick] });
+  },
+  // An outline round a picture's border (not round the picture itself), once it has a border
+  borderOutlineSection(it) {
+    if (!it.border?.width) return null;
+    const look = { type: "shape", geom: "rect", fill: null, stroke: { cap: "flat", join: "miter", ...it.border }, outline: it.outline };
+    return this.outlineSection(look, { hint: "A band of another colour round the border, e.g. a dark edge that keeps a white border "
+      + "visible on a white page. Outside: only outside the picture. Inside: only over it. Both sides: along both sides of the border." });
   },
   // A zoom inset (zoom.js) shows what's in its box; the box says where its inset is
   insetSection(it) {
@@ -909,94 +923,148 @@ export const inspector = {
       + "Scale bars stay right when the picture is resized or cropped."));
     return section("Scale", kids);
   },
-  // A significance bracket: its label (asterisks, ns or any text), which side it's on, its ticks
-  // and look; the bar stays put when the label changes
-  bracketSection(it) {
-    const set = (label, fn) => this.edit(label, (o) => keepBar(o, fn));
+  // A significance bracket: its label (stars, ns, a p-value or any text), which side it's on, its
+  // ticks and its label's text; the bar stays put when the label changes. `several`: the words for
+  // several brackets selected, whose fields show Mixed where they differ
+  bracketSection(it, several = null) {
+    const set = (label, fn) => this.edit(label, (o) => { upgradeItems([o]); keepBar(o, fn); });
+    const mx = (k) => this.mx(k);
     const preset = BRACKET_LABELS.some(([v]) => v === it.label);
-    const kids = [row(selectField("Label", preset ? it.label : "custom", [...BRACKET_LABELS, ["custom", "Other text…"]], (v) => {
-      set("Bracket label", (o) => { o.label = v === "custom" ? "p = 0.05" : v; });   // other text starts as a p-value to edit
-    }), preset ? null : textField("Label text", it.label || "", (v) => set("Bracket label", (o) => { o.label = v; }), {}))];
+    const kids = several ? [h("p", { class: "hint" }, `${several}: a change goes to them all.`)] : [];
+    kids.push(row(selectField("Label", preset ? it.label : "custom",
+      [{ group: "Stars", options: STAR_LABELS }, { group: "p-values", options: P_LABELS }, ["custom", "Other text…"]], (v) => {
+        set("Bracket label", (o) => { o.label = v === "custom" ? "p = 0.05" : v; });   // other text starts as a p-value to edit
+      }, { mixed: mx("label") }),
+    preset || mx("label") ? null : textField("Label text", it.label || "", (v) => set("Bracket label", (o) => { o.label = v; }), {})));
     const sides = across(it) ? [["up", "Above"], ["down", "Below"]] : [["right", "Right"], ["left", "Left"]];
-    kids.push(radioField("Label side", it.dir || "up", sides, (v) => this.edit("Bracket side", (o) => { o.dir = v; })));
+    kids.push(radioField("Label side", it.dir || "up", sides, (v) => this.edit("Bracket side", (o) => { o.dir = v; }), { mixed: mx("dir") }));
     if (across(it)) {
-      kids.push(numField("End ticks", Math.max(it.frame[3] - (it.label ? (it.size ?? 6) * 1.5 : 0), 0), "pt", (v) => this.edit("Bracket ticks", (o) => {
-        const room = o.label ? (o.size ?? 6) * 1.5 : 0, t0 = Math.max(o.frame[3] - room, 0), t1 = Math.max(v, 0);
+      kids.push(numField("End ticks", Math.max(it.frame[3] - labelRoom(it), 0), "pt", (v) => this.edit("Bracket ticks", (o) => {
+        if (!across(o)) { o.tick = Math.max(v, 0); return; }
+        const room = labelRoom(o), t0 = Math.max(o.frame[3] - room, 0), t1 = Math.max(v, 0);
         o.frame = [o.frame[0], (o.dir || "up") === "up" ? o.frame[1] : o.frame[1] + t0 - t1, o.frame[2], room + t1];
-      }), { min: 0, step: 0.5 }));
+      }), { min: 0, step: 0.5, mixed: mx("ticks") }));
     } else {
-      kids.push(numField("End ticks", it.tick ?? 4, "pt", (v) => this.edit("Bracket ticks", (o) => { o.tick = Math.max(v, 0); }), { min: 0, step: 0.5 }));
+      kids.push(numField("End ticks", it.tick ?? 4, "pt", (v) => this.edit("Bracket ticks", (o) => { o.tick = Math.max(v, 0); }),
+        { min: 0, step: 0.5, mixed: mx("ticks") }));
     }
-    kids.push(row(colorField("Colour", it.color || "#000000", (v, sw) => this.edit("Bracket colour", (o) => { linked(o, sw).color = v; }), it.swatch),
-      numField("Line thickness", it.line_width ?? 0.75, "pt", (v) => this.edit("Bracket line", (o) => { o.line_width = Math.max(v, 0.1); }),
-        { min: 0.1, step: 0.25 })));
-    kids.push(row(numField("Text size", it.size ?? 6, "pt", (v) => set("Bracket text size", (o) => { o.size = Math.max(v, 1); }), { min: 1, step: 0.5 }),
-      h("div", { class: "button-row inline" }, toggle("Bold", !!it.bold, (on) => this.edit("Bold", (o) => { o.bold = on; }), "B", "bold"))));
-    kids.push(h("p", { class: "hint" }, "Drag its side handles to span other bars, and the top or bottom handle to lengthen "
-      + "the ticks. Several brackets selected can be stacked in tidy levels (Stack, Figure tab)."));
+    if (it.label) kids.push(...this.labelFields(it, set, "Bracket text gap", "the bar"));
+    kids.push(h("p", { class: "hint" }, "Its label is in its line's colour and transparency (Line, below). Drag its side handles "
+      + "to span other bars, and the top or bottom handle to lengthen the ticks. Several brackets selected can be stacked in "
+      + "tidy levels (Stack, Figure tab)."));
     return section("Bracket", kids);
   },
+  // A bracket's line, as a line's: colour, width, dashes, ends, corners and transparency
+  bracketLineSection(it) {
+    const ctx = Object.create(this);
+    ctx.edit = (label, fn) => this.edit(label, (o, doc) => { upgradeItems([o]); fn(o, doc); });
+    return this.strokeSection.call(ctx, { ...it, type: "line", stroke: bracketStroke(it) });
+  },
   // A scale bar: its length and look, its label's text style, font and gap, and which corner of
-  // its picture it stays with; its picture's scale can be measured again from here
-  scalebarSection(it) {
+  // its picture it stays with; its picture's scale can be measured again from here. `several`: the
+  // words for several scale bars selected, whose fields show Mixed where they differ
+  scalebarSection(it, several = null) {
     const pic = store.item(it.picture), a = pic && store.doc.assets[pic.asset];
     const set = (label, fn) => this.edit(label, fn);
+    const mx = (k) => this.mx(k);
     const how = { typed: "typed", measured: "measured", file: "from the file" }[pic?.scale?.how];
-    const kids = [h("p", { class: "hint" }, !pic ? "Its picture has gone, so it no longer follows a scale."
-      : !pic.scale ? `${itemLabel(pic, store.doc)} has no scale any more: give it one in its Picture tab, or measure it.`
-        : `On ${itemLabel(pic, store.doc)} (${scaleText(pic, a)}${how ? `, ${how}` : ""}).`)];
-    if (pic) {
+    const kids = [h("p", { class: "hint" }, several ? `${several}: a change goes to them all, each on its own picture.`
+      : !pic ? "Its picture has gone, so it no longer follows a scale."
+        : !pic.scale ? `${itemLabel(pic, store.doc)} has no scale any more: give it one in its Picture tab, or measure it.`
+          : `On ${itemLabel(pic, store.doc)} (${scaleText(pic, a)}${how ? `, ${how}` : ""}).`)];
+    if (pic && !several) {
       kids.push(h("div", { class: "button-row" }, button("Measure the picture's scale again: drag along something of known length "
         + "in it, then type its length", () => canvas.startMeasure(pic.id), pic.scale ? "Measure scale again…" : "Measure scale…")));
     }
-    kids.push(row(numField("Length", it.length, "", (v) => set("Scale bar length", (o) => { o.length = Math.max(v, 1e-9); }), { min: 0, step: "any" }),
-      selectField("Length unit", it.unit, UNITS.map(([u]) => [u, u]), (v) => set("Scale bar unit", (o) => { o.unit = v; }))));
-    if (pic?.scale) {
+    kids.push(row(numField("Length", it.length, "", (v) => set("Scale bar length", (o) => { o.length = Math.max(v, 1e-9); }),
+      { min: 0, step: "any", mixed: mx("length") }),
+    selectField("Length unit", it.unit, UNITS.map(([u]) => [u, u]), (v) => set("Scale bar unit", (o) => { o.unit = v; }), { mixed: mx("unit") })));
+    if (pic?.scale || several) {
       kids.push(button("A round length about a fifth of the picture's width", () => set("Scale bar length", (o) => {
-        o.length = niceLength(pic, a, o.unit);
+        const p = store.item(o.picture), pa = p && store.doc.assets[p.asset];
+        if (p?.scale) o.length = niceLength(p, pa, o.unit);
       }), "Round length"));
     }
     kids.push(radioField("Label", it.label || "above", [["above", "Above"], ["below", "Below"], ["none", "None"]],
-      (v) => set("Scale bar label", (o) => { o.label = v; })));
-    kids.push(row(colorField("Colour", it.color || "#ffffff", (v, sw) => set("Scale bar colour", (o) => { linked(o, sw).color = v; }), it.swatch),
-      numField("Thickness", it.thickness ?? 2, "pt", (v) => set("Scale bar thickness", (o) => { o.thickness = Math.max(v, 0.1); }), { min: 0.1, step: 0.5 })));
+      (v) => set("Scale bar label", (o) => { o.label = v; }), { mixed: mx("label") }));
+    kids.push(row(colorField("Colour", it.color || "#ffffff", (v, sw) => set("Scale bar colour", (o) => { linked(o, sw).color = v; }),
+      mx("swatch") ? null : it.swatch, { mixed: mx("color") }),
+    numField("Thickness", it.thickness ?? 2, "pt", (v) => set("Scale bar thickness", (o) => { o.thickness = Math.max(v, 0.1); }),
+      { min: 0.1, step: 0.5, mixed: mx("thickness") })));
     // Round ends stay within the length: the tip of each is where the length ends
     kids.push(radioField("Ends", it.ends === "round" ? "round" : "square", [["square", "Square"], ["round", "Round"]],
-      (v) => set("Scale bar ends", (o) => { if (v === "round") o.ends = "round"; else delete o.ends; })));
-    if (it.label !== "none") kids.push(...this.scaleLabelFields(it, set));
-    if (pic) {
+      (v) => set("Scale bar ends", (o) => { if (v === "round") o.ends = "round"; else delete o.ends; }), { mixed: mx("ends") }));
+    // See-through as a whole: the bar, its label and its outline
+    kids.push(transparencyField("Transparency", it.opacity, (op) => set("Scale bar transparency", (o) => {
+      if (op >= 1) delete o.opacity;
+      else o.opacity = op;
+    }), { mixed: mx("opacity") }));
+    if (it.label !== "none" || mx("label")) kids.push(...this.labelFields(it, set, "Scale bar text gap", "the bar"));
+    if (pic || several) {
       kids.push(selectField("Stays with its picture's", it.anchor?.corner || "br", [["tl", "Top left corner"], ["tr", "Top right corner"],
-        ["bl", "Bottom left corner"], ["br", "Bottom right corner"]], (v) => set("Scale bar corner", (o) => { o.anchor = anchorFor(o, pic, v); })));
+        ["bl", "Bottom left corner"], ["br", "Bottom right corner"]], (v) => set("Scale bar corner", (o) => {
+        const p = store.item(o.picture);
+        if (p) o.anchor = anchorFor(o, p, v);
+      }), { mixed: mx("corner") }));
     }
     kids.push(h("p", { class: "hint" }, "Drag it to place it; it moves with its picture, and its length follows the picture's "
       + "size and crop. Turn it by its round handle or the Rotation field: its label turns with it."));
     return section("Scale bar", kids);
   },
-  // A scale bar's label: a text style (its font, size, bold and italic follow the style), the
-  // font and size by hand, and how far the letters stand from the bar
-  scaleLabelFields(it, set) {
+  // A scale bar's or bracket's label: a text style (its font, size, bold and italic follow the
+  // style), the font and size by hand, and how far the letters stand from the bar. `set` makes a
+  // change (a bracket's keeps its bar where it is); the gap keeps the bar put either way
+  labelFields(it, set, gapLabel, bar) {
+    const mx = (k) => this.mx(k);
     const styles = store.doc.text_styles || [], st = styles.find((x) => x.id === it.text_style);
     const out = [selectField("Text style", st ? st.id : "", [["", "None"], ...styles.map((x) => [x.id, x.name])], (v) => {
       const pick = styles.find((x) => x.id === v);
       set(pick ? "Text style" : "No text style", (o) => { if (pick) applyToLabel(o, pick); else delete o.text_style; });
-    })];
-    if (st && labelDiffers(it, st)) {
+    }, { mixed: mx("text_style") })];
+    if (st && !mx("text_style") && labelDiffers(it, st)) {
       out.push(h("p", { class: "hint" }, `This label differs from ${st.name}.`), h("div", { class: "button-row" },
         button(`Put this label back to ${st.name}`, () => set("Clear label changes", (o) => applyToLabel(o, st)), "Clear changes")));
     }
-    out.push(h("datalist", { id: "sb-font-list" }, ...(this.app.fonts || []).map((f) => h("option", { value: f }))),
-      textField("Font", it.font || "Helvetica", (v) => set("Scale bar font", (o) => { if (v) o.font = v; else delete o.font; }), { list: "sb-font-list" }),
-      row(numField("Text size", it.size ?? 6, "pt", (v) => set("Scale bar text size", (o) => { o.size = Math.max(v, 1); }), { min: 1, step: 0.5 }),
-        h("div", { class: "button-row inline" },
-          toggle("Bold", !!it.bold, (on) => set("Bold", (o) => { o.bold = on; }), "B", "bold"),
-          toggle("Italic", !!it.italic, (on) => set("Italic", (o) => { o.italic = on; }), "I", "italic"))));
+    out.push(h("datalist", { id: "label-font-list" }, ...(this.app.fonts || []).map((f) => h("option", { value: f }))),
+      textField("Font", it.font || "Helvetica", (v) => set("Label font", (o) => { if (v) o.font = v; else delete o.font; }),
+        { list: "label-font-list", mixed: mx("font") }),
+      row(numField("Text size", it.size ?? 6, "pt", (v) => set("Label text size", (o) => { o.size = Math.max(v, 1); }),
+        { min: 1, step: 0.5, mixed: mx("size") }),
+      h("div", { class: "button-row inline" },
+        toggle("Bold", !!it.bold, (on) => set("Bold", (o) => { o.bold = on; }), "B", "bold", mx("bold")),
+        toggle("Italic", !!it.italic, (on) => set("Italic", (o) => { o.italic = on; }), "I", "italic", mx("italic")))));
     // Where the letters are now: the gap set, or (never set) where the engine put them
     const gap = it.gap ?? canvas.els.get(it.id)?.labelGap;
-    out.push(numField("Gap to text", gap, "pt", (v) => set("Scale bar text gap", (o) => keepScaleBar(o, (b) => { b.gap = Math.max(v, 0); })),
-      { min: 0, step: 0.1, bind: "gap" }),
-    h("p", { class: "hint" }, "From the bar to the letters themselves (0 pt touches). The bar stays put; the yellow diamond "
+    const keep = it.type === "scalebar" ? (o, v) => keepScaleBar(o, (b) => { b.gap = v; }) : (o, v) => { o.gap = v; };
+    out.push(numField("Gap to text", gap, "pt", (v) => set(gapLabel, (o) => keep(o, Math.max(v, 0))),
+      { min: 0, step: 0.1, bind: "gap", mixed: mx("gap") }),
+    h("p", { class: "hint" }, `From ${bar} to the letters themselves (0 pt touches). The bar stays put; the yellow diamond `
       + "on the page drags the text nearer or further."));
     return out;
+  },
+  // A scale bar's or bracket's outline: round its bar or lines, round its label's letters (a
+  // halo), or both, each with its own switch; one colour, thickness and transparency for both, and
+  // the Sides (and a dashed bracket's Gaps) for the bar or lines
+  figureOutlineSection(it) {
+    const o = it.outline, mx = (k) => this.mx(k), bar = it.type === "scalebar";
+    const lines = !!o && o.lines !== false, text = !!o?.text;
+    const start = (x) => ({ color: luminance(parseHex(bar ? x.color || "#ffffff" : bracketStroke(x).color) || "#000000") > 0.4
+      ? "#000000" : "#ffffff", width: 0.5, opacity: 1 });
+    // Each switch on its own: off with the other off too, the outline goes
+    const flip = (key, on) => this.edit(on ? "Add outline" : "Remove outline", (x) => {
+      const cur = x.outline ? { ...x.outline } : { ...start(x), lines: false };
+      if (key === "lines") { if (on) delete cur.lines; else cur.lines = false; } else if (on) cur.text = true; else delete cur.text;
+      x.outline = cur.lines === false && !cur.text ? null : cur;
+    });
+    const ticks = [
+      checkField(bar ? "Outline round the bar" : "Outline round its lines", lines, (on) => flip("lines", on),
+        { mixed: mx("outline") || mx("outline.lines") }),
+      checkField("Outline round the text", text, (on) => flip("text", on), { mixed: mx("outline") || mx("outline.text") })];
+    const look = bar ? { type: "shape", geom: "rect", fill: { color: it.color || "#ffffff" }, stroke: null, outline: o }
+      : { ...it, type: "line", stroke: bracketStroke(it), outline: o };
+    return this.outlineSection(look, { ticks, hint: `A band of another colour round the ${bar ? "bar" : "lines"} and, with its own `
+      + "switch, round each letter of the label: a dark edge keeps a white scale bar and its length readable on a bright photo."
+      + (o && lines ? (bar ? " Outside, Inside and Both sides: of the bar." : " Left side, Right side and Both sides: of the lines.") : "") });
   },
   // The Check's guess at a picture's kind, named in the Kind list's Automatic choice
   async guessKind(asset, assetId, field) {
@@ -1149,9 +1217,10 @@ export const inspector = {
       }), "Reverse", "small")));
     return out;
   },
-  strokeSection(it) {
+  // opts.title in place of "Line" (a picture's Border), opts.lead: fields to go first
+  strokeSection(it, opts = {}) {
     const st = it.stroke;
-    const kids = [];
+    const kids = [...(opts.lead || [])];
     // (with several objects: lines keep theirs, and a line added keeps any there already)
     if (it.type !== "line") kids.push(pictureField("Line", st ? "solid" : "none", [["none", "No line"], ["solid", "Line"]]
       .map(([value, label]) => ({ value, label, picture: () => linePicture(st, value === "solid") })), (v) =>
@@ -1198,12 +1267,14 @@ export const inspector = {
       kids.push(transparencyField("Line transparency", st.opacity, (op) => this.edit("Line transparency", (o) => { o.stroke = { ...o.stroke, opacity: op }; }),
         { mixed: this.mx("stroke.opacity") }));
     }
-    return section("Line", kids);
+    return section(opts.title || "Line", kids);
   },
   // A contour in a second colour around the whole arrow or shape (lines, heads and fill)
-  outlineSection(it) {
+  // opts.ticks: switches in place of "Outline around it" (a scale bar's or bracket's two); opts.hint
+  // in place of the usual words
+  outlineSection(it, opts = {}) {
     const o = it.outline, k = outlineKind(it), inside = k.filled || k.encloses, sides = outlineSides(k);
-    const kids = [checkField("Outline around it", !!o, (on) => this.edit(on ? "Add outline" : "Remove outline", (x) => {
+    const kids = opts.ticks ? [...opts.ticks] : [checkField("Outline around it", !!o, (on) => this.edit(on ? "Add outline" : "Remove outline", (x) => {
       x.outline = on ? x.outline || { color: contrastingOutline(x), width: 1, opacity: 1 } : null;
     }), { mixed: this.mx("outline") })];
     if (o) {
@@ -1229,7 +1300,7 @@ export const inspector = {
           picture: () => outlinePicture(it, outlineType(look.sides, value), inside) })), pick("Outline gaps", "gaps"),
         { disabled: k.dashed || this.mixedLook ? null : "For dashed and dotted lines", mixed: this.mx("outline.type") })));
     }
-    kids.push(h("p", { class: "hint" }, "A band of another colour around everything it draws, e.g. a white edge that keeps a black arrow "
+    kids.push(opts.hint ? h("p", { class: "hint" }, opts.hint) : h("p", { class: "hint" }, "A band of another colour around everything it draws, e.g. a white edge that keeps a black arrow "
       + "visible on a photo."
       + (!o ? "" : inside ? ` Outside: only outside the shape. Inside: only inside it${k.filled ? ", over the fill" : ""}. Both sides: `
         + `along both sides of the ${k.lined ? "line" : "edge"}.`
@@ -1354,7 +1425,22 @@ export const inspector = {
     sel.every((it) => it.type === "bracket") ? section("Brackets", [
       button("Stack the brackets in tidy levels, the narrowest lowest", () => this.app.run("stackBrackets"), "Stack"),
       h("p", { class: "hint" }, "Brackets that don't overlap share a level; each level sits just above the one below.")]) : null]],
-    this.lookTab(sel)].filter(Boolean);
+    this.figureTab(sel) || this.lookTab(sel)].filter(Boolean);
+  },
+  // Several scale bars, or several brackets: their own tab, each field showing what they share and
+  // blank (Mixed) where they differ; a change goes to them all
+  figureTab(sel) {
+    const kind = ["scalebar", "bracket"].find((k) => sel.every((it) => it.type === k));
+    if (!kind) return null;
+    this.mixedLook = mixedFigure(sel);
+    try {
+      const it = sel[0], n = `${sel.length} ${kind === "scalebar" ? "scale bars" : "brackets"}`;
+      return ["style", kind === "scalebar" ? "Scale bars" : "Brackets", kind === "scalebar"
+        ? [this.scalebarSection(it, n), this.figureOutlineSection(it)]
+        : [this.bracketSection(it, n), this.bracketLineSection(it), this.figureOutlineSection(it)]];
+    } finally {
+      this.mixedLook = null;
+    }
   },
   // Several objects' looks at once (several selected, or a group): the Style tab's object style,
   // shape, fill, line, arrowheads and outline, for every line and shape among them, those inside
@@ -1364,7 +1450,7 @@ export const inspector = {
     const all = lookTargets(items);
     if (!all.length) return null;
     const plain = (o) => o.type === "shape" && !o.textbox && o.geom !== "region";
-    const lined = all.filter((o) => takes(o, "stroke")), filled = all.filter((o) => takes(o, "fill"));
+    const lined = all.filter((o) => hasPart(o, "stroke")), filled = all.filter((o) => takes(o, "fill"));
     const headed = all.filter((o) => takes(o, "arrow_start")), shaped = all.filter(plain);
     // What the fields show: the first one's look, each part from the first that has it
     const first = shaped[0] || all.find((o) => o.type === "shape") || all[0];
@@ -1381,13 +1467,14 @@ export const inspector = {
     this.mixedLook = mixedLooks(lined, filled, headed, shaped, all);
     try {
       return ["style", "Style", [
-        this.multiObjectStyleSection(rep, all),
+        all.some((o) => o.type === "line" || o.type === "shape")
+          ? this.multiObjectStyleSection(rep, all.filter((o) => o.type === "line" || o.type === "shape")) : null,
         shaped.length ? this.multiShapeSection(shaped, via) : null,
         filled.length ? this.fillSection.call(via((o, label) => takes(o, "fill")
           && (label === "Fill" || (/gradient/i.test(label) ? !!o.fill?.gradient : !!o.fill))), rep) : null,
-        lined.length ? this.strokeSection.call(via((o, label) => takes(o, "stroke")
-          && (label === "Add line" || label === "Remove line" || !!o.stroke)),
-        { ...rep, type: lined.every((o) => o.type === "line") ? "line" : "shape" }) : null,
+        lined.length ? this.strokeSection.call(via((o, label) => hasPart(o, "stroke")
+          && (label === "Add line" || label === "Remove line" ? o.type !== "bracket" : !!o.stroke)),
+        { ...rep, type: lined.every((o) => o.type === "line" || o.type === "bracket") ? "line" : "shape" }) : null,
         headed.length ? this.endsSection.call(via((o) => takes(o, "arrow_start")), rep) : null,
         this.outlineSection.call(via((o, label) => label === "Add outline" || label === "Remove outline" || !!o.outline), rep),
       ]];
@@ -1401,7 +1488,10 @@ export const inspector = {
     store.update(label, (doc) => {
       for (const id of ids) {
         const it = findDeep(doc.pages[store.pageIndex].items, id);
-        if (it && want(it, label)) fn(it, doc);
+        if (it && want(it, label)) {
+          upgradeItems([it]);   // (a bracket from before brackets had a line of their own)
+          fn(it, doc);
+        }
       }
     });
   },
@@ -1469,10 +1559,39 @@ function lookTargets(items) {
   const walk = (list) => {
     for (const it of list) {
       if (it.type === "group") walk(it.clip ? it.items.slice(0, -1) : it.items);
-      else if (it.type === "line" || it.type === "shape") out.push(it);
+      else if (it.type === "line" || it.type === "shape" || it.type === "bracket" || it.type === "scalebar") out.push(it);
     }
   };
   walk(items);
+  return out;
+}
+// What part of a look an object can take: lines' and shapes' (objectstyles.takes), a bracket's
+// line and outline, a scale bar's outline
+const hasPart = (o, key) => takes(o, key) || (o.type === "bracket" && (key === "stroke" || key === "outline"))
+  || (o.type === "scalebar" && key === "outline");
+// Where several scale bars or brackets differ, by field (as mixedLooks for lines and shapes): their
+// own fields, the gap where their letters are, a bracket's ticks, and their line and outline parts
+const FIGURE_DEFAULT = { font: "Helvetica", size: 6, bold: false, italic: false, text_style: "", ends: "square", opacity: 1,
+  thickness: 2, color: "#ffffff", label: "above", dir: "up", unit: "µm", swatch: null };
+function mixedFigure(items) {
+  const out = new Set();
+  const differ = (path, list, get) => {
+    if (new Set(list.map((o) => JSON.stringify(get(o) ?? null))).size > 1) out.add(path);
+  };
+  for (const k of ["length", "unit", "label", "color", "swatch", "thickness", "ends", "opacity", "font", "size", "bold", "italic",
+    "text_style", "dir"]) differ(k, items, (o) => o[k] ?? FIGURE_DEFAULT[k]);
+  differ("gap", items, (o) => Math.round((o.gap ?? canvas.els.get(o.id)?.labelGap ?? 0) * 100) / 100);
+  differ("corner", items, (o) => o.anchor?.corner || "br");
+  differ("ticks", items, (o) => (o.type !== "bracket" ? null : across(o) ? Math.round(Math.max(o.frame[3] - labelRoom(o), 0) * 1000) : o.tick ?? 4));
+  const parts = { stroke: (o) => (o.type === "bracket" ? bracketStroke(o) : null), outline: (o) => o.outline };
+  const own = { lines: true, text: false };
+  for (const [part, get] of Object.entries(parts)) {
+    differ(part, items, (o) => !!get(o));
+    const have = items.filter(get);
+    for (const sub of new Set([...have.flatMap((o) => Object.keys(get(o))), "lines", "text"])) {
+      differ(`${part}.${sub}`, have, (o) => get(o)[sub] ?? own[sub] ?? PART_DEFAULT[sub]);
+    }
+  }
   return out;
 }
 // Where several objects' looks differ, by field ("stroke" whether they have a line, "stroke.width"
@@ -1638,6 +1757,7 @@ const sameAngle = (a, b) => Math.abs(turnFrom(a, b)) < 1e-6;
 function label(text, id) { return h("label", { for: id }, text); }
 
 // opts.mixed: the objects selected differ here, so it's blank ("Mixed") until a value is typed
+const MIXED = "\u0000mixed";   // (a list's value while the objects selected differ)
 export function numField(text, valuePt, unit, onCommit, opts = {}) {
   const id = `f${++fieldId}`;
   const isLen = unit in { pt: 1, mm: 1, cm: 1, in: 1, px: 1 };
@@ -1661,7 +1781,7 @@ function unitName(u) {
 }
 export function textField(text, value, onCommit, opts = {}) {
   const id = `f${++fieldId}`;
-  const input = h("input", { id, type: "text", value: value ?? "", list: opts.list });
+  const input = h("input", { id, type: "text", value: opts.mixed ? "" : value ?? "", list: opts.list, placeholder: opts.mixed ? "Mixed" : null });
   input.addEventListener("change", () => onCommit(input.value.trim()));
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); keepFieldKeys(e); });
   return h("div", { class: "field" }, label(text, id), input);
@@ -1706,10 +1826,11 @@ export function pictureField(text, value, options, onChange, opts = {}) {
 // options: [value, label] pairs, or {group, options: [value, label] pairs} for a group with a heading
 export function selectField(text, value, options, onChange, opts = {}) {
   const id = `f${++fieldId}`;
-  const option = ([v, l]) => h("option", { value: v, selected: v === value ? "selected" : undefined }, l);
+  const option = ([v, l]) => h("option", { value: v, selected: v === value && !opts.mixed ? "selected" : undefined }, l);
   const sel = h("select", { id, disabled: opts.disabled },
+    ...(opts.mixed ? [h("option", { value: MIXED, disabled: true, hidden: true }, "Mixed")] : []),   // (the objects selected differ)
     ...options.map((o) => (o.group ? h("optgroup", { label: o.group }, ...o.options.map(option)) : option(o))));
-  sel.value = value;
+  sel.value = opts.mixed ? MIXED : value;
   sel.addEventListener("change", () => onChange(sel.value));
   return h("div", { class: "field" }, label(text, id), sel);
 }
@@ -1763,7 +1884,8 @@ function transparencyField(text, opacity, onCommit, opts = {}) {
 }
 // White around dark things, black around light ones
 function contrastingOutline(it) {
-  const main = parseHex(it.type === "line" ? it.stroke?.color : (it.fill?.color || it.stroke?.color)) || "#000000";
+  const main = parseHex(it.type === "line" ? it.stroke?.color : it.type === "picture" ? it.border?.color
+    : (it.fill?.color || it.stroke?.color)) || "#000000";
   return luminance(main) > 0.4 ? "#000000" : "#ffffff";
 }
 // opts.mixed: some of the objects selected have it and some don't (a dash in the box)
@@ -1775,12 +1897,13 @@ function checkField(text, checked, onChange, opts = {}) {
   return h("div", { class: "field check" }, input, label(text, id));
 }
 // options: [value, label] or [value, label, picture]
-function radioField(text, value, options, onChange) {
+// opts.mixed: the objects selected differ, so none is chosen
+function radioField(text, value, options, onChange, opts = {}) {
   const name = `r${++fieldId}`;
   return h("fieldset", { class: "radio-group" }, h("legend", {}, text),
     ...options.map(([v, l, picture]) => {
       const id = `${name}-${v}`;
-      const input = h("input", { type: "radio", name, id, value: v, checked: v === value });
+      const input = h("input", { type: "radio", name, id, value: v, checked: v === value && !opts.mixed });
       input.addEventListener("change", () => { if (input.checked) onChange(v); });
       return h("label", { for: id, class: "radio" }, input, picture ? h("span", { class: "pic" }, picture) : null, h("span", {}, l));
     }));
@@ -1825,9 +1948,10 @@ export function colourVisionField() {
 export function button(labelText, onClick, content, cls = "") {
   return h("button", { type: "button", class: `btn ${cls}`, title: labelText, "aria-label": labelText, onclick: onClick }, content ?? labelText);
 }
-function toggle(labelText, pressed, onChange, content, cls = "") {
+// mixed: the objects selected differ (a press turns it on for them all)
+function toggle(labelText, pressed, onChange, content, cls = "", mixed = false) {
   const b = h("button", { type: "button", class: `btn toggle ${cls}`, title: labelText, "aria-label": labelText,
-    "aria-pressed": pressed ? "true" : "false" }, content);
+    "aria-pressed": mixed ? "mixed" : pressed ? "true" : "false" }, content);
   b.addEventListener("click", () => {
     const on = b.getAttribute("aria-pressed") !== "true";
     onChange(on);

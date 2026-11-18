@@ -8,6 +8,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field, replace
 
+from fontTools.pens.basePen import BasePen
+
 from . import dashes, presets
 from .fonts import FontIndex
 from .geometry import (DrawPath, Fill, Matrix, Path, Stroke, arrowhead, dash_array, flatten, frame_matrix, head_outline,
@@ -462,20 +464,99 @@ def scalebar_label(item: dict) -> str:
     return f"{float(item.get('length', 1)):g} {item.get('unit', 'µm')}"
 
 
-def ink_extent(layout: TextLayout) -> tuple[float, float]:
-    """How high and how low laid-out text's letters reach (y down, in the layout's coordinates):
-    their outlines, so "50 µm" reaches down to the µ's tail and "50 nm" only to the line it sits
-    on. A font whose outlines can't be read counts its capitals' height and its descent."""
-    top, bottom = math.inf, -math.inf
+def ink_box(layout: TextLayout) -> tuple[float, float, float, float]:
+    """Where laid-out text's letters reach (left, top, right, bottom; y down, in the layout's
+    coordinates): their outlines, so "50 µm" reaches down to the µ's tail and "50 nm" only to the
+    line it sits on, and an asterisk's bottom is well above the line. A font whose outlines can't
+    be read counts its capitals' height, its descent and the advances."""
+    left, top, right, bottom = math.inf, math.inf, -math.inf, -math.inf
     for run in layout.runs:
-        for gid in run.gids:
+        x = run.x
+        for gid, adv in zip(run.gids, run.advances):
             ink = run.face.ink(gid)
             if ink is not None:
-                top, bottom = min(top, run.y - ink[3] * run.size), max(bottom, run.y - ink[1] * run.size)
+                k = run.size
+                lean = run.skew * k * max(ink[3], 0.0), run.skew * k * min(ink[1], 0.0)   # (a slanted italic's lean)
+                left, right = min(left, x + ink[0] * k + lean[1]), max(right, x + ink[2] * k + lean[0])
+                top, bottom = min(top, run.y - ink[3] * k), max(bottom, run.y - ink[1] * k)
+            x += adv
     if top > bottom:   # (nothing with an outline)
         run = layout.runs[0] if layout.runs else None
-        return (run.y - run.face.cap_height * run.size, run.y + run.face.descent * run.size) if run else (0.0, 0.0)
+        if run is None:
+            return 0.0, 0.0, 0.0, 0.0
+        return (run.x, run.y - run.face.cap_height * run.size, run.x + sum(r.width for r in layout.runs),
+                run.y + run.face.descent * run.size)
+    return left, top, right, bottom
+
+
+def ink_extent(layout: TextLayout) -> tuple[float, float]:
+    """How high and how low laid-out text's letters reach (ink_box's top and bottom)."""
+    _, top, _, bottom = ink_box(layout)
     return top, bottom
+
+
+class _PathPen(BasePen):
+    """A fontTools pen drawing into a Path (a glyph's outline, glyphs built from others too)."""
+
+    def __init__(self, glyph_set):
+        super().__init__(glyph_set)
+        self.path = Path()
+
+    def _moveTo(self, p):
+        self.path.move_to(*p)
+
+    def _lineTo(self, p):
+        self.path.line_to(*p)
+
+    def _curveToOne(self, p1, p2, p3):
+        self.path.curve_to(*p1, *p2, *p3)
+
+    def _qCurveToOne(self, p1, p2):
+        self.path.quad_to(*p1, *p2)
+
+    def _closePath(self):
+        self.path.close()
+
+
+_glyph_paths: dict = {}
+
+
+def glyph_path(face, gid: int) -> Path | None:
+    """A glyph's outline in font units (y up), read once per face and glyph; None for one that
+    draws nothing (a space) or can't be read."""
+    key = (face.key, gid)
+    if key not in _glyph_paths:
+        pen = face.draw_glyph(gid, _PathPen)
+        _glyph_paths[key] = pen.path if pen is not None and pen.path.segs else None
+    return _glyph_paths[key]
+
+
+def text_halo(texts: list, spec: dict | None) -> list:
+    """An outline round text's letters: each glyph filled and drawn round with a line twice the
+    outline's thickness, in its colour, to go under the text (with its transparency, as one)."""
+    if not spec or float(spec.get("width", 1.0)) <= 0:
+        return []
+    t, color = float(spec.get("width", 1.0)), spec.get("color", "#ffffff")
+    out = []
+    for text in texts:
+        for run in text.runs:
+            x, k = run.x, run.size / run.face.upm
+            for gid, adv in zip(run.gids, run.advances):
+                g = glyph_path(run.face, gid)
+                if g is not None:
+                    m = text.matrix @ Matrix(k, 0.0, run.skew * k, -k, x, run.y)
+                    out.append(DrawPath(g.transformed(m), stroke=Stroke(color=color, width=2 * t, cap="round", join="round"),
+                                        fill=Fill(color=color), meta={"role": "outline"}))
+                x += adv
+    return _faded(out, spec)
+
+
+def outline_parts(spec: dict | None) -> tuple[dict | None, dict | None]:
+    """A scale bar's or bracket's outline: the part round its lines (or bar), unless lines is
+    false, and the part round its label's letters, with text true."""
+    if not spec or float(spec.get("width", 1.0)) <= 0:
+        return None, None
+    return (spec if spec.get("lines", True) is not False else None), (spec if spec.get("text") else None)
 
 
 def make_stroke(d: dict | None) -> Stroke | None:
@@ -790,8 +871,11 @@ class Resolver:
         if float(border.get("width", 0)) > 0:   # round the frame, or the shape it's cropped to
             edge = clip_path(area)[0] if area else Path().move_to(0, 0).line_to(w, 0).line_to(w, h).line_to(0, h).close().transformed(
                 frame_matrix(item["frame"], item.get("rot", 0.0), item.get("flip_h", False), item.get("flip_v", False)))
-            r.prims.append(DrawPath(edge, stroke=Stroke(color=border.get("color", "#000000"), width=float(border["width"]),
-                                                        cap="flat", join="miter"), meta={"item": item.get("id")}))
+            # A line round it like any other (flat ends and sharp corners unless it says otherwise),
+            # with an outline round the border, not the picture
+            stroke = make_stroke({"cap": "flat", "join": "miter", **border})
+            line = even_dashes(DrawPath(edge, stroke=stroke, meta={"item": item.get("id")}))
+            r.prims += fade_together(with_outline([line], item.get("outline"), [(edge, False)]))
         return r
 
     def _shape(self, item: dict) -> Resolved:
@@ -855,6 +939,7 @@ class Resolver:
         t, size = float(item.get("thickness", 2.0)), float(item.get("size", 6.0))
         color, label = item.get("color", "#ffffff"), item.get("label", "above")
         bar_y = h - t if label == "above" else 0.0   # (in the frame)
+        around, letters = outline_parts(item.get("outline"))
         if item.get("ends") == "round":
             # Round ends inside the length: the tip of each is where the length ends (a bar shorter
             # than it's thick has half-ellipses)
@@ -863,7 +948,9 @@ class Resolver:
                    .line_to(rx, bar_y + t).arc_to(rx, ry, 90, 180).close())
         else:
             bar = Path().move_to(0, bar_y).line_to(w, bar_y).line_to(w, bar_y + t).line_to(0, bar_y + t).close()
-        r.prims.append(DrawPath(bar.transformed(m), fill=Fill(color=color), meta={"item": item.get("id")}))
+        bar = bar.transformed(m)
+        r.prims += with_outline([DrawPath(bar, fill=Fill(color=color), meta={"item": item.get("id"), "role": "body"})],
+                                around, [(bar, False)])
         if label != "none":
             run = {"t": scalebar_label(item), "font": item.get("font") or "Helvetica", "size": size,
                    "bold": bool(item.get("bold")), "italic": bool(item.get("italic")), "color": color}
@@ -880,24 +967,37 @@ class Resolver:
                 top, bottom = ink_extent(layout)
                 ty = h - t - gap - bottom if label == "above" else t + gap - top
             if layout.runs:
-                r.prims.append(DrawText(layout.runs, m @ Matrix.translate(0, ty), meta={"item": item.get("id")}))
+                text = DrawText(layout.runs, m @ Matrix.translate(0, ty), meta={"item": item.get("id")})
+                r.prims = text_halo([text], letters) + r.prims + [text]   # (the letters' outline under the bar too)
                 edge = ty + (bottom if label == "above" else top)   # the letters' edge nearest the bar
                 r.label_gap = (h - t) - edge if label == "above" else edge - t
                 r.handles = [[w / 2, edge]]
+        opacity = float(item.get("opacity", 1.0))
+        if opacity < 1.0:   # see-through as a whole: bar, label and outline
+            r.prims = [DrawGroup(r.prims, opacity, meta={"item": item.get("id")})]
         return r
 
     def _bracket(self, item: dict) -> Resolved:
         """A significance bracket: a bar with an end tick at each side and its label (asterisks,
         "ns", a p-value) beyond the bar. dir is the side the label is on: up (ticks down, over bars),
         down, left or right. Across, the ticks are as long as the frame leaves below the label;
-        upright, they're `tick` long. Round ends and mitred corners, as in Matthew's figures."""
+        upright, they're `tick` long. Its line is `stroke` (round ends and mitred corners unless
+        it says otherwise, as in Matthew's figures; brackets from before 2026-11-18 have color
+        and line_width), the label in the line's colour and transparency. With `gap`, the letters
+        stand that far from the bar's edge (to their outline: 0 touches; across, the label's room
+        is the gap and a line of text); without it, the text's box stands 0.3 text sizes from the
+        bar's middle. label_gap says where the letters are either way, and the handle sits there."""
         r = Resolved(item.get("id", ""))
         x, y, w, h = item["frame"]
         size, text, d = float(item.get("size", 6.0)), str(item.get("label", "*")), item.get("dir", "up")
-        color = item.get("color", "#000000")
-        room = size * (BRACKET_LINE + BRACKET_GAP) if text else 0.0
+        spec = {"cap": "round", "join": "miter",
+                **(item.get("stroke") or {"color": item.get("color", "#000000"), "width": item.get("line_width", 0.75)})}
+        color, alpha = spec.get("color", "#000000"), float(spec.get("opacity", 1.0))
+        set_gap = item.get("gap")
+        room = (size * BRACKET_LINE + max(float(set_gap), 0.0) if set_gap is not None else size * (BRACKET_LINE + BRACKET_GAP)) \
+            if text else 0.0
         gap = size * BRACKET_GAP
-        stroke = Stroke(color=color, width=float(item.get("line_width", 0.75)), cap="round", join="miter")
+        half = float(spec.get("width", 0.75)) / 2.0   # (the bar's edge is half its width from its middle)
         if d in ("left", "right"):
             tick = min(float(item.get("tick", 4.0)), w)
             bar = x + tick if d == "right" else x + w - tick
@@ -912,15 +1012,43 @@ class Resolver:
             path = Path().move_to(x, end).line_to(x, bar).line_to(x + w, bar).line_to(x + w, end)
             box = (x, y, w, max(room - gap, size)) if d == "up" else (x, bar + gap, w, max(room - gap, size))
             align, anchor = "ctr", ("b" if d == "up" else "t")
-        r.prims.append(DrawPath(path, stroke=stroke, meta={"item": item.get("id")}))
+        around, letters = outline_parts(item.get("outline"))
+        stroke = make_stroke(spec)
+        if stroke is not None:
+            r.prims = fade_together(with_outline([even_dashes(DrawPath(path, stroke=stroke, meta={"item": item.get("id")}))],
+                                                 around))
         if text:
-            run = {"t": text, "font": item.get("font", "Helvetica"), "size": size, "bold": bool(item.get("bold")),
-                   "italic": False, "color": color}
+            run = {"t": text, "font": item.get("font") or "Helvetica", "size": size, "bold": bool(item.get("bold")),
+                   "italic": bool(item.get("italic")), "color": color, "opacity": alpha}
             body = {"paragraphs": [{"align": align, "runs": [run]}], "insets": [0.0, 0.0, 0.0, 0.0], "wrap": False,
                     "anchor": anchor, "autofit": "none"}
             layout = layout_text(body, box[2], box[3], self.fonts)
             if layout.runs:
-                r.prims.append(DrawText(layout.runs, Matrix.translate(box[0], box[1]), meta={"item": item.get("id")}))
+                left, top, right, bottom = ink_box(layout)
+                dx = dy = 0.0
+                if set_gap is not None:   # the letters' edge that far from the bar's
+                    g = max(float(set_gap), 0.0)
+                    if d == "up":
+                        dy = (bar - half - g) - (box[1] + bottom)
+                    elif d == "down":
+                        dy = (bar + half + g) - (box[1] + top)
+                    elif d == "right":
+                        dx = (bar + half + g) - (box[0] + left)
+                    else:
+                        dx = (bar - half - g) - (box[0] + right)
+                ox, oy = box[0] + dx, box[1] + dy
+                label = DrawText(layout.runs, Matrix.translate(ox, oy), meta={"item": item.get("id")})
+                r.prims = text_halo([label], letters) + r.prims + [label]
+                # Where the letters are: their edge nearest the bar, and how far from its edge
+                if d == "up":
+                    at, r.label_gap = (ox + (left + right) / 2, oy + bottom), (bar - half) - (oy + bottom)
+                elif d == "down":
+                    at, r.label_gap = (ox + (left + right) / 2, oy + top), (oy + top) - (bar + half)
+                elif d == "right":
+                    at, r.label_gap = (ox + left, oy + (top + bottom) / 2), (ox + left) - (bar + half)
+                else:
+                    at, r.label_gap = (ox + right, oy + (top + bottom) / 2), (bar - half) - (ox + right)
+                r.handles = [[at[0] - x, at[1] - y]]   # (in frame coordinates)
         return r
 
     def _line(self, item: dict) -> Resolved:

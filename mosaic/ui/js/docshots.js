@@ -260,7 +260,8 @@ export async function run(app, params) {
   if (scene === "brackets") {
     // Brackets over the bar chart's gene1 and gene3 pairs, and gene1 to gene2, stacked in levels
     const f = fr(b), bx = (u) => f[0] + f[2] * u, top = f[1] + f[3] * 0.17;
-    const bracket = (id, u0, u1, label) => ({ id, type: "bracket", label, size: 6, bold: false, line_width: 0.75, color: "#000000",
+    const bracket = (id, u0, u1, label) => ({ id, type: "bracket", label, size: 6, bold: false,
+      stroke: { color: "#000000", width: 0.75, dash: "solid", cap: "round", join: "miter", opacity: 1 },
       rot: 0, dir: "up", tick: 4, frame: [bx(u0), top - 13, bx(u1) - bx(u0), 13] });
     store.update("Brackets", (doc) => doc.pages[0].items.push(bracket("k1", 0.19, 0.31, "***"), bracket("k3", 0.66, 0.78, "**"),
       bracket("k12", 0.24, 0.52, "ns")), { select: ["k1", "k3", "k12"] });

@@ -18,12 +18,18 @@ const fillOf = (it) => {
   if (g) return `gradient ${JSON.stringify([g.type, g.angle ?? null, g.center ?? null, g.stops.map((s) => [s.pos, colour(s.color), s.opacity ?? 1])])}`;
   return colour(f.color);
 };
-const lineOf = (it) => (it.stroke ? colour(it.stroke.color) : "none");
-const widthOf = (it) => (it.stroke ? String(Math.round(it.stroke.width * 1000) / 1000) : "none");
-const hasLine = (it) => it.type === "line" || (it.type === "shape" && it.geom !== "region");   // an area fill has none
+// (a bracket's line is its stroke, or before brackets had one, its colour and width; a scale bar's
+// is its bar, its colour and thickness)
+const strokeOf = (it) => (it.type === "scalebar" ? { color: it.color || "#ffffff", width: it.thickness ?? 2 }
+  : it.type === "bracket" ? it.stroke || { color: it.color, width: it.line_width ?? 0.75 } : it.stroke);
+const lineOf = (it) => (strokeOf(it) ? colour(strokeOf(it).color) : "none");
+const widthOf = (it) => (strokeOf(it) ? String(Math.round(strokeOf(it).width * 1000) / 1000) : "none");
+const hasLine = (it) => it.type === "line" || (it.type === "shape" && it.geom !== "region")   // an area fill has none
+  || it.type === "bracket" || it.type === "scalebar";
 // The text's runs with something in them (a shape's or a text box's)
-// (a scale bar's label counts as one run of text)
+// (a scale bar's or bracket's label counts as one run of text, in its bar's or line's colour)
 const runsOf = (it) => (it.type === "scalebar" ? (it.label === "none" ? [] : [{ t: "label", font: it.font, size: it.size, color: it.color }])
+  : it.type === "bracket" ? (!it.label ? [] : [{ t: it.label, font: it.font, size: it.size, color: strokeOf(it).color }])
   : (it.text?.paragraphs || []).flatMap((p) => p.runs || []).filter((r) => (r.t || "").length));
 
 function kindOf(it) {

@@ -25,3 +25,31 @@ def test_the_other_sides_and_no_label():
     assert line.path.to_svg(1) == "M30 10L26 10L26 60L30 60" and text.bbox()[2] <= 26
     (line,) = drawn(label="", frame=[10, 10, 60, 4])
     assert line.path.to_svg(1) == "M10 14L10 10L70 10L70 14"
+
+
+def test_a_bracket_with_a_line_of_its_own_and_its_label_a_gap_from_it():
+    from mosaic.resolve import DrawText, Resolver, ink_box
+    resolver = Resolver({"assets": {}})
+    old = {"id": "b", "type": "bracket", "frame": [10, 10, 60, 13], "label": "*", "size": 6, "dir": "up", "tick": 4,
+           "color": "#d55e00", "line_width": 1.25}
+    # From before brackets had a stroke: drawn with its colour and width, round ends, mitred corners
+    line = Resolver({"assets": {}}).resolve(old).prims[0]
+    assert (line.stroke.color, line.stroke.width, line.stroke.cap, line.stroke.join) == ("#d55e00", 1.25, "round", "miter")
+    new = {**{k: v for k, v in old.items() if k not in ("color", "line_width")}, "label": "p < 0.05", "gap": 0.5, "italic": True,
+           "frame": [10, 10, 60, 4 + 0.5 + 7.2],
+           "stroke": {"color": "#000000", "width": 1, "dash": "dash", "cap": "flat", "join": "round", "opacity": 0.5}}
+    r = resolver.resolve(new)
+    text = [p for p in r.prims if isinstance(p, DrawText)][0]
+    _, _, _, bottom = ink_box(text)
+    bar = 10 + 0.5 + 7.2   # the bar's middle: under the label's room (the gap and a line of text)
+    assert abs((bar - 0.5) - text.matrix.apply(0, bottom)[1] - 0.5) < 1e-9 and abs(r.label_gap - 0.5) < 1e-9
+    assert text.runs[0].opacity == 0.5 and text.runs[0].color == "#000000"   # the line's colour and transparency
+    line = r.prims[0]
+    assert line.stroke.opacity == 0.5 and line.meta.get("dashes")   # see-through, its dashes laid out evenly
+    # An outline round the lines, and on its own switch round the letters
+    plain = len(resolver.resolve({**new, "stroke": {**new["stroke"], "opacity": 1}}).prims)
+    lines_only = resolver.resolve({**new, "stroke": {**new["stroke"], "opacity": 1}, "outline": {"color": "#ffffff", "width": 0.5}})
+    both = resolver.resolve({**new, "stroke": {**new["stroke"], "opacity": 1}, "outline": {"color": "#ffffff", "width": 0.5, "text": True}})
+    text_only = resolver.resolve({**new, "stroke": {**new["stroke"], "opacity": 1},
+                                  "outline": {"color": "#ffffff", "width": 0.5, "text": True, "lines": False}})
+    assert len(lines_only.prims) > plain and len(both.prims) > len(lines_only.prims) and len(text_only.prims) == len(both.prims) - (len(lines_only.prims) - plain)

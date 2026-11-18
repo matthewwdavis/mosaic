@@ -32,7 +32,7 @@ import { ZOOM_ROUNDING, zoomShape } from "./zoom.js";
 import { dropLost, hiddenOf, liftedFrom, lostAfterUpdate, putBack } from "./liftedtext.js";
 import { stackLevels } from "./brackets.js";
 import { colourHolders, swatchById } from "./swatches.js";
-import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, scaleBars, setFormat } from "./textstyles.js";
+import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, labelItems, setFormat } from "./textstyles.js";
 import { KEYS as LOOK, applyObjectStyle, formatOf as lookOf, restyle as restyleObjects } from "./objectstyles.js";
 import { installDialogDrag } from "./dragdialog.js";
 import { canMove, containerAt, moveItems } from "./layers.js";
@@ -1124,7 +1124,7 @@ const app = {
         });
         walk(pg.items);
       }
-      for (const bar of scaleBars(doc)) if (bar.text_style === id) delete bar.text_style;
+      for (const bar of labelItems(doc)) if (bar.text_style === id) delete bar.text_style;
     });
   },
   // Fonts: every run (and text style) in that font, on every page, in another (the Fonts dialog)
@@ -1134,7 +1134,7 @@ const app = {
       for (const it of items) {
         if (it.type === "group") walk(it.items);
         for (const p of it.text?.paragraphs || []) for (const r of p.runs || []) if (r.font === from) { r.font = to; n++; }
-        if (it.type === "scalebar" && (it.font || "Helvetica") === from) { it.font = to; n++; }
+        if ((it.type === "scalebar" || (it.type === "bracket" && it.label)) && (it.font || "Helvetica") === from) { it.font = to; n++; }
       }
     };
     store.update("Replace font", (doc) => {
@@ -2475,7 +2475,7 @@ function figurePages(doc, got) {
     if (o.type === "picture" && o.asset) used.assets.add(o.asset);
     if (typeof o.object_style === "string") used.object_styles.add(o.object_style);
     if (o.runs && typeof o.style === "string") used.text_styles.add(o.style);   // a paragraph's text style
-    if (o.type === "scalebar" && typeof o.text_style === "string") used.text_styles.add(o.text_style);
+    if ((o.type === "scalebar" || o.type === "bracket") && typeof o.text_style === "string") used.text_styles.add(o.text_style);
     if (o.type === "symbol" && typeof o.symbol === "string" && !used.symbols.has(o.symbol)) {
       used.symbols.add(o.symbol);
       if (symbolById.has(o.symbol)) note(symbolById.get(o.symbol).items);
@@ -2517,7 +2517,7 @@ function figurePages(doc, got) {
     if (o.type === "symbol" && maps.symbols.has(o.symbol)) o.symbol = maps.symbols.get(o.symbol);
     if (maps.object_styles.has(o.object_style)) o.object_style = maps.object_styles.get(o.object_style);
     if (o.runs && maps.text_styles.has(o.style)) o.style = maps.text_styles.get(o.style);
-    if (o.type === "scalebar" && maps.text_styles.has(o.text_style)) o.text_style = maps.text_styles.get(o.text_style);
+    if ((o.type === "scalebar" || o.type === "bracket") && maps.text_styles.has(o.text_style)) o.text_style = maps.text_styles.get(o.text_style);
     for (const v of Object.values(o)) remap(v);
   };
   remap(pages);

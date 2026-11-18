@@ -95,3 +95,20 @@ def test_round_ends_stay_within_the_length():
     # Turned, the tips are still the length's ends
     turned = resolver.resolve({**bar, "ends": "round", "rot": 90}).prims[0].path.bbox()
     assert abs((turned[3] - turned[1]) - 40) < 1e-9
+
+
+def test_an_outline_round_the_bar_and_the_text_and_see_through_bars():
+    from mosaic.resolve import DrawGroup
+    bar = {"id": "sb", "type": "scalebar", "frame": [10, 10, 40, 2 + 0.5 + 7.2], "length": 50, "unit": "µm", "thickness": 2,
+           "size": 6, "label": "above", "color": "#ffffff", "gap": 0.5}
+    resolver = Resolver({"assets": {}})
+    plain = resolver.resolve(bar).prims
+    outline = {"color": "#000000", "width": 0.5, "opacity": 1}
+    round_bar = resolver.resolve({**bar, "outline": outline}).prims
+    both = resolver.resolve({**bar, "outline": {**outline, "text": True}}).prims
+    text_only = resolver.resolve({**bar, "outline": {**outline, "text": True, "lines": False}}).prims
+    halo = len(both) - len(round_bar)   # one outline per letter drawn ("50 µm": 4)
+    assert len(round_bar) == len(plain) + 1 and halo == 4 and len(text_only) == len(plain) + halo
+    assert both[0].meta.get("role") == "outline" and isinstance(both[-1], DrawText)   # the letters' outline under all, the text on top
+    see_through = resolver.resolve({**bar, "opacity": 0.5, "outline": outline}).prims
+    assert len(see_through) == 1 and isinstance(see_through[0], DrawGroup) and see_through[0].opacity == 0.5

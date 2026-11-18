@@ -8,7 +8,7 @@ import { findItem, store } from "./store.js";
 import { PALETTES, colourHolders } from "./swatches.js";
 import { copiesOf } from "./symbols.js";
 import { describeLook, differs as looksDiffer, styledObjects } from "./objectstyles.js";
-import { describeFormat, differs, labelDiffers, paragraphs, scaleBars } from "./textstyles.js";
+import { describeFormat, differs, labelDiffers, paragraphs, labelItems } from "./textstyles.js";
 import { contextMenu } from "./contextmenu.js";
 import { listDrag } from "./listdrag.js";
 import { updates } from "./updates.js";
@@ -1990,7 +1990,7 @@ export const panels = {
       const rows = all.map((st) => {
         const name = h("input", { type: "text", value: st.name, "aria-label": `${st.name}: name` });
         name.addEventListener("change", () => { if (name.value.trim()) this.app.renameTextStyle(st.id, name.value.trim()); });
-        const using = paras.filter(([p]) => p.style === st.id), bars = scaleBars(store.doc).filter((b) => b.text_style === st.id);
+        const using = paras.filter(([p]) => p.style === st.id), bars = labelItems(store.doc).filter((b) => b.text_style === st.id);
         const objects = new Set([...using.map(([, it]) => it.id), ...bars.map((b) => b.id)]).size;
         const changed = using.filter(([p]) => differs(p, st)).length + bars.filter((b) => labelDiffers(b, st)).length;
         const sample = h("span", { class: "style-sample", style: { fontFamily: `"${st.font || "Helvetica"}"`, fontWeight: st.bold ? "700" : "400",

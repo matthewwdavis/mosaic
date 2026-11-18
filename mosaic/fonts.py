@@ -311,16 +311,34 @@ class Face:
             if gid not in self._ink:
                 try:
                     from fontTools.pens.boundsPen import BoundsPen
-                    if self._glyphs is None:
-                        tt = TTFont(self.ref.path, fontNumber=self.ref.index, lazy=True)
-                        self._glyphs = (tt.getGlyphOrder(), tt.getGlyphSet())
-                    order, glyphs = self._glyphs
-                    pen = BoundsPen(glyphs)
-                    glyphs[order[gid]].draw(pen)
+                    pen = BoundsPen(self._glyph_set()[1])
+                    self._draw(gid, pen)
                     self._ink[gid] = tuple(v / self.upm for v in pen.bounds) if pen.bounds else None
                 except Exception:   # (a font whose outlines can't be read)
                     self._ink[gid] = None
         return self._ink[gid]
+
+    def draw_glyph(self, gid: int, make_pen):
+        """A glyph's outline drawn into a fontTools pen made by make_pen(glyph set) (the set, for
+        glyphs built from others), in font units (y up from the baseline; upm to the em). The
+        pen, or None if it can't be read."""
+        with self._ink_lock:
+            try:
+                pen = make_pen(self._glyph_set()[1])
+                self._draw(gid, pen)
+                return pen
+            except Exception:   # (a font whose outlines can't be read)
+                return None
+
+    def _glyph_set(self):
+        if self._glyphs is None:
+            tt = TTFont(self.ref.path, fontNumber=self.ref.index, lazy=True)
+            self._glyphs = (tt.getGlyphOrder(), tt.getGlyphSet())
+        return self._glyphs
+
+    def _draw(self, gid: int, pen) -> None:
+        order, glyphs = self._glyph_set()
+        glyphs[order[gid]].draw(pen)
 
     @property
     def embeddable(self) -> bool:

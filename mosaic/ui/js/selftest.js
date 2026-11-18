@@ -3774,6 +3774,146 @@ async function scaleBarChecks(app) {
   document.getElementById("itab-scalebar")?.click();
 }
 
+// Figure-tab objects with what lines and shapes have (2026-11-18): scale bars' outline (round the
+// bar and, on its own switch, the text) and transparency; brackets' line (dashes, ends,
+// transparency), outline, label font, italic, gap and p-values, and brackets from before becoming
+// a stroke; several at once (Mixed); copy and paste style; Select Same; pictures' borders as lines
+async function figureLookChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const plot = btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200pt" height="120pt" viewBox="0 0 200 120">'
+    + '<rect x="0" y="0" width="200" height="120" fill="#ccddee"/></svg>');
+  await app.placeFiles([await rpc("selftest_scratch", "figurelook_plot.svg", plot)], [60, 80], false);
+  const picId = store.items().find((it) => it.type === "picture")?.id, pic = () => store.item(picId);
+  if (!picId) return log(false, "a picture is placed for the Figure-tab looks");
+  const typeIn = (label, v) => {
+    const f = fieldByLabel(label);
+    if (!f) return false;
+    f.value = v;
+    f.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  };
+  const tick = (label) => { const f = fieldByLabel(label); f?.click(); return !!f; };
+  const press = (name) => { inspector.render(); [...document.querySelectorAll("#inspector button")].find((b) => b.getAttribute("aria-label") === name)?.click(); };
+
+  // Scale bar: an outline round the bar, round the text on its own switch; transparency
+  app.setPictureScale(picId, 0.5, "µm", "typed");
+  app.addScaleBar(picId);
+  const sbId = store.selected()[0]?.id, sb = () => store.item(sbId);
+  await settle();
+  tick("Outline round the bar");
+  // (a bar on a plot starts black, on a photo white: its outline starts the other)
+  check(sb().outline?.color === (sb().color === "#000000" ? "#ffffff" : "#000000") && sb().outline.lines === undefined && !sb().outline.text,
+    "a scale bar's outline starts black or white, whichever its bar isn't, round the bar", JSON.stringify([sb().color, sb().outline]));
+  tick("Outline round the text");
+  check(sb().outline?.text === true, "the text gets the outline on its own switch", JSON.stringify(sb().outline));
+  tick("Outline round the bar");
+  check(sb().outline?.lines === false && sb().outline.text === true, "the bar's can go, the text's staying", JSON.stringify(sb().outline));
+  await settle();
+  const halo = canvas.els.get(sbId)?.g.querySelectorAll("path").length || 0;
+  tick("Outline round the text");
+  check(sb().outline === null && halo > 2, "with both switches off the outline goes", JSON.stringify([sb().outline, halo]));
+  typeIn("Transparency", "50");
+  check(sb().opacity === 0.5, "a scale bar can be see-through", `${sb().opacity}`);
+
+  // A bracket from before brackets had a line of their own: a stroke once the figure opens
+  const doc = JSON.parse(JSON.stringify(store.doc));
+  doc.pages[0].items.push({ id: "brOld", type: "bracket", label: "*", size: 6, bold: false, line_width: 1.25, color: "#d55e00",
+    swatch: "swNone", rot: 0, dir: "up", tick: 4, frame: [60, 40, 80, 13] },
+  { id: "brNew", type: "bracket", label: "**", size: 6, rot: 0, dir: "up", tick: 4, frame: [160, 40, 60, 13],
+    stroke: { color: "#000000", width: 0.75, dash: "solid", cap: "round", join: "miter", opacity: 1 } },
+  { id: "lnA", type: "line", points: [[60, 220], [160, 220]], stroke: { color: "#0072b2", width: 2, dash: "solid", cap: "flat", join: "round", opacity: 1 } });
+  store.setDoc(doc);
+  await settle();
+  const br = (id) => store.item(id);
+  check(br("brOld").stroke?.color === "#d55e00" && br("brOld").stroke.width === 1.25 && br("brOld").stroke.swatch === "swNone"
+    && br("brOld").stroke.cap === "round" && br("brOld").stroke.join === "miter" && !("color" in br("brOld")) && !("line_width" in br("brOld")),
+  "a bracket from before gets the line it was drawn with as a stroke", JSON.stringify(br("brOld")));
+
+  // Its label: stars and p-values to choose from, italic, the gap; its line: dashes, width
+  store.select(["brNew"]);
+  inspector.render();
+  const labelList = fieldByLabel("Label"), groups = [...(labelList?.querySelectorAll("optgroup") || [])].map((g) => g.label).join();
+  const pValues = [...(labelList?.querySelectorAll('optgroup[label="p-values"] option') || [])].map((o) => o.value).join("|");
+  check(groups === "Stars,p-values" && pValues === "p < 0.1|p < 0.05|p < 0.01|p < 0.001|p < 0.0001",
+    "a bracket's labels: stars and p-values, quick to choose", `${groups}; ${pValues}`);
+  await choose("Label", "p < 0.05");
+  press("Italic");
+  const barY = () => br("brNew").frame[1] + (br("brNew").gap == null ? 9 : 7.2 + br("brNew").gap);   // (the bar, across: under the label's room)
+  const bar0 = barY();
+  typeIn("Gap to text", "0.5");
+  await settle();
+  check(br("brNew").label === "p < 0.05" && br("brNew").italic === true && br("brNew").gap === 0.5 && near(barY(), bar0, 1e-9)
+    && near(canvas.els.get("brNew")?.labelGap ?? -1, 0.5, 0.005),
+  "a p-value label, in italics, its letters 0.5 pt from the bar, which stays put", JSON.stringify([br("brNew"), canvas.els.get("brNew")?.labelGap]));
+  const gh = canvas.handlesFor(br("brNew")).find((hd) => hd.kind === "gap");
+  {
+    const f = br("brNew").frame, at = [f[0] + f[2] / 2, barY() - 0.375 - 0.5];
+    await drag(at, [at[0], at[1] - 1]);
+  }
+  check(gh && near(br("brNew").gap, 1.5, 0.15) && near(barY(), bar0, 1e-9), "dragging a bracket's gap handle moves its label, not its bar",
+    JSON.stringify([gh, br("brNew").gap]));
+  await choose("Dash", "dash");
+  typeIn("Line width", "1");
+  await choose("Ends", "flat");
+  check(br("brNew").stroke.dash === "dash" && br("brNew").stroke.width === 1 && br("brNew").stroke.cap === "flat",
+    "a bracket's line takes dashes, a width and ends, as a line's does", JSON.stringify(br("brNew").stroke));
+  tick("Outline round its lines");
+  check(br("brNew").outline?.color === "#ffffff", "a black bracket's outline starts white", JSON.stringify(br("brNew").outline));
+
+  // Several brackets: their own tab, Mixed where they differ, a change to them all
+  store.select(["brOld", "brNew"]);
+  inspector.render();
+  const widthField = fieldByLabel("Line width");
+  check(document.getElementById("itab-style")?.textContent === "Brackets" && widthField?.value === "" && widthField.placeholder === "Mixed",
+    "two brackets selected get a Brackets tab, Mixed where they differ", `${document.getElementById("itab-style")?.textContent}; ${widthField?.value}`);
+  typeIn("Line width", "2");
+  check(br("brOld").stroke.width === 2 && br("brNew").stroke.width === 2, "and a width typed goes to both");
+  // Among lines: their lines and outlines in the Style tab
+  store.select(["brOld", "lnA"]);
+  tick("Outline around it");
+  check(br("brOld").outline && store.item("lnA").outline, "a bracket and a line selected together share the Style tab's outline",
+    JSON.stringify([br("brOld").outline, store.item("lnA").outline]));
+
+  // Copy and paste style: bracket to bracket, scale bar onto a line
+  store.select(["brNew"]);
+  app.copyStyle();
+  store.select(["brOld"]);
+  app.pasteStyle();
+  check(JSON.stringify(br("brOld").stroke) === JSON.stringify(br("brNew").stroke) && br("brOld").italic === true && br("brOld").gap === br("brNew").gap
+    && JSON.stringify(br("brOld").outline) === JSON.stringify(br("brNew").outline),
+  "Paste style puts a bracket's whole look on another", JSON.stringify(br("brOld")));
+  store.select([sbId]);
+  app.copyStyle();
+  store.select(["lnA"]);
+  app.pasteStyle();
+  check(store.item("lnA").stroke.color === (sb().color || "#ffffff") && store.item("lnA").stroke.width === (sb().thickness ?? 2)
+    && store.item("lnA").stroke.cap === "flat", "a scale bar's style on a line: its colour and thickness as the line's", JSON.stringify(store.item("lnA").stroke));
+
+  // Select Same: brackets by their line width
+  store.select(["brNew"]);
+  await app.run(sameCommand("width"));
+  check(store.selection.includes("brOld") && store.selection.includes("brNew"), "Select Same line width finds brackets too", store.selection.join());
+
+  // A picture's border: a line with dashes and transparency, and an outline round it
+  store.select([picId]);
+  tick("Border round it");
+  await choose("Dash", "dot");
+  typeIn("Line transparency", "50");
+  check(pic().border?.dash === "dot" && pic().border.opacity === 0.5 && pic().border.width === 1, "a picture's border takes dashes and transparency",
+    JSON.stringify(pic().border));
+  tick("Outline around it");
+  await settle();
+  check(pic().outline?.color && pic().border, "and an outline round the border", JSON.stringify(pic().outline));
+  tick("Border round it");
+  check(!pic().border && !pic().outline, "taking the border off takes its outline too", JSON.stringify([pic().border, pic().outline]));
+  // (ends with a bracket selected on its own tab, for a screenshot of the run)
+  store.select(["brNew"]);
+  inspector.render();
+  document.getElementById("itab-bracket")?.click();
+}
+
 async function zoomShapeChecks(app) {
   store.setDoc(await rpc("new_document"));
   canvas.fit();
@@ -4482,6 +4622,7 @@ export async function run(app, params) {
     if (params.get("only") === "pictures") { await pictureMenuChecks(app); throw ONLY; }
     if (params.get("only") === "zoomshapes") { await zoomShapeChecks(app); throw ONLY; }
     if (params.get("only") === "scalebars") { await scaleBarChecks(app); throw ONLY; }
+    if (params.get("only") === "figurelooks") { await figureLookChecks(app); throw ONLY; }
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
     if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
     if (params.get("only") === "rename") { await renameChecks(app, out); throw ONLY; }
@@ -5765,6 +5906,7 @@ export async function run(app, params) {
     await pictureMenuChecks(app);
     await zoomShapeChecks(app);
     await scaleBarChecks(app);
+    await figureLookChecks(app);
     await pasteboardChecks(app);
     await offPageChecks(app);
     if (out) await renameChecks(app, out);

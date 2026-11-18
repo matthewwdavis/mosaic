@@ -66,7 +66,8 @@ export function scaleContent(it, sx, sy) {
     for (const p of it.text.paragraphs || []) for (const r of p.runs || []) if (r.size) r.size *= k;
     if (it.text.insets) it.text.insets = it.text.insets.map((v, i) => v * (i % 2 ? sy : sx));
   }
-  if (it.type === "bracket") for (const key of ["size", "line_width", "tick"]) if (it[key]) it[key] *= k;
+  if (it.type === "bracket") for (const key of ["size", "line_width", "tick", "gap"]) if (it[key]) it[key] *= k;
+  if (it.type === "scalebar") for (const key of ["size", "thickness", "gap"]) if (it[key]) it[key] *= k;
 }
 
 // A copy's objects as it shows them: scaled, put in its frame, turned and flipped about its middle

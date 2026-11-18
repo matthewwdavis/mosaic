@@ -855,6 +855,25 @@ pre-export check says so.
   the text), the label turning with them, and keep the corner of their outline as turned at its
   offset from the picture's corner. Not covered: a turned *picture* (bars still anchor to its
   unturned frame, as before).
+- **Figure-tab objects get lines' and shapes' features (2026-11-17/18, Matthew's choices):**
+  brackets now have a `stroke` like a line's (round ends and mitred corners to start), so the
+  Line section, the multi-object Style tab, copy/paste style and Select Same work on them as on
+  lines; brackets from before (color, line_width, swatch) are upgraded when a figure opens
+  (store.setDoc) or is pasted (copyItems), and the engine still draws the old keys. The label
+  takes the line's colour and transparency. Picture borders take a line's keys too (flat ends,
+  sharp corners to start), edited through the same Line section, with an outline round the
+  border only. Scale bars get transparency (the whole bar, label and outline as one group).
+  Scale bars and brackets get the Outline section with two switches, round the bar or lines and
+  round the text: the text's is a halo, each glyph's outline (fontTools, cached per glyph)
+  filled and drawn round at twice the thickness under everything, always outside. Bracket
+  labels got the scale bar label's fields (font, italic, text style, gap to the letters with a
+  diamond handle; the room across is a line of text and the gap) and quick-set p-values beside
+  the stars (p < 0.1 to p < 0.0001; "p < 0.5" in the request read as 0.05). Several brackets or
+  several scale bars get their own tab with Mixed (mixedFigure); mixed with lines and shapes,
+  their lines and outlines join the Style tab (hasPart). Copy style between two of a kind takes
+  the whole look; onto lines and shapes, colour, width and outline (a scale bar's thickness as
+  a width); from a text box onto a label, its font, size, bold and italic. Object styles stay
+  for lines and shapes.
 - **Repository:** `~/Projects/mosaic`, private GitHub repo `matthewwdavis/mosaic`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   Called FigAssemble, a working name, until 2026-11-03, when Matthew named it mosaic.

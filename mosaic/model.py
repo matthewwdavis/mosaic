@@ -8,7 +8,9 @@ Every item has an `id` and a `type`:
 - picture  {asset, page_index, frame [x, y, w, h], crop [l, t, r, b] (fractions), rot,
             flip_h, flip_v, opacity, source: auto|pdf|svg|png, mask {geom, adj, rounding}: cropped to
             that shape, fitted to the frame (geom custom: path {subpaths} and even_odd, the outline
-            of a shape drawn over it, in the frame's own points); border {color, width, swatch};
+            of a shape drawn over it, in the frame's own points); border {color, width, swatch, dash,
+            dash_spacing, even_dashes, cap, join, opacity}: a line round it (flat ends and sharp
+            corners unless it says otherwise); outline: round the border, only with one;
             scale (see scalebar); measured {line: [[x, y], [x, y]] in its source's points, length,
             unit}: the line last measured on it and the length typed, kept to show and start from
             when it's measured again; inset {box}: a zoom inset showing what's in that box (zoom.js); picture_kind:
@@ -26,7 +28,9 @@ Every item has an `id` and a `type`:
             so the editor holds it by place (canvas.linkSite)
 - scalebar {picture, length, unit, frame, rot, anchor {corner: tl|tr|bl|br, dx, dy}, thickness, size,
             label: above|below|none, color, swatch, font, bold, italic, text_style, gap,
-            ends: square|round (round: half-round ends within the length, tips at its ends)}: a bar
+            ends: square|round (round: half-round ends within the length, tips at its ends),
+            opacity (all of it), outline {..., lines: false (not round the bar), text: true (round
+            the label's letters too)}}: a bar
             `length` long on its picture, which has scale {per_pt, unit, how}: the real length of
             one point of its source. The editor keeps the frame in step with the picture
             (scalebar.js; the anchor is the corner of its outline as turned); the engine draws the
@@ -34,8 +38,12 @@ Every item has an `id` and a `type`:
             letters' outline in pt (absent: as before 2026-11-17, the line box 0.3 sizes off).
             text_style: a text style whose font, size, bold and italic the label follows
 - bracket  {frame, label, dir: up|down|left|right (the label's side), tick (upright ones), size, font,
-            bold, color, swatch, line_width}: a significance bracket; across, its ticks are as long
-            as the frame leaves below (or above) the label's room (resolve._bracket)
+            bold, italic, text_style, gap, stroke (a line's: round ends and mitred corners to
+            start; the label in its colour and transparency), outline (as a scale bar's: lines,
+            text)}: a significance bracket; across, its ticks are as long as the frame leaves below
+            (or above) the label's room: a line of text and the gap (resolve._bracket). Brackets
+            from before 2026-11-18 have color, swatch and line_width instead of stroke, and get
+            one when a figure opens or they're pasted (brackets.upgradeItems)
 - group    {items: [...], clip, rot}   children keep page coordinates; with clip true it's a clipping
             mask: its last item, a shape, clips the others and isn't drawn. rot: how far the group
             has turned as a whole since it was made (degrees clockwise), for the editor's Rotation

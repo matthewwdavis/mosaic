@@ -2,6 +2,7 @@
 // through update() so it can be undone.
 
 import { clone } from "./util.js";
+import { upgradeDoc } from "./brackets.js";
 
 const MAX_HISTORY = 200;
 
@@ -24,6 +25,7 @@ export const store = {
   emit(what, detail) { for (const fn of this.listeners) fn(what, detail); },
 
   setDoc(doc, path = null) {
+    upgradeDoc(doc);   // (brackets from before they had a line of their own)
     this.doc = doc;
     this.path = path;
     this.suggested = null;   // (the name Save offers a document never saved: a deck's, a rename's)

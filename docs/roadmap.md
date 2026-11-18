@@ -261,6 +261,12 @@ Matthew's choices are in brackets.
       with it); the gap from bar to letters, typed or dragged by a handle [Matthew's choices]
 - [x] Round ends for scale bars (asked 2026-11-17): an option (square stays the default), the
       rounded tips at the length's ends [Matthew's choices]
+- [x] Figure-tab objects with what lines and shapes have (asked 2026-11-17): outlines for scale bars
+      and brackets (round the bar or lines, and on its own switch round the text), the full Line
+      section for brackets and picture borders (an outline round the border too), scale bar
+      transparency, bracket labels as scale bar labels (font, italic, text style, gap and its
+      handle), quick-set p-values beside the stars, copy/paste style and the Format Painter,
+      several at once with Mixed, Select Same [Matthew's choices]
 
 ## Acceptance test (test slide)
 

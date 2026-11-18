@@ -255,8 +255,11 @@ warning that its text and curves are distorted. Its buttons:
 - **Crop to width** and **Crop to height**: type the size of the part that shows. It's cropped
   equally from both sides (or uncropped, up to the whole picture), at the same scale. **Width** and
   **Height** at the top of the panel scale the picture instead.
-- **Border** draws a line round the picture (round its crop shape, if it has one), in any colour
-  and thickness.
+- **Border** draws a line round the picture (round its crop shape, if it has one), with everything
+  a line has: colour (swatches too), width, dashes or dots, ends, corners and transparency. Once it
+  has a border, **Outline** puts a band of another colour round the border (Outside, Inside or
+  Both sides of it), e.g. a dark edge that keeps a white border visible on a white page. A zoom
+  inset's enlarged copy and an equation have the same Border.
 
 ### Cropping a picture
 
@@ -350,8 +353,11 @@ resized or cropped.
    black on plots.
 
 The bar's own tab sets its length and unit (**Round length** picks one for you), the label above,
-below or none, its colour (swatches too), thickness and **Ends**: square, or round with the tip of
-each rounded end where the length ends. Its label has a **Text style** (it then
+below or none, its colour (swatches too), thickness, **Ends** (square, or round with the tip of
+each rounded end where the length ends) and **Transparency** (the bar, its label and its outline
+together). **Outline** has two switches, **round the bar** and **round the text** (each letter of
+the label), sharing a colour, thickness and transparency: a dark edge keeps a white bar and its
+length readable on a bright part of a photo. Its label has a **Text style** (it then
 follows the style's font, size, bold and italic, like any text using it; its colour stays the
 bar's), a **Font**, text size, bold and italic, and a **Gap to text**: the space from the bar to
 the letters themselves, so 0 pt touches. Drag the yellow diamond on the label to change the gap
@@ -410,15 +416,27 @@ height you drag at, with the label above. Drag upright instead for one with its 
 
 ![Brackets over a bar chart: two on one level, a wider one above them](images/brackets.png)
 
-- **Its tab:** the **Label** (`*`, `**`, `***`, `****`, `ns`, or **Other text…** such as a
-  p-value), the side the label is on, the end ticks' length, colour (swatches too), line
-  thickness, text size and bold. The ends are round and the corners square, and the bar stays put
-  when the label or its size changes.
+- **Its tab:** the **Label**: stars (`*` to `****`, `ns`), p-values (`p < 0.1`, `p < 0.05`,
+  `p < 0.01`, `p < 0.001`, `p < 0.0001`), or **Other text…**; the side the label is on and the end
+  ticks' length; the label's **Text style**, **Font**, size, bold, italic and **Gap to text** (from
+  the bar to the letters themselves, 0 pt touching; or drag the yellow diamond on the page). The
+  bar stays put whatever the label does.
+- **Line:** everything a line has: colour (swatches too), width, dashes or dots, ends (round to
+  start), corners (sharp to start) and transparency. The label is in the line's colour and
+  transparency.
+- **Outline:** a band of another colour round its lines and, with its own switch, round each
+  letter of its label, with the outline's colour, thickness, transparency and sides.
 - **On the page:** drag its side handles to span other bars, and the top or bottom handle to
   lengthen the ticks.
 - **Stack** (Figure tab, or the panel with several selected) tidies brackets pointing up into
   levels: the narrowest lowest, brackets that don't overlap side by side on one level, and each
   level just above the one below. Their ends stay where they are.
+- **Several at once:** select several brackets (or several scale bars) and their tab changes them
+  all, blank (**Mixed**) where they differ. With lines and shapes among them, the Style tab's Line
+  and Outline go to their lines and outlines too. **Copy style** / **Paste style** and the Format
+  Painter carry a bracket's whole look to another (or a scale bar's to a scale bar); onto a line
+  or shape, the colour, width and outline. **Select Same** finds brackets and scale bars by line
+  colour, line width, font, font size and text colour.
 
 ## Text and panel labels
 

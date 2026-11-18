@@ -10,7 +10,7 @@ import { fitFreehand, moveHandle, moveNode, nearestOn, ringsOf, segments, splitA
 import { followScaleBars, gapEdge, keepBar, measuredText, sourceToPage } from "./scalebar.js";
 import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
 import { followLifted, isLifted, isPlot, lift, plotTexts, plotTextsNow, quadOnPage, remapCopies, shownVariants, textAt } from "./liftedtext.js";
-import { across, labelRoom } from "./brackets.js";
+import { across, bracketGapEdge, keepBar as keepBracketBar, labelRoom, upgradeItems } from "./brackets.js";
 import { applyTextStyle } from "./textstyles.js";
 import { collapsed, formatText, ordered, paraLength } from "./textformat.js";
 import {
@@ -506,7 +506,7 @@ export const canvas = {
     e.origin = origin;
     e.bbox = r.bbox;
     e.handles = r.handles || null;
-    if (it.type === "scalebar" && e.labelGap !== (r.label_gap ?? null)) {
+    if ((it.type === "scalebar" || it.type === "bracket") && e.labelGap !== (r.label_gap ?? null)) {
       e.labelGap = r.label_gap ?? null;
       if (store.selection.includes(it.id)) document.dispatchEvent(new CustomEvent("fa-labelgap"));   // (the Gap field shows it)
     }
@@ -711,7 +711,8 @@ export const canvas = {
     const o0 = this.toScreen(...apply(m, 0, 0)), o1 = this.toScreen(...apply(m, 1, 0)), o2 = this.toScreen(...apply(m, 0, 1));
     const norm = ([x, y]) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
     const ex = norm([o1[0] - o0[0], o1[1] - o0[1]]), ey = norm([o2[0] - o0[0], o2[1] - o0[1]]);
-    const out = [...adjust, ...Object.entries(pts).map(([dir, [x, y]]) => {
+    const gapHandle = it.type === "bracket" ? this.bracketGapHandle(it, m) : null;
+    const out = [...(gapHandle ? [gapHandle] : []), ...adjust, ...Object.entries(pts).map(([dir, [x, y]]) => {
       const [sx, sy] = [dir.includes("w") ? -1 : dir.includes("e") ? 1 : 0, dir.includes("n") ? -1 : dir.includes("s") ? 1 : 0];
       const [px, py] = this.toScreen(...apply(m, x, y));
       return { kind: "resize", dir, at: [px + SEL_GAP * (sx * ex[0] + sy * ey[0]), py + SEL_GAP * (sx * ex[1] + sy * ey[1])] };
@@ -737,6 +738,15 @@ export const canvas = {
     const [ux, uy] = apply(rotate(it.rot || 0), 0, -1), [tx, ty] = this.toScreen(...apply(m, w / 2, 0));
     out.push({ kind: "rotate", at: [tx + ux * (ROT_OFFSET + SEL_GAP), ty + uy * (ROT_OFFSET + SEL_GAP)] });
     return out;
+  },
+  // A bracket's diamond where its letters start, nearest the bar: drag it to move them nearer or
+  // further (the bar stays put). Where the engine put them, or (while dragging) the gap set
+  bracketGapHandle(it, m) {
+    if (!it.label) return null;
+    const engine = this.els.get(it.id)?.handles?.[0], e = bracketGapEdge(it), g = Math.max(it.gap ?? 0, 0);
+    let at = engine;
+    if (it.gap != null) at = e.x !== undefined ? [e.x + e.dir * g, engine?.[1] ?? it.frame[3] / 2] : [engine?.[0] ?? it.frame[2] / 2, e.y + e.dir * g];
+    return at ? { kind: "gap", at: this.toScreen(...apply(m, ...at)) } : null;
   },
   drawHandles(it) {
     const o = this.overlay;
@@ -1086,7 +1096,7 @@ export const canvas = {
       const hd = this.handleAt(pt);
       if (hd) {
         cursor = hd.kind === "rotate" ? "grab" : (hd.kind === "mid" || hd.kind === "adjust") ? "pointer"
-          : hd.kind === "gap" ? (Math.abs(Math.sin(((store.selected()[0]?.rot || 0) * Math.PI) / 180)) > 0.7 ? "col-resize" : "row-resize")
+          : hd.kind === "gap" ? (this.gapAcross(store.selected()[0]) ? "col-resize" : "row-resize")
           : (hd.kind === "end" || hd.kind === "point") ? "move" : resizeCursor(hd.dir, store.selected()[0]);
       }
       else {
@@ -1680,9 +1690,10 @@ export const canvas = {
     }
     else if (hd.kind === "rotate") this.op = { type: "rotate", orig, moved: false, label: "Rotate" };
     else if (hd.kind === "gap") {
-      // The gap follows the pointer from where it was grabbed (the letters' edge), along the bar's up
+      // The gap follows the pointer from where it was grabbed (the letters' edge), away from the bar
       const was = it.gap ?? this.els.get(it.id)?.labelGap ?? 0;
-      this.op = { type: "gap", orig, moved: false, label: "Scale bar text gap", offset: was - this.gapAt(orig, p) };
+      this.op = { type: "gap", orig, moved: false, label: it.type === "bracket" ? "Bracket text gap" : "Scale bar text gap",
+        offset: was - this.gapAt(orig, p) };
     }
     else if (hd.kind === "adjust") this.op = { type: "adjust", index: hd.index, orig, moved: false, label: "Adjust shape" };
     else if (hd.kind === "end" || hd.kind === "point") {
@@ -1787,12 +1798,18 @@ export const canvas = {
     op.moved = true;
     store.live();
   },
-  // How far a point is from a scale bar's edge facing its label, towards the label
-  gapAt(bar, p) {
-    const [, ly] = apply(invert(frameMatrix(bar.frame, bar.rot || 0)), ...p), { y, dir } = gapEdge(bar);
-    return (ly - y) * dir;
+  // How far a point is from a scale bar's or bracket's edge facing its label, towards the label
+  gapAt(it, p) {
+    const [lx, ly] = apply(invert(frameMatrix(it.frame, it.rot || 0)), ...p);
+    const e = it.type === "bracket" ? bracketGapEdge(it) : gapEdge(it);
+    return e.x !== undefined ? (lx - e.x) * e.dir : (ly - e.y) * e.dir;
   },
-  // A scale bar's label dragged nearer or further: the bar stays where it is. Rounded to a tidy
+  // Whether a gap handle moves its letters across the screen (an upright bracket, a turned scale bar)
+  gapAcross(it) {
+    if (it?.type === "bracket") return !across(it);
+    return Math.abs(Math.sin(((it?.rot || 0) * Math.PI) / 180)) > 0.7;
+  },
+  // A scale bar's or bracket's label dragged nearer or further: the bar stays where it is. Rounded to a tidy
   // amount (0.1 pt at 100%, finer zoomed in), or exact with ⌘/Ctrl held
   gapTo(p, e) {
     const op = this.op, it = store.selected()[0];
@@ -1802,7 +1819,7 @@ export const canvas = {
       const step = roundStep(0.1 / this.zoom, "pt").pt;
       gap = Math.round(gap / step) * step;
     }
-    keepBar(it, (b) => { b.gap = +gap.toFixed(4); });
+    (it.type === "bracket" ? keepBracketBar : keepBar)(it, (b) => { b.gap = +gap.toFixed(4); });
     op.pt = this.toScreen(...p);
     op.moved = true;
     store.live();
@@ -2205,8 +2222,8 @@ export const canvas = {
       // A significance bracket over the span dragged: across (bar at the drag's height, label
       // above) or, dragged upright, with its label to the right
       const upright = Math.abs(by - ay) > Math.abs(bx - ax);
-      item = { id: uid("it"), type: "bracket", label: "*", size: 6, bold: false, line_width: 0.75, color: "#000000", rot: 0,
-        dir: upright ? "right" : "up", tick: 4 };
+      item = { id: uid("it"), type: "bracket", label: "*", size: 6, bold: false, rot: 0, dir: upright ? "right" : "up", tick: 4,
+        stroke: { color: "#000000", width: 0.75, dash: "solid", cap: "round", join: "miter", opacity: 1 } };
       item.frame = upright ? [ax, Math.min(ay, by), 4 + 6 * 1.5 + 6, Math.max(Math.abs(by - ay), 1)]
         : [Math.min(ax, bx), ay - labelRoom(item), Math.max(Math.abs(bx - ax), 1), labelRoom(item) + 4];
       store.update("Add bracket", (doc) => store.container(doc).push(item), { select: [item.id] });
@@ -3074,6 +3091,7 @@ export function copyItems(items) {
   const paths = new Map();
   for (const it of allRegions(items)) paths.set(it.id, canvas.els.get(it.id)?.regionPath);
   const copies = items.map((it) => reid(JSON.parse(JSON.stringify(it)), ids));
+  upgradeItems(copies);   // (brackets pasted from a figure made before they had a line of their own)
   for (const line of allLines(copies)) {
     for (const key of ["start_link", "end_link"]) {
       if (!line[key]) continue;
