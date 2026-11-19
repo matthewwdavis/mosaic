@@ -88,7 +88,8 @@ window, carried over the page, Stop) and Refresh all pictures, with the engine s
 (headless Chrome's clock stands still while a request is out, so a page can't watch a job there;
 in the app's window it also watches a real export's own progress), `--only
 pictures` the Style tab's picture menus, `--only textribbon` the Home tab's Text section
-(several boxes at once, the highlighted words while typing, switching to Home and back), and
+(several boxes at once, the highlighted words while typing, typing in shapes, switching to Home
+and back), and
 `--only journallabels` panel labels following a page's journal, and `--only journalchecks` the
 journal's line widths, resolution by picture kind and Export window flags. To run it in
 the app's own window (WebKit on a Mac):

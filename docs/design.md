@@ -509,6 +509,9 @@ pre-export check says so.
   (superscript and subscript, bigger and smaller, top/middle/bottom, the text style list, line
   spacing), changes to just the highlighted words while typing, a switch to Home and back, and
   text boxes only (one or several; not shapes with text, nor scale bar and bracket labels).
+  Since 2026-11-18 (Matthew's choices) typing in anything the editor opens on counts: bracket
+  labels, and any shape (rectangle, ellipse…), which shows Home with the whole section while
+  typing; a shape with text only selected still leaves the tab alone and the section greyed out.
   - *Layout:* two rows of small controls, as in PowerPoint's Font group, no taller than the
     ribbon's other buttons, between Edit and Clipboard (moved there from after Clipboard at
     Matthew's request). The Home tab still fits one row at 1440 px.

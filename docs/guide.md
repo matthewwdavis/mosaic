@@ -461,6 +461,7 @@ height you drag at, with the label above. Drag upright instead for one with its 
 - **Typing in a shape:** double-click it (or select it and press Enter). What you type sits where
   it will be drawn: in the middle of the shape for a new shape's text, or at the top or bottom
   when its vertical position says so. Text taller than the shape spills out above and below.
+  While you type, the Home tab shows with all its text tools, as in a text box (below).
 - **Text** in the Home tab, two rows like PowerPoint's: text style, font, size, **Bigger** and
   **Smaller** (⌘⇧> and ⌘⇧<, through 5, 5.5, 6, 6.5… pt), line spacing; bold, italic,
   underline, superscript, subscript, colour (swatches, or any colour), left, centre or right, and
@@ -470,12 +471,14 @@ height you drag at, with the label above. Drag upright instead for one with its 
   - While you type, it changes only the selected words, or with none selected what you type next.
     Alignment, line spacing and text styles go to the lines the selected words are in. Each change
     is an undo step of its own: ⌘Z straight after one takes it back, and you carry on typing.
-  - Selecting a text box shows the Home tab. Once no text is selected, the tab you were on comes
-    back, unless you picked another tab meanwhile. Settings turns this off (**Show the Home tab
-    while text is selected**). Two or more text boxes show the Arrange tab instead (see
+  - Selecting a text box, or typing in any text (a shape's, or a bracket's label), shows the Home
+    tab. Once no text is selected or being typed, the tab you were on comes back, unless you
+    picked another tab meanwhile. Settings turns this off (**Show the Home tab while text is
+    selected**). Two or more text boxes show the Arrange tab instead (see
     [Align and distribute](#align-and-distribute)); the Text section still works on them all.
-  - Shapes with text in them, and scale bar and bracket labels, are set in their properties
-    instead.
+  - A shape with text in it that's only selected, not typed in, keeps the tab you're on: set its
+    text in its properties, or double-click to type in it. Scale bar labels are set in their
+    properties.
 
   ![The Home tab's Text section, with a bold 8 pt panel label selected](images/textribbon.png)
 

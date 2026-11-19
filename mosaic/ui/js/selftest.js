@@ -2779,6 +2779,42 @@ async function textRibbonChecks(app) {
     && ps[0].runs.map((r) => r.t).join("") === "Hello world!" && ps[0].runs[0].bold,
   "alignment while typing goes to the line the words are in; the properties panel's Italic, all of it; all kept when typing ends",
   JSON.stringify(ps.map((p) => [p.align, p.runs.map((r) => [r.t, r.size, r.bold, r.italic, r.color])])));
+
+  // Typing in a shape: the Home tab and the whole section, as in a text box, and the tab before
+  // back once typing ends (the shape only selected leaves the tab alone, above)
+  store.select([]);
+  pickTab("arrange");
+  store.select(["rC"]);
+  canvas.startEdit("rC");
+  await settle();
+  const shapeTyping = showing(), shapeOn = [btn("textBold"), btn("textCentre"), btn("textBottom"), font, size, style].every((el) => !el.disabled);
+  await highlight("Shape", 0, 5);
+  await typeIn(size, "8");
+  btn("textBold").click();
+  await settle();
+  canvas.commitEdit();
+  await settle();
+  const shaped = runs("rC");
+  check(shapeTyping === "home" && shapeOn && shaped.length === 1 && shaped[0].t === "Shape" && shaped[0].size === 8 && shaped[0].bold
+    && showing() === "arrange" && btn("textBold").disabled,
+  "typing in a shape shows the Home tab with every text tool working on its words; the tab before is back when typing ends",
+  `${shapeTyping}, ${shapeOn}, ${JSON.stringify(shaped.map((r) => [r.t, r.size, r.bold]))}, then ${showing()}`);
+  // A shape with no text yet: with only the caret, the size goes to what's typed
+  store.update("Shape", (doc) => { doc.pages[store.pageIndex].items.push({ ...gRectFor("rE", 40, 280, 80, 40), geom: "ellipse" }); },
+    { select: ["rE"] });
+  await settle();
+  canvas.startEdit("rE", true);
+  await settle();
+  const emptyTab = showing();
+  await typeIn(size, "9");
+  document.execCommand("insertText", false, "Oval");
+  await settle();
+  canvas.commitEdit();
+  await settle();
+  const oval = runs("rE").filter((r) => r.t);
+  check(emptyTab === "home" && oval.map((r) => r.t).join("") === "Oval" && oval.every((r) => r.size === 9),
+    "typing in a shape with no text yet: the Home tab too, and a size chosen first goes to what's typed",
+    `${emptyTab}, ${JSON.stringify(oval.map((r) => [r.t, r.size]))}`);
   store.select([]);
   pickTab("home");
 }

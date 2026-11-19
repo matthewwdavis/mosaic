@@ -271,6 +271,9 @@ Matthew's choices are in brackets.
       journal writes P values (house_style.p; a figure-wide p/P switch), following journal changes
       while still as set; labels typed in on the page with the Home tab's text tools on highlighted
       letters; the Label text box for every label, keeping letters' formatting [Matthew's choices]
+- [x] Typing in a shape shows the Home tab (asked 2026-11-18): every Text section tool on the words
+      typed in a rectangle, ellipse or other shape, the tab before back when typing ends; a shape
+      only selected keeps the tab [Matthew's choices]
 
 ## Acceptance test (test slide)
 
