@@ -7,7 +7,7 @@ import { inspector } from "./inspector.js";
 import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
 import { store } from "./store.js";
-import { pageScale } from "./scalebar.js";
+import { convertLength, niceLength, pageScale, parseLength } from "./scalebar.js";
 import { apply, frameMatrix, isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog, toUnit } from "./util.js";
 import { restyle } from "./textstyles.js";
 import { sameCommand } from "./selectsame.js";
@@ -3675,7 +3675,134 @@ async function exportProgressChecks(app, out) {
 // length from last time kept; removing a scale; the label's gap to the letters (typed, or by its
 // handle, the bar staying put), font, italic and text style; turning a bar, its outline keeping its
 // corner of the picture
+// The Scale bar tool (2026-11-19): drawn across a picture (level, upright, at an angle, round or
+// exact), a picture picked by clicking it, one without a scale measured as it's drawn, and
+// imperial units with a bar's unit converted exactly
+async function scaleBarDrawChecks(app) {
+  store.setDoc(await rpc("new_document"));
+  canvas.fit();
+  await settle();
+  const plot = btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200pt" height="120pt" viewBox="0 0 200 120">'
+    + '<rect x="0" y="0" width="200" height="120" fill="#223344"/></svg>');
+  const path = await rpc("selftest_scratch", "scalebar_draw.svg", plot);
+  await app.placeFiles([path], [60, 80], false);
+  const pic = () => store.items().find((it) => it.type === "picture");
+  if (!pic()) return log(false, "a picture is placed for drawing scale bars", path);
+  const picId = pic().id, asset = () => store.doc.assets[pic().asset], ps = () => pageScale(pic(), asset());
+  const [px, py] = pic().frame;
+  const at = (u, v) => [px + u * ps(), py + v * ps()];   // (a point of the picture's own 200 x 120 pt)
+  const button = () => document.querySelector('#rpanel-figure [data-cmd="addScaleBar"]');
+  const bars = () => store.items().filter((it) => it.type === "scalebar");
+  const newest = () => store.selected().find((it) => it.type === "scalebar");   // (a new bar goes just above its picture, selected)
+  const mid = (b) => apply(frameMatrix(b.frame, b.rot || 0), b.frame[2] / 2, b.label === "above" ? b.frame[3] - (b.thickness ?? 2) / 2 : (b.thickness ?? 2) / 2);
+  const onPage = (b) => (b.length / pic().scale.per_pt) * ps();   // (the picture's unit)
+  const cursorAt = (p) => { canvas.hover(canvas.toScreen(...p), p); return canvas.stage.style.cursor; };
+  const click = async (p, opts = {}) => {
+    const s = screenOf(...p);
+    pointer("pointerdown", s, opts);
+    pointer("pointerup", s, opts);
+    await settle();
+  };
+  const answer = async (v) => {
+    await until(() => [...document.querySelectorAll("dialog[open] input")].length);
+    const dlg = [...document.querySelectorAll("dialog[open]")].pop();
+    dlg.querySelector("input").value = v;
+    [...dlg.querySelectorAll("button")].find((b) => b.textContent === "OK").click();
+  };
+
+  // Nothing selected: the tool waits for a picture; a click picks it, and the draw cursor shows
+  store.select([]);
+  button().click();
+  const waiting = canvas.tool === "scalebar" && button().getAttribute("aria-pressed") === "true";
+  const before = [cursorAt(at(100, 60)), cursorAt([px - 30, py - 30])];
+  await click(at(100, 60));
+  check(waiting && before.join() === "pointer,default" && store.selection.join() === picId && !bars().length
+    && canvas.tool === "scalebar" && cursorAt(at(100, 60)) === "crosshair",
+  "Scale bar with nothing selected waits for a picture: a click selects one, and the draw cursor shows over it",
+  JSON.stringify([waiting, before, store.selection, bars().length, canvas.tool, cursorAt(at(100, 60))]));
+
+  // A picture without a scale: the line drawn is measured (its length typed), and the bar is as long
+  await drag(at(20, 100), at(120, 100));
+  await answer("2 in");
+  await until(() => bars().length === 1);
+  let b = newest();
+  check(pic().scale?.unit === "in" && pic().measured?.length === 2 && near(pic().scale.per_pt, 2 / 100, 1e-9)
+    && b?.length === 2 && b.unit === "in" && (b.rot || 0) === 0 && near(onPage(b), 100 * ps(), 1e-6)
+    && near(mid(b)[0], at(70, 100)[0], 1e-6) && near(mid(b)[1], at(70, 100)[1], 1e-6) && canvas.tool === "select" && store.selection.join() === b.id,
+  "on a picture without a scale, the line drawn measures it (2 in typed): the bar is that long, where it was drawn",
+  JSON.stringify([pic().scale, b]));
+
+  // With a scale (0.5 µm a point): a level bar a round length, from where the drag starts
+  app.setPictureScale(picId, 0.5, "µm", "typed");
+  store.select([picId]);
+  button().click();
+  check(canvas.tool === "scalebar" && store.selection.join() === picId && cursorAt(at(100, 60)) === "crosshair",
+    "with a picture selected, Scale bar gives the draw cursor at once");
+  await drag(at(30, 20), at(76, 24));   // 46 pt across: 23 µm, so 25 µm
+  b = newest();
+  check(b.length === 25 && b.unit === "µm" && (b.rot || 0) === 0 && near(onPage(b), 50 * ps(), 1e-6)
+    && near(mid(b)[0], at(55, 20)[0], 1e-6) && near(mid(b)[1], at(30, 20)[1], 1e-6) && b.anchor?.corner === "tl",
+  "a drag draws a level bar a round length (23 µm dragged, 25 µm drawn) from where it starts, kept with the nearest corner",
+  JSON.stringify(b));
+  // Leftwards: the bar goes left from where the drag starts
+  button().click();
+  await drag(at(180, 60), at(140, 58));   // 40 pt: 20 µm
+  b = newest();
+  check(b.length === 20 && near(mid(b)[0], at(160, 60)[0], 1e-6) && b.anchor?.corner === "tr",
+    "dragged leftwards, the bar goes left from where the drag started", JSON.stringify(b));
+  // Mostly upwards: upright, its length reading upwards
+  button().click();
+  await drag(at(100, 110), at(108, 18));   // 92 pt up: 46 µm, so 50 µm
+  b = newest();
+  check(b.length === 50 && b.rot === 270 && near(mid(b)[0], at(100, 110)[0], 1e-6) && near(mid(b)[1], at(100, 60)[1], 1e-6),
+    "dragged mostly up or down, the bar is upright (its length reading upwards)", JSON.stringify(b));
+  // Shift: at the drag's own angle; ⌘: the length dragged, to 3 figures
+  button().click();
+  const ang = (30 * Math.PI) / 180;
+  await drag(at(20, 20), at(20 + 80 * Math.cos(ang), 20 + 80 * Math.sin(ang)), { shiftKey: true });   // 80 pt: 40 µm, so 50
+  const tilted = newest();
+  button().click();
+  await drag(at(20, 70), at(114.6, 70), { metaKey: true, ctrlKey: true });   // 94.6 pt: 47.3 µm
+  const exact = newest();
+  check(near(tilted.rot, 30, 1e-6) && tilted.length === 50 && exact.length === 47.3 && (exact.rot || 0) === 0,
+    "Shift draws it at the drag's angle; ⌘ keeps the length dragged (47.3 µm)", JSON.stringify([tilted.rot, tilted.length, exact.length]));
+  // A click: a round length about a fifth of the picture, level, centred where clicked
+  button().click();
+  await click(at(100, 40));
+  b = newest();
+  check(b.length === niceLength(pic(), asset(), "µm") && (b.rot || 0) === 0 && near(mid(b)[0], at(100, 40)[0], 1e-6),
+    "a click puts a round-length bar there, centred", JSON.stringify(b));
+  // Escape leaves the tool
+  button().click();
+  key("Escape");
+  check(canvas.tool === "select" && button().getAttribute("aria-pressed") === "false", "Escape leaves the Scale bar tool");
+
+  // Imperial units in the lists, and a bar's unit converted exactly (the bar the same size)
+  store.select([b.id]);
+  inspector.render();
+  document.getElementById("itab-scalebar")?.click();
+  const unitList = fieldByLabel("Length unit");
+  const groups = [...(unitList?.querySelectorAll("optgroup") || [])].map((g) => `${g.label}:${[...g.children].map((o) => o.value).join("/")}`);
+  const w0 = b.frame[2], len0 = b.length;
+  const copy = () => JSON.parse(JSON.stringify(store.item(b.id)));
+  await choose("Length unit", "in");
+  const inInches = copy();
+  await choose("Length unit", "µm");
+  const back = copy();
+  check(groups.join(" ") === "Metric:nm/µm/mm/cm/m Imperial:in/ft/yd/mi" && inInches.unit === "in"
+    && near(inInches.length, (len0 * 1e-6) / 0.0254, 1e-12) && near(inInches.frame[2], w0, 1e-6) && back.length === len0 && back.unit === "µm",
+  "the unit list has metric and imperial units; another unit converts the length exactly, the bar staying the same size",
+  JSON.stringify([groups, inInches.length, inInches.frame[2], w0, back.length]));
+  const said = ["2 in", '3"', "1.5 feet", "100 um", "4 mi", "7"].map((t) => parseLength(t));
+  check(JSON.stringify(said) === JSON.stringify([{ value: 2, unit: "in" }, { value: 3, unit: "in" }, { value: 1.5, unit: "ft" },
+    { value: 100, unit: "µm" }, { value: 4, unit: "mi" }, { value: 7, unit: null }]) && parseLength("5 furlongs") === null
+    && convertLength(convertLength(50, "mm", "in"), "in", "mm") === 50 && convertLength(1, "in", "mm") === 25.4
+    && convertLength(1, "mi", "ft") === 5280,
+  "typed lengths take imperial units (in, \", feet, mi), and a conversion there and back comes back exact", JSON.stringify(said));
+}
+
 async function scaleBarChecks(app) {
+  await scaleBarDrawChecks(app);
   store.setDoc(await rpc("new_document"));
   canvas.fit();
   await settle();
@@ -6178,11 +6305,13 @@ export async function run(app, params) {
     const sbPic = () => store.item(pics[0].id), sbAsset = store.doc.assets[sbPic().asset];
     check(sbPic().scale?.unit === "µm" && sbPic().scale.how === "typed", "typing a size gives the picture a scale", JSON.stringify(sbPic().scale));
     document.querySelector('#rpanel-figure [data-cmd="addScaleBar"]').click();
+    const sbTool = canvas.tool;
+    key("Enter");   // (with the tool, Enter puts a round bar in the picture's corner, as the button did before)
     const sbar = store.selected()[0], sbId = sbar?.id;
     const sbW = () => store.item(sbId).frame[2], sbWant = () => (store.item(sbId).length / sbPic().scale.per_pt) * pageScale(sbPic(), sbAsset);
-    check(sbar?.type === "scalebar" && near(sbW(), sbWant(), 1e-6)
+    check(sbTool === "scalebar" && sbar?.type === "scalebar" && near(sbW(), sbWant(), 1e-6)
       && near(sbar.frame[0] + sbar.frame[2], sbPic().frame[0] + sbPic().frame[2] + sbar.anchor.dx, 1e-6),
-    "Add scale bar puts a bar a round length long just inside the picture's corner", JSON.stringify(sbar));
+    "Scale bar's tool, then Enter, puts a bar a round length long just inside the picture's corner", JSON.stringify(sbar));
     const w0 = sbW();
     store.update("Wider picture", (doc) => { const pp = findItem(doc, pics[0].id); pp.frame[2] *= 2; pp.frame[3] *= 2; });
     const sbF = () => store.item(sbId).frame;

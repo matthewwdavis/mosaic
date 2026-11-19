@@ -30,6 +30,11 @@ def test_the_scale_microscopes_and_imagej_save(tmp_path):
     assert cal == {"per_px": 0.5, "unit": "nm", "from": "OME-TIFF"}
     # A plain TIFF's resolution is for printing, not a measurement
     assert "calibration" not in probe(tiff(tmp_path / "plain.tif", None, 300))
+    # Imperial units: ImageJ's "inch", OME's "ft"
+    cal = probe(tiff(tmp_path / "ij_in.tif", "ImageJ=1.54f\nunit=inch\n", 100.0))["calibration"]
+    assert cal["unit"] == "in" and abs(cal["per_px"] - 0.01) < 1e-9
+    ome_ft = '<OME><Image><Pixels PhysicalSizeX="0.25" PhysicalSizeXUnit="ft" SizeX="100"/></Image></OME>'
+    assert probe(tiff(tmp_path / "ome_ft.tif", ome_ft))["calibration"] == {"per_px": 0.25, "unit": "ft", "from": "OME-TIFF"}
 
 
 def test_the_bar_and_its_length_written_above_or_below_it():

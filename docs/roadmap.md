@@ -278,6 +278,10 @@ Matthew's choices are in brackets.
       typing settings in any one-line field (page names, the document's Title, swatch/style/symbol
       names…); text boxes and notes unchanged; default names (Page 1, Untitled figure) kept
       [Matthew's choices]
+- [x] Scale bars drawn (asked 2026-11-19): the Scale bar button is a tool, the draw cursor over the
+      picture selected (or a click picks one); a drag draws the bar level or upright (Shift: any
+      angle), a round length (⌘: as dragged); a picture without a scale is measured as it's
+      drawn; imperial units (in, ft, yd, mi), a bar's unit list converting exactly [Matthew's choices]
 
 ## Acceptance test (test slide)
 

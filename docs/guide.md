@@ -343,18 +343,34 @@ resized or cropped.
 1. **Give the picture a scale** in its Picture tab's **Scale** section, in any of three ways:
    - **From the file:** microscope images saved by ImageJ/Fiji or as OME-TIFF carry their pixel
      size, and mosaic uses it when you place them (the section says "from the file").
-   - **Type it:** the size of one pixel (e.g. 0.65 µm) and its unit. For a PDF or SVG, it's the
-     length of one point of the original.
+   - **Type it:** the size of one pixel (e.g. 0.65 µm) and its unit, metric (nm, µm, mm, cm, m)
+     or imperial (in, ft, yd, mi). For a PDF or SVG, it's the length of one point of the original.
    - **Measure it:** click **Measure…** (or **Measure** on the Figure tab, with the picture or one of its
      scale bars selected), drag along something of
      known length in the picture (a scale bar already in it, a ruler, a stage micrometer), and type
-     its real length, such as `100 µm`.
-2. **Add the bar:** **Add scale bar** (Picture tab), or **Scale bar** on the Figure tab with the
-   picture selected. It starts a round length (1, 2 or 5 times a power of ten) about a fifth of the
-   picture's width, just inside its bottom right corner: white on photographs and micrographs,
-   black on plots.
+     its real length, such as `100 µm` or `2 in` (also `2"`, `1.5 ft`, `3 feet`, `1 mi`).
+   - **Or skip this step:** draw the bar on a picture without a scale (next step) along something
+     of known length, and type how long it is. That gives the picture its scale and makes the bar.
+2. **Draw the bar:** click **Scale bar** on the Figure tab (or **Draw scale bar** in the Picture
+   tab). With a picture selected, the pointer turns into a crosshair over it. With none, click a
+   picture to choose it (the pointer shows a hand over pictures), or drag across any picture to
+   draw on it straight away. Then drag across the picture:
+   - The bar starts where you press and runs the way you drag, **level**, or **upright** if you
+     drag more up or down than across (its length then reads upwards). Hold **Shift** for the
+     drag's own angle.
+   - Its length snaps to a **round number** (1, 2, 2.5 or 5 times a power of ten: 20 µm, 25 µm,
+     50 µm…), shown as you drag. Hold **⌘** (Ctrl on Windows) for the length you dragged, to three
+     figures (47.3 µm).
+   - A **click** without dragging puts a round-length bar, about a fifth of the picture's width,
+     centred where you click. **Enter** puts one just inside the picture's bottom right corner.
+   - On a picture without a scale, drag along something of known length and type its length
+     (`100 µm`, `2 in`): the picture gets its scale, and the bar is that long, where you drew.
+   - The bar is white on photographs and micrographs, black on plots, and stays with the picture's
+     corner nearest it. **Escape** leaves the tool without drawing.
 
-The bar's own tab sets its length and unit (**Round length** picks one for you), the **Label**
+The bar's own tab sets its length and unit (**Round length** picks one for you). The **Length
+unit** list has metric and imperial units: picking another converts the length exactly, so the bar
+stays the same size (50 mm becomes 1.9685 in; back to mm, 50 mm again). The **Label**
 above, below, left or right of the bar, or none, its colour (swatches too), thickness, **Ends** (square, or round with the tip of
 each rounded end where the length ends) and **Transparency** (the bar, its label and its outline
 together). **Outline** has two switches, **round the bar** and **round the text** (each letter of

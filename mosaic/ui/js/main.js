@@ -27,7 +27,7 @@ import { splitters } from "./splitters.js";
 import { findItem, store } from "./store.js";
 import { applyStyle, styleOf } from "./styles.js";
 import { SAME, sameAs, sameCommand } from "./selectsame.js";
-import { barFrame, measuredText, niceLength, pageToSource, pxPerPt, scaleText } from "./scalebar.js";
+import { barFrame, barPreview, drawnBar, drawnDirection, measuredText, niceLength, pageScale, pageToSource, parseLength, pxPerPt, scaleText } from "./scalebar.js";
 import { ZOOM_ROUNDING, zoomShape } from "./zoom.js";
 import { dropLost, hiddenOf, liftedFrom, lostAfterUpdate, putBack } from "./liftedtext.js";
 import { followPValues, pStyle, stackLevels } from "./brackets.js";
@@ -1220,14 +1220,59 @@ const app = {
     if (!pic.scale?.per_pt) { announce("Give the picture a scale first, in its Picture tab: type a pixel's size or measure a known length"); return; }
     const unit = pic.scale.unit, length = niceLength(pic, asset, unit);
     const inset = Math.min(pic.frame[2], pic.frame[3]) * 0.05;
-    const bar = { id: uid("it"), type: "scalebar", picture: pic.id, length, unit, thickness: 2, size: 6, label: "above", bold: false,
-      color: pxPerPt(asset) ? "#ffffff" : "#000000", anchor: { corner: "br", dx: -inset, dy: -inset }, frame: [0, 0, 1, 1] };
+    const bar = { ...this.newBar(pic, asset, length, unit), anchor: { corner: "br", dx: -inset, dy: -inset }, frame: [0, 0, 1, 1] };
     bar.frame = barFrame(bar, pic, asset);
+    this.putScaleBar(bar, pic);
+  },
+  // A new bar's own settings: white on a photograph or micrograph, black on a plot
+  newBar(pic, asset, length, unit) {
+    return { id: uid("it"), type: "scalebar", picture: pic.id, length, unit, thickness: 2, size: 6, label: "above", bold: false,
+      color: pxPerPt(asset) ? "#ffffff" : "#000000" };
+  },
+  putScaleBar(bar, pic) {
     store.update("Add scale bar", (doc) => {
       const items = store.container(doc), at = items.findIndex((it) => it.id === pic.id);
       items.splice(at < 0 ? items.length : at + 1, 0, bar);   // just above its picture
     }, { select: [bar.id] });
-    announce(`Added a ${length} ${unit} scale bar to ${itemLabel(pic, store.doc)}`);
+    announce(`Added a ${bar.length} ${bar.unit} scale bar to ${itemLabel(pic, store.doc)}`);
+  },
+  // The Scale bar tool (2026-11-19): on the picture selected (or the selected bar's picture), or
+  // on the picture clicked next (canvas.startScaleBar)
+  scaleBarTool(picId = null) {
+    const sel = store.selected(), bar = sel.find((it) => it.type === "scalebar");
+    const pic = (picId && store.item(picId)) || sel.find((it) => it.type === "picture") || (bar && store.item(bar.picture));
+    canvas.startScaleBar(pic?.type === "picture" ? pic.id : null);
+  },
+  // A bar drawn from a to b on a picture (canvas.onScaleBar): with a scale, a bar as drawn (round
+  // or exact, level, upright or free: scalebar.barPreview); without one, the line drawn measures
+  // the picture first (its real length typed, as Measure does) and the bar is that long. A click
+  // (b at a) puts a round-length bar there, level and centred
+  async drawnScaleBar(picId, a, b, mods = {}) {
+    let pic = store.item(picId), asset = pic && store.doc.assets[pic.asset];
+    if (!pic || !asset) return;
+    const click = a[0] === b[0] && a[1] === b[1];
+    if (!pic.scale?.per_pt) {
+      if (click) {
+        announce(`${itemLabel(pic, store.doc)} has no scale yet: drag along something of known length in it, then type how long it is`);
+        return;
+      }
+      const answer = await panels.promptDialog("How long is the line you drew?", "Its real length", "",
+        "For example 100 µm or 2 in. That gives the picture its scale, and the scale bar is that long");
+      if (!answer) return;
+      const said = this.setMeasured(pic.id, [pageToSource(pic, asset, a), pageToSource(pic, asset, b)], answer);
+      pic = store.item(picId);
+      if (!said || !pic?.scale) return;
+      const { dir, rot } = drawnDirection(a, b, mods.free);
+      return this.putScaleBar(drawnBar(this.newBar(pic, asset, said.value, said.unit), pic, asset, a, dir, rot), pic);
+    }
+    if (click) {
+      const unit = pic.scale.unit, length = niceLength(pic, asset, unit);
+      const half = (length / pic.scale.per_pt) * pageScale(pic, asset) / 2;
+      return this.putScaleBar(drawnBar(this.newBar(pic, asset, length, unit), pic, asset, [a[0] - half, a[1]], 0, 0), pic);
+    }
+    const p = barPreview(pic, asset, a, b, mods);
+    if (!p || !(p.length > 0)) return;
+    this.putScaleBar(drawnBar(this.newBar(pic, asset, p.length, p.unit), pic, asset, a, p.dir, p.rot), pic);
   },
   // Measure on the selected picture, or on a selected scale bar's picture (to measure it again)
   measureScale() {
@@ -1244,21 +1289,19 @@ const app = {
     if (!pic) return;
     const was = pic.measured;
     const answer = await panels.promptDialog("How long is the line you drew?", "Its real length", was ? measuredText(was) : "",
-      `For example 100 µm (or just a number, in ${pic.scale?.unit || "µm"})`);
+      `For example 100 µm or 2 in (or just a number, in ${pic.scale?.unit || "µm"})`);
     if (!answer) return;
     this.setMeasured(pic.id, [pageToSource(pic, asset, a), pageToSource(pic, asset, b)], answer);
   },
   // "100 µm" (or a number, in the picture's unit) for a line in the picture's source points
   setMeasured(picId, line, answer) {
     const pic = store.item(picId);
-    if (!pic) return;
-    const m = /^\s*([0-9]*[.,]?[0-9]+(?:e[-+]?\d+)?)\s*(nm|µm|um|micron|microns|mm|cm|m)?\s*$/i.exec(answer);
-    const value = m && parseFloat(m[1].replace(",", "."));
-    if (!(value > 0)) { announce(`“${answer}” isn't a length: type a number and a unit, such as 100 µm`); return; }
-    const said = m[2]?.toLowerCase();
-    const unit = { um: "µm", micron: "µm", microns: "µm" }[said] || said || pic.measured?.unit || pic.scale?.unit || "µm";
+    if (!pic) return false;
+    const said = parseLength(answer), value = said?.value;
+    if (!(value > 0)) { announce(`“${answer}” isn't a length: type a number and a unit, such as 100 µm or 2 in`); return false; }
+    const unit = said.unit || pic.measured?.unit || pic.scale?.unit || "µm";
     const len = Math.hypot(line[1][0] - line[0][0], line[1][1] - line[0][1]);
-    if (!(len > 0)) return;
+    if (!(len > 0)) return false;
     store.update("Measure scale", (doc) => {
       const p = findDeep(doc.pages[store.pageIndex].items, picId);
       if (!p) return;
@@ -1267,6 +1310,7 @@ const app = {
     });
     const now = store.item(picId);
     if (now?.scale) announce(`Scale: ${scaleText(now, store.doc.assets[now.asset])}`);
+    return { value, unit };
   },
   // Zoom insets (zoom.js): a box on a picture, the area enlarged beside it, and two lines between
   // them, all in one colour (Okabe-Ito's orange shows on dark images and white pages alike). The
@@ -2620,7 +2664,8 @@ app.commands = {
     + "their proportions", () => app.matchSize("w"), null, null, "Width"),
   sameHeight: cmd("Same height: make the selected objects as tall as the key object (or the tallest), keeping "
     + "their proportions", () => app.matchSize("h"), null, null, "Height"),
-  addScaleBar: cmd("Scale bar: add one to the selected picture (it needs a scale)", () => app.addScaleBar(), null, null, "Scale bar"),
+  addScaleBar: cmd("Scale bar: draw one across a picture (a picture without a scale asks how long the line is)",
+    () => app.scaleBarTool(), null, null, "Scale bar"),
   measureScale: cmd("Measure a known length on the selected picture, to give it a scale", () => app.measureScale(), null, null,
     "Measure"),
   crop: cmd("Crop the picture: drag its edges, or move it inside its frame (or double-click it, or press Enter)", () => {
@@ -3085,6 +3130,8 @@ async function start() {
   canvas.onTransform = (t) => app.noteTransform(t);
   canvas.onPaint = (hit, keyboard) => app.paintStyle(hit, keyboard);
   canvas.onMeasure = (id, a, b) => app.measured(id, a, b);
+  canvas.onScaleBar = (id, a, b, mods) => app.drawnScaleBar(id, a, b, mods);
+  canvas.onScaleBarCorner = (id) => app.addScaleBar(id);   // (Enter with the tool)
   canvas.onZoomBox = (id, box, shape) => app.addZoomInset(id, box, shape);
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.onEditSymbol = (id) => app.editSymbol(id);

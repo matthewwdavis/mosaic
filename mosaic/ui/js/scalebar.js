@@ -16,9 +16,36 @@
 
 import { apply, frameMatrix, invert } from "./util.js";
 
-export const UNITS = [["nm", 1e-9], ["µm", 1e-6], ["mm", 1e-3], ["cm", 1e-2], ["m", 1]];
+// Lengths in metres: metric, then imperial (2026-11-19: inches, feet, yards and miles)
+export const METRIC = [["nm", 1e-9], ["µm", 1e-6], ["mm", 1e-3], ["cm", 1e-2], ["m", 1]];
+export const IMPERIAL = [["in", 0.0254], ["ft", 0.3048], ["yd", 0.9144], ["mi", 1609.344]];
+export const UNITS = [...METRIC, ...IMPERIAL];
+// The unit lists' choices, in two groups (selectField)
+export const UNIT_CHOICES = [{ group: "Metric", options: METRIC.map(([u]) => [u, u]) },
+  { group: "Imperial", options: IMPERIAL.map(([u]) => [u, u]) }];
 const metres = (u) => (UNITS.find(([n]) => n === u) || [null, 1e-6])[1];
 export const convert = (v, from, to) => (v * metres(from)) / metres(to);
+// A length in another unit, exactly (the bar stays the same size): 50 mm is 1.9685039370078743 in,
+// and back 50 mm. Kept to full precision, so a round trip comes back as it was, but tidied when
+// it's really a short number (1 in is 25.4 mm, not 25.400000000000002)
+export function convertLength(v, from, to) {
+  const r = convert(v, from, to), tidy = +r.toPrecision(12);
+  const digits = String(tidy).replace(/e.*$/, "").replace(/[-.]/g, "").replace(/^0+/, "").replace(/0+$/, "").length;
+  return digits <= 9 ? tidy : r;
+}
+// A unit as typed: "um", "microns", "inches", "feet", ″ and ′ (and " and ') too
+const SAID = { um: "µm", micron: "µm", microns: "µm", "µm": "µm", "μm": "µm", nm: "nm", mm: "mm", cm: "cm", m: "m",
+  in: "in", inch: "in", inches: "in", '"': "in", "″": "in", ft: "ft", foot: "ft", feet: "ft", "'": "ft", "′": "ft",
+  yd: "yd", yard: "yd", yards: "yd", mi: "mi", mile: "mi", miles: "mi" };
+// "100 µm", "2 in", 3.5 (a number alone: unit null): {value, unit} or null
+export function parseLength(text) {
+  const m = /^\s*([0-9]*[.,]?[0-9]+(?:e[-+]?\d+)?)\s*([a-zµμ"'″′]*)\s*$/i.exec(text || "");
+  const value = m && parseFloat(m[1].replace(",", "."));
+  if (!(value > 0)) return null;
+  const said = m[2].toLowerCase();
+  if (said && !SAID[said]) return null;
+  return { value, unit: said ? SAID[said] : null };
+}
 const GAP = 0.3, LINE = 1.2;   // label gap and line height, in text sizes (as the engine lays it out)
 
 // Page points per point of the picture's source: its scale on the page
@@ -168,6 +195,58 @@ export function niceLength(pic, asset, unit) {
   const target = across / 5, p = 10 ** Math.floor(Math.log10(target));
   return [5, 2, 1].map((k) => k * p).find((v) => v <= target + 1e-12) || p;
 }
+
+// Drawing a bar (2026-11-19) ----------------------------------------------------------------
+// The Scale bar tool: a drag across a picture draws a bar from where it starts. Level, or upright
+// when the drag goes more up or down than across (free, Shift: at the drag's own angle); a round
+// length (exact, ⌘: the length dragged, to 3 significant figures)
+
+// A round length near v: 1, 2, 2.5 or 5 times a power of ten (2.5: 25 µm, a quarter inch)
+export function roundLength(v) {
+  if (!(v > 0)) return 0;
+  const p = 10 ** Math.floor(Math.log10(v));
+  const best = [1, 2, 2.5, 5, 10].map((k) => k * p).reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+  return +best.toPrecision(12);
+}
+// Which way a bar drawn from a to b points (dir: degrees clockwise from rightwards), and how its
+// text turns (rot): level text, or reading upwards on an upright bar; at an angle, never upside down
+export function drawnDirection(a, b, free = false) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], norm = (v) => ((v % 360) + 360) % 360;
+  if (!free) {
+    const level = Math.abs(dx) >= Math.abs(dy);
+    return { dir: level ? (dx < 0 ? 180 : 0) : (dy < 0 ? 270 : 90), rot: level ? 0 : 270 };
+  }
+  const dir = norm((Math.atan2(dy, dx) * 180) / Math.PI), c = Math.cos((dir * Math.PI) / 180);
+  return { dir, rot: norm(Math.abs(c) < 1e-6 ? 270 : c > 0 ? dir : dir + 180) };
+}
+// A drag from a to b on a picture with a scale, as a bar: its direction and turn, its length and
+// unit (the picture's), and where it ends on the page; null for a picture without a scale
+export function barPreview(pic, asset, a, b, { free = false, exact = false } = {}) {
+  const s = pic?.scale;
+  if (!s?.per_pt || !asset) return null;
+  const { dir, rot } = drawnDirection(a, b, free), r = (dir * Math.PI) / 180;
+  const along = Math.abs((b[0] - a[0]) * Math.cos(r) + (b[1] - a[1]) * Math.sin(r));
+  const real = (along / pageScale(pic, asset)) * s.per_pt;   // (in the picture's unit)
+  const length = exact ? +real.toPrecision(3) : roundLength(real);
+  const onPage = (length / s.per_pt) * pageScale(pic, asset);
+  return { dir, rot, length, unit: s.unit, end: [a[0] + Math.cos(r) * onPage, a[1] + Math.sin(r) * onPage] };
+}
+// A new bar (base: its length, unit and look) on a picture with a scale, starting at `start` and
+// pointing `dir`, its text turned `rot`; it stays with the corner of the picture nearest it
+export function drawnBar(base, pic, asset, start, dir, rot) {
+  const bar = { ...base, rot, frame: [0, 0, 1, 1] };
+  const len = lengthOn(bar, pic, asset);
+  keepSizes(bar, len);
+  const [w, h] = barSize(bar, len);
+  bar.frame = [0, 0, w, h];
+  const r = (dir * Math.PI) / 180, mid = [start[0] + (Math.cos(r) * len) / 2, start[1] + (Math.sin(r) * len) / 2];
+  const now = barMiddle(bar);
+  bar.frame = [mid[0] - now[0], mid[1] - now[1], w, h];
+  const [px, py, pw, ph] = pic.frame;
+  bar.anchor = anchorFor(bar, pic, `${mid[1] > py + ph / 2 ? "b" : "t"}${mid[0] > px + pw / 2 ? "r" : "l"}`);
+  return bar;
+}
+
 // Every scale bar on the page follows its picture (one with no picture left stays where it is,
 // its frame only making room for a label beside it or no longer beside it, keeping its corner)
 export function followScaleBars(items, assets) {

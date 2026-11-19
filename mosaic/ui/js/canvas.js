@@ -7,7 +7,7 @@ import { followGrids } from "./gridlayout.js";
 import { asLabel, followLabels, labelLetter, pageLabels, panelAt } from "./labels.js";
 import { finishEdits } from "./symbols.js";
 import { fitFreehand, moveHandle, moveNode, nearestOn, ringsOf, segments, splitAt, toLocal, toPageOf, toggleSmooth, writeRings } from "./pen.js";
-import { beside, followScaleBars, gapEdge, gapHandleAt, keepBar, measuredText, sourceToPage } from "./scalebar.js";
+import { barPreview, beside, followScaleBars, gapEdge, gapHandleAt, keepBar, measuredText, sourceToPage } from "./scalebar.js";
 import { ZOOM_ROUNDING, followZooms } from "./zoom.js";
 import { followLifted, isLifted, isPlot, lift, plotTexts, plotTextsNow, quadOnPage, remapCopies, shownVariants, textAt } from "./liftedtext.js";
 import { across, bracketGapEdge, bracketStroke, keepBar as keepBracketBar, labelLook, labelRoom, plainOf, setPlainLabel, syncLabels, trimRuns,
@@ -557,6 +557,7 @@ export const canvas = {
       o.append(s("line", { class: "measure-line", x1: a[0], y1: a[1], x2: b[0], y2: b[1] }));
       return;
     }
+    if (this.op?.type === "scalebar") return this.drawScaleBarGhost(o);
     if (this.op?.type === "zoombox") {
       const [a, b] = [this.toScreen(...this.op.start), this.toScreen(...this.op.cur)];
       const [x, y, w, ht] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])];
@@ -911,6 +912,7 @@ export const canvas = {
     if (this.tool === "fill") { this.onFillArea?.(p); return; }
     if (this.tool === "painter") { this.onPaint?.(this.itemAt(p)); return; }
     if (this.tool === "measure") { this.op = { type: "measure", start: p, cur: p }; return; }
+    if (this.tool === "scalebar") return this.scaleBarDown(p, e);
     if (this.tool === "zoom") {   // a box dragged on a picture, for a zoom inset (under another's box, say)
       const pic = store.scopeItems().findLast((it) => it.type === "picture" && !it.locked && hitItem(it, p, 4 / this.k));
       if (pic?.type !== "picture") { announce("Drag on a picture to box the area to enlarge"); return; }
@@ -986,6 +988,13 @@ export const canvas = {
       return this.drawOverlay();
     }
     if (op.type === "measure" || op.type === "zoombox") { op.cur = p; return this.drawOverlay(); }
+    if (op.type === "scalebar") {
+      op.cur = p;
+      op.free = e.shiftKey;
+      op.exact = e.metaKey || e.ctrlKey;
+      if (Math.hypot(p[0] - op.start[0], p[1] - op.start[1]) * this.k > 3) op.moved = true;
+      return this.drawOverlay();
+    }
     if (op.type === "move") return this.moveTo(p, e);
     if (op.type === "resize") return this.resizeTo(p, e);
     if (op.type === "rotate") return this.rotateTo(p, e);
@@ -1044,6 +1053,7 @@ export const canvas = {
       if (!cancelled && box[2] * this.k > 4 && box[3] * this.k > 4) this.onZoomBox?.(op.pic, box, op.shape);
       return;
     }
+    if (op.type === "scalebar") return this.finishScaleBar(op, cancelled);
     if (op.type === "measure") {   // a known length drawn on a picture, for its scale
       this.setTool("select");
       this.drawOverlay();
@@ -1104,6 +1114,7 @@ export const canvas = {
     }
     let cursor = this.tool === "select" ? "default" : "crosshair";
     if (this.spaceDown) cursor = "grab";
+    else if (this.tool === "scalebar") cursor = this.scaleBarCursor(p);
     else if (this.tool === "select") {
       const hd = this.handleAt(pt);
       if (hd) {
@@ -1225,6 +1236,76 @@ export const canvas = {
     const was = store.item(id)?.measured;
     announce("Drag along something of known length in the picture: a scale bar already in it, a ruler, a stage micrometer"
       + (was ? `. The dashed line is the one measured last time (${measuredText(was)})` : ""));
+  },
+  // The Scale bar tool: on the picture selected, a drag across it draws a bar (a click puts a round
+  // one there); with none, a click on a picture selects it (as choosing it in the Objects list
+  // does), and a drag across one draws on it at once. The bar is made by onScaleBar
+  // (app.drawnScaleBar)
+  startScaleBar(picId = null) {
+    this.setTool("scalebar");
+    if (picId) store.select([picId]);
+    this.drawOverlay();
+    const pic = picId && store.item(picId);
+    announce(!pic ? "Click a picture to draw a scale bar on (or drag across one)"
+      : pic.scale?.per_pt ? `Drag across ${itemLabel(pic, store.doc)} to draw its scale bar: a round length, level or upright `
+        + "(Shift: any angle; ⌘: the length dragged). A click puts one there; Enter, in its corner"
+        : `Drag along something of known length in ${itemLabel(pic, store.doc)}, then type how long it is: that gives it `
+          + "its scale, and the scale bar is that long");
+  },
+  // The picture under p (scale bars drawn on it, or anything else on top, don't hide it)
+  pictureAt(p) {
+    return store.scopeItems().findLast((it) => it.type === "picture" && !it.locked && !it.hidden && hitItem(it, p, 4 / this.k)) || null;
+  },
+  scaleBarCursor(p) {
+    const pic = this.pictureAt(p);
+    if (!pic) return "default";
+    return pic.id === this.scaleBarTarget() ? "crosshair" : "pointer";
+  },
+  scaleBarTarget() {
+    return store.selected().find((it) => it.type === "picture")?.id || null;
+  },
+  scaleBarDown(p, e) {
+    const pic = this.pictureAt(p);
+    if (!pic) {
+      announce(this.scaleBarTarget() ? "Drag across the picture to draw its scale bar (Escape stops)" : "Click a picture to draw a scale bar on");
+      return;
+    }
+    this.op = { type: "scalebar", pic: pic.id, start: p, cur: p, moved: false, free: e.shiftKey, exact: e.metaKey || e.ctrlKey,
+      picking: pic.id !== this.scaleBarTarget() };
+  },
+  finishScaleBar(op, cancelled) {
+    this.drawOverlay();
+    if (cancelled) return;
+    const pic = store.item(op.pic);
+    if (!pic) return;
+    if (!op.moved && op.picking) {
+      // A click on another picture: it's the one to draw on
+      store.select([pic.id]);
+      this.stage.style.cursor = "crosshair";
+      announce(pic.scale?.per_pt ? `Drag across ${itemLabel(pic, store.doc)} to draw its scale bar`
+        : `Drag along something of known length in ${itemLabel(pic, store.doc)}, then type how long it is`);
+      return;
+    }
+    if (!op.moved && !pic.scale?.per_pt) {
+      // (a picture without a scale needs a line to measure: the tool stays for it)
+      announce(`${itemLabel(pic, store.doc)} has no scale yet: drag along something of known length in it, then type how long it is`);
+      return;
+    }
+    this.setTool("select");
+    this.onScaleBar?.(pic.id, op.start, op.moved ? op.cur : op.start, { free: op.free, exact: op.exact });
+  },
+  // The bar being drawn: as it will be (its length and which way it points) on a picture with a
+  // scale, or the line to measure on one without
+  drawScaleBarGhost(o) {
+    const op = this.op, pic = store.item(op.pic), asset = pic && store.doc.assets[pic.asset];
+    if (!op.moved) return;
+    const pv = barPreview(pic, asset, op.start, op.cur, op);
+    const [a, b] = [this.toScreen(...op.start), this.toScreen(...(pv ? pv.end : op.cur))];
+    o.append(s("line", { class: pv ? "scalebar-ghost" : "measure-line", x1: a[0], y1: a[1], x2: b[0], y2: b[1],
+      "stroke-width": pv ? Math.max(2 * this.k, 2) : null }));
+    const label = s("text", { class: "guide-label", x: (a[0] + b[0]) / 2, y: Math.min(a[1], b[1]) - 10, "text-anchor": "middle" });
+    label.textContent = pv ? `${+pv.length.toPrecision(6)} ${pv.unit}` : "Let go, then type its real length";
+    o.append(label);
   },
   drawMeasuredBefore(o) {
     const pic = store.item(this.measuring), asset = pic && store.doc.assets[pic.asset], m = pic?.measured;
@@ -2192,6 +2273,12 @@ export const canvas = {
   // Enter with a drawing tool: one object in the middle of the view (off the page too)
   placeDefault() {
     if (this.tool === "fill") return announce("Click inside an area that lines and shapes enclose to fill it");
+    if (this.tool === "scalebar") {
+      const id = this.scaleBarTarget();
+      if (!id) return announce("Click a picture first, then drag across it to draw its scale bar");
+      this.setTool("select");
+      return this.onScaleBarCorner?.(id);
+    }
     if (this.tool === "painter") return this.onPaint?.(null, true);   // Enter paints what's selected
     const r = this.stage.getBoundingClientRect(), c = this.toPage(r.width / 2, r.height / 2);
     this.finishDraw({ type: "draw", tool: this.tool, start: c, cur: c, moved: false, centred: true });

@@ -159,7 +159,10 @@ def probe(path: str, kind: str | None = None) -> dict:
 # Length units a calibration may name, as mosaic writes them
 LENGTH_UNITS = {"nm": "nm", "nanometer": "nm", "nanometers": "nm", "µm": "µm", "um": "µm", "micron": "µm", "microns": "µm",
                 "micrometer": "µm", "micrometers": "µm", "\\u00b5m": "µm", "mm": "mm", "millimeter": "mm", "cm": "cm",
-                "centimeter": "cm", "m": "m", "meter": "m"}
+                "centimeter": "cm", "m": "m", "meter": "m",
+                # (imperial, 2026-11-19: ImageJ's "inch", OME's "in", "ft", "yd", "mi")
+                "in": "in", "inch": "in", "inches": "in", "ft": "ft", "foot": "ft", "feet": "ft", "yd": "yd", "yard": "yd",
+                "yards": "yd", "mi": "mi", "mile": "mi", "miles": "mi"}
 
 
 def image_calibration(im) -> dict | None:

@@ -8,7 +8,7 @@ import { contextMenu } from "./contextmenu.js";
 import { store } from "./store.js";
 import { linked, swatchById } from "./swatches.js";
 import { applyToLabel, applyToParagraph, differs, labelDiffers } from "./textstyles.js";
-import { UNITS, anchorFor, convert, keepBar as keepScaleBar, measuredText, niceLength, pxPerPt, scaleText, setLabelSide } from "./scalebar.js";
+import { UNIT_CHOICES, anchorFor, convert, convertLength, keepBar as keepScaleBar, measuredText, niceLength, pxPerPt, scaleText, setLabelSide } from "./scalebar.js";
 import { DEFAULT_GAP } from "./gridlayout.js";
 import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
 import { differs as looksDiffer, takes } from "./objectstyles.js";
@@ -900,7 +900,7 @@ export const inspector = {
     });
     size.addEventListener("keydown", (e) => { if (e.key === "Enter") size.blur(); keepFieldKeys(e); });
     const kids = [row(h("div", { class: "field" }, label(ppp ? "Size of one pixel" : "Length of one point of the original", id), size),
-      selectField("Scale unit", unit, UNITS.map(([u]) => [u, u]), (u) => { if (sc) this.app.setPictureScale(it.id, convert(sc.per_pt, sc.unit, u), u, sc.how); }))];
+      selectField("Scale unit", unit, UNIT_CHOICES, (u) => { if (sc) this.app.setPictureScale(it.id, convert(sc.per_pt, sc.unit, u), u, sc.how); }))];
     const how = { typed: "typed", measured: "measured", file: "from the file" }[sc?.how] || "";
     kids.push(h("p", { class: "hint" }, sc ? `Scale${how ? ` (${how})` : ""}: ${scaleText(it, a)}.` : "No scale yet."));
     const fileScale = cal && ppp ? cal.per_px * ppp : null;
@@ -917,7 +917,8 @@ export const inspector = {
     kids.push(h("div", { class: "button-row" },
       button(sc ? "Measure a known length on the picture again, for a new scale" : "Measure a known length on the picture",
         () => canvas.startMeasure(it.id), sc ? "Measure again…" : "Measure…"),
-      sc ? button("Add a scale bar to this picture", () => this.app.addScaleBar(it.id), "Add scale bar") : null));
+      button(sc ? "Draw a scale bar across this picture" : "Draw a scale bar across this picture: drag along something of known "
+        + "length, then type how long it is", () => this.app.scaleBarTool(it.id), "Draw scale bar")));
     if (sc || it.measured) {
       kids.push(h("div", { class: "button-row" }, button("Remove the picture's scale and its measured line, to start over "
         + "(its scale bars stay as they are until it has a scale again)", () => this.app.removePictureScale(it.id), "Remove scale")));
@@ -1005,7 +1006,11 @@ export const inspector = {
     }
     kids.push(row(numField("Length", it.length, "", (v) => set("Scale bar length", (o) => { o.length = Math.max(v, 1e-9); }),
       { min: 0, step: "any", mixed: mx("length") }),
-    selectField("Length unit", it.unit, UNITS.map(([u]) => [u, u]), (v) => set("Scale bar unit", (o) => { o.unit = v; }), { mixed: mx("unit") })));
+    selectField("Length unit", it.unit, UNIT_CHOICES, (v) => set("Scale bar unit", (o) => {
+      // (the same length in the new unit, exactly, so the bar stays the same size: 50 mm, 1.9685 in)
+      o.length = convertLength(o.length ?? 1, o.unit ?? "µm", v);
+      o.unit = v;
+    }), { mixed: mx("unit") })));
     if (pic?.scale || several) {
       kids.push(button("A round length about a fifth of the picture's width", () => set("Scale bar length", (o) => {
         const p = store.item(o.picture), pa = p && store.doc.assets[p.asset];

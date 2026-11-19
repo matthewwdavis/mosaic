@@ -858,6 +858,23 @@ pre-export check says so.
   the text), the label turning with them, and keep the corner of their outline as turned at its
   offset from the picture's corner. Not covered: a turned *picture* (bars still anchor to its
   unturned frame, as before).
+- **Scale bars drawn, and imperial units (2026-11-19, Matthew's choices):** Scale bar (Figure
+  tab, the Picture tab's Draw scale bar) is a tool (`canvas.tool === "scalebar"`, the button
+  pressed) that draws on the selected picture: crosshair over it, a hand over other pictures (a
+  click selects one, so choosing a picture in the Objects list works too; a drag on any picture
+  draws there at once). The bar starts where the drag does, level or upright by whichever way the
+  drag goes more (upright reads upwards, rot 270); Shift follows the drag's angle, text never
+  upside down (`scalebar.drawnDirection`). Its length snaps to the nearest of 1, 2, 2.5 or 5 times
+  a power of ten (2.5 for 25 µm and a quarter inch), ⌘ keeping the length dragged to three
+  figures (`barPreview`, which the drag's preview and the bar both use). A click puts a
+  niceLength bar centred there; Enter, the old corner bar. A picture without a scale is measured
+  by the drag (its length typed, as Measure; `setMeasured` now returns it) and the bar made at
+  that length. A new bar keeps the corner of the picture nearest its middle (`drawnBar`).
+  Imperial units in, ft, yd, mi (scalebar.UNITS, lists grouped Metric/Imperial, typed lengths
+  `parseLength` with ″/′ and words, file calibrations "inch" etc.). A bar's Length unit converts
+  exactly (`convertLength`: full precision, tidied to ≤ 9 significant digits when it's really a
+  short number, so 13,851 three-unit round trips all came back exact; trimming to 15 digits
+  failed 1,882). The engine's label is still `{length:g} {unit}`: 1.9685 in.
 - **Figure-tab objects get lines' and shapes' features (2026-11-17/18, Matthew's choices):**
   brackets now have a `stroke` like a line's (round ends and mitred corners to start), so the
   Line section, the multi-object Style tab, copy/paste style and Select Same work on them as on

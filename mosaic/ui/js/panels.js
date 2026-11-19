@@ -774,6 +774,7 @@ export const panels = {
   },
   renderTools(tool) {
     for (const b of document.querySelectorAll('[data-cmd="formatPainter"]')) b.setAttribute("aria-pressed", tool === "painter" ? "true" : "false");
+    for (const b of document.querySelectorAll('[data-cmd="addScaleBar"]')) b.setAttribute("aria-pressed", tool === "scalebar" ? "true" : "false");
     for (const b of document.querySelectorAll("#toolbox [data-tool]")) {
       b.setAttribute("aria-pressed", b.dataset.tool === tool ? "true" : "false");
     }
