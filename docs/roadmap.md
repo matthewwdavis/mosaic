@@ -274,6 +274,10 @@ Matthew's choices are in brackets.
 - [x] Typing in a shape shows the Home tab (asked 2026-11-18): every Text section tool on the words
       typed in a rectangle, ellipse or other shape, the tab before back when typing ends; a shape
       only selected keeps the tab [Matthew's choices]
+- [x] Names kept as typed (asked 2026-11-19): no automatic capitals or corrections from the Mac's
+      typing settings in any one-line field (page names, the document's Title, swatch/style/symbol
+      names…); text boxes and notes unchanged; default names (Page 1, Untitled figure) kept
+      [Matthew's choices]
 
 ## Acceptance test (test slide)
 

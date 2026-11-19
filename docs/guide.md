@@ -168,8 +168,10 @@ objects there can still be seen (High contrast keeps it black).
 guides. The other buttons duplicate or delete the current page. Deleting the only page leaves an
 empty page of the same size, background and guides in its place (a page with objects asks first;
 ⌘Z brings it back). Drag a page up or down the list to move it (the others slide apart to make
-room), and double-click a page's name to rename it. Drop a PowerPoint deck in the list to add its
-slides as pages there. One document can hold versions of a figure side by side.
+room), and double-click a page's name to rename it. Names are kept as you type them: mosaic's
+name fields (pages, the document's Title, swatches, styles…) don't take the Mac's automatic
+capitals or corrections, so `fig_1_overview` stays lower case. Drop a PowerPoint deck in the list
+to add its slides as pages there. One document can hold versions of a figure side by side.
 
 **Several pages at once:** ⌘-click (Ctrl-click on Windows) pages in the Pages list to add or
 take away one, Shift-click (or Shift+↑/↓) for a run of them, ⌘A with the list focused for all.

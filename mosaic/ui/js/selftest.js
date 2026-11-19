@@ -3346,6 +3346,22 @@ async function renameChecks(app, out) {
   store.markSaved(first);
   store.update("Something to save", (doc) => doc.pages[store.pageIndex].items.push(gRectFor("rn", 10, 10, 40, 30)));
   await settle();
+  // Names stay as typed: one-line fields ask for no automatic capitals or corrections (a Mac's
+  // "Capitalise words automatically" made "fig_1" "Fig_1")
+  const plain = (el) => !!el && el.getAttribute("autocapitalize") === "off" && el.getAttribute("autocorrect") === "off"
+    && el.getAttribute("spellcheck") === "false";
+  store.select([]);
+  inspector.render();
+  const titleField = [...document.querySelectorAll("#inspector label")].find((l) => l.textContent === "Title")?.control;
+  panels.renamePage(0);
+  const pageField = panels.pageList.querySelector("input.rename");
+  const oneLine = [...document.querySelectorAll('input[type="text"], input[type="search"]')];
+  pageField?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await settle();
+  check(plain(pageField) && plain(titleField) && oneLine.length > 3 && oneLine.every(plain)
+    && canvas.editor.getAttribute("autocapitalize") === null,
+  "a page's name and the document's Title (and every one-line field) take what's typed without automatic capitals; text boxes as before",
+  `page ${plain(pageField)}, title ${plain(titleField)}, ${oneLine.filter((el) => !plain(el)).map((el) => el.getAttribute("aria-label") || el.id || el.className).join(", ")}`);
   const file = (spec) => spec.find((m) => m.title === "File").items;
   check(file(app.menuSpec()).some((it) => it.title === "Rename…" && it.action === "rename"), "File > Rename… is in the Mac menu bar");
   const open = () => [...document.querySelectorAll("dialog[open]")].pop();
@@ -3363,6 +3379,7 @@ async function renameChecks(app, out) {
     await until(() => !d.dlg.open || !d.error.hidden);
   };
   let d = await begin();
+  check(plain(d.input), "the Rename dialog's name field too");
   check(d.input.value === `selftest-rename-a-${run}` && d.input.selectionStart === 0 && d.input.selectionEnd === d.input.value.length
     && first.endsWith(`selftest-rename-a-${run}.mff`) && d.dlg.querySelector(".rename-ext")?.textContent === ".mff"
     && d.dlg.querySelector("#rename-where").textContent.startsWith("In ")

@@ -62,12 +62,23 @@ export function h(tag, attrs = {}, ...children) {
     else if (k === "html") el.innerHTML = v;
     else el.setAttribute(k, v === true ? "" : v);
   }
+  // (a one-line field keeps what's typed exactly as typed: PLAIN_FIELD)
+  if (tag === "input" && PLAIN_TYPES.includes(el.type)) {
+    for (const [k, v] of Object.entries(PLAIN_FIELD)) if (!el.hasAttribute(k)) el.setAttribute(k, v);
+  }
   for (const c of children.flat()) {
     if (c === null || c === undefined || c === false) continue;
     el.append(c instanceof Node ? c : document.createTextNode(String(c)));
   }
   return el;
 }
+// One-line fields (page and document names, swatch and style names, sizes, searches) take what's
+// typed as it is: no capital letters or corrections from the system's typing settings (a Mac's
+// "Capitalise words automatically"), so a name typed in lower case stays lower case. A field can
+// still ask for them (h("input", { autocapitalize: "on" })); text boxes and notes aren't one-line
+// fields, so they're left alone
+export const PLAIN_FIELD = { autocapitalize: "off", autocorrect: "off", spellcheck: "false" };
+const PLAIN_TYPES = ["text", "search"];
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 export function s(tag, attrs = {}) {
