@@ -68,9 +68,30 @@ You'll need about 2 GB of free disk space and an internet connection. The instal
 everything mosaic needs, including conda (Miniforge) if you don't have it. The first install
 takes 5-15 minutes; nothing else on your computer is changed.
 
-**First, download mosaic.** This repository is private, so you need a GitHub account that
-Matthew has added to it. Open the [newest release](https://github.com/matthewwdavis/mosaic/releases/latest)
-and, under **Assets**, click **mosaic-…zip** (the one with the version number in its name).
+### The quick way: one line
+
+Copy the line for your computer, paste it, and press Return. It downloads the newest version and
+runs the same installer as the steps below, without the security warnings a downloaded file gets.
+Run the same line again any time to reinstall or update.
+
+- **Mac or Linux:** open **Terminal** (on a Mac it's in Applications ▸ Utilities) and paste
+
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/matthewwdavis/mosaic/main/install.sh | bash
+  ```
+
+- **Windows:** open **PowerShell** (type *PowerShell* in the Start menu) and paste
+
+  ```powershell
+  irm https://raw.githubusercontent.com/matthewwdavis/mosaic/main/install.ps1 | iex
+  ```
+
+### Or download it and double-click
+
+**[⬇ Download mosaic (ZIP)](https://github.com/matthewwdavis/mosaic/releases/latest/download/mosaic.zip)**:
+always the newest version, the same file for Mac, Windows and Linux. (Every version is on the
+[releases page](https://github.com/matthewwdavis/mosaic/releases).) Then follow the steps for
+your computer:
 
 ### Mac
 
@@ -112,12 +133,10 @@ runs it in your web browser instead (see the [guide](docs/guide.md#in-a-web-brow
 
 **Updating:** on a Mac and Windows mosaic updates itself. When a new version is out, it downloads it and installs it
 when you quit mosaic, then says what's new. **Settings → Updates** switches this to asking
-first, or off, and can go back to the version before. While the repository is private,
-mosaic asks you to sign in to GitHub once, to download updates (see the
-[guide](docs/guide.md#updates)). You can delete the downloaded folder after installing.
+first, or off, and can go back to the version before. No GitHub account is needed. You can delete the downloaded folder after installing.
 
-Installed mosaic before it updated itself (version 0.1.0)? Download the newest release and
-run its installer once; it keeps your settings, and from then on mosaic updates itself.
+Installed mosaic before it updated itself (version 0.1.0)? Run the one line above (or download
+the newest release and run its installer) once; it keeps your settings, and from then on mosaic updates itself.
 
 **Removing it:** see [the user guide](docs/guide.md#removing-mosaic).
 **If something goes wrong:** see [Troubleshooting](docs/guide.md#troubleshooting).

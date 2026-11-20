@@ -1467,12 +1467,12 @@ More:
 - **What's new** shows once after each update.
 - **Every update is checked.** Each release is signed with mosaic's release key, and
   mosaic installs only a release whose signature matches. Anything else is refused.
-- **Signing in to GitHub, for now.** While mosaic's repository is private, mosaic signs
-  in to GitHub, once, to download updates. Click **Sign in for updates** in the status bar (or
-  **Sign in to GitHub…** in Settings → Updates), then **Copy the code and open GitHub**. On the
-  GitHub page, paste the code and click **Authorize**. mosaic can then only read
-  mosaic's repository, and only because your account was added to it. The sign-in is kept in
-  the Mac's Keychain or Windows' Credential Manager; **Sign out of GitHub** forgets it.
+- **No GitHub account needed.** mosaic's repository is public, so updates download without
+  signing in. Only if GitHub ever turns mosaic away (a busy shared network, say) does mosaic offer
+  **Sign in for updates** in the status bar (or **Sign in to GitHub…** in Settings → Updates):
+  click it, then **Copy the code and open GitHub**, paste the code and click **Authorize**. The
+  sign-in is kept in the Mac's Keychain or Windows' Credential Manager; **Sign out of GitHub**
+  forgets it.
 - **Documents saved by a newer version.** A document records which version of mosaic saved
   it. Opened in an older version (say, by a co-author who doesn't update), mosaic says so:
   things that version doesn't know about may not show, and saving over the document could lose
@@ -1666,9 +1666,9 @@ failure waits for you to click **Try again now**. You can always update by hand:
 newest release and run its installer. If it keeps failing, [report a problem](https://github.com/matthewwdavis/mosaic/issues/new?template=problem.yml)
 with the log attached.
 
-**Updates say your GitHub account can't see mosaic's releases.** The repository is private:
-ask Matthew to add your GitHub account to it. If you signed in with another account, use **Sign
-out of GitHub** in Settings → Updates and sign in again.
+**Updates say mosaic can't reach its releases.** Check the internet connection. On a shared
+network GitHub sometimes turns away requests that aren't signed in: use **Sign in to GitHub…** in
+Settings → Updates (any GitHub account works), or run the README's one-line install again.
 
 **A picture says "Linked file not found".** The file has moved or been renamed. The picture uses
 the copy stored in the document, so nothing is lost. Use **Replace…** to link it to the file's new

@@ -33,6 +33,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -329,6 +330,11 @@ def publish(args) -> None:
     try:
         zpath = os.path.join(OUT, f"{APP}-{version}.zip")
         run("git", "archive", "--format=zip", f"--prefix={APP}-{version}/", "-o", zpath, tag)
+        # The same ZIP under a name without the version, so .../releases/latest/download/<app>.zip
+        # (the README's download link and install.sh/install.ps1) always gets the newest release;
+        # updates go by the versioned name in release.json, so they never use this one
+        latest_zip = os.path.join(OUT, f"{APP}.zip")
+        shutil.copyfile(zpath, latest_zip)
         env = subprocess.run(["git", "show", f"{tag}:environment.yml"], cwd=ROOT, capture_output=True, check=True).stdout
         signed = updates.sign_manifest(manifest_for(zpath, version, env, notes, run("git", "rev-parse", tag)), raw)
         updates.verify_manifest(signed)   # (trusted by this checkout: the same keys)
@@ -344,7 +350,7 @@ def publish(args) -> None:
         raise
     run("git", "push", "-q", "origin", "main")
     run("git", "push", "-q", "origin", tag)
-    cmd = ["gh", "release", "create", tag, zpath, mpath, "--repo", repo(), "--title", f"{APP} {version}",
+    cmd = ["gh", "release", "create", tag, zpath, latest_zip, mpath, "--repo", repo(), "--title", f"{APP} {version}",
            "--notes-file", notes_path]
     if args.test:
         cmd += ["--prerelease", "--latest=false"]
