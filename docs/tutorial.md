@@ -22,7 +22,7 @@ Open mosaic. Here's the window with a finished figure in it:
 
 ![The mosaic window, numbered](images/window-tour.png)
 
-1. **Tabs**, like PowerPoint's ribbon: **Home** (files, undo, text, clipboard, pages, swatches
+1. **Tabs**: **Home** (files, undo, text, clipboard, pages, swatches
    and styles), **Arrange** (align, distribute, match sizes, group, order), **Figure** (scale bars,
    zoom insets, significance brackets), **Combine** (Pathfinder, clipping masks) and **View**
    (zoom, rulers, grid, guides, colour vision preview).
@@ -34,7 +34,7 @@ Open mosaic. Here's the window with a finished figure in it:
    current page, front to back, with buttons to hide or lock each one. Drag a row up or down to
    put that object in front of or behind the others.
 5. **Drawing tools:** Select, Text, panel Label, Line, Arrow, shapes, the **Shapes** menu of
-   PowerPoint's shapes, **Fill area** (fills a space lines enclose) and Picture.
+   ready-made shapes, **Fill area** (fills a space lines enclose) and Picture.
 6. **The page**, with rulers along the top and left.
 7. **Properties** of whatever is selected, in tabs (Arrange, Style, Text, Picture). With nothing
    selected, it shows the page. Click a section's heading to fold it away.
@@ -189,7 +189,7 @@ fine for slides. It only advises; your choices stay as they are.
 
 - The **PDF** contains the placed PDFs unchanged, so everything stays sharp at any zoom, and the
   fonts R left out are embedded. This is usually the file a journal wants.
-- The **SVG** contains the placed SVGs unchanged, so it can be edited in Illustrator or Inkscape.
+- The **SVG** contains the placed SVGs unchanged, so it can be edited in a vector drawing program.
 - **PNG** and **TIFF** are drawn once, straight from the vectors, at the resolution you choose.
 - **More options** has JPEG, EPS and CMYK, for journals that ask for them.
 

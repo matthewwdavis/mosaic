@@ -6,11 +6,8 @@ panel labels, text and arrows, and export a PDF, SVG, PNG or TIFF that a journal
 
 ![mosaic with a three-panel figure](docs/images/window.png)
 
-mosaic does the job people usually do in PowerPoint, without PowerPoint's damage:
-
 - **Nothing gets converted on the way.** A PDF you place goes into the exported PDF unchanged; an
-  SVG goes into the exported SVG unchanged. PowerPoint's PDF export turns every placed plot into a
-  300 dpi bitmap.
+  SVG goes into the exported SVG unchanged.
 - **Plots stay at true size**, so 6 pt text stays 6 pt, and the pre-export check warns you about
   anything smaller than a journal allows.
 - **Placed files stay linked.** Re-run your R code and the panel updates by itself. A copy is also
@@ -46,8 +43,9 @@ mosaic does the job people usually do in PowerPoint, without PowerPoint's damage
   page or the Pages list, or copy slides and shapes in PowerPoint and paste them. Pictures, text,
   lines and shapes come in where they were, as objects you can edit. Pictures are relinked to the
   PDFs and SVGs your R code saved, where they can be found, instead of PowerPoint's copies.
-- **Drawing tools like PowerPoint's, and more:** PowerPoint's shapes, arrows whose ends attach to
-  objects and follow them, gradient fills, outlines, and fills for areas that lines enclose.
+- **Drawing tools:** ready-made shapes (stars, block arrows, braces and more), arrows whose ends
+  attach to objects and follow them, gradient fills, outlines, and fills for areas that lines
+  enclose.
 - **Figure tools:** scale bars that stay right when a picture is resized (the scale typed,
   measured, or read from ImageJ and OME-TIFF files), zoom insets, significance brackets, crop to
   shape, clipping masks and Pathfinder.
@@ -58,7 +56,7 @@ mosaic does the job people usually do in PowerPoint, without PowerPoint's damage
 > **Status: early version, for collaborators' feedback.** mosaic was called FigAssemble until
 > November 2026; its `.figasm` documents open as they are. Figures are saved as `.mff` files
 > ("mosaic figure file") from November 2026; ones saved before, as `.mosaic`, open and save as
-> they are, the way Word keeps a `.doc` a `.doc` until you use Save As. Developed and tested on a Mac. On Windows and Linux the
+> they are until you use Save As. Developed and tested on a Mac. On Windows and Linux the
 > tests, the installers and the app's window are checked automatically on every change, but it
 > hasn't been used day to day there yet, so please [report anything odd](#feedback).
 

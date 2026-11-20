@@ -35,7 +35,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
 
 ![The mosaic window, numbered](images/window-tour.png)
 
-1. **Tabs** across the top, like PowerPoint's ribbon:
+1. **Tabs** across the top:
    - **Home**: New, Open, Save; Undo, Redo; **Text** (font, size, colour, alignment and more: see
      [Text and panel labels](#text-and-panel-labels)); Cut, Copy, Paste, Painter; Duplicate,
      Again, Delete; Add page, Size, Fit page; Swatches, Text styles, Object styles, Fonts.
@@ -103,7 +103,7 @@ With nothing selected (click the grey area or press Escape), the right panel sho
 
 - **Standard size**:
   - **Paper:** A4 or US Letter.
-  - **Slides:** 16:9 (PowerPoint's default, 33.87 × 19.05 cm), 4:3 (25.4 × 19.05 cm) or 16:10
+  - **Slides:** 16:9 (33.87 × 19.05 cm), 4:3 (25.4 × 19.05 cm) or 16:10
     (25.4 × 15.88 cm).
   - **Posters:** 48 × 36 in, or A0 (84.1 × 118.9 cm). Swap width and height turns either around.
 
@@ -248,7 +248,7 @@ warning that its text and curves are distorted. Its buttons:
   picture to move it inside its frame. Press Enter or Escape when done. **Reset crop** undoes it.
 - **100%** puts it back to true size, both ways, so a stretched picture gets its proportions back
   too. Its top-left corner stays where it is.
-- **Crop to shape**, as in PowerPoint: the picture shows only inside a shape fitted to its frame
+- **Crop to shape**: the picture shows only inside a shape fitted to its frame
   (a circle, a rounded rectangle, a star…), with the shape's adjustments (a rounded rectangle's
   corner radius, say). Crop moves the picture within the shape; **None** takes it away. The
   shape clips the picture in every export, which still uses the picture's own PDF or SVG.
@@ -474,13 +474,13 @@ height you drag at, with the label above. Drag upright instead for one with its 
 - **Text (T):** click to type, or drag to make a box the text wraps in. Press **Escape** when
   done. Double-click any text, or select it and press Enter, to edit it again. In the editor, ⌘B,
   ⌘I and ⌘U make the selected words bold, italic or underlined, and ⌘⇧= and ⌘= superscript or
-  subscript (as in PowerPoint); Shift+Return starts a new line. With text boxes selected rather
+  subscript; Shift+Return starts a new line. With text boxes selected rather
   than typed in, ⌘B, ⌘I and ⌘U change all their text.
 - **Typing in a shape:** double-click it (or select it and press Enter). What you type sits where
   it will be drawn: in the middle of the shape for a new shape's text, or at the top or bottom
   when its vertical position says so. Text taller than the shape spills out above and below.
   While you type, the Home tab shows with all its text tools, as in a text box (below).
-- **Text** in the Home tab, two rows like PowerPoint's: text style, font, size, **Bigger** and
+- **Text** in the Home tab, in two rows: text style, font, size, **Bigger** and
   **Smaller** (⌘⇧> and ⌘⇧<, through 5, 5.5, 6, 6.5… pt), line spacing; bold, italic,
   underline, superscript, subscript, colour (swatches, or any colour), left, centre or right, and
   top, middle or bottom of the box.
@@ -613,13 +613,13 @@ LaTeX's maths, not whole LaTeX documents).
 - **Tools beside the page:** Rectangle (R), Rounded rectangle (U), Ellipse (O), Triangle, Arc,
   Bracket. Drag to draw (Shift for squares and circles), or click for a 2 cm shape. With the
   keyboard: choose a tool and press Enter to place one in the middle of the view.
-- **Shapes menu (S):** PowerPoint's shapes in groups: rectangles, basic shapes, block arrows,
+- **Shapes menu (S):** ready-made shapes in groups: rectangles, basic shapes, block arrows,
   stars, brackets and braces, equation symbols. Arrow keys move through it, typing a name jumps
   to it, Enter chooses.
 
   <img src="images/shapes.png" alt="The Shapes menu" width="560">
 
-- **Yellow handles** adjust a shape the way PowerPoint's do (a rounded rectangle's corners, a
+- **Yellow handles** adjust a shape (a rounded rectangle's corners, a
   star's inner radius, a block arrow's head). The **Shape** section of the Style tab names each
   adjustment so you can type it, and can change one shape into another.
 - **Corner rounding** (0-100%) rounds every straight-edged shape's corners (triangles, polygons,
@@ -668,7 +668,7 @@ says why underneath (an arrowhead's size before there's an arrowhead, say).
 
 ## The pen and editing points
 
-The **Pen** (B, beside the line tools) draws freeform paths and shapes, as in Illustrator:
+The **Pen** (B, beside the line tools) draws freeform paths and shapes:
 
 - Click to place a corner; press and drag to pull out a smooth point's handles (the curve
   follows them).
@@ -678,7 +678,7 @@ The **Pen** (B, beside the line tools) draws freeform paths and shapes, as in Il
   becomes a freeform shape you can fill, outline and give arrowheads (when it's open).
 - Points snap like line ends do; hold ⌘ to place one without snapping.
 
-The **Freeform** tool (N, under the Pen) draws as PowerPoint's Freeform does:
+The **Freeform** tool (N, under the Pen) draws with clicks and freehand drags:
 
 - Click from point to point for straight lines between them.
 - Press and drag to draw freehand: as you let go, the stretch you drew becomes a few smooth
@@ -707,8 +707,8 @@ rounding and adjustments built in, so its points can be moved.
 
 ## Area fills
 
-Fill the space that separate lines and shapes enclose, the way Illustrator's Live Paint does:
-the parts of a Venn diagram, a region between curves, a wedge outlined by lines.
+Fill the space that separate lines and shapes enclose: the parts of a Venn diagram, a region
+between curves, a wedge outlined by lines.
 
 ![A Venn diagram whose three areas are filled](images/areafill.png)
 
@@ -737,8 +737,7 @@ can choose its colour, or a gradient, in the Style tab.
 
 ## Combining shapes
 
-The **Combine** tab's **Pathfinder** buttons, as in Illustrator, make one freeform shape from the
-selected shapes:
+The **Combine** tab's **Pathfinder** buttons make one freeform shape from the selected shapes:
 
 - **Unite** joins them; **Intersect** keeps only where they all overlap; **Exclude** keeps where
   they don't overlap (where an odd number of them are).
@@ -759,10 +758,9 @@ keep their length. Like the styles themselves, it scales with the line's width. 
 as a custom dash.
 
 mosaic puts a dash (or a dot) **on every corner**, bend and line end, rounded corners
-included, and spaces the dashes evenly between them. PowerPoint runs the pattern on regardless,
-so dots crowd at corners and closed outlines get a squeezed spot. Untick **Even dashes** for
-PowerPoint's spacing, e.g. to match an existing figure. Dashed lines from PowerPoint decks get
-even dashes too.
+included, and spaces the dashes evenly between them. Untick **Even dashes** for PowerPoint's
+spacing, which runs the pattern on regardless of corners, e.g. to match an existing figure.
+Dashed lines from PowerPoint decks get even dashes too.
 
 ## Connecting lines to objects
 
@@ -794,8 +792,7 @@ the object when it moves, resizes or rotates.
 ![An attached arrow, with its Connections](images/annotated.png)
 
 **Elbow connectors:** set a line's **Route** to **Elbow** (its Arrange tab's Connections section,
-or right-click → **Elbow connector**) and it runs in level and upright stretches, as in
-PowerPoint and Visio:
+or right-click → **Elbow connector**) and it runs in level and upright stretches:
 
 - An end attached to an object leaves or reaches it square to that side: from a right side to a
   left side it goes across, up or down, and across again; from a side to a top or bottom, it
@@ -837,9 +834,9 @@ PowerPoint and Visio:
   and again to follow the zoom (also View ▸ Arrow Keys Follow the Zoom). Option-drag (Alt-drag)
   makes a copy.
 - **Duplicate (⌘D)** puts the copy 10 pt down and right. Move the copy where you want it, then
-  Duplicate again: the next copy goes at that same offset, as in PowerPoint. Keep pressing ⌘D
+  Duplicate again: the next copy goes at that same offset. Keep pressing ⌘D
   for a row of evenly spaced copies.
-- **Transform again (⌘⇧D)**, as in Illustrator, repeats your last move, resize or turn on whatever
+- **Transform again (⌘⇧D)** repeats your last move, resize or turn on whatever
   is selected: a drag, arrow-key nudges, or numbers typed at the top of the properties panel. If the last move was
   an Option-drag (Alt-drag) copy, it makes another copy the same distance on.
 - **Resize:** drag a handle. Corners keep a picture's proportions (Shift does the opposite).
@@ -871,7 +868,7 @@ PowerPoint and Visio:
   - Text boxes keep reading the right way: flipped with other objects they move to their mirrored
     place (a slanted one takes the mirrored slant) but their text isn't mirrored, so a level text
     box flipped on its own stays as it is. Text in a shape (an arrow with words in it) is never
-    mirrored either; a vertical flip turns it upside down, as in PowerPoint.
+    mirrored either; a vertical flip turns it upside down.
   - A significance bracket stays level or upright: a quarter turn moves its label to the next
     side round and a flip across its bar moves it to the other side, with its ticks as long.
   - Lines that turn or flip with an object stay attached to it; a line that turns or flips
@@ -888,12 +885,12 @@ PowerPoint and Visio:
   ![Plot a selected, Option held over plot b: the gap between them](images/distances.png)
 - **Group (⌘G), Ungroup (⌘⇧G)**; **Order**: bring to front (⌘⇧]), forward (⌘]), backward
   (⌘[), to back (⌘⇧[), or drag the object's row in the [Objects list](#the-objects-list).
-- **Clipping mask (⌘7)**, as in Illustrator (Combine tab): put a shape on top of the objects it
+- **Clipping mask (⌘7)**, on the Combine tab: put a shape on top of the objects it
   should clip, select them all and click **Make mask**. Only what's inside the shape shows, and
   the shape itself isn't drawn. They stay together as a clipping mask: double-click it to move
   things within the shape, or to change the shape (pick it by its edge). **Release** separates
   them again, the shape as it was.
-- **Editing inside a group**, as in Illustrator: double-click a group (or select it and press
+- **Editing inside a group:** double-click a group (or select it and press
   Enter) to work on its parts without ungrouping it. The rest of the page fades and can't be
   picked, and a note over the page names the group. Click a part to select it on its own; move,
   resize, restyle, add or delete parts; anything you draw or paste goes into the group. Double-click
@@ -937,7 +934,7 @@ to open it, and its parts show under it, indented.
 
 ## Copying a style
 
-Give objects the same look in one go, as with PowerPoint's Format Painter:
+Give objects the same look in one go:
 
 - **Copy style (⌘⇧C)** takes the selected object's style; **Paste style (⌘⇧V)** puts it on
   everything selected. Both are in the right-click menu too.
@@ -995,8 +992,8 @@ treatment, so every panel uses exactly the same colours.
 
 ## Symbols
 
-A symbol is one object used many times and changed everywhere at once, as in Illustrator: a
-cell, a tree or an instrument drawn once and placed wherever it's needed.
+A symbol is one object used many times and changed everywhere at once: a cell, a tree or an
+instrument drawn once and placed wherever it's needed.
 
 - **Make symbol** (Figure tab, or right-click) turns the selected objects into a symbol and
   leaves one copy where they were. A symbol can hold shapes, lines, text, brackets and groups of
@@ -1278,7 +1275,7 @@ under one name. As with exporting, the window then closes and a note names the f
   a copy of each file, so it opens complete on another computer. **Save as** (⌘⇧S) saves a copy.
 - **Figures saved before November 2026 are `.mosaic` files** (and `.figasm`, from when mosaic was
   called FigAssemble). They open in every way a `.mff` does, and **Save** keeps them as they are,
-  under their own names, the way Word keeps a `.doc` a `.doc`. **Save as** offers the `.mff` name;
+  under their own names. **Save as** offers the `.mff` name;
   the old file stays beside it, unchanged.
 - **Rename** the file while it's open: on a Mac, **double-click its name** in the window's title
   bar, or use **File ▸ Rename…** (on Windows, find Rename in command search, Ctrl+/). Type the
@@ -1335,7 +1332,7 @@ under one name. As with exporting, the window then closes and a note names the f
   work that was never saved.
 - **AutoSave:** the **AutoSave** switch in the status bar (or **File ▸ AutoSave**) saves the
   figure into its file as you work, 10 seconds after you stop changing things and when you
-  switch away, as Word's AutoSave does. It's the figure's own switch, saved with it, so it's on
+  switch away. It's the figure's own switch, saved with it, so it's on
   again next time. A figure never saved is saved first. Closing it saves without asking.
   Turning it off saves once more.
 - **Earlier versions:** each time a figure is saved over, the file as it was is kept first (its
@@ -1414,7 +1411,7 @@ The gear button (⌘,):
 
 - **Theme:** how the interface looks. Click a picture to switch at once:
   - mosaic's own Light, Dark and High contrast;
-  - a dozen RStudio favourites: Textmate, Tomorrow, Solarized Light, Dawn, Xcode, Tomorrow Night,
+  - a dozen code-editor themes: Textmate, Tomorrow, Solarized Light, Dawn, Xcode, Tomorrow Night,
     Solarized Dark, Monokai, Dracula, Cobalt, Material and Twilight;
   - some originals: Pistachio, Walnut, Alfalfa, Lab notebook, Blueprint, Chalkboard and Terminal.
 
