@@ -1,7 +1,7 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "1c49c7e",
+ "commit": "f56bbe4",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "citation.py": "e5baf5a6ca054f9416c95433599034b6f63af225f962c5faa62a5c58a329916a",
