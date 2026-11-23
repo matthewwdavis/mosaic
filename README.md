@@ -23,39 +23,19 @@
       <img src="docs/images/download-light.svg" width="250" alt="Download mosaic">
     </picture>
   </a>
+  &nbsp;
+  <a href="#how-to-cite">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/cite-dark.svg">
+      <img src="docs/images/cite-light.svg" width="250" alt="How to cite mosaic">
+    </picture>
+  </a>
 </p>
 
 <p align="center">
   Free and open source · <a href="#install">How to install</a> ·
   <a href="docs/tutorial.md">Tutorial</a> · <a href="docs/guide.md">User guide</a>
 </p>
-
-## How to cite
-
-If mosaic helped make your figures, please cite the version you used:
-
-> Davis, M. (2026). *mosaic* (Version 0.2.0) [Computer software]. https://github.com/matthewwdavis/mosaic
-
-<details>
-<summary>BibTeX</summary>
-
-```bibtex
-@software{Davis_mosaic_2026,
-  author = {Davis, Matthew},
-  title = {mosaic},
-  version = {0.2.0},
-  year = {2026},
-  month = {11},
-  url = {https://github.com/matthewwdavis/mosaic}
-}
-```
-
-</details>
-
-In mosaic, **Help ▸ Cite mosaic** copies the reference for the version you have, with BibTeX and
-RIS for a reference manager; GitHub's **Cite this repository** button (top right of this page)
-gives the same. Releases will get a DOI from Zenodo, to cite instead of the GitHub link once
-there is one.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme-window-dark.png">
@@ -200,6 +180,33 @@ Screenshots help a lot.
 None listed yet. Published a paper or preprint with figures made in mosaic?
 **[Add it here](https://github.com/matthewwdavis/mosaic/issues/new?template=paper.yml)** and it
 will be listed in this section.
+
+## How to cite
+
+If mosaic helped make your figures, please cite the version you used:
+
+> Davis, M. (2026). *mosaic* (Version 0.2.0) [Computer software]. https://github.com/matthewwdavis/mosaic
+
+<details>
+<summary>BibTeX</summary>
+
+```bibtex
+@software{Davis_mosaic_2026,
+  author = {Davis, Matthew},
+  title = {mosaic},
+  version = {0.2.0},
+  year = {2026},
+  month = {11},
+  url = {https://github.com/matthewwdavis/mosaic}
+}
+```
+
+</details>
+
+In mosaic, **Help ▸ Cite mosaic** copies the reference for the version you have, with BibTeX and
+RIS for a reference manager; GitHub's **Cite this repository** button (top right of this page)
+gives the same. Releases will get a DOI from Zenodo, to cite instead of the GitHub link once
+there is one.
 
 ## License
 
