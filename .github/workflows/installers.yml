@@ -80,7 +80,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: ["", "Test User"]   # (the account's folder as it is; one with a space in its name)
+        include:
+          - profile: ""            # the account's folder as it is: Miniforge goes in it
+          - profile: "Test User"   # one with a space in its name: Miniforge goes in C:\miniforge3-<name>
+          - profile: ""
+            earlier: miniforge     # a Miniforge where installers until 23 Nov 2026 put it: used again, not a second one
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -91,6 +95,21 @@ jobs:
           $p = Join-Path $env:RUNNER_TEMP '${{ matrix.profile }}'
           New-Item -ItemType Directory -Force $p | Out-Null
           "USERPROFILE=$p" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: A Miniforge where installers until 23 Nov 2026 put it, named as they named it
+        if: matrix.earlier == 'miniforge'
+        shell: powershell
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          # (Windows PowerShell's -replace ignores case, so this drops "i" and "k", as those installers did)
+          $name = $env:USERNAME -replace '\P{IsBasicLatin}','' -replace '\W',''
+          if (-not $name) { $name = 'user' }
+          $dir = Join-Path $env:SystemDrive "miniforge3-$name"
+          $exe = Join-Path $env:TEMP 'Miniforge3-Windows-x86_64.exe'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe' -OutFile $exe
+          Start-Process -Wait -FilePath $exe -ArgumentList '/InstallationType=JustMe', '/RegisterPython=0', '/AddToPath=0', '/S', "/D=$dir"
+          if (-not (Test-Path (Join-Path $dir 'Scripts\conda.exe'))) { throw "Miniforge didn't install into $dir" }
+          Write-Output "An earlier installer's Miniforge: $dir"
+          "EARLIER_MINIFORGE=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Run the Windows installer
         shell: cmd
         run: install-windows.bat
@@ -107,6 +126,19 @@ jobs:
           & $py -c "import mosaic, os; ui = os.path.join(os.path.dirname(mosaic.__file__), 'ui', 'index.html'); assert os.path.exists(ui), ui; print(mosaic.__file__)"
           & $py -m mosaic export --help
           if ($LASTEXITCODE -ne 0) { throw "mosaic didn't start" }
+      - name: Miniforge went where it belongs, and only there
+        shell: pwsh
+        run: |
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\mosaic.lnk'
+          $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath   # <Miniforge>\envs\mosaic\pythonw.exe
+          $base = Split-Path (Split-Path (Split-Path $target))
+          $own = Join-Path $env:USERPROFILE 'miniforge3'
+          $want = if ($env:EARLIER_MINIFORGE) { $env:EARLIER_MINIFORGE }
+                  elseif ($env:USERPROFILE -cmatch '\s|\P{IsBasicLatin}') { Join-Path $env:SystemDrive ('miniforge3-' + ($env:USERNAME -creplace '\P{IsBasicLatin}','' -creplace '\W','')) }
+                  else { $own }
+          Write-Output "Miniforge: $base (expected $want)"
+          if ($base -ne $want) { throw "Miniforge is in $base, not $want" }
+          if ($env:EARLIER_MINIFORGE -and (Test-Path $own)) { throw "a second Miniforge went into $own" }
       - name: The installed app opens its window (WebView2) with the editor in it
         shell: pwsh
         timeout-minutes: 6
