@@ -170,7 +170,9 @@ empty page of the same size, background and guides in its place (a page with obj
 ⌘Z brings it back). Drag a page up or down the list to move it (the others slide apart to make
 room), and double-click a page's name to rename it. Names are kept as you type them: mosaic's
 name fields (pages, the document's Title, swatches, styles…) don't take the Mac's automatic
-capitals or corrections, so `fig_1_overview` stays lower case. Drop a PowerPoint deck in the list
+capitals or corrections, so `fig_1_overview` stays lower case. Text boxes don't either: typing in
+one gets none of the Mac's own writing help (the suggestions macOS 27 underlines under words,
+spelling corrected as you type, predicted words, its smart quotes). Drop a PowerPoint deck in the list
 to add its slides as pages there. One document can hold versions of a figure side by side.
 
 **Several pages at once:** ⌘-click (Ctrl-click on Windows) pages in the Pages list to add or
