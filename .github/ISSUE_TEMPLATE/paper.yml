@@ -1,0 +1,35 @@
+name: Add a paper that used mosaic
+description: A published paper or preprint with figures made in mosaic, for the README's list
+title: "Paper: "
+labels: ["paper"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for telling us! Papers and preprints whose figures were made with mosaic are listed in the README under "Papers using mosaic".
+  - type: textarea
+    id: reference
+    attributes:
+      label: The paper
+      description: The full reference, as you would write it in a reference list (authors, year, title, journal or preprint server).
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: DOI or link
+      placeholder: https://doi.org/10.1101/...
+    validations:
+      required: true
+  - type: textarea
+    id: figures
+    attributes:
+      label: Which figures? (optional)
+      description: For example "Figures 1-4 and the supplementary figures".
+  - type: checkboxes
+    id: ok
+    attributes:
+      label: Listing it
+      options:
+        - label: The paper is published or posted publicly, and it's fine to list it in the README.
+          required: true

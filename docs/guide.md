@@ -105,7 +105,11 @@ object, so you can see the object's own edges while you move and resize it.
 - **View:** zoom, Fit Page and Centre Page; Rulers, Grid, Guides and Snap, ticked when on; the
   colour-vision preview, and Side by Side…; full screen.
 - **Window** and **Help:** Minimize and Zoom; keyboard shortcuts and help, Search Commands…, the
-  user guide, and Report a Problem… or Suggest an Idea…. Help's search box finds any menu command.
+  user guide, Open the Sample Figure, Cite mosaic…, and Report a Problem… or Suggest an Idea….
+  Help's search box finds any menu command.
+  - **Cite mosaic…** copies the reference to cite mosaic in a paper (APA, with the version you
+    have), shows it, and offers BibTeX and RIS to copy for a reference manager (in Zotero: File ▸
+    Import from Clipboard). On Windows and Linux it's in the Help window (**?**).
 
 Each menu command shows its shortcut. While a dialog is open, the menus wait, as the keys do.
 

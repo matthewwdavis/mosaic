@@ -271,6 +271,25 @@ class MacClipboard:
         data = bytes(data)
         return data.decode("utf-8", "replace") if kind == "html" else data
 
+    def put_text(self, text: str, html: str | None = None) -> None:
+        pb, AppKit = self._pb(), self.AppKit
+        pb.clearContents()
+        if html:
+            pb.setString_forType_(html, AppKit.NSPasteboardTypeHTML)
+        pb.setString_forType_(text, AppKit.NSPasteboardTypeString)
+
+
+def put_text(cb, text: str, html: str | None = None) -> bool:
+    """Text (and the same as HTML, for a word processor to keep its italics) onto the clipboard from
+    mosaic itself; False where only the page can (Windows and Linux: navigator.clipboard)."""
+    if isinstance(cb, FakeClipboard):
+        cb.put({"text": text, **({"html": html} if html else {})})
+        return True
+    if isinstance(cb, MacClipboard):
+        cb.put_text(text, html)
+        return True
+    return False
+
 
 def paragraphs_from_rtf(data: bytes) -> list[list[dict]] | None:
     """RTF (as Word, TextEdit, Pages and Excel copy text on a Mac) -> paragraphs, through AppKit."""

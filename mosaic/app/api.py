@@ -1033,6 +1033,16 @@ class Api:
             return cb.put({"text": text})
         return cb.count() if cb else None
 
+    def copy_text(self, text: str, html: str | None = None) -> bool:
+        """Text put on the clipboard by mosaic itself (Help > Cite mosaic: a menu bar command isn't
+        a click in the page, which the page needs to do it). False: the page does it instead."""
+        return clipboard.put_text(clipboard.backend(), text, html)
+
+    # How to cite mosaic (Help > Cite mosaic): its CITATION.cff as APA, BibTeX and RIS
+    def citation(self) -> dict:
+        from .._labapp import citation
+        return citation.load(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "CITATION.cff"))
+
     def clipboard_kinds(self, own_count: int | None = None) -> dict:
         return clipboard.kinds(clipboard.backend(), own_count)
 

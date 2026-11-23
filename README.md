@@ -225,6 +225,35 @@ Each form asks for the details that help, such as what you did, what you expecte
 Screenshots help a lot: paste or drag them into the form. The version number is at the bottom of
 **Settings**. You can see existing reports under [Issues](https://github.com/matthewwdavis/mosaic/issues).
 
+## How to cite
+
+If mosaic helped make your figures, please cite it. In mosaic, **Help ▸ Cite mosaic** copies the
+reference for the version you have (on Windows and Linux: press **?**, then **Cite mosaic…**), and
+offers BibTeX and RIS for a reference manager. GitHub's **Cite this repository** button (on the
+right of this page) gives the same, from [CITATION.cff](CITATION.cff).
+
+> Davis, M. (2026). *mosaic* (Version 0.2.0) [Computer software]. https://github.com/matthewwdavis/mosaic
+
+```bibtex
+@software{Davis_mosaic_2026,
+  author = {Davis, Matthew},
+  title = {mosaic},
+  version = {0.2.0},
+  year = {2026},
+  month = {11},
+  url = {https://github.com/matthewwdavis/mosaic}
+}
+```
+
+Please cite the version you used. Releases will get a DOI from Zenodo, to cite instead of the
+GitHub link once there is one.
+
+## Papers using mosaic
+
+None listed yet. Published a paper or preprint with figures made in mosaic?
+**[Add it here](https://github.com/matthewwdavis/mosaic/issues/new?template=paper.yml)**, and it
+will be listed in this section.
+
 ## License
 
 mosaic's code is under the [MIT License](LICENSE). Its documentation and pictures (this

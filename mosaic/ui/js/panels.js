@@ -1843,6 +1843,7 @@ export const panels = {
       h("tr", {}, h("td", {}, c.label), h("td", {}, h("kbd", {}, c.keys))));
     const report = h("button", { type: "button", class: "btn" }, "Report a Problem…");
     const sample = h("button", { type: "button", class: "btn" }, "Open the Sample Figure");
+    const cite = h("button", { type: "button", class: "btn" }, "Cite mosaic…");
     const dlg = this.dialog("Keyboard shortcuts", h("div", {},
       h("table", { class: "shortcuts" }, h("thead", {}, h("tr", {}, h("th", {}, "Action"), h("th", {}, "Keys"))), h("tbody", {}, ...rows)),
       h("h3", {}, "On the canvas"),
@@ -1869,8 +1870,9 @@ export const panels = {
           + "or onto a page in the Pages list (Escape puts it back). With the list focused, Option/Alt + ↑ or ↓ moves the "
           + "selection forward or backward, Option/Alt + → into the group above it, Option/Alt + ← out of its group; "
           + "→ and ← open and close groups"),
-        h("li", {}, "Drag a side panel's inner edge to make it wider or narrower; double-click the edge to put it back"))), [sample, report]);
+        h("li", {}, "Drag a side panel's inner edge to make it wider or narrower; double-click the edge to put it back"))), [sample, cite, report]);
     sample.addEventListener("click", () => { dlg.close(); this.app.run("openSample"); });
+    cite.addEventListener("click", () => { dlg.close(); this.app.run("cite"); });
     report.addEventListener("click", () => { dlg.close(); this.app.run("reportProblem"); });
   },
 

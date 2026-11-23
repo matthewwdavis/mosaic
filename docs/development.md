@@ -249,7 +249,10 @@ python tools/release.py list                   # the releases, and how often eac
 to rewrite in plain words, then sets the version in `mosaic/__init__.py` (the one place it's
 written; `pyproject.toml` reads it from there), commits and tags it, builds and signs the ZIP,
 pushes, and makes the GitHub release. A test version is a GitHub pre-release; `promote` makes it
-a full one.
+a full one. The same commit sets the version and date in `CITATION.cff` and its copy in
+`mosaic/data/CITATION.cff` (what Help ▸ Cite mosaic reads; `tests/test_citation.py` checks the
+two match the version). Once Zenodo is switched on for the repository, each release also gets a
+DOI: see [zenodo.md](zenodo.md).
 
 ### The key on another computer, and if it's lost or leaks
 

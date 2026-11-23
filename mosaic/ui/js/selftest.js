@@ -636,6 +636,33 @@ async function problemReportChecks(app) {
     await until(() => top()?.querySelector("textarea"));
     check(report && top()?.querySelector("h2")?.textContent === "Report a problem", "the Help dialog leads to Report a Problem");
     for (const d of document.querySelectorAll("dialog[open]")) d.close();
+    // Help > Cite mosaic: the reference copied straight away (to the test clipboard here), shown
+    // with the title in italics, and BibTeX and RIS to copy too
+    const pasted = async () => {
+      const got = await rpc("clipboard_paste", "auto");
+      return (got.paragraphs || []).map((p) => p.map((r) => r.t).join("")).join("\n");
+    };
+    await rpc("clipboard_fake", { text: "something else" });
+    app.run("cite");
+    await until(() => top()?.querySelector(".cite-ref"));
+    const cite = top(), version = app.info.version;
+    const refText = cite?.querySelector(".cite-ref")?.textContent || "";
+    const copiedRef = await pasted();
+    check(cite?.querySelector("h2")?.textContent === "Cite mosaic" && refText.startsWith(`Davis, M. (`)
+      && refText.includes(`mosaic (Version ${version}) [Computer software]`) && cite.querySelector(".cite-ref i")?.textContent === "mosaic"
+      && copiedRef === refText, "Help ▸ Cite mosaic copies the reference (APA, this version) and shows it, the title in italics",
+    `${refText} | copied: ${copiedRef}`);
+    const button = (label) => [...cite.querySelectorAll("button")].find((b) => b.textContent === label);
+    button("Copy BibTeX")?.click();
+    await until(() => /BibTeX copied/.test(cite.querySelector("[role=status]")?.textContent || ""));
+    const bib = await pasted();
+    button("Copy RIS")?.click();
+    await until(() => /RIS copied/.test(cite.querySelector("[role=status]")?.textContent || ""));
+    const ris = await pasted();
+    check(bib.startsWith("@software{Davis_mosaic_") && bib.includes(`version = {${version}}`) && ris.startsWith("TY  - COMP")
+      && ris.includes(`ET  - ${version}`) && cite.querySelectorAll("details pre").length === 2,
+    "it offers BibTeX and RIS, each copied by its button and shown in the dialog", `${bib.slice(0, 80)} | ${ris.slice(0, 60)}`);
+    cite.close();
     // Help > Open the Sample Figure: four plots as panels a-d with their labels, unsaved and not dirty
     store.setDoc(await rpc("new_document"));
     await app.openSample();
