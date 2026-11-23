@@ -26,17 +26,29 @@ if not exist environment.yml (
 
 rem Where conda goes if it has to be installed: your user folder, unless that folder's name has a
 rem space or a letter outside plain English in it (Miniforge refuses those): then a folder of its
-rem own on the system drive, named after the account in plain letters.
+rem own on the system drive, named after the account in plain letters. (-cmatch and -creplace, which
+rem heed case: PowerShell's -match and -replace ignore it, and then \P{IsBasicLatin} takes in "i"
+rem and "k" too.)
 set "MF_DIR=%USERPROFILE%\miniforge3"
-powershell -NoProfile -Command "if ($env:USERPROFILE -match '\s|\P{IsBasicLatin}') { exit 1 }"
+powershell -NoProfile -Command "if ($env:USERPROFILE -cmatch '\s|\P{IsBasicLatin}') { exit 1 }"
 if errorlevel 1 (
   set "MF_USER="
-  powershell -NoProfile -Command "$env:USERNAME -replace '\P{IsBasicLatin}','' -replace '\W',''" > "%TEMP%\mosaic-user.txt"
+  powershell -NoProfile -Command "$env:USERNAME -creplace '\P{IsBasicLatin}','' -creplace '\W',''" > "%TEMP%\mosaic-user.txt"
   if exist "%TEMP%\mosaic-user.txt" set /p MF_USER=<"%TEMP%\mosaic-user.txt"
   del "%TEMP%\mosaic-user.txt" >nul 2>nul
   if not defined MF_USER set "MF_USER=user"
   set "MF_DIR=%SystemDrive%\miniforge3-!MF_USER!"
 )
+rem Where installers until 23 Nov 2026 put Miniforge, with -match and -replace: on the system drive
+rem for almost every account (any with an "i" or a "k" in its folder's name), named without those
+rem letters (C:\miniforge3-runneradmn for runneradmin). Not installed into again, but :find_conda
+rem looks there, so an installation from then is used rather than a second Miniforge.
+set "OLD_MF_USER="
+powershell -NoProfile -Command "$env:USERNAME -replace '\P{IsBasicLatin}','' -replace '\W',''" > "%TEMP%\mosaic-user.txt"
+if exist "%TEMP%\mosaic-user.txt" set /p OLD_MF_USER=<"%TEMP%\mosaic-user.txt"
+del "%TEMP%\mosaic-user.txt" >nul 2>nul
+if not defined OLD_MF_USER set "OLD_MF_USER=user"
+set "OLD_MF_DIR=%SystemDrive%\miniforge3-!OLD_MF_USER!"
 
 rem 0. An update from mosaic itself: it closes first
 if defined MOSAIC_WAIT_PID (
@@ -191,7 +203,7 @@ goto :eof
 rem Conda: the one on the PATH or in a usual place, or the base installation the environment is in
 :find_conda
 set "CONDA="
-for %%D in ("%MF_DIR%" "%USERPROFILE%\miniforge3" "%USERPROFILE%\mambaforge" "%USERPROFILE%\miniconda3" "%USERPROFILE%\anaconda3" "%LOCALAPPDATA%\miniforge3" "%PROGRAMDATA%\miniforge3" "%PROGRAMDATA%\miniconda3" "%PROGRAMDATA%\anaconda3") do (
+for %%D in ("%MF_DIR%" "%OLD_MF_DIR%" "%USERPROFILE%\miniforge3" "%USERPROFILE%\mambaforge" "%USERPROFILE%\miniconda3" "%USERPROFILE%\anaconda3" "%LOCALAPPDATA%\miniforge3" "%PROGRAMDATA%\miniforge3" "%PROGRAMDATA%\miniconda3" "%PROGRAMDATA%\anaconda3") do (
   if not defined CONDA if exist "%%~D\Scripts\conda.exe" set "CONDA=%%~D\Scripts\conda.exe"
 )
 if not defined CONDA (

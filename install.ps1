@@ -7,6 +7,9 @@
 # the temporary folder. A file downloaded this way isn't marked as coming from the internet, so
 # Windows doesn't show its "protected your PC" warning.
 #
+# For testing: MOSAIC_ZIP_URL (where to download the release from, instead of GitHub's newest);
+# the installer's own settings (MOSAIC_ENV, MOSAIC_NO_OPEN...) pass through to it.
+#
 # Everything runs inside one script block, so an error stops this script without closing the
 # PowerShell window it was pasted into.
 & {
@@ -14,7 +17,7 @@
     $ProgressPreference = 'SilentlyContinue'   # Invoke-WebRequest is many times slower while drawing its progress bar
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-    $url = 'https://github.com/matthewwdavis/mosaic/releases/latest/download/mosaic.zip'
+    $url = if ($env:MOSAIC_ZIP_URL) { $env:MOSAIC_ZIP_URL } else { 'https://github.com/matthewwdavis/mosaic/releases/latest/download/mosaic.zip' }
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ('mosaic-install-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tmp | Out-Null
     try {

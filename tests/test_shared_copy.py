@@ -59,4 +59,5 @@ def test_the_installers_are_as_labapp_writes_them():
     spec.loader.exec_module(mod)
     for name, text in mod.installers(root).items():
         with open(os.path.join(root, name), encoding="utf-8", newline="") as fh:
-            assert fh.read() == text, f"{name} was edited in place: change labapp's installers/{name}.in and run its tools/make_installers.py"
+            # (line endings aside: .gitattributes checks install-windows.bat out with Windows' own)
+            assert fh.read().replace("\r\n", "\n") == text.replace("\r\n", "\n"), f"{name} was edited in place: change labapp's installers/{name}.in and run its tools/make_installers.py"

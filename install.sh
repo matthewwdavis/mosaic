@@ -8,12 +8,15 @@
 # step-by-step install uses, then deletes the temporary folder. A file downloaded this way isn't
 # marked as coming from the internet, so macOS doesn't show its "could not verify" warning.
 #
+# For testing: MOSAIC_ZIP_URL (where to download the release from, instead of GitHub's newest);
+# the installer's own settings (MOSAIC_ENV, MOSAIC_NO_OPEN...) pass through to it.
+#
 # The whole script is one function, run at the end, so that bash has read all of it before the
 # installer starts: when it arrives through a pipe, the installer could otherwise read the rest
 # of this script as its own keyboard input.
 main() {
   set -eo pipefail
-  local url="https://github.com/matthewwdavis/mosaic/releases/latest/download/mosaic.zip"
+  local url="${MOSAIC_ZIP_URL:-https://github.com/matthewwdavis/mosaic/releases/latest/download/mosaic.zip}"
   local installer
   case "$(uname -s)" in
     Darwin) installer=install-mac.command ;;
@@ -22,7 +25,7 @@ main() {
        exit 1 ;;
   esac
 
-  local tmp
+  # (not local: the trap runs as the script exits, after main has returned, and needs it then)
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/mosaic-install.XXXXXX")"
   trap 'rm -rf "$tmp"' EXIT
 
