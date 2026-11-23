@@ -1,7 +1,7 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "2f1b12d",
+ "commit": "d94726a",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "citation.py": "e5baf5a6ca054f9416c95433599034b6f63af225f962c5faa62a5c58a329916a",
@@ -35,7 +35,7 @@
   "builtin_journals/genome_research.json": "cc2bccba86eb647078d91a0388bc04564721521c4d550420b643ce3de9023d5b",
   "builtin_journals/heredity.json": "400defc790f454d6e54b46e810e1a8e9c9e1c42e075f9841bca5148adf8d2355",
   "builtin_journals/horticulture_research.json": "f35552e5e7bd94f902021b656eaea888fa9cdc2c4191671b3b56aef51b2c6ec3",
-  "builtin_journals/index.json": "2a58b55af6e48a4282ec5fcfe524a9172db8291ca7c92c6f1f9caeca98a905bc",
+  "builtin_journals/index.json": "0558bf0c30878bc41946cf3dd1b4b190c4dfe04f65a5909b06710139d8ec696c",
   "builtin_journals/library_index.json": "145ab2c77d537c516fae1519a53343e31b303b98bd692a6ec7f765fca586b90d",
   "builtin_journals/mbe.json": "ec770a854fdb4b02efb403b2648162d4faa71aa48e125edff21b6cc3b75bbb1a",
   "builtin_journals/molecular_plant.json": "9d570a1b1774fbfe6104316aa6f2cf8b21facd7f0435e49124b780a0d636acbb",
