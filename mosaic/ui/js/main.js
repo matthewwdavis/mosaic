@@ -36,6 +36,7 @@ import { colourHolders, swatchById } from "./swatches.js";
 import { PARA_FORMAT, RUN_FORMAT, applyTextStyle, applyToParagraph, formatOf, restyle, labelItems, setFormat } from "./textstyles.js";
 import { KEYS as LOOK, applyObjectStyle, formatOf as lookOf, restyle as restyleObjects } from "./objectstyles.js";
 import { installDialogDrag } from "./dragdialog.js";
+import { GLASS_LEVELS, glass, glassLevel } from "./glass.js";
 import { canMove, containerAt, moveItems } from "./layers.js";
 import { cropToDrawnShape, drawnPair, ratioEntries, selectedPicture } from "./crop.js";
 import {
@@ -111,6 +112,7 @@ const app = {
         tick("Rulers", "toggleRulers"), tick("Grid", "toggleGrid"), tick("Guides", "toggleGuides"), tick("Snap", "toggleSnap"),
         tick("Arrow Keys Follow the Zoom", "toggleNudgeZoom"), tick("Dangerous Mode", "toggleDangerous"), "-",
         tick("Page Edge", "togglePageEdge"), tick("Dim Off the Page", "toggleDimOffPage"), tick("Preview", "togglePreview"), "-",
+        { title: "Glass", items: GLASS_LEVELS.map(([k, name]) => tick(name, `glass_${k}`)) },
         { title: "Colour-Vision Preview", items: [...VISION.map(([mode, title]) => tick(title, `vision:${mode}`)), "-",
           c("Side by Side…", "compareVision")] }, "-",
         { title: "Enter Full Screen", selector: "toggleFullScreen:", keys: "⌃⌘F" }] },
@@ -129,6 +131,7 @@ const app = {
       toggleSnap: !!this.prefs.snap, toggleNudgeZoom: !!this.prefs.nudge_zoom, toggleDangerous: !!this.dangerous,
       togglePageEdge: this.prefs.show_page_edge !== false, toggleDimOffPage: this.prefs.dim_off_page !== false,
       togglePreview: !!canvas.preview, toggleAutoSave: !!store.doc?.meta?.autosave,
+      ...Object.fromEntries(GLASS_LEVELS.map(([k]) => [`glass_${k}`, glassLevel(this.prefs.glass) === k])),
       ...Object.fromEntries(VISION.map(([mode]) => [`vision:${mode}`, vision === mode])) };
   },
   syncMenus() {
@@ -2771,6 +2774,9 @@ app.commands = {
     "Page edge drawn over objects", "Page edge no longer drawn over objects"), null, null, "Page edge"),
   toggleDimOffPage: cmd("Dim what's off the page, which the export leaves out", () => app.togglePref("dim_off_page",
     "What's off the page is dimmed", "What's off the page is no longer dimmed"), null, null, "Dim off page"),
+  ...Object.fromEntries(GLASS_LEVELS.map(([k, name]) => [`glass_${k}`, cmd(k === "off" ? "Glass off: the ribbon, panels and status bar solid"
+    : `${name} glass: what's behind the window shows through the ribbon, panels and status bar (the canvas stays solid)`,
+  () => app.savePrefs({ glass: k }), null, null, k === "off" ? "Glass off" : `${name} glass`)])),
   togglePreview: cmd("Preview: only what's on the page, as it exports, with no guides or grid", () => app.togglePreview(), "W",
     (e) => plain(e) && !e.shiftKey && e.key.toLowerCase() === "w", "Preview"),
   toggleNudgeZoom: cmd("Arrow keys follow the zoom: smaller moves zoomed in, bigger zoomed out", () => app.togglePref("nudge_zoom",
@@ -2986,6 +2992,7 @@ function placeAt(t) {
   return [store.page().width * 0.1, store.page().height * 0.1];
 }
 window.FA = {
+  glass,   // (the system's Reduce Transparency or Increase Contrast switched: api.py tells each window)
   // A page dragged over this window from another's Pages list (api.page_drag_over): where a copy
   // would go, or nothing (null); and letting go: the copy added (one undo step). This document's
   // name goes back, for the other window to say where the page went
@@ -3090,6 +3097,7 @@ function applyPrefs(p) {
   applyTheme(p);
   document.body.classList.toggle("no-tool-labels", p.show_tool_labels === false);
   document.body.classList.toggle("reduce-motion", !!p.reduced_motion);
+  glass.apply(app);   // (View > Glass: the window's glass and the title bar in the theme's colour, glass.js)
   canvas.defaults = p;
   if (canvas.stage) canvas.setRulers(p.show_rulers !== false);
   document.dispatchEvent(new CustomEvent("fa-prefs", { detail: p }));
@@ -3107,6 +3115,7 @@ function applyTheme(p) {
   rpc("theme_css", ...key).then((css) => {
     if (key.join("|") !== themeKey) return;
     document.getElementById("theme-vars").textContent = css;
+    glass.apply(app);   // (the title bar's tint in the new theme)
     document.dispatchEvent(new CustomEvent("fa-prefs", { detail: app.prefs }));   // the rulers redraw in it
     inspector.render();   // and the Style tab's pictures (pictures.js ink)
   }).catch(() => {});
@@ -3114,6 +3123,7 @@ function applyTheme(p) {
 // The system switching between light and dark: the rulers (drawn, not styled) and the Style tab's
 // pictures follow
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  glass.apply(app);
   document.dispatchEvent(new CustomEvent("fa-prefs", { detail: app.prefs }));
   inspector.render();
 });

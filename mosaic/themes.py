@@ -149,10 +149,59 @@ BY_ID = {t["id"]: t for t in THEMES}
 GROUPS = ["mosaic", "RStudio", "Crops", "Science"]
 
 
+# Liquid Glass (View > Glass; ui/css/glass.css): how much of a theme's own colour is painted over
+# the glass at each level (0-1), light and dark themes; a theme whose text needs more to stay
+# readable over anything behind the window gets more (glass_amounts). Dark themes' panels are a
+# shade darker on glass (GLASS_SHADE), as the Mac's dark glass is.
+GLASS_LEVELS = {False: {"subtle": 0.85, "standard": 0.62, "clear": 0.40, "pop": 0.88},
+                True: {"subtle": 0.88, "standard": 0.70, "clear": 0.56, "pop": 0.88}}
+GLASS_SHADE = 0.7
+GLASS_MUTED = 0.45   # (grey text on glass: this much of it, the rest the theme's text colour)
+
+
+def glass_inks(theme: dict) -> list:
+    """The text colours on glass: the text, and the grey text taken part of the way to it."""
+    from ._labapp import glass
+    c = theme["colors"]
+    return [c["text"], glass.mix(c["muted"], c["text"], GLASS_MUTED)]
+
+
+def glass_panels(theme: dict) -> list:
+    """The chrome's colours as they are on glass (a shade darker in a dark theme)."""
+    from ._labapp import glass
+    shade = GLASS_SHADE if theme["dark"] else 1.0
+    return [glass.mix(theme["colors"][k], "#000000", shade) for k in ("panel", "panel2", "hover")]
+
+
+def glass_amounts(theme: dict) -> dict:
+    """{level: amount (0-1)} for a theme: the level's own, or more where the theme's text needs it
+    to keep 4.5:1 over the worst the glass shows (_labapp/glass.py WORST); pop-ups ("pop") also
+    over a white or black page. High contrast stays solid."""
+    from ._labapp import glass
+    if theme["id"] == "contrast":
+        return {k: 1.0 for k in GLASS_LEVELS[True]}
+    dark, inks = theme["dark"], glass_inks(theme)
+    look = "dark" if dark else "light"
+    backs = [glass.WORST[(m, look)] for m in ("glass", "vibrancy")]
+
+    def least(panels, backdrops):
+        for i in range(101):
+            a = i / 100
+            if all(glass.contrast(ink, glass.mix(p, (b,) * 3, a)) >= 4.5 for ink in inks for p in panels for b in backdrops):
+                return a
+        return 1.0
+    chrome = least(glass_panels(theme), backs)
+    pop = least([theme["colors"]["panel"]], backs + [0, 255])
+    own = GLASS_LEVELS[dark]
+    return {k: max(v, pop if k == "pop" else chrome) for k, v in own.items()}
+
+
 def _block(theme: dict) -> str:
     c = theme["colors"]
     body = "; ".join(f"{VARS[k]}: {v}" for k, v in c.items())
-    return f"{body}; color-scheme: {'dark' if theme['dark'] else 'light'}"
+    amounts = "; ".join(f"--glass-{k}: {round(v * 100)}%" for k, v in glass_amounts(theme).items())
+    return (f"{body}; color-scheme: {'dark' if theme['dark'] else 'light'}; {amounts}; "
+            f"--glass-shade: {round((GLASS_SHADE if theme['dark'] else 1) * 100)}%; --glass-muted: {round(GLASS_MUTED * 100)}%")
 
 
 def css(theme: str = "system", day: str = "light", night: str = "dark") -> str:

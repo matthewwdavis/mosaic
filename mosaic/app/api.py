@@ -35,6 +35,8 @@ PREFS_DEFAULTS = {
     "units": "cm", "page_units": "mm", "ui_scale": 1.0, "show_tool_labels": True,
     # Interface theme (themes.py): one theme, or "system" for the day and night themes by the system's mode
     "theme": "system", "theme_day": "light", "theme_night": "dark",
+    # Liquid Glass (View > Glass): "off", "subtle", "standard" or "clear"
+    "glass": "standard",
     "reduced_motion": False, "snap": True, "default_dpi": 600, "default_formats": ["pdf", "png"],
     "transparent": True, "panel_label": {"size": 8.0, "bold": True, "font": "Helvetica", "case": "lower"},
     "text": {"font": "Helvetica", "size": 6.0}, "stroke_width": 1.0, "recent": [],
@@ -488,6 +490,42 @@ class Api:
         p = self.prefs_get()
         return themes.css(theme or p.get("theme", "system"), day or p.get("theme_day", "light"),
                           night or p.get("theme_night", "dark"))
+
+    # Liquid Glass (View > Glass: _labapp/glass.py, ui/js/glass.js)
+    def set_glass(self, level: str, titlebar: list | None = None) -> dict:
+        """The calling window's glass at a level (off, subtle, standard, clear), the Mac's title bar
+        tinted [r, g, b, a] to match the ribbon: what the window got (Off when the system reduces
+        transparency), for the page to paint itself to match."""
+        from .._labapp import glass
+        self._watch_glass()
+        w = self.window
+        try:
+            return glass.apply(w, level, titlebar) if w is not None else glass.state(level, kind="css")
+        except Exception as exc:   # noqa: BLE001 (the window stays solid; the page imitates the glass)
+            print(f"Glass unavailable: {exc}", file=sys.stderr, flush=True)
+            return {**glass.state(level), "material": "css"}
+
+    def glass_describe(self) -> dict:
+        """The calling window's glass as the Mac has it (the self-test's check), {} elsewhere."""
+        if sys.platform != "darwin" or self.window is None:
+            return {}
+        from .._labapp.mac import glass as macglass
+        return macglass.describe(self.window)
+
+    def _watch_glass(self) -> None:
+        """Reduce Transparency or Increase Contrast switched in System Settings: each window told."""
+        if getattr(self, "_glass_watched", False):
+            return
+        self._glass_watched = True
+        import threading
+
+        from .._labapp import glass
+
+        def changed(settings: dict) -> None:
+            script = f"window.FA && window.FA.glass && window.FA.glass.systemChanged({json.dumps(settings)})"
+            for w in list(self._windows.values()):   # (off the main thread: evaluate_js waits for it)
+                threading.Thread(target=lambda w=w: w.evaluate_js(script), daemon=True).start()
+        glass.watch(changed)
 
     def fonts(self) -> list[str]:
         return get_font_index().families()

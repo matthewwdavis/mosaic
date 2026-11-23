@@ -10,6 +10,7 @@ import { copiesOf } from "./symbols.js";
 import { describeLook, differs as looksDiffer, styledObjects } from "./objectstyles.js";
 import { describeFormat, differs, labelDiffers, paragraphs, labelItems } from "./textstyles.js";
 import { contextMenu } from "./contextmenu.js";
+import { GLASS_LEVELS, glassLevel } from "./glass.js";
 import { listDrag } from "./listdrag.js";
 import { updates } from "./updates.js";
 import { intoPlace, locate, moveItems, moveToPage, slotPlaces, treeRows } from "./layers.js";
@@ -239,6 +240,15 @@ export const panels = {
     b.title = `${c.label}${c.keys ? ` (${c.keys})` : ""}${hint}`;
     b.setAttribute("aria-pressed", this.app.prefs[pref] ? "true" : "false");
     return b;
+  },
+  // View > Glass: how much of what's behind the window shows through the ribbon, panels and status bar
+  glassField() {
+    const f = selectField("Glass", glassLevel(this.app.prefs.glass), GLASS_LEVELS.map(([k, name]) => [k, name]),
+      (v) => this.app.savePrefs({ glass: v }));
+    const sel = f.querySelector("select");
+    sel.title = "Liquid Glass: how much of what's behind the window shows through the ribbon, panels and status bar (the canvas stays solid)";
+    document.addEventListener("fa-prefs", (e) => { sel.value = glassLevel(e.detail?.glass); });
+    return f;
   },
   renderToggles() {
     for (const b of document.querySelectorAll("[data-pref]")) {
@@ -647,6 +657,7 @@ export const panels = {
           this.previewButton = this.toolButton("togglePreview", "preview")),
         group("Check colours", colourVisionField(), t("compareVision", "compare")),
         group("Plot text", this.dangerButton = this.toolButton("toggleDangerous", "danger")),
+        group("Window", this.glassField()),
       ]],
     ];
     this.dangerButton.setAttribute("aria-pressed", "false");

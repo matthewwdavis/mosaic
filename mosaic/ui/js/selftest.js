@@ -11,6 +11,7 @@ import { convertLength, niceLength, pageScale, parseLength } from "./scalebar.js
 import { apply, frameMatrix, isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog, toUnit } from "./util.js";
 import { restyle } from "./textstyles.js";
 import { sameCommand } from "./selectsame.js";
+import { glass, rgba } from "./glass.js";
 import { ringsOf, toLocal, toPageOf } from "./pen.js";
 import { cropMenu, cropToDrawnShape, cropToRatio, cropToSize, parseRatio, resetCrop } from "./crop.js";
 import { objectTab, selectionTab } from "./ribbonfollow.js";
@@ -1789,11 +1790,12 @@ async function pictureMenuChecks(app) {
   "a line the colour of the menu is pictured grey", faint.innerHTML.slice(0, 160));
   fieldByLabel("Dash").click();
   await until(() => items().length && items().every((b) => drawnIn(b)), 4000);
-  const probe = document.body.appendChild(document.createElement("span"));
+  const [on, off] = [document.activeElement, items().find((b) => b !== document.activeElement)];
+  // (the menu's own grey: on glass, menus take their grey text part of the way to the text colour)
+  const probe = (off?.closest(".popup-menu") || document.body).appendChild(document.createElement("span"));
   probe.style.color = "var(--muted)";
   const grey = getComputedStyle(probe).color, colour = (el) => el && getComputedStyle(el).color;
   probe.remove();
-  const [on, off] = [document.activeElement, items().find((b) => b !== document.activeElement)];
   check(colour(off?.querySelector(".pic-ink")) === grey && (!on?.matches(":focus") || colour(on.querySelector(".pic-ink")) === colour(on)),
     "in its menu too, the highlighted row's in that row's text colour",
     `${colour(off?.querySelector(".pic-ink"))} vs ${grey}; ${colour(on?.querySelector(".pic-ink"))} vs ${colour(on)}`);
@@ -3348,6 +3350,66 @@ async function pasteboardChecks(app) {
 // page's right-click menu. Preview (W) cuts the objects off at the page's edge and hides guides and
 // the grid, which then don't snap; a click off the page picks nothing; its note's Stop button
 // turns it off, and so does dragging a guide out of a ruler
+// View > Glass (glass.js, css/glass.css): the ribbon, tool bar, panels and status bar show the glass
+// (on a Mac the system's own behind the window, the title bar tinted to match), the canvas stays
+// solid, menus are frosted; the levels in order; Off, Reduce Transparency and the High contrast
+// theme solid; Increase Contrast nearly solid
+async function glassChecks(app) {
+  const alpha = (el) => { const c = el && rgba(getComputedStyle(el).backgroundColor); return c ? c[3] : 1; };
+  const root = document.documentElement, q = (sel) => document.querySelector(sel);
+  const keep = { glass: app.prefs.glass, theme: app.prefs.theme };
+  try {
+    await app.savePrefs({ glass: "standard", theme: "light" });
+    await until(() => root.dataset.glass === "standard" && alpha(q(".topbar")) < 0.8, 4000);
+    check(root.dataset.glass === "standard" && alpha(q(".topbar")) < 0.8 && alpha(q(".sidebar.left")) < 0.8 && alpha(q(".statusbar")) < 0.8
+      && alpha(q(".toolbox")) < 0.8, "Glass: the ribbon, tool bar, panels and status bar show the glass",
+      JSON.stringify([root.dataset.glass, alpha(q(".topbar")), alpha(q(".sidebar.left")), alpha(q(".statusbar"))]));
+    check(alpha(q(".stage")) === 1 && alpha(q(".stage-wrap")) === 1, "Glass: the canvas stays solid");
+    if (app.info.native && app.info.platform === "darwin") {
+      await until(() => getComputedStyle(root).getPropertyValue("--panel").trim() === (app.info.themes || []).find((t) => t.id === "light")?.colors.panel, 4000);
+      await glass.apply(app);   // (once the theme's colours are in)
+      const d = await rpc("glass_describe"), tint = glass.tint("standard", glass.material);
+      check(d.effect && d.behind && d.fills && !d.opaque && !d.drawsBackground && JSON.stringify(d.titlebarTint) === JSON.stringify(tint),
+        "Glass: the Mac's own glass is behind the window, the title bar tinted as the ribbon", JSON.stringify([d, tint]));
+    }
+    const levels = {};
+    for (const level of ["subtle", "standard", "clear"]) {
+      await app.savePrefs({ glass: level });
+      await until(() => root.dataset.glass === level, 4000);
+      levels[level] = alpha(q(".topbar"));
+    }
+    check(levels.subtle > levels.standard && levels.standard > levels.clear, "Glass: Subtle paints more of the theme's colour than Standard, Clear the least",
+      JSON.stringify(levels));
+    const menu = document.createElement("div");
+    menu.className = "popup-menu";
+    document.body.appendChild(menu);
+    const css = getComputedStyle(menu);
+    check(/blur/.test(css.webkitBackdropFilter || css.backdropFilter || "") && alpha(menu) < 1, "Glass: menus are frosted over what's under them");
+    menu.remove();
+    await app.savePrefs({ glass: "off" });
+    await until(() => root.dataset.glass === "off", 4000);
+    check(alpha(q(".topbar")) === 1 && alpha(document.body) === 1, "Glass: Off makes the window solid");
+    if (app.info.native && app.info.platform === "darwin") {
+      const d = await rpc("glass_describe");
+      check(!d.effect && d.opaque && d.drawsBackground, "Glass: Off takes the Mac's glass out", JSON.stringify(d));
+    }
+    check(app.menuSpec().find((m) => m.title === "View").items.find((i) => i.title === "Glass")?.items.map((i) => i.title).join() === "Off,Subtle,Standard,Clear",
+      "Glass: View > Glass offers Off, Subtle, Standard and Clear");
+    await app.savePrefs({ glass: "standard", theme: "contrast" });
+    await until(() => root.dataset.glass === "off", 4000);
+    check(root.dataset.glass === "off" && alpha(q(".topbar")) === 1, "Glass: the High contrast theme is solid");
+    await app.savePrefs({ theme: "light" });
+    await until(() => root.dataset.glass === "standard", 4000);
+    await glass.systemChanged({ reduceTransparency: true, increaseContrast: false });
+    check(root.dataset.glass === "off" && alpha(q(".topbar")) === 1, "Glass: the system's Reduce Transparency turns it off");
+    await glass.systemChanged({ reduceTransparency: false, increaseContrast: true });
+    check(root.dataset.glass === "standard" && alpha(q(".topbar")) > 0.9, "Glass: the system's Increase Contrast makes it nearly solid", String(alpha(q(".topbar"))));
+  } finally {
+    await glass.systemChanged({ reduceTransparency: false, increaseContrast: false });
+    await app.savePrefs({ glass: keep.glass || "standard", theme: keep.theme || "system" });
+  }
+}
+
 async function offPageChecks(app) {
   await app.savePrefs({ show_rulers: true, show_guides: true, show_grid: true, snap: true, show_page_edge: true, dim_off_page: true });
   store.setDoc(await rpc("new_document"));
@@ -5071,6 +5133,7 @@ export async function run(app, params) {
     if (params.get("only") === "pvalues") { await pValueChecks(app); throw ONLY; }
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
     if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
+    if (params.get("only") === "glass") { await glassChecks(app); throw ONLY; }
     if (params.get("only") === "rename") { await renameChecks(app, out); throw ONLY; }
     if (params.get("only") === "keeping") { await keepingChecks(app, out); throw ONLY; }
     if (params.get("only") === "pagedrag") { await pageDragChecks(app); throw ONLY; }
@@ -6356,6 +6419,7 @@ export async function run(app, params) {
     await pValueChecks(app);
     await pasteboardChecks(app);
     await offPageChecks(app);
+    await glassChecks(app);
     if (out) await renameChecks(app, out);
     if (out) await keepingChecks(app, out);
     await pageDragChecks(app);
