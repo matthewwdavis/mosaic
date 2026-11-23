@@ -1,0 +1,60 @@
+/* Liquid Glass (View > Glass; js/glass.js, _labapp/glass.py). The ribbon, the tool bar, the side
+   panels and the status bar show what's behind the window through the Mac's own glass; the canvas
+   (the page, the stage round it and the rulers) stays solid. Menus and dialogs are frosted over
+   whatever is under them. glass.js sets on <html>:
+     data-glass           off | subtle | standard | clear (Off too when the system reduces transparency,
+                          and in the High contrast theme)
+     data-glass-material  glass (macOS 26+) | vibrancy (older macOS) | css (Windows, Linux: imitated)
+     data-glass-contrast  "more" with the system's Increase Contrast
+   How much of the theme's colour is painted over the glass at each level comes with the theme
+   (themes.py glass_amounts: --glass-subtle, --glass-standard, --glass-clear, --glass-pop), enough
+   for its text to stay readable over anything behind the window (tests/test_glass.py). */
+
+:root { --glass-a: 100%; --glass-pop-a: 100%; }
+:root[data-glass="subtle"] { --glass-a: var(--glass-subtle, 85%); --glass-pop-a: var(--glass-pop, 88%); }
+:root[data-glass="standard"] { --glass-a: var(--glass-standard, 62%); --glass-pop-a: var(--glass-pop, 88%); }
+:root[data-glass="clear"] { --glass-a: var(--glass-clear, 40%); --glass-pop-a: var(--glass-pop, 88%); }
+/* (Increase Contrast: nearly solid) */
+:root[data-glass-contrast="more"]:not([data-glass="off"]) { --glass-a: 94%; --glass-pop-a: 96%; }
+@media (prefers-contrast: more) { :root[data-glass]:not([data-glass="off"]) { --glass-a: 94%; --glass-pop-a: 96%; } }
+
+/* The theme's own solid colours, taken at the root (a dark theme's a shade darker), for the
+   see-through ones below */
+:root[data-glass]:not([data-glass="off"]) {
+  --glass-panel: color-mix(in srgb, var(--panel) var(--glass-shade, 100%), #000);
+  --glass-panel-2: color-mix(in srgb, var(--panel-2) var(--glass-shade, 100%), #000);
+  --glass-hover: color-mix(in srgb, var(--hover) var(--glass-shade, 100%), #000);
+  --glass-solid-panel: var(--panel); --glass-text: var(--text); --glass-muted-src: var(--muted);
+}
+
+/* The window's own background: nothing (the glass behind it), or on Windows and Linux a soft wash
+   of the accent for the frosting to show */
+:root[data-glass]:not([data-glass="off"]):not([data-glass-material="css"]),
+:root[data-glass]:not([data-glass="off"]):not([data-glass-material="css"]) body { background: transparent; }
+:root[data-glass]:not([data-glass="off"])[data-glass-material="css"] body {
+  background: radial-gradient(ellipse at 12% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
+              radial-gradient(ellipse at 90% 100%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 60%), var(--bg); }
+
+/* Solid: the canvas round the page, and the rulers */
+:root[data-glass]:not([data-glass="off"]) .stage-wrap { background: var(--stage); }
+
+/* The chrome: the theme's colours made see-through, its grey text taken part of the way to the
+   text colour so it reads over the glass */
+:root[data-glass]:not([data-glass="off"]) :is(.topbar, .toolbox, .sidebar, .statusbar) {
+  --panel: color-mix(in srgb, var(--glass-panel) var(--glass-a), transparent);
+  --panel-2: color-mix(in srgb, var(--glass-panel-2) var(--glass-a), transparent);
+  --hover: color-mix(in srgb, var(--glass-hover) var(--glass-a), transparent);
+  --muted: color-mix(in srgb, var(--glass-muted-src) var(--glass-muted, 45%), var(--glass-text));
+}
+
+/* Windows and Linux: frosted, a sheen on top and a fine light edge, as glass catches the light */
+:root[data-glass]:not([data-glass="off"])[data-glass-material="css"] :is(.topbar, .toolbox, .sidebar, .statusbar) {
+  background-image: linear-gradient(rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 60%);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28); }
+
+/* Menus, the shapes menu and dialogs: frosted over what's under them, on every system */
+:root[data-glass]:not([data-glass="off"]) :is(.popup-menu, .shape-menu, .dialog) {
+  --panel: color-mix(in srgb, var(--glass-solid-panel) var(--glass-pop-a), transparent);
+  --muted: color-mix(in srgb, var(--glass-muted-src) var(--glass-muted, 45%), var(--glass-text));
+  -webkit-backdrop-filter: blur(24px) saturate(1.5); backdrop-filter: blur(24px) saturate(1.5); }

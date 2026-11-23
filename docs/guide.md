@@ -1420,6 +1420,17 @@ The gear button (⌘,):
   stays white, so a figure looks the way it will print. Every theme keeps text readable (WCAG AA
   contrast). In the dark themes the area around the page is a dark grey, so black objects off the
   page still show.
+- **Glass** (View > Glass, or the View tab's Window group): the ribbon, the tool bar, the side
+  panels, the status bar and the title bar are see-through, like frosted glass, so whatever is
+  behind the window shows through them, blurred, as in the Mac's own apps. The page and the canvas
+  around it stay solid, so a figure's colours look as they'll print. Menus and dialogs are frosted
+  over what's under them. **Standard** is the usual; **Subtle** shows less of what's behind,
+  **Clear** the most, and **Off** makes everything solid as before. Every theme keeps enough of its
+  own colour that its words stay easy to read over anything behind the window; the High contrast
+  theme stays solid. With Reduce Transparency on (System Settings > Accessibility > Display) mosaic
+  is solid whatever you choose, and with Increase Contrast nearly solid. On a Mac it's the system's
+  own glass (Liquid Glass on macOS 26 and later, the frosted look of Finder's sidebar before that);
+  on Windows and Linux mosaic imitates it, and Windows' Transparency effects switch turns it off.
 - **Measurements:** the unit for positions and sizes (cm by default; mm, points or inches) and for
   page sizes (mm). Font sizes and line widths are always in points.
 - **Interface:** text size, labels under toolbar buttons, showing the Home tab while text is

@@ -247,6 +247,12 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                 print(f"SMOKE menus: {menus['passed']} of {menus['total']} passed"
                       + (f"; failed: {json.dumps(menus['failed'])}" if menus["failed"] else ""), flush=True)
                 title_smoke(window)
+                # Liquid Glass: the system's glass behind the page at each level, Off solid again (_labapp/mac/glass.py)
+                from .._labapp.mac import glass as macglass
+                got = macglass.smoke(window, window.evaluate_js("window.FA.glass.state?.effective || 'standard'"))
+                print(f"SMOKE glass: {got['passed']} of {got['total']} passed"
+                      + (f"; failed: {json.dumps(got['failed'])}" if got["failed"] else ""), flush=True)
+                window.evaluate_js("window.FA.glass.apply()")   # (the page's own tint back on the title bar)
                 # Documents from the Finder and windows: New, Open, menus, closing, dropping a mosaic document
                 import tempfile
 

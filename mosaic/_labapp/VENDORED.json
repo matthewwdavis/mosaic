@@ -1,7 +1,7 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "0d7af34+changes",
+ "commit": "285d127",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "closing.py": "c43a3addf2eaa6b6dad4ee88883d4e5a897d0b7f456d154770c93e4047e58752",
@@ -10,6 +10,7 @@
   "diagnostics.py": "7c1267ac6e189bb63dc679289ce9a1360cdec2c59552329ecd8b0d504049b37a",
   "fakegh.py": "0b71c29568e2786838bca372a4bfda0a62c2b51c7967aa6070c3f3a4392d5688",
   "fakelibrary.py": "3211ae4e659b895b5e03609cb2abf2bb6e933b3aad963a2ae4a737491a76d278",
+  "glass.py": "2bb66a44fee7ac5e01143d1d06ead475d83f690f1c97d2e419c23a8904f1fabe",
   "guidelines.py": "e95e4702aa7dab7853910c0328c502676aa12942a42bd93eaf7004706e22ea1d",
   "journal.schema.json": "f8cc59116d08023050b6c35b3ebdcf6a1c6a1d5d19108c6f8b1659e8bcd7a7a8",
   "journalfile.py": "e48e80c061006de77149b8ed12f14a9dae93e09b8ae886f4badb9e9cc9de59dc",
@@ -49,6 +50,7 @@
   "mac/close.py": "cc61b2a7b9c5f169cfc11844b9f26cfc0b5e5e3eb9798b23750fb0ce592e3574",
   "mac/dockicon.py": "e5be61ff6e17dff040aab1dea5132814d273397d28205bcb37f881c15d8c0440",
   "mac/finder.py": "da67c5b80c830358bb664ce9c428bd53e31b2c4b3b0977760acd55fab793e51f",
+  "mac/glass.py": "264a43e57d5d10be0e17a87aeb9441453a63c4a4e3eb34e78720567ee31ed18e",
   "mac/menu.py": "cb2e26656f088934881fc28d2ed64a99f32b9eb1fcb8b8d1376b55cfac1a13df",
   "mac/title.py": "887c638af09b6f96196e7c93e7ecf5f81c637042ce00271caaba75cde78ed95f"
  }
