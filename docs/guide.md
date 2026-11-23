@@ -176,6 +176,33 @@ name. Your journals are kept on this computer, in one list that prose reads too 
 in either app is in both); a page sized by one keeps its size on any computer. A journal of your own has no label or text
 rules, so Check uses mosaic's general ones for its pages.
 
+**A journal mosaic doesn't list takes a minute to add.** In **Size ▸ My Journals ▸ Add a
+Journal**, click **Start from a Journal's Reference Style…** and type the journal's name or ISSN:
+mosaic knows about 10,900 journals from the reference-style list behind Zotero (no connection
+needed), and fills in its name, keeping its ISSN, publisher and guidelines link with it. Then
+**Read Figure Sizes from the Author Guidelines…** reads the journal's instructions for authors
+(the page is read only when you press **Read the Page**, or choose a copy you saved from your
+browser with **File ▸ Save As**) and shows each width and depth it found beside the sentence it
+came from. Untick anything wrong, **Use These**, and check the numbers before you save: the sizes
+are often on a separate "preparing figures" page, and some sites turn programs away, in which
+case save the page from your browser and choose it. Nothing is sent to any AI service.
+
+**Find a Journal…** (**Size ▸ Find a Journal…**). Type a journal's name, its ISSN or its usual
+abbreviation: mosaic looks through its own journals, yours, and the library of journals others
+have shared (the one prose uses). Each shows a badge: **Verified** (a maintainer checked it
+against the journal's own pages) or **Community** (shared and checked by machine, not yet by a
+maintainer). Choose one, then its figure size, and the page takes that size. One from the
+library is brought onto this computer the first time (checked to be exactly the file the library
+lists), listed under **From the library** in **Size ▸ Journal**, and works offline from then on;
+prose has it too. **Size ▸ My Journals… ▸ Share…** offers one of your own journals to the
+library: for the public library it goes for review (a "pull request" on GitHub, made for you
+with GitHub's tool `gh`), and mosaic shows the link.
+
+**Journal files.** Each journal is one file shared with prose: its figure sizes, panel-label look
+and figure rules, with their sources. A journal of your own is one too and can hold the same
+rules. To check a journal file, run `python -m mosaic._labapp.journalfile validate FILE` in
+mosaic's conda environment.
+
 <img src="images/sizemenu.png" alt="The Size menu, with Slide 16:9 ticked" width="405">
 
 <img src="images/journalmenu.png" alt="Size ▸ Journal, each publisher’s journals under its heading: AAAS (Science), BMC (Springer Nature), Cell Press and on" width="445">

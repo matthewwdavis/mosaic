@@ -176,6 +176,18 @@ python tools/doc_shots.py export   # just one scene
 The scenes are in `mosaic/ui/js/docshots.js`; each builds the tutorial figure up to one
 step. Re-run `doc_shots.py` after changing the interface.
 
+The README's window pictures (`docs/images/readme-window-light.png` and `-dark.png`) are taken
+in the real Mac window instead, so they show the window's title bar and glass:
+
+```sh
+python tools/readme_shots.py       # on a Mac with the screen unlocked; mosaic comes to the front briefly
+```
+
+It runs mosaic with a scratch `MOSAIC_HOME`, builds the `window` scene in each theme and captures
+only mosaic's own windows over a soft backdrop. The README's download button is
+`docs/images/download-light.svg` and `download-dark.svg`, and its icon `docs/images/icon.png` is
+cut from `packaging/macos/mosaic.icon/Assets/panels.png`.
+
 ## Installers
 
 `install-mac.command` and `install-windows.bat` install Miniforge if there's no conda, make or
