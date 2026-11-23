@@ -117,8 +117,11 @@ and plays a slide drag to the `SlideWatch` that follows PowerPoint's real ones, 
 drag pasteboard, mouse button and pointer: `SMOKE PowerPoint drags: 9 of 9 passed`. Then the
 menu bar: its menus, the app's name, the shortcuts, and items run as AppKit would run them:
 `SMOKE menus: 11 of 11 passed`. Then the file's name in the title bar (`mosaic/app/mactitle.py`):
-presses on the title handed to its event monitor, and a double-click posted to mosaic's own
-event queue: `SMOKE title bar: 7 of 7 passed` (also with `titlecheck=1` in a self-test's
+presses on the title handed to its event monitor, and double-clicks posted to mosaic's own
+event queue, with the hidden window put on screen unseen for them: one on the title (Rename, no
+zoom), and one beside it that must zoom the window and another that puts it back (or whatever
+System Settings ▸ Desktop & Dock says a double-click does): `SMOKE title bar: 8 of 8 passed`
+(also with `titlecheck=1` in a self-test's
 `MOSAIC_SMOKE_QUERY`, without the real key presses). Last, documents and windows (`mosaic/app/macopen.py`):
 documents sent as the Finder sends them, as real "open documents" Apple events to the app
 itself, opening in the blank window, then in windows of their own, or bringing one open already

@@ -3,11 +3,14 @@
 for a menu: Rename…, Show in Finder, Copy File Path, then the file and the folders it's in, as
 ⌘-click on a document's title gives in Mac apps (choosing a folder shows it in Finder, with the
 next one down selected). Everywhere else on the title bar, presses do what macOS does: a
-double-click zooms or minimises the window, as set in System Settings.
+double-click zooms, fills or minimises the window, as set in System Settings ▸ Desktop & Dock.
 
 A local event monitor sees each press before the window does and takes only those on the
 title's text. The title is the title bar's own text field (as wide as its text, centred), found
-by its text; full screen, which hides the title bar, has none.
+by its text; full screen, which hides the title bar, has none. A double-click elsewhere on the
+title bar is AppKit's own, except where the title bar lets it through to the window's content
+(a see-through title bar, as glass makes it, does unless AppKit is told otherwise: mac/glass.py):
+then the monitor does what System Settings says itself.
 """
 from __future__ import annotations
 
@@ -69,18 +72,72 @@ def on_title(nswindow, point) -> bool:
                               and r.origin.y - 2 <= point.y <= r.origin.y + r.size.height + 2)
 
 
+def double_click_action(prefs=None) -> str:
+    """What a double-click on a window's title bar does, as System Settings ▸ Desktop & Dock ▸
+    "Double-click a window's title bar to" has it: "zoom" (Zoom, Fill, or never set: the system's
+    own default), "minimize" or "none". prefs: where it's read (the user's defaults; tests)."""
+    if prefs is None:
+        import Foundation
+        prefs = Foundation.NSUserDefaults.standardUserDefaults()
+    action = prefs.stringForKey_("AppleActionOnDoubleClick")
+    if action is None:   # (never set: the older Minimize switch, else the default)
+        return "minimize" if prefs.boolForKey_("AppleMiniaturizeOnDoubleClick") else "zoom"
+    return {"Minimize": "minimize", "None": "none"}.get(str(action), "zoom")   # (Maximize, Fill)
+
+
+def in_titlebar(nswindow, point) -> bool:
+    """Whether a point (window coordinates) is on the title bar: above the window's content
+    layout area (none in full screen, where the title bar is hidden)."""
+    import AppKit
+    if not nswindow.styleMask() & AppKit.NSWindowStyleMaskTitled or nswindow.styleMask() & AppKit.NSWindowStyleMaskFullScreen:
+        return False
+    top, size = nswindow.contentLayoutRect(), nswindow.frame().size
+    return top.origin.y + top.size.height <= point.y <= size.height and 0 <= point.x <= size.width
+
+
+def titlebar_takes(nswindow, point) -> bool:
+    """Whether AppKit's own title bar takes a press at this point (window coordinates): the view
+    under it is the title bar's, not the window's content under a see-through title bar."""
+    frame = nswindow.contentView().superview()
+    view = frame.hitTest_(point) if frame is not None else None   # (the frame view's coordinates are the window's)
+    while view is not None:
+        if "Titlebar" in str(view.className()):
+            return True
+        view = view.superview()
+    return False
+
+
+def double_click(nswindow, action: str | None = None) -> None:
+    """Do what a double-click on the title bar does (when AppKit's own title bar doesn't take it)."""
+    action = action or double_click_action()
+    if action == "minimize":
+        nswindow.miniaturize_(None)
+    elif action == "zoom":
+        nswindow.zoom_(None)
+
+
 def on_press(event):
     """The event monitor: a double-click on the title renames the file, a right-click (or a
-    Control- or ⌘-click) gives the title's menu; any other press goes on as it was."""
+    Control- or ⌘-click) gives the title's menu; a double-click elsewhere on the title bar that
+    AppKit's title bar lets through does what System Settings says; any other press goes on as
+    it was."""
     try:
         import AppKit
         win = event.window()
         found = _instance(win) if win is not None else None
-        if found is None or not on_title(win, event.locationInWindow()):
+        if found is None:
             return event
-        uid, inst = found
         kind, flags = event.type(), event.modifierFlags()
         menu_keys = AppKit.NSEventModifierFlagControl | AppKit.NSEventModifierFlagCommand
+        where = event.locationInWindow()
+        if not on_title(win, where):
+            if (kind == AppKit.NSEventTypeLeftMouseDown and event.clickCount() == 2 and not flags & menu_keys
+                    and in_titlebar(win, where) and not titlebar_takes(win, where)):
+                from PyObjCTools import AppHelper
+                AppHelper.callAfter(double_click, win)
+                return None
+            return event
+        uid, inst = found
         if kind == AppKit.NSEventTypeRightMouseDown or (kind == AppKit.NSEventTypeLeftMouseDown and flags & menu_keys):
             at = win.convertPointToScreen_(event.locationInWindow())
             from PyObjCTools import AppHelper
@@ -192,8 +249,11 @@ def smoke(window, folder: str) -> dict:
     to the monitor (nothing reaches the screen, the clipboard or Finder): the title is found; a
     double-click on it opens the Rename dialog and is taken, as is its release; a single click
     there, and a double-click elsewhere on the title bar, go on to macOS; a right-click is taken
-    and gives the menu; the menu for a saved file lists it and its folders. `folder`: a scratch
-    folder for that file."""
+    and gives the menu; the menu for a saved file lists it and its folders. Then real double-clicks
+    through the app's event queue (the window on screen unseen for them): on the title, Rename and
+    no zoom; elsewhere on the title bar, what System Settings says (zoom, and back with another;
+    minimise; nothing), with the window as it is (glass on or off). `folder`: a scratch folder for
+    that file."""
     import time
 
     import AppKit
@@ -236,25 +296,95 @@ def smoke(window, folder: str) -> dict:
     check(took and took_up and opened, "a double-click on the title opens the Rename dialog, and isn't the title bar's")
     window.evaluate_js("document.querySelector('dialog[open]')?.close()")
     # Through the app's own event queue too, as a real double-click comes: the monitor is installed
-    # and sees it there (posted to this app alone; the pointer and other apps never see it)
-    frame = on_main(lambda: tuple(nswin.frame()))
+    # and sees it there, and AppKit's title bar gets what it lets by (posted to this app alone; the
+    # pointer and other apps never see it). A hidden window takes nothing from the queue, so it is
+    # put on screen for this unseen: fully see-through, behind every window, real presses passing
+    # through it to what's under it, and not brought forward or made active
+    first = on_main(lambda: tuple(nswin.frame()))
+    hidden = on_main(lambda: not nswin.isVisible())
+    if hidden:
+        was = on_main(lambda: (nswin.alphaValue(), nswin.ignoresMouseEvents()))
 
-    def post():
-        for kind in (down, up):
-            AppKit.NSApp.postEvent_atStart_(
-                AppKit.NSEvent.mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure_(
-                    kind, mid, 0, AppKit.NSProcessInfo.processInfo().systemUptime(), nswin.windowNumber(), None, 0, 2,
-                    1.0 if kind == down else 0.0), False)
-    on_main(post)
-    opened = False
-    for _ in range(50):
-        if dialog_open():
-            opened = True
-            break
-        time.sleep(0.1)
-    check(opened and on_main(lambda: tuple(nswin.frame())) == frame,
-          "a double-click from the event queue opens Rename too, and the window isn't zoomed")
-    window.evaluate_js("document.querySelector('dialog[open]')?.close()")
+        def unseen():
+            nswin.setAlphaValue_(0.0)
+            nswin.setIgnoresMouseEvents_(True)
+            nswin.orderWindow_relativeTo_(AppKit.NSWindowBelow, 0)
+        on_main(unseen)
+        time.sleep(0.3)
+    frame = on_main(lambda: tuple(nswin.frame()))   # (on screen, macOS may have moved it onto one)
+
+    def post(point_of, clicks=(2,)):
+        def go():
+            point = point_of()
+            for n in clicks:
+                for kind in (down, up):
+                    AppKit.NSApp.postEvent_atStart_(
+                        AppKit.NSEvent.mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure_(
+                            kind, point, 0, AppKit.NSProcessInfo.processInfo().systemUptime(), nswin.windowNumber(), None, 0, n,
+                            1.0 if kind == down else 0.0), False)
+        on_main(go)
+
+    def now():
+        return on_main(lambda: (tuple(nswin.frame()), bool(nswin.isMiniaturized())))
+
+    def wait_for(cond, seconds=5.0):
+        for _ in range(int(seconds * 10)):
+            if cond(now()):
+                time.sleep(0.6)   # (the window's own animation done)
+                return True
+            time.sleep(0.1)
+        return False
+
+    def bar_point():
+        """On the title bar between the window's buttons and the title, wherever the window is now."""
+        r, top = title_rect(nswin), nswin.contentLayoutRect()
+        zoom = nswin.standardWindowButton_(AppKit.NSWindowZoomButton)
+        left = zoom.convertRect_toView_(zoom.bounds(), None) if zoom is not None else AppKit.NSMakeRect(0, 0, 60, 0)
+        x = (left.origin.x + left.size.width + (r.origin.x if r is not None else 260)) / 2
+        return AppKit.NSMakePoint(x, (top.origin.y + top.size.height + nswin.frame().size.height) / 2)
+
+    def title_mid():
+        """The middle of the title, where it is now (macOS may have moved the window)."""
+        r = title_rect(nswin)
+        return AppKit.NSMakePoint(r.origin.x + r.size.width / 2, r.origin.y + r.size.height / 2) if r is not None else mid
+    try:
+        post(title_mid)
+        opened = False
+        for _ in range(50):
+            if dialog_open():
+                opened = True
+                break
+            time.sleep(0.1)
+        time.sleep(0.6)   # (a zoom would have started by now)
+        check(opened and on_main(lambda: tuple(nswin.frame())) == frame,
+              "a double-click from the event queue opens Rename too, and the window isn't zoomed")
+        window.evaluate_js("document.querySelector('dialog[open]')?.close()")
+        # Elsewhere on the title bar: what System Settings ▸ Desktop & Dock says a double-click does
+        action = on_main(double_click_action)
+        post(bar_point, clicks=(1, 2))
+        if action == "zoom":
+            zoomed = wait_for(lambda st: st[0] != frame)
+            post(bar_point, clicks=(1, 2))
+            back = wait_for(lambda st: st[0] == frame)
+            check(zoomed and back, "a double-click elsewhere on the title bar zooms the window, and another puts it back")
+        elif action == "minimize":
+            check(wait_for(lambda st: st[1]), "a double-click elsewhere on the title bar minimises the window")
+            on_main(lambda: nswin.deminiaturize_(None))
+            wait_for(lambda st: not st[1])
+        else:
+            time.sleep(1.0)
+            check(now() == (frame, False), "a double-click elsewhere on the title bar does nothing (System Settings: Do Nothing)")
+    finally:
+        def put_back():
+            if nswin.isMiniaturized():
+                nswin.deminiaturize_(None)
+            if tuple(nswin.frame()) != first:
+                nswin.setFrame_display_(first, False)
+            if hidden:
+                nswin.orderOut_(None)
+                nswin.setAlphaValue_(was[0])
+                nswin.setIgnoresMouseEvents_(was[1])
+        on_main(put_back)
     _state["shown"] = []
     try:
         took = press(right, mid)

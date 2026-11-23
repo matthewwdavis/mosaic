@@ -113,7 +113,10 @@ def click(win, at, flags: int = 0) -> None:
     import Foundation
 
     def deliver():
-        loc = Foundation.NSMakePoint(at[0], win.contentView().frame().size.height - at[1])   # (from the bottom)
+        # (from the bottom of the window; the web view's top is the content layout area's, below the
+        # title bar, also when glass makes the content view the whole window: _labapp/mac/glass.py)
+        top = win.contentLayoutRect()
+        loc = Foundation.NSMakePoint(at[0], top.origin.y + top.size.height - at[1])
         view = win.contentView().hitTest_(loc)
         for kind, pressure in ((AppKit.NSEventTypeLeftMouseDown, 1.0), (AppKit.NSEventTypeLeftMouseUp, 0.0)):
             event = AppKit.NSEvent.mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure_(
