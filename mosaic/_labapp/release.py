@@ -200,6 +200,18 @@ def manifest_for(zip_path: str, version: str, environment: bytes, notes: str, co
             "environment_sha256": hashlib.sha256(environment).hexdigest()}
 
 
+# The citation files (CITATION.cff at the root, which GitHub and Zenodo read, and the app's own copy
+# in <package>/data for Help > Cite): their version and date follow each release
+def citation_paths() -> list[str]:
+    return ["CITATION.cff", f"{PACKAGE}/data/CITATION.cff"]
+
+
+def cite_version(text: str, version: str, date: str) -> str:
+    """A CITATION.cff's top-level version and date-released set to this release's."""
+    text = re.sub(r'(?m)^version: .*$', f'version: "{version}"', text)
+    return re.sub(r'(?m)^date-released: .*$', f'date-released: "{date}"', text)
+
+
 def zip_tree(src: str, version: str, out_zip: str) -> None:
     """A release ZIP from a folder (for the tests and CI), with that version in __init__.py."""
     top = f"{APP}-{version}"
@@ -216,6 +228,8 @@ def zip_tree(src: str, version: str, out_zip: str) -> None:
                 if rel == f"{PACKAGE}/__init__.py":
                     text = re.sub(r'__version__ = "[^"]*"', f'__version__ = "{version}"', open(path, encoding="utf-8").read())
                     z.writestr(f"{top}/{rel}", text)
+                elif rel in citation_paths():
+                    z.writestr(f"{top}/{rel}", cite_version(open(path, encoding="utf-8").read(), version, time.strftime("%Y-%m-%d")))
                 else:
                     z.write(path, f"{top}/{rel}")
 
@@ -319,12 +333,19 @@ def publish(args) -> None:
     print(f"\nReleasing {APP} {version}{' as a test version' if args.test else ''} from {sha[:7]}.")
     if not args.yes and input("Go ahead? [y/N] ").strip().lower() != "y":
         return
-    # The version, committed and tagged; the ZIP is the tagged commit
+    # The version, committed and tagged (with the citation files' version and date); the ZIP is the
+    # tagged commit
     text = open(init, encoding="utf-8").read()
     with open(init, "w", encoding="utf-8") as fh:
         fh.write(re.sub(r'__version__ = "[^"]*"', f'__version__ = "{version}"', text))
+    cites = [rel for rel in citation_paths() if os.path.exists(os.path.join(ROOT, rel))]
+    for rel in cites:
+        path = os.path.join(ROOT, rel)
+        text = open(path, encoding="utf-8").read()
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(cite_version(text, version, time.strftime("%Y-%m-%d")))
     message = f"Release {version}" + ("\n\n" + "\n".join(args.trailer) if args.trailer else "")
-    run("git", "commit", "-q", "-m", message, "--", f"{PACKAGE}/__init__.py")
+    run("git", "commit", "-q", "-m", message, "--", f"{PACKAGE}/__init__.py", *cites)
     tag = f"v{version}"
     run("git", "tag", "-a", tag, "-m", f"{APP} {version}")
     try:
