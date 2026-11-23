@@ -21,7 +21,7 @@ def test_citation_file_and_its_copy_agree_with_the_version():
     assert read("CITATION.cff") == read("mosaic", "data", "CITATION.cff")
     cff = citation.read_cff(read("CITATION.cff"))
     assert cff["version"] == __version__ and cff["title"] == "mosaic" and cff["license"] == "MIT"
-    assert cff["authors"] == [{"family-names": "Davis", "given-names": "Matthew"}]
+    assert cff["authors"] == [{"family-names": "Davis", "given-names": "Matthew", "orcid": "https://orcid.org/0009-0004-8933-349X"}]
     assert cff["repository-code"] == "https://github.com/matthewwdavis/mosaic"
     # (the README shows the same reference)
     apa = citation.formats(cff)["apa"]
@@ -31,7 +31,7 @@ def test_citation_file_and_its_copy_agree_with_the_version():
 
 def test_zenodo_record():
     z = json.loads(read(".zenodo.json"))
-    assert z["title"] == "mosaic" and z["upload_type"] == "software" and z["creators"] == [{"name": "Davis, Matthew"}]
+    assert z["title"] == "mosaic" and z["upload_type"] == "software" and z["creators"] == [{"name": "Davis, Matthew", "orcid": "0009-0004-8933-349X"}]
     assert "version" not in z   # (Zenodo takes each release's tag)
     form = read(".github", "ISSUE_TEMPLATE", "paper.yml")
     assert "name: Add a paper that used mosaic" in form and "required: true" in form

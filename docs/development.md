@@ -251,8 +251,8 @@ written; `pyproject.toml` reads it from there), commits and tags it, builds and 
 pushes, and makes the GitHub release. A test version is a GitHub pre-release; `promote` makes it
 a full one. The same commit sets the version and date in `CITATION.cff` and its copy in
 `mosaic/data/CITATION.cff` (what Help ▸ Cite mosaic reads; `tests/test_citation.py` checks the
-two match the version). Once Zenodo is switched on for the repository, each release also gets a
-DOI: see [zenodo.md](zenodo.md).
+two match the version). Zenodo is switched on for the repository, so each release also gets a
+DOI (Zenodo reads `.zenodo.json`).
 
 ### The key on another computer, and if it's lost or leaks
 

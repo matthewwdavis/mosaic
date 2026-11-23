@@ -13,6 +13,7 @@ type: software
 authors:
   - family-names: Davis
     given-names: Matthew
+    orcid: "https://orcid.org/0009-0004-8933-349X"
 version: "0.2.0"
 date-released: "2026-11-20"
 license: MIT

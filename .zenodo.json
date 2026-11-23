@@ -4,7 +4,8 @@
   "description": "<p>A desktop app for assembling multi-panel scientific figures. Plots placed as PDF or SVG go into the exported PDF or SVG unchanged and stay linked to their files; pages take journals' figure sizes; and a check before export compares text sizes, line widths and picture resolution with the journal's rules.</p>",
   "creators": [
     {
-      "name": "Davis, Matthew"
+      "name": "Davis, Matthew",
+      "orcid": "0009-0004-8933-349X"
     }
   ],
   "license": "mit",
