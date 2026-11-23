@@ -3136,6 +3136,7 @@ async function start() {
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.onEditSymbol = (id) => app.editSymbol(id);
   canvas.onEditEquation = (id) => app.editEquation(id);
+  canvas.onEmptyClick = () => panels.emptyClick();
   canvas.onFillArea = (p) => app.fillArea(p);
   canvas.keyObject = () => (store.selection.length > 1 ? app.keyObject() : null);
   // While typing: the commands that work there too (bigger and smaller text)

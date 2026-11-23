@@ -13,6 +13,7 @@ import { restyle } from "./textstyles.js";
 import { sameCommand } from "./selectsame.js";
 import { ringsOf, toLocal, toPageOf } from "./pen.js";
 import { cropMenu, cropToDrawnShape, cropToRatio, cropToSize, parseRatio, resetCrop } from "./crop.js";
+import { objectTab, selectionTab } from "./ribbonfollow.js";
 
 const MMPT = 72 / 25.4;
 const gRectFor = (id, x, y, w, hh) => ({ id, type: "shape", geom: "rect", frame: [x, y, w, hh], rot: 0, flip_h: false, flip_v: false,
@@ -2535,9 +2536,11 @@ async function angleChecks(app) {
   store.select([]);
 }
 
-// Selecting several objects shows the Arrange tab, and the tab before comes back once one or
-// none is selected (a tab picked meanwhile stays). Text boxes count too; one text box shows Home.
-// The group Group makes keeps Arrange showing; Settings turns it off
+// The ribbon follows the selection (ribbonfollow.js, the same rule as prose's): selecting
+// something shows its tab (Figure for a picture, bracket or scale bar, Arrange for several or a
+// group, Combine for a clipping mask, Home for text, shapes and lines); clicking the empty page
+// goes back to Home; a tab picked by hand stays until something else is selected; a command run
+// from a tab keeps it. Settings turns each part off
 async function arrangeTabChecks(app) {
   store.setDoc(await rpc("new_document"));
   canvas.fit();
@@ -2545,9 +2548,18 @@ async function arrangeTabChecks(app) {
   const textBox = (id, y) => ({ id, type: "shape", geom: "rect", textbox: true, frame: [40, y, 160, 24], rot: 0, flip_h: false,
     flip_v: false, stroke: null, fill: null, text: { paragraphs: [{ align: "l", runs: [{ t: id, font: "Helvetica", size: 6,
       bold: false, italic: false, color: "#000000" }] }], insets: [0, 0, 0, 0], wrap: false, anchor: "t", autofit: "shape" } });
+  const svg = btoa('<svg xmlns="http://www.w3.org/2000/svg" width="80pt" height="60pt" viewBox="0 0 80 60">'
+    + '<rect width="80" height="60" fill="#336699"/></svg>');
+  await app.placeFiles([await rpc("selftest_scratch", "tab_plot.svg", svg)], [300, 120], false);
+  const picId = store.items().find((it) => it.type === "picture")?.id;
   store.update("Objects", (doc) => {
-    doc.pages[store.pageIndex].items.push(gRectFor("aA", 40, 120, 60, 40), gRectFor("aB", 140, 120, 60, 40),
-      textBox("aT", 40), textBox("aU", 80));
+    const filled = (it) => ({ ...it, fill: { color: "#cccccc" } });   // (a click in the middle of an empty one misses it)
+    doc.pages[store.pageIndex].items.push(filled(gRectFor("aA", 40, 120, 60, 40)), filled(gRectFor("aB", 140, 120, 60, 40)),
+      textBox("aT", 40), textBox("aU", 80),
+      { id: "aL", type: "line", points: [[40, 220], [200, 220]], arrow_start: null, arrow_end: null,
+        stroke: { color: "#000000", width: 1, dash: "solid", cap: "flat", join: "miter", opacity: 1 } },
+      { id: "aK", type: "bracket", label: "*", size: 6, rot: 0, dir: "up", tick: 4, frame: [40, 260, 60, 13],
+        stroke: { color: "#000000", width: 0.75, dash: "solid", cap: "round", join: "miter", opacity: 1 } });
   }, { select: [] });
   await settle();
   const showing = () => panels.ribbonTab;
@@ -2555,50 +2567,108 @@ async function arrangeTabChecks(app) {
   const stageTops = Object.keys(panels.ribbonTabs).map((k) => { pickTab(k); return [k, canvas.stage.getBoundingClientRect().top]; });
   check(stageTops.every(([, top]) => top === stageTops[0][1]), "every ribbon tab is as tall, so the page doesn't jump as the tab changes",
     stageTops.map(([k, top]) => `${k} ${top}`).join(", "));
+  // A click as a person makes it: on an object's middle, or on the empty page
+  const mid = (id) => { const [x0, y0, x1, y1] = itemBBox(store.item(id)); return [(x0 + x1) / 2, (y0 + y1) / 2]; };
+  const click = async (at) => { await drag(at, at); };
+  const empty = [store.page().width - 12, store.page().height - 12];
 
+  // Each kind of object, clicked, shows its own tab
   pickTab("view");
-  store.select(["aA"]);
-  const one = showing();
+  const seen = {};
+  for (const [name, id] of [["a picture", picId], ["a bracket", "aK"], ["a shape", "aA"], ["a line", "aL"], ["a text box", "aT"]]) {
+    pickTab("view");
+    await click(mid(id));
+    seen[name] = store.selection.join() === id ? showing() : `(not selected: ${store.selection.join()})`;
+  }
+  check(seen["a picture"] === "figure" && seen["a bracket"] === "figure" && seen["a shape"] === "home" && seen["a line"] === "home"
+    && seen["a text box"] === "home", "clicking a picture or a bracket shows Figure; a shape, a line or a text box shows Home",
+  Object.entries(seen).map(([k, v]) => `${k}: ${v}`).join("; "));
+  await click(mid(picId));
+  await click(empty);
+  check(!store.selection.length && showing() === "home", "clicking the empty page goes back to Home", showing());
+  pickTab("view");
+  await click(empty);
+  check(showing() === "home", "with nothing selected, a click on the empty page also leaves a tab picked by hand for Home", showing());
+
+  // Several selected show Arrange; a tab picked by hand stays until something else is selected
   store.select(["aA", "aB"]);
   const two = showing();
-  store.select(["aA", "aB", "aT"]);
-  const three = showing();
+  pickTab("view");
+  store.select(["aA", "aB"]);   // (the same two again: nothing else selected)
+  const kept = showing();
   store.select(["aA"]);
-  const back = showing();
-  check(one === "view" && two === "arrange" && three === "arrange" && back === "view",
-    "one object leaves the tab alone; two show Arrange, and back to one brings the tab before back", `${one}, ${two}, ${three}, ${back}`);
-  store.select(["aT"]);
-  const text = showing();
+  check(two === "arrange" && kept === "view" && showing() === "home",
+    "two objects show Arrange; a tab picked by hand stays while they stay selected, and selecting one shows its own tab",
+    `${two}, ${kept}, ${showing()}`);
   store.select(["aT", "aU"]);
   const texts = showing();
   store.select(["aU"]);
-  const oneText = showing();
-  store.select([]);
-  check(text === "home" && texts === "arrange" && oneText === "home" && showing() === "view",
-    "one text box shows Home, two text boxes Arrange, one again Home; none brings the tab before back",
-    `${text}, ${texts}, ${oneText}, ${showing()}`);
+  check(texts === "arrange" && showing() === "home", "two text boxes show Arrange, one again Home", `${texts}, ${showing()}`);
+
+  // A group shows Arrange (Group from the keyboard too); a clipping mask shows Combine
   store.select(["aA", "aB"]);
-  pickTab("figure");
-  store.select([]);
-  const kept = showing();
-  store.select(["aA", "aB"]);
-  check(kept === "figure" && showing() === "arrange", "a tab picked while several are selected stays; several selected later show Arrange again",
-    `${kept}, then ${showing()}`);
   await app.run("group");
   await settle();
-  const grouped = store.selected().length === 1 && store.selected()[0].type === "group" && showing() === "arrange";
-  store.select([]);
-  const after = showing();
-  store.select([store.page().items.find((it) => it.type === "group").id]);
-  check(grouped && after === "figure" && showing() === "figure",
-    "Group keeps Arrange showing for the group it makes; a group selected by itself leaves the tab alone", `${after}, ${showing()}`);
-  store.select([]);
+  const group = store.selected()[0];
+  const grouped = group?.type === "group" && showing() === "arrange";
+  await click(empty);
+  await click([70, 140]);   // (inside aA, one of the group's)
+  check(grouped && store.selection.join() === group.id && showing() === "arrange", "a group shows Arrange, whether just made or clicked",
+    `${grouped} ${store.selection.join()} (${group?.id}) ${showing()}`);
+  store.select([group.id]);
+  await app.run("ungroup");
+  await settle();
+  store.update("Mask", (doc) => { doc.pages[store.pageIndex].items.push({ ...gRectFor("aM", 130, 110, 40, 40), fill: { color: "#ffffff" } }); },
+    { select: ["aB", "aM"] });
+  await app.run("makeClipMask");
+  await settle();
+  const mask = store.selected()[0];
+  await click(empty);
+  store.select([mask.id]);
+  check(mask?.type === "group" && mask.clip && showing() === "combine", "a clipping mask shows Combine", `${mask?.type} ${showing()}`);
+
+  // A command run from a tab keeps that tab, whatever it selects: Unite on Combine leaves one shape
+  store.update("Shapes", (doc) => { doc.pages[store.pageIndex].items.push(gRectFor("aP", 40, 320, 40, 30), gRectFor("aQ", 60, 330, 40, 30)); },
+    { select: ["aP", "aQ"] });
+  pickTab("combine");
+  document.querySelector('#rpanel-combine [data-cmd="unite"]').click();
+  await settle();
+  const united = store.selected();
+  const stayed = showing();
+  await click(empty);
+  await click(mid(united[0]?.id));
+  check(united.length === 1 && united[0].type === "shape" && stayed === "combine" && showing() === "home",
+    "Unite from the Combine tab keeps Combine for the shape it makes; clicking that shape afterwards shows Home",
+    `${united.length} ${stayed} ${showing()}`);
+
+  // The kinds not clicked above, by the rule itself
+  const kinds = [[{ type: "picture", equation: { tex: "x" } }, "figure"], [{ type: "scalebar" }, "figure"], [{ type: "symbol" }, "figure"],
+    [{ type: "shape", geom: "rect", zoom: { picture: "p" } }, "figure"], [{ type: "line", zoomline: { box: "b" } }, "figure"],
+    [{ type: "shape", geom: "region" }, "home"], [{ type: "shape", textbox: true, panel_label: true }, "home"],
+    [{ type: "group", clip: true }, "combine"], [{ type: "group" }, "arrange"]];
+  const wrong = kinds.filter(([it, tab]) => objectTab(it) !== tab || selectionTab([it]) !== tab);
+  check(!wrong.length && selectionTab([], { typing: true }) === "home" && selectionTab([{ type: "picture" }, { type: "line" }]) === "arrange",
+    "an equation, a scale bar, a symbol and a zoom inset's box and lines show Figure; an area fill and a panel label Home; typing Home",
+    JSON.stringify(wrong));
+
+  // Settings: each part can be turned off
+  await click(empty);
+  pickTab("view");
+  await app.savePrefs({ object_tabs: false });
+  await click(mid(picId));
+  const offPicture = showing();
+  await click(empty);
+  const offEmpty = showing();
+  await app.savePrefs({ object_tabs: true });
+  check(offPicture === "view" && offEmpty === "view", "with Settings' object-tab switch off, a picture and the empty page leave the tab alone",
+    `${offPicture}, ${offEmpty}`);
   await app.savePrefs({ several_arrange_tab: false });
   store.select(["aT", "aU"]);
   const off = showing();
   store.select([]);
   await app.savePrefs({ several_arrange_tab: true });
-  check(off === "home", "with Settings' switch off, several objects leave the tab alone (several text boxes still show Home)", off);
+  check(off === "view", "with Settings' Arrange switch off, several objects leave the tab alone", off);
+  store.select([]);
   pickTab("home");
 }
 
@@ -2649,24 +2719,29 @@ async function textRibbonChecks(app) {
   pickTab("arrange");
   store.select(["tA"]);
   const switched = showing();
-  store.select([]);
-  check(switched === "home" && showing() === "arrange", "selecting a text box shows the Home tab; deselecting it brings back the tab before",
-    `${switched}, then ${showing()}`);
-  store.select(["tA"]);
   pickTab("view");
+  canvas.startEdit("tA");
+  await settle();
+  const typing = showing();
+  pickTab("figure");
+  document.dispatchEvent(new Event("selectionchange"));   // (the caret moved in the same text)
+  await settle();
+  const caret = showing();
+  canvas.commitEdit();
+  await settle();
+  const ended = showing();
   store.select([]);
-  const kept = showing();
-  store.select(["tA"]);
-  check(kept === "view" && showing() === "home", "a tab picked while text is selected stays; text selected later shows Home again",
-    `${kept}, then ${showing()}`);
-  store.select([]);
+  check(switched === "home" && typing === "home" && caret === "figure" && ended === "home" && showing() === "home",
+    "a text box selected, or typed in, shows Home; a tab picked while typing stays as the caret moves; none selected is Home",
+    `${switched}, ${typing}, ${caret}, ${ended}, then ${showing()}`);
   pickTab("arrange");
   store.select(["rC"]);
   const shapeTab = showing(), shapeOff = btn("textBold").disabled;
   store.select(["tA", "rC"]);
-  check(shapeTab === "arrange" && shapeOff && showing() === "arrange" && btn("textBold").disabled,
-    "a shape with text, or a text box selected with something else, isn't text for it: the tab stays and the section is greyed out");
-  store.select([]);
+  check(shapeTab === "home" && shapeOff && showing() === "arrange" && btn("textBold").disabled,
+    "a shape with text shows Home but, only selected, isn't text for the section; with a text box it's two objects: Arrange, the section greyed out",
+    `${shapeTab}, ${showing()}`);
+  pickTab("arrange");
   await app.savePrefs({ text_home_tab: false });
   store.select(["tA"]);
   const off = showing();
@@ -2780,11 +2855,10 @@ async function textRibbonChecks(app) {
   "alignment while typing goes to the line the words are in; the properties panel's Italic, all of it; all kept when typing ends",
   JSON.stringify(ps.map((p) => [p.align, p.runs.map((r) => [r.t, r.size, r.bold, r.italic, r.color])])));
 
-  // Typing in a shape: the Home tab and the whole section, as in a text box, and the tab before
-  // back once typing ends (the shape only selected leaves the tab alone, above)
-  store.select([]);
-  pickTab("arrange");
+  // Typing in a shape: the Home tab and the whole section, as in a text box; a tab picked while
+  // typing stays once typing ends, the shape still selected
   store.select(["rC"]);
+  pickTab("arrange");
   canvas.startEdit("rC");
   await settle();
   const shapeTyping = showing(), shapeOn = [btn("textBold"), btn("textCentre"), btn("textBottom"), font, size, style].every((el) => !el.disabled);
@@ -2796,8 +2870,8 @@ async function textRibbonChecks(app) {
   await settle();
   const shaped = runs("rC");
   check(shapeTyping === "home" && shapeOn && shaped.length === 1 && shaped[0].t === "Shape" && shaped[0].size === 8 && shaped[0].bold
-    && showing() === "arrange" && btn("textBold").disabled,
-  "typing in a shape shows the Home tab with every text tool working on its words; the tab before is back when typing ends",
+    && showing() === "home" && btn("textBold").disabled,
+  "typing in a shape shows the Home tab with every text tool working on its words; the shape's own tab (Home) once typing ends",
   `${shapeTyping}, ${shapeOn}, ${JSON.stringify(shaped.map((r) => [r.t, r.size, r.bold]))}, then ${showing()}`);
   // A shape with no text yet: with only the caret, the size goes to what's typed
   store.update("Shape", (doc) => { doc.pages[store.pageIndex].items.push({ ...gRectFor("rE", 40, 280, 80, 40), geom: "ellipse" }); },

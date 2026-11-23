@@ -52,9 +52,11 @@ PREFS_DEFAULTS = {
     # Interface state: the ribbon's tab, the properties panel's tab for each kind of object, the
     # panel's folded sections, and the side panels' widths (rem; only those changed)
     "ribbon_tab": "home", "inspector_tabs": {}, "inspector_closed": [], "panel_widths": {},
-    # Selecting text shows the ribbon's Home tab (its Text section), and the tab before comes back after
+    # The ribbon's tab follows the selection (ui/js/ribbonfollow.js): one object shows its own tab
+    # and clicking the empty page shows Home; selecting or typing in text shows Home (its Text
+    # section); several objects show Arrange
+    "object_tabs": True,
     "text_home_tab": True,
-    # Selecting several objects shows the Arrange tab, and the tab before comes back after
     "several_arrange_tab": True,
     # The journal Check last compared a page's size with (a page with a journal size uses its own)
     "check_journal": "",

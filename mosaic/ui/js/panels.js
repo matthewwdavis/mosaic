@@ -17,6 +17,7 @@ import { zoomShapePicture } from "./pictures.js";
 import { ZOOM_SHAPES } from "./zoom.js";
 import { cropMenu } from "./crop.js";
 import { textRibbon } from "./textribbon.js";
+import { selectionKey, selectionTab } from "./ribbonfollow.js";
 import { describeResult, typeLabels } from "./journalfind.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon, s, shapeName, toUnit, uid } from "./util.js";
 
@@ -180,9 +181,10 @@ function verticalNeighbour(items, i, down) {
 }
 
 export const panels = {
-  // The ribbon's tab following the selection (followSelection): the tab it calls for, the one
-  // shown for it, and the tab to go back to afterwards
-  wantTab: null, shownTab: null, returnTab: null,
+  // The ribbon's tab following the selection (followSelection, ribbonfollow.js): what was selected
+  // when it last looked, and how many commands run from a ribbon tab are still running (the tab
+  // stays while they change the selection)
+  followKey: selectionKey([], null), keepTab: 0,
 
   init(app) {
     this.app = app;
@@ -219,7 +221,13 @@ export const panels = {
       "aria-label": c.label, "aria-keyshortcuts": c.aria || undefined, "data-cmd": cmd, tabindex: -1 },
     icon(iconName), h("span", { class: "tool-label" }, c.short || c.label));
     if (tool) { b.dataset.tool = tool; b.setAttribute("aria-pressed", "false"); }
-    b.addEventListener("click", () => this.app.run(cmd));
+    b.addEventListener("click", () => {
+      // (a command run from a ribbon tab keeps that tab, whatever it selects: Unite on Combine
+      // leaves one shape selected, which would otherwise show Home)
+      if (!b.closest(".ribbon-panels")) return this.app.run(cmd);
+      this.keepTab++;
+      return Promise.resolve(this.app.run(cmd)).finally(() => { this.keepTab--; });
+    });
     return b;
   },
   // A button that switches a setting on and off and shows which (Rulers, Grid, Guides, Snap)
@@ -711,11 +719,10 @@ export const panels = {
     g.querySelector(".rgroup-items").classList.add("text-rows");
     return g;
   },
-  // (remember: picked by hand, which also keeps it once the selection that showed a tab is gone;
-  // followSelection's own switches don't)
+  // (remember: picked by hand, so it's the tab mosaic opens with next time; followSelection's own
+  // switches aren't)
   showTab(key, remember = true) {
     this.ribbonTab = key;
-    if (remember) this.returnTab = this.shownTab = null;
     for (const [k, { tab, panel }] of Object.entries(this.ribbonTabs)) {
       tab.setAttribute("aria-selected", k === key ? "true" : "false");
       tab.tabIndex = k === key ? 0 : -1;
@@ -723,30 +730,21 @@ export const panels = {
     }
     if (remember) this.app.rememberUi({ ribbon_tab: key });
   },
-  // The tab the selection shows, each with a Settings switch: Arrange for several objects (and
-  // for the one group Group makes of them, so the tab stays while it's in use), Home for text
-  // selected or typed in (text: the Text section has something to work on)
-  selectionTab(text) {
-    const prefs = this.app.prefs, sel = store.doc && !canvas.editing ? store.selected() : [];
-    const several = sel.length > 1 || (sel.length === 1 && sel[0].type === "group" && this.shownTab === "arrange");
-    if (several && prefs.several_arrange_tab !== false) return "arrange";
-    return text && prefs.text_home_tab !== false ? "home" : null;
+  // The tab follows the selection (ribbonfollow.js): something else selected, or typed in, shows
+  // its tab; the same selection (a click elsewhere in the text being typed, say) leaves a tab
+  // picked by hand alone
+  followSelection() {
+    const sel = store.doc ? store.selected() : [], typing = canvas.editing?.id || null;
+    const key = selectionKey(sel.map((it) => it.id), typing);
+    if (key === this.followKey) return;
+    this.followKey = key;
+    if (this.keepTab) return;
+    const want = selectionTab(sel, { typing: !!typing, prefs: this.app.prefs });
+    if (want && want !== this.ribbonTab) this.showTab(want, false);
   },
-  // Show the selection's tab; once it calls for none, the tab before comes back, unless another
-  // one was picked meanwhile (showTab)
-  followSelection(text) {
-    const want = this.selectionTab(text);
-    if (want === this.wantTab) return;
-    this.wantTab = want;
-    if (want) {
-      if (this.ribbonTab === want) return;
-      if (!this.shownTab) this.returnTab = this.ribbonTab;
-      this.showTab(want, false);
-      this.shownTab = want;
-    } else {
-      if (this.returnTab && this.ribbonTab === this.shownTab) this.showTab(this.returnTab, false);
-      this.returnTab = this.shownTab = null;
-    }
+  // A click on the empty page with nothing selected (canvas.onEmptyClick) goes back to Home too
+  emptyClick() {
+    if (this.app.prefs.object_tabs !== false && this.ribbonTab !== "home" && !store.selection.length) this.showTab("home", false);
   },
 
   // Drawing tools, down the side of the page as in Illustrator and Photoshop
@@ -1680,8 +1678,10 @@ export const panels = {
       h("fieldset", {}, h("legend", {}, "Interface"),
         h("div", { class: "field" }, h("label", { for: "pref-scale" }, "Interface text size"), scale),
         chk("show_tool_labels", "Show labels under toolbar buttons"),
-        chk("text_home_tab", "Show the Home tab while text is selected, then the tab you were on"),
-        chk("several_arrange_tab", "Show the Arrange tab while several objects are selected, then the tab you were on"),
+        chk("object_tabs", "Show the selected object's tab (Figure for pictures, scale bars and brackets, Arrange for a group), "
+          + "and Home when you click the empty page"),
+        chk("text_home_tab", "Show the Home tab while text is selected or typed in"),
+        chk("several_arrange_tab", "Show the Arrange tab while several objects are selected"),
         chk("reduced_motion", "Reduce motion")),
       h("fieldset", {}, h("legend", {}, "Rulers, grid, guides and the page edge"),
         chk("show_rulers", `Show rulers (${keys("toggleRulers")})`),

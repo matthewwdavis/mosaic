@@ -161,6 +161,17 @@ press **?**, then **Open the Sample Figure**).
    Save your work with ⌘S as a `.mff` document, and double-click it to open it again (each
    figure in a window of its own).
 
+**The ribbon's tab follows what you select**, and clicking the empty page goes back to Home. A
+tab you click yourself stays until you select something else, and each part can be switched off
+in Settings.
+
+| Selected | Tab |
+|---|---|
+| Nothing, text (a text box, a panel label, or typing), a shape, an area fill, a line or an arrow | Home |
+| A picture, an equation, a scale bar, a significance bracket, a symbol, a zoom inset | Figure |
+| A group, or two or more objects | Arrange |
+| A clipping mask | Combine |
+
 **New to it? Follow the [tutorial](docs/tutorial.md)**: it builds the figure above in about
 15 minutes, using the sample plots in [`examples/`](examples). Everything else is in the
 **[user guide](docs/guide.md)**, including [all keyboard shortcuts](docs/guide.md#keyboard-shortcuts).

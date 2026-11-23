@@ -1033,7 +1033,7 @@ export const canvas = {
         }).map((it) => it.id);
         store.select([...op.add, ...inside]);
         if (inside.length) announce(`${store.selection.length} objects selected`);
-      }
+      } else if (!cancelled) this.onEmptyClick?.();   // (a click on the empty page: the ribbon goes back to Home)
       return this.drawOverlay();
     }
     if (op.type === "adjust") {

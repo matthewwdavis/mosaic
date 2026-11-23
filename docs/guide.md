@@ -50,6 +50,28 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
      the [page's edge](#the-pages-edge-and-whats-off-it) over objects, dimming off the page, and
      Preview; a colour vision preview, and the page with each one side by side (Check colours).
 2. Each tab's commands, in labelled groups.
+
+**The tab follows what you select.** Selecting something shows the tab with its commands, and
+clicking the empty page goes back to **Home**:
+
+| Selected | Tab |
+|---|---|
+| Nothing (you click the empty page) | Home |
+| A text box or panel label, or typing in any text | Home |
+| A shape, an area fill, a line or an arrow | Home |
+| A picture (a plot or a photo) or an equation | Figure |
+| A scale bar, a significance bracket or a symbol | Figure |
+| A zoom inset's box or one of its lines | Figure |
+| A group | Arrange |
+| A clipping mask | Combine |
+| Two or more objects | Arrange |
+
+A tab you click yourself stays until you select something else (or start typing in other text),
+and a command you run from a tab keeps that tab, whatever it selects: **Unite** on Combine leaves
+Combine showing for the shape it makes. Settings turns each part off: **Show the selected
+object's tab**, **Show the Home tab while text is selected or typed in** and **Show the Arrange
+tab while several objects are selected**.
+
 3. **Always in view:** **Snap** (on when highlighted), **Check**, **Export**, **Settings**, **Help**.
 4. **Pages** of the document, and **Objects** on the current page, front to back. Each object has
    buttons to hide or lock it; click one to select it, or drag it to put it in front of or behind
@@ -490,13 +512,13 @@ height you drag at, with the label above. Drag upright instead for one with its 
     Alignment, line spacing and text styles go to the lines the selected words are in. Each change
     is an undo step of its own: ⌘Z straight after one takes it back, and you carry on typing.
   - Selecting a text box, or typing in any text (a shape's, or a bracket's label), shows the Home
-    tab. Once no text is selected or being typed, the tab you were on comes back, unless you
-    picked another tab meanwhile. Settings turns this off (**Show the Home tab while text is
-    selected**). Two or more text boxes show the Arrange tab instead (see
-    [Align and distribute](#align-and-distribute)); the Text section still works on them all.
-  - A shape with text in it that's only selected, not typed in, keeps the tab you're on: set its
-    text in its properties, or double-click to type in it. Scale bar labels are set in their
-    properties.
+    tab (see [the tab follows what you select](#the-window)). Settings turns this off (**Show the
+    Home tab while text is selected or typed in**). Two or more text boxes show the Arrange tab
+    instead (see [Align and distribute](#align-and-distribute)); the Text section still works on
+    them all.
+  - A shape with text in it that's only selected, not typed in, shows Home too, but the Text
+    section stays greyed out: set its text in its properties, or double-click to type in it. Scale
+    bar labels are set in their properties.
 
   ![The Home tab's Text section, with a bold 8 pt panel label selected](images/textribbon.png)
 
@@ -1048,9 +1070,10 @@ Escape goes back.
 ## Align and distribute
 
 Select objects and use the **Arrange** tab, or the panel on the right. Selecting two or more
-objects shows the Arrange tab by itself (text boxes too), and it stays while you group them. Once
-one object or none is selected, the tab you were on comes back, unless you picked another tab
-meanwhile. Settings turns this off (**Show the Arrange tab while several objects are selected**).
+objects shows the Arrange tab by itself (text boxes too), and so does a group. Selecting one
+object afterwards shows its own tab, and clicking the empty page shows Home (see [the tab follows
+what you select](#the-window)). Settings turns this off (**Show the Arrange tab while several
+objects are selected**).
 
 - **Align**: left edges, centres, right edges, tops, middles, bottoms. With **Align to**
   **Selection**, the selection's own edges: **Top** lines them up with the highest object, **Left**
@@ -1422,8 +1445,9 @@ The gear button (⌘,):
   page still show.
 - **Measurements:** the unit for positions and sizes (cm by default; mm, points or inches) and for
   page sizes (mm). Font sizes and line widths are always in points.
-- **Interface:** text size, labels under toolbar buttons, showing the Home tab while text is
-  selected (on unless you turn it off), reduced motion.
+- **Interface:** text size, labels under toolbar buttons, the ribbon's tab following what you
+  select (the selected object's tab, Home for text, Arrange for several objects: each on unless
+  you turn it off), reduced motion.
 - **Rulers, grid, guides and the page edge:** what's shown, snapping, the page's edge over objects
   and dimming off the page, the grid's spacing and how many finer lines each square has.
 - **Unsaved work:** recovery copies kept from earlier sessions, with Delete all.

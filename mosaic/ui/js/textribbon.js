@@ -3,9 +3,8 @@
 // text, colour, left/centre/right and top/middle/bottom. It works on the text boxes selected (one
 // or several), or while typing in one (or in any shape, or a bracket's label) on the highlighted
 // words: with only the caret, on what's typed next; alignment, line spacing and styles on the
-// lines the words are in. Selecting text boxes, or typing in anything, shows the Home tab, and the
-// tab before comes back afterwards unless another one was picked meanwhile (Settings:
-// prefs.text_home_tab; the ribbon's followSelection, in panels.js).
+// lines the words are in. Selecting a text box, or typing in anything, shows the Home tab
+// (Settings: prefs.text_home_tab; the ribbon's followSelection, in panels.js and ribbonfollow.js).
 
 import { SUBSCRIPT, SUPERSCRIPT, canvas } from "./canvas.js";
 import { contextMenu } from "./contextmenu.js";
@@ -176,7 +175,7 @@ export const textRibbon = {
   refresh() {
     if (!this.els || !store.doc) return;
     const t = this.target();
-    this.ribbon.followSelection(!!t);
+    this.ribbon.followSelection();
     const els = this.els;
     const controls = [els.style, els.font, els.size, els.bigger, els.smaller, els.spacing, els.bold, els.italic, els.underline,
       els.sup, els.sub, els.colour, ...Object.values(els.align), ...Object.values(els.anchor)];
