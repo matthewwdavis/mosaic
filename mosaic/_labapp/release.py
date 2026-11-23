@@ -41,16 +41,19 @@ import time
 import zipfile
 
 # What the app's own tools/release.py says before calling main() (setup): the app's name, its
-# package's folder name, its repository's folder, its updater (the app's updates module, set up),
-# and the names its release key is kept under (in the keychain, and at the start of a backup)
+# package's folder name, its repository's folder, its updater (the app's updates module, set up,
+# or the shared one configured for it), the names its release key is kept under (in the keychain,
+# and at the start of a backup), and whether installed copies update themselves (prose doesn't yet:
+# its releases are what the download link and the installers give)
 APP = PACKAGE = ROOT = DATA = OUT = updates = None
 KEY_SERVICE = BACKUP_PREFIX = None
+SELF_UPDATES = True
 
 
 def setup(app: str, root: str, updater, package: str | None = None, key_service: str | None = None,
-          backup_prefix: str | None = None) -> None:
-    global APP, PACKAGE, ROOT, DATA, OUT, updates, KEY_SERVICE, BACKUP_PREFIX
-    APP, PACKAGE, ROOT, updates = app, package or app, root, updater
+          backup_prefix: str | None = None, self_updates: bool = True) -> None:
+    global APP, PACKAGE, ROOT, DATA, OUT, updates, KEY_SERVICE, BACKUP_PREFIX, SELF_UPDATES
+    APP, PACKAGE, ROOT, updates, SELF_UPDATES = app, package or app, root, updater, self_updates
     DATA = os.path.join(ROOT, PACKAGE, "data", "updates.json")
     OUT = os.path.join(ROOT, "dist", "release")
     KEY_SERVICE = key_service or f"{app} release key"
@@ -102,6 +105,12 @@ def keystore() -> updates.Keystore:
     return updates.Keystore(KEY_SERVICE, "release")
 
 
+def _kept_where() -> str:
+    backend = keystore().backend
+    return {"keychain": "in this Mac's Keychain", "windows": "in Windows' Credential Manager"}.get(
+        backend, "in a file only you can read, in the settings folder")
+
+
 def load_key() -> bytes | None:
     text = keystore().get()
     return from_backup(text) if text else None
@@ -135,8 +144,8 @@ def key_new(args) -> None:
     keystore().set(text)
     trust(public_of(raw), f"made {time.strftime('%Y-%m-%d')} on {platform.node()}")
     print(f"""
-A release key is made and kept in this computer's {'Keychain' if sys.platform == 'darwin' else 'key store'}.
-the app will trust it once <package>/data/updates.json (which now lists it) is committed and
+A release key is made and kept {_kept_where()}.
+{APP} will trust it once {PACKAGE}/data/updates.json (which now lists it) is committed and
 released.
 
 Its backup, the one way to sign releases from another computer:
@@ -144,8 +153,8 @@ Its backup, the one way to sign releases from another computer:
     {text}
 
 Keep it somewhere safe that isn't this computer: the Passwords app (it syncs to your other Apple
-devices), another password manager, or printed and filed. Anyone who has it can sign the app
-updates, so don't email it or put it in the repository. On a new computer:
+devices), another password manager, or printed and filed. Anyone who has it can sign {APP}
+releases, so don't email it or put it in the repository. On a new computer:
 python tools/release.py key restore
 """)
     typed = input("To check it's kept, type the 8 characters after the last colon: ").strip()
@@ -194,7 +203,7 @@ def key_check(_args) -> None:
 def manifest_for(zip_path: str, version: str, environment: bytes, notes: str, commit: str = "") -> dict:
     with open(zip_path, "rb") as fh:
         data = fh.read()
-    return {"app": updates.APP, "version": version, "tag": f"v{version}", "commit": commit,
+    return {"app": APP, "version": version, "tag": f"v{version}", "commit": commit,
             "released": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "notes": notes.strip(),
             "zip": {"name": os.path.basename(zip_path), "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)},
             "environment_sha256": hashlib.sha256(environment).hexdigest()}
@@ -243,19 +252,21 @@ def testkey(args) -> None:
 
 
 def local(args) -> None:
-    """A release from a folder into a tools/fake_github.py folder, signed with a test key."""
-    sys.path.insert(0, os.path.join(ROOT, "tools"))
-    from fake_github import add_release
+    """A release from a folder into a stand-in GitHub's folder (fakegithub.py, which the app's
+    tools/fake_github.py serves), signed with a test key; with the same files as publish uploads."""
+    from .fakegithub import add_release
     raw = base64.b64decode(open(args.key_file).read().strip())
     with tempfile.TemporaryDirectory() as tmp:
         zpath = os.path.join(tmp, f"{APP}-{args.version}.zip")
         zip_tree(args.src, args.version, zpath)
+        latest_zip = os.path.join(tmp, f"{APP}.zip")
+        shutil.copyfile(zpath, latest_zip)
         env = open(os.path.join(args.src, "environment.yml"), "rb").read()
         signed = updates.sign_manifest(manifest_for(zpath, args.version, env, args.notes), raw)
         mpath = os.path.join(tmp, updates.MANIFEST)
         with open(mpath, "w") as fh:
             json.dump(signed, fh)
-        add_release(args.out, f"v{args.version}", [zpath, mpath], prerelease=args.test, body=args.notes)
+        add_release(args.out, f"v{args.version}", [zpath, latest_zip, mpath], prerelease=args.test, body=args.notes)
     print(f"released {args.version}{' (test)' if args.test else ''} into {args.out}")
 
 
@@ -357,7 +368,7 @@ def publish(args) -> None:
         latest_zip = os.path.join(OUT, f"{APP}.zip")
         shutil.copyfile(zpath, latest_zip)
         env = subprocess.run(["git", "show", f"{tag}:environment.yml"], cwd=ROOT, capture_output=True, check=True).stdout
-        signed = updates.sign_manifest(manifest_for(zpath, version, env, notes, run("git", "rev-parse", tag)), raw)
+        signed = updates.sign_manifest(manifest_for(zpath, version, env, notes, run("git", "rev-parse", f"{tag}^{{commit}}")), raw)   # (the commit, not the tag object)
         updates.verify_manifest(signed)   # (trusted by this checkout: the same keys)
         mpath = os.path.join(OUT, updates.MANIFEST)
         with open(mpath, "w") as fh:
@@ -377,14 +388,21 @@ def publish(args) -> None:
         cmd += ["--prerelease", "--latest=false"]
     url = run(*cmd)
     print(f"\nReleased {APP} {version}{' (test version)' if args.test else ''}: {url}")
-    print(f"Installed copies find it within a few hours (at once when {APP} next starts)."
-          + (f"\nWhen it has been tried: python tools/release.py promote {version}" if args.test else ""))
+    if SELF_UPDATES:
+        print(f"Installed copies find it within a few hours (at once when {APP} next starts).")
+    elif not args.test:
+        print(f"The download link (releases/latest/download/{APP}.zip) and the one-line installers give it now.")
+    else:
+        print("The download link and the one-line installers keep giving the newest full release until it's promoted.")
+    if args.test:
+        print(f"When it has been tried: python tools/release.py promote {version}")
 
 
 def promote(args) -> None:
     tag = f"v{args.version.lstrip('vV')}"
     run("gh", "release", "edit", tag, "--repo", repo(), "--prerelease=false", "--latest")
-    print(f"{tag} is a full release now: everyone's {APP} takes it.")
+    print(f"{tag} is a full release now: " + (f"everyone's {APP} takes it." if SELF_UPDATES else
+                                                "the download link and the one-line installers give it."))
 
 
 def list_releases(_args) -> None:

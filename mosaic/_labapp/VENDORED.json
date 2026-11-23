@@ -1,7 +1,7 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "d94726a",
+ "commit": "b879e8a",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "citation.py": "e5baf5a6ca054f9416c95433599034b6f63af225f962c5faa62a5c58a329916a",
@@ -10,6 +10,7 @@
   "cslindex.py": "3b6a84fcec93171a2750ba36a64bb9c14ce61519e8ea949991cde58845ba6062",
   "diagnostics.py": "7c1267ac6e189bb63dc679289ce9a1360cdec2c59552329ecd8b0d504049b37a",
   "fakegh.py": "0b71c29568e2786838bca372a4bfda0a62c2b51c7967aa6070c3f3a4392d5688",
+  "fakegithub.py": "e52f07cea269988dfcbc4f230ab4666a1fcf880ef03f71adb798a52fb51b11c0",
   "fakelibrary.py": "3211ae4e659b895b5e03609cb2abf2bb6e933b3aad963a2ae4a737491a76d278",
   "glass.py": "2bb66a44fee7ac5e01143d1d06ead475d83f690f1c97d2e419c23a8904f1fabe",
   "guidelines.py": "e95e4702aa7dab7853910c0328c502676aa12942a42bd93eaf7004706e22ea1d",
@@ -21,7 +22,7 @@
   "oslock.py": "6c362ca83197458df3b23ae5b72c13e48fcf90ddd52500e5c1006be7ee33522e",
   "packaging.py": "ad85c817abd9877c9572019d06fd4b5821253f2a2f171a1805974e503ad8f79c",
   "platform.py": "32dde2d6987ce1c2c84c21344ed9da446422b19d083355c157c364c4cf288dec",
-  "release.py": "ff3754a2f9737b8cf8532e967ee2655c619602c45fb5dde3ac0c93dde862522c",
+  "release.py": "2aa9991695952a6d6ed3a77630f146f484220bde55114ece7e0edd5babf64e01",
   "server.py": "e7a1df00a890378a86b7fe59574e925c127bea76db118bea48bd78168fec5e31",
   "updates.py": "317e80cece51bcf037951a1312121cb6244aa784105f0d495d21bf45bd7aef68",
   "winruntime.py": "ba786de490bf30eef0e0f8499fd20a4ff9c48bdb3eb3fdaca536f6b8859918a9",
