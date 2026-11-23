@@ -52,9 +52,11 @@ PREFS_DEFAULTS = {
     # Interface state: the ribbon's tab, the properties panel's tab for each kind of object, the
     # panel's folded sections, and the side panels' widths (rem; only those changed)
     "ribbon_tab": "home", "inspector_tabs": {}, "inspector_closed": [], "panel_widths": {},
-    # Selecting text shows the ribbon's Home tab (its Text section), and the tab before comes back after
+    # The ribbon's tab follows the selection (ui/js/ribbonfollow.js): one object shows its own tab
+    # and clicking the empty page shows Home; selecting or typing in text shows Home (its Text
+    # section); several objects show Arrange
+    "object_tabs": True,
     "text_home_tab": True,
-    # Selecting several objects shows the Arrange tab, and the tab before comes back after
     "several_arrange_tab": True,
     # The journal Check last compared a page's size with (a page with a journal size uses its own)
     "check_journal": "",
@@ -1030,6 +1032,16 @@ class Api:
         if isinstance(cb, clipboard.FakeClipboard):
             return cb.put({"text": text})
         return cb.count() if cb else None
+
+    def copy_text(self, text: str, html: str | None = None) -> bool:
+        """Text put on the clipboard by mosaic itself (Help > Cite mosaic: a menu bar command isn't
+        a click in the page, which the page needs to do it). False: the page does it instead."""
+        return clipboard.put_text(clipboard.backend(), text, html)
+
+    # How to cite mosaic (Help > Cite mosaic): its CITATION.cff as APA, BibTeX and RIS
+    def citation(self) -> dict:
+        from .._labapp import citation
+        return citation.load(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "CITATION.cff"))
 
     def clipboard_kinds(self, own_count: int | None = None) -> dict:
         return clipboard.kinds(clipboard.backend(), own_count)

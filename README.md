@@ -161,6 +161,17 @@ press **?**, then **Open the Sample Figure**).
    Save your work with ⌘S as a `.mff` document, and double-click it to open it again (each
    figure in a window of its own).
 
+**The ribbon's tab follows what you select**, and clicking the empty page goes back to Home. A
+tab you click yourself stays until you select something else, and each part can be switched off
+in Settings.
+
+| Selected | Tab |
+|---|---|
+| Nothing, text (a text box, a panel label, or typing), a shape, an area fill, a line or an arrow | Home |
+| A picture, an equation, a scale bar, a significance bracket, a symbol, a zoom inset | Figure |
+| A group, or two or more objects | Arrange |
+| A clipping mask | Combine |
+
 **New to it? Follow the [tutorial](docs/tutorial.md)**: it builds the figure above in about
 15 minutes, using the sample plots in [`examples/`](examples). Everything else is in the
 **[user guide](docs/guide.md)**, including [all keyboard shortcuts](docs/guide.md#keyboard-shortcuts).
@@ -213,6 +224,35 @@ holds none of your figures and no names of your files, and it's a ZIP you can op
 Each form asks for the details that help, such as what you did, what you expected and Mac or Windows.
 Screenshots help a lot: paste or drag them into the form. The version number is at the bottom of
 **Settings**. You can see existing reports under [Issues](https://github.com/matthewwdavis/mosaic/issues).
+
+## How to cite
+
+If mosaic helped make your figures, please cite it. In mosaic, **Help ▸ Cite mosaic** copies the
+reference for the version you have (on Windows and Linux: press **?**, then **Cite mosaic…**), and
+offers BibTeX and RIS for a reference manager. GitHub's **Cite this repository** button (on the
+right of this page) gives the same, from [CITATION.cff](CITATION.cff).
+
+> Davis, M. (2026). *mosaic* (Version 0.2.0) [Computer software]. https://github.com/matthewwdavis/mosaic
+
+```bibtex
+@software{Davis_mosaic_2026,
+  author = {Davis, Matthew},
+  title = {mosaic},
+  version = {0.2.0},
+  year = {2026},
+  month = {11},
+  url = {https://github.com/matthewwdavis/mosaic}
+}
+```
+
+Please cite the version you used. Releases will get a DOI from Zenodo, to cite instead of the
+GitHub link once there is one.
+
+## Papers using mosaic
+
+None listed yet. Published a paper or preprint with figures made in mosaic?
+**[Add it here](https://github.com/matthewwdavis/mosaic/issues/new?template=paper.yml)**, and it
+will be listed in this section.
 
 ## License
 

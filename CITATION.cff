@@ -1,0 +1,25 @@
+# How to cite mosaic. GitHub's "Cite this repository" and Zenodo read this file; mosaic's
+# Help > Cite mosaic reads its copy in mosaic/data/CITATION.cff (the two are kept the same, and
+# each release sets their version and date).
+cff-version: 1.2.0
+message: "If you use mosaic in your work, please cite it as below."
+title: mosaic
+abstract: >-
+  A desktop app for assembling multi-panel scientific figures. Plots placed as PDF or SVG go into
+  the exported PDF or SVG unchanged and stay linked to their files; pages take journals' figure
+  sizes; and a check before export compares text sizes, line widths and picture resolution with
+  the journal's rules.
+type: software
+authors:
+  - family-names: Davis
+    given-names: Matthew
+version: "0.2.0"
+date-released: "2026-11-20"
+license: MIT
+repository-code: "https://github.com/matthewwdavis/mosaic"
+url: "https://github.com/matthewwdavis/mosaic"
+keywords:
+  - scientific figures
+  - multi-panel figures
+  - figure assembly
+  - journal figure requirements

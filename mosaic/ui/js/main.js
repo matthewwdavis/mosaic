@@ -20,6 +20,7 @@ import { canHold, copiesOf, editGroup, finishEdits, makeSymbol, placedItems, sym
 import { middle, panelAt } from "./labels.js";
 import { button, inspector, journalOf, journalPreset } from "./inspector.js";
 import { panels } from "./panels.js";
+import { citeDialog } from "./cite.js";
 import { textRibbon } from "./textribbon.js";
 import { updates } from "./updates.js";
 import { rulers } from "./rulers.js";
@@ -116,7 +117,7 @@ const app = {
       { title: "Window", window: true },
       { title: "Help", help: true, items: [c("Keyboard Shortcuts and Help", "shortcuts"), c("Search Commands…", "commandSearch"), "-",
         { title: "User Guide", url: `${REPO}/blob/main/docs/guide.md` },
-        c("Open the Sample Figure", "openSample"),
+        c("Open the Sample Figure", "openSample"), c("Cite mosaic…", "cite"),
         c("Report a Problem…", "reportProblem"),
         { title: "Suggest an Idea…", url: `${REPO}/issues/new?template=idea.yml` }] },
     ];
@@ -2839,6 +2840,7 @@ app.commands = {
   commandSearch: cmd("Search commands: type to find and run any command", () => panels.commandSearch(), `${M}/`, key("/"), "Search"),
   shortcuts: cmd("Keyboard shortcuts and help", () => panels.shortcutsDialog(), "?", (e) => plain(e) && e.key === "?", "Help"),
   openSample: cmd("Open the sample figure: four plots to try things on", () => app.openSample(), null, null, "Sample"),
+  cite: cmd("Cite mosaic: copy the reference to cite it in a paper (BibTeX and RIS too)", () => citeDialog(panels), null, null, "Cite"),
   reportProblem: cmd("Report a problem: save a report file to send", () => panels.problemDialog(`${REPO}/issues/new?template=problem.yml`), null, null, "Report"),
 };
 // The colour vision previews, and all of them side by side, as commands: command search finds them
@@ -3136,6 +3138,7 @@ async function start() {
   canvas.onContextMenu = (x, y) => app.contextMenuAt(x, y);
   canvas.onEditSymbol = (id) => app.editSymbol(id);
   canvas.onEditEquation = (id) => app.editEquation(id);
+  canvas.onEmptyClick = () => panels.emptyClick();
   canvas.onFillArea = (p) => app.fillArea(p);
   canvas.keyObject = () => (store.selection.length > 1 ? app.keyObject() : null);
   // While typing: the commands that work there too (bigger and smaller text)

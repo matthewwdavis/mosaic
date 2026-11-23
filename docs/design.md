@@ -128,7 +128,8 @@ pre-export check says so.
     before back unless another was picked meanwhile; a Settings switch, on by default
     (`several_arrange_tab`). The one group Group makes keeps it showing, so the tab doesn't flip
     away under the button just pressed; a group selected by itself doesn't show it.
-    `panels.followSelection` holds both rules and one tab to go back to. The tabs' panels now
+    `panels.followSelection` holds both rules and one tab to go back to. *Replaced 2026-11-22*
+    by the ribbon rule below. The tabs' panels now
     share one grid cell (hidden ones invisible but still taking room), since Arrange was 1.4 px
     taller than Home and the page jumped by that whenever the tab changed by itself.
   - *Position and size strip (2026-11-10, Matthew's choices):* X, Y, Width and Height moved from
@@ -527,7 +528,7 @@ pre-export check says so.
     is read back.
   - *The tab:* selecting text shows Home, remembering the tab before. When no text is selected
     any more, that tab comes back, unless one was picked by hand meanwhile. It isn't saved as
-    the tab to open with. Settings: `text_home_tab`.
+    the tab to open with. Settings: `text_home_tab`. (Since 2026-11-22: the ribbon rule below.)
   - *The properties panel's Text tab* now goes through the same changes, so what it changes
     while typing stays when typing ends (before, the editor's copy of the text overwrote it).
 - **Closing with unsaved changes (2026-11-03):** asks Save, Don't Save or Cancel, naming the
@@ -909,6 +910,19 @@ pre-export check says so.
   Research, New Phytologist, Plant Cell, The Plant Journal and PNAS, p for Cell, Molecular Plant
   and PLOS Genetics, unsaid (so p) for Nature and MBE. The Label text box edits any label keeping
   letters' formatting (a common prefix and suffix kept, new letters like the one before).
+- **The ribbon follows the selection (2026-11-22, Matthew's rule, the same in prose):** selecting
+  something shows its tab; clicking the empty page goes back to Home; a tab picked by hand stays
+  until something else is selected. Picture, equation, scale bar, bracket, symbol and a zoom
+  inset's box and lines: Figure; group: Arrange; clipping mask: Combine; several objects:
+  Arrange; text boxes, panel labels, typing, shapes, area fills, lines: Home (no tab of their own;
+  Home has the Text section, styles and the painter). The mapping is `ribbonfollow.js`
+  (`objectTab`, `selectionTab`); `panels.followSelection` moves the tab only when what's selected
+  (or typed in) changes, so a click elsewhere in the text being typed keeps a hand-picked tab.
+  A command run from a ribbon tab's button keeps the tab while it runs (`panels.keepTab`), since
+  Unite on Combine would otherwise leave for Home with the shape it makes. A click on the empty
+  page with nothing selected goes Home too (`canvas.onEmptyClick`). No tab to go back to any more:
+  the old "tab before comes back" is gone. Settings: `object_tabs` (new), `text_home_tab`,
+  `several_arrange_tab`, each on by default.
 - **Repository:** `~/Projects/mosaic`, private GitHub repo `matthewwdavis/mosaic`;
   tests run on Windows and Linux via GitHub Actions (macOS is tested locally).
   Called FigAssemble, a working name, until 2026-11-03, when Matthew named it mosaic.
