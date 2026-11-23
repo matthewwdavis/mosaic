@@ -1,6 +1,6 @@
 """The README's window pictures, light and dark, taken in the real Mac window (glass and all).
 
-    python tools/readme_shots.py            (Mac only; writes docs/images/readme-window-{light,dark}.png)
+    python tools/readme_shots.py [light|dark]   (Mac only; writes docs/images/readme-window-{light,dark}.png)
 
 doc_shots.py takes the guide's pictures in headless Chrome, which has no Mac window around the
 editor and no glass. This opens mosaic itself twice (a scratch MOSAIC_HOME each time, so your own
@@ -123,7 +123,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="mosaic-readme-shots-") as tmp:
         examples = os.path.join(tmp, "examples")
         shutil.copytree(os.path.join(ROOT, "examples"), examples)   # (a copy: the scene only reads them)
-        for theme in ("light", "dark"):
+        for theme in [t for t in ("light", "dark") if t in sys.argv[1:]] or ("light", "dark"):
             home, raw = os.path.join(tmp, f"home-{theme}"), os.path.join(tmp, f"{theme}.png")
             os.makedirs(home)
             env = dict(os.environ, MOSAIC_HOME=home, MOSAIC_NO_UPDATES="1",
