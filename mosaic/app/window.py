@@ -82,6 +82,13 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
             macopen.install(api)
         except Exception as exc:   # noqa: BLE001 (they then don't open; File > Open still does)
             print(f"Documents from the Finder unavailable: {exc}", file=sys.stderr, flush=True)
+        # The Mac's own writing help off in text boxes (macOS 27's underlines under words, spelling
+        # corrected as you type, its smart quotes), before the first window: _labapp/mac/writinghelp.py
+        try:
+            from .._labapp.mac import writinghelp
+            writinghelp.start(False)
+        except Exception as exc:   # noqa: BLE001 (the Mac's own then)
+            print(f"Couldn't turn off the Mac's writing help: {exc}", file=sys.stderr, flush=True)
         # Quitting with unsaved changes asks about each figure, with Save (macclose.py)
         try:
             from . import macclose
@@ -128,6 +135,15 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                         dockicon.follow(icon.png(512, "light"), icon.png(512, "dark"))
                 except Exception as exc:   # noqa: BLE001 (the icon just stays the app's own)
                     print(f"The Dock icon couldn't follow the system's appearance: {exc}", file=sys.stderr, flush=True)
+                try:   # the Mac's own writing help off in this window too (its Always-On Proofreading)
+                    from webview.platforms.cocoa import BrowserView
+
+                    from .._labapp.mac import writinghelp
+                    inst = BrowserView.instances.get(window.uid)
+                    if inst is not None and inst.webview is not None:
+                        writinghelp.prepare(inst.webview, False)
+                except Exception as exc:   # noqa: BLE001 (the Mac's own then)
+                    print(f"Couldn't turn off the Mac's writing help in a window: {exc}", file=sys.stderr, flush=True)
                 try:   # the file's name in the title bar: double-click to rename, right-click for its menu
                     from . import mactitle
                     mactitle.install(api)
@@ -228,8 +244,18 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                     break
             print(f"SMOKE close confirmation: {before} before an edit, {window.confirm_close} after", flush=True)
             if sys.platform == "darwin":
-                # Real key presses, through AppKit and pywebview, must reach the editor's shortcuts
                 from webview.platforms.cocoa import BrowserView
+                # The Mac's own writing help off: no underlines under words, corrections, smart
+                # quotes or predictions in the window and its text boxes (_labapp/mac/writinghelp.py)
+                from .._labapp.mac import on_main, writinghelp
+                native = on_main(lambda: writinghelp.state(BrowserView.instances[window.uid].webview))
+                page = window.evaluate_js("[document.documentElement.getAttribute('writingsuggestions'), "
+                                          "document.querySelector('.text-editor')?.getAttribute('writingsuggestions'), "
+                                          "document.querySelector('.text-editor')?.getAttribute('autocorrect')].join('/')")
+                off = all(v in (None, False) for v in native.values()) and "proofreading" in native
+                print(f"SMOKE writing help: {'off' if off and page == 'false/false/off' else 'NOT off'} "
+                      f"{json.dumps(native)} page={page}", flush=True)
+                # Real key presses, through AppKit and pywebview, must reach the editor's shortcuts
                 from . import keycheck
                 keys = keycheck.run(window, BrowserView.instances[window.uid].window)
                 print(f"SMOKE keys: {keys['passed']} of {keys['total']} passed"

@@ -2824,6 +2824,12 @@ async function textRibbonChecks(app) {
   store.select(["tD"]);
   canvas.startEdit("tD");
   await settle();
+  // The Mac's own writing help off while typing in a box, as in prose: no predictions or corrections
+  // (the window's underlines under words and smart quotes: SMOKE writing help, window.py)
+  check(canvas.editor.getAttribute("writingsuggestions") === "false" && canvas.editor.getAttribute("autocorrect") === "off"
+    && document.documentElement.getAttribute("writingsuggestions") === "false" && canvas.editor.getAttribute("spellcheck") === "false",
+    "typing in a text box: the Mac's own predictions and corrections are off",
+    [canvas.editor.getAttribute("writingsuggestions"), canvas.editor.getAttribute("autocorrect"), document.documentElement.getAttribute("writingsuggestions")].join("/"));
   const textNode = (s) => [...canvas.editor.querySelectorAll("span")].map((sp) => sp.firstChild).find((n) => n?.textContent.includes(s));
   const highlight = async (s, from, to) => {
     const n = textNode(s), sel = window.getSelection();

@@ -188,7 +188,11 @@
    "uL": "μL",
    "L": "L"
   },
-  "small": "words"
+  "small": "words",
+  "ordinal": "line",
+  "evidence": [
+   "(ordinals: on the line, \"21st\": its print, PMC JATS body text of typeset open-access articles, 2026-11-22: raised 4 vs on the line 145, at most 3 a article, in 70 articles; e.g. PMC13618896, PMC11771714; its author pages don't say)"
+  ]
  },
  "house_style_from": {
   "p": "print",
@@ -199,7 +203,8 @@
   "celsius": "print",
   "latin": "print",
   "units": "print",
-  "small": "stated"
+  "small": "stated",
+  "ordinal": "print"
  },
  "abbreviations": {
   "legends": true

@@ -92,6 +92,7 @@
     "letter": {"enum": ["P", "p"]}, "italic": {"type": "boolean"}, "space": {"type": "boolean"}, "zero": {"type": "boolean"}}},
    "etal": {"type": "object", "additionalProperties": false, "properties": {"italic": {"type": "boolean"}}},
    "unit_space": {"enum": ["nbsp"]}, "range": {"enum": ["–", " to "]}, "small": {"enum": ["words", "numerals"]},
+   "ordinal": {"enum": ["super", "line"], "description": "Ordinals written as numerals (1st, 21st): their letters raised (superscript) or on the line. Left out: raised, as Word does."},
    "thousands": {"type": "object", "additionalProperties": false, "properties": {"sep": {"enum": [",", " ", ""]}, "from": {"enum": [4, 5]}}},
    "percent": {"type": "object", "additionalProperties": false, "properties": {"space": {"type": "boolean"}}},
    "celsius": {"type": "object", "additionalProperties": false, "properties": {"space": {"type": "boolean"}}},

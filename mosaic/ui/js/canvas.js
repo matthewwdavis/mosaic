@@ -127,7 +127,9 @@ export const canvas = {
     stage.append(this.notes, this.scopeNote);
     this.setRulers(this.defaults?.show_rulers !== false);
     store.afterChange = (doc) => this.followLinks(doc);
-    this.editor = h("div", { class: "text-editor", contenteditable: "true", spellcheck: "false", hidden: true,
+    // (the Mac's own writing help off as you type in a box: no predictions, no corrections; the
+    // window's underlines under words and smart quotes are off too, window.py writinghelp)
+    this.editor = h("div", { class: "text-editor", contenteditable: "true", spellcheck: "false", autocorrect: "off", writingsuggestions: "false", hidden: true,
       role: "textbox", "aria-multiline": "true", "aria-label": "Text being edited" });
     stage.append(this.editor);
     new ResizeObserver(() => this.layout()).observe(stage);

@@ -155,7 +155,11 @@
   "units": {
    "h": "h",
    "mL": "ml"
-  }
+  },
+  "ordinal": "line",
+  "evidence": [
+   "(ordinals: on the line, \"21st\": its print, PMC JATS body text of typeset open-access articles, 2026-11-22: raised 19 vs on the line 117, at most 3 a article, in 71 articles; e.g. PMC12261911, PMC13150849; its author pages don't say)"
+  ]
  },
  "house_style_from": {
   "etal": "print",
@@ -165,7 +169,8 @@
   "percent": "print",
   "celsius": "print",
   "latin": "print",
-  "units": "print"
+  "units": "print",
+  "ordinal": "print"
  },
  "abbreviations": {
   "abstract": "none"

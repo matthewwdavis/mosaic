@@ -163,7 +163,10 @@
   "units": {
    "h": "h",
    "s": "s"
-  }
+  },
+  "evidence": [
+   "(ordinals: not settled, so raised as Word does: its print mixes them, raised 28 vs on the line 57, at most 3 a article, in 41 articles, 2026-11-22; its author pages don't say)"
+  ]
  },
  "house_style_from": {
   "etal": "print",

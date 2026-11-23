@@ -2,7 +2,7 @@
  "format": 1,
  "id": "biorxiv_monroe",
  "name": "bioRxiv (in house)",
- "version": "1.0.0",
+ "version": "1.1.0",
  "kind": "house",
  "publisher": "In house",
  "verified": {
@@ -71,6 +71,7 @@
    "page-number-align": "left",
    "repeat-figures": true,
    "abstract-section": true,
+   "paragraph-indent-mm": 12.7,
    "columns": {
     "count": 2,
     "width_mm": 85.725,
