@@ -33,6 +33,10 @@ const REACH = 64;             // scrolling stops with this much of the page and 
 const HIT = document.createElement("canvas").getContext("2d");   // tells whether a point is on a shape's outline
 HIT.lineJoin = HIT.lineCap = "round";
 const SVG_PREVIEW_LIMIT = 8e6; // bigger SVGs preview as rendered PDFs for speed
+// Those PDF previews are drawn at twice the scale the screen needs (to the next power of two, at most
+// 16x): drawn at just the screen's scale, dense plots (heatmaps of thousands of rows) looked soft, their
+// rows averaged once by the PDF renderer and again when the preview was fitted to the zoom (2026-11-23)
+const PREVIEW_OVERSAMPLE = 2;
 const DEFAULT_SIZE = (72 / 2.54) * 2;   // a click (or Enter) with a drawing tool places a 2 cm object
 // The notes over the page (a preview on, editing inside a group, a finished export): presses on
 // them and their buttons are theirs, not the page's
@@ -374,7 +378,7 @@ export const canvas = {
     const [sw] = asset.size_pt;
     const [l, , r] = it.crop || [0, 0, 0, 0];
     const pictureScale = it.frame[2] / Math.max(sw * (1 - l - r), 1e-6);
-    const need = this.k * (window.devicePixelRatio || 1) * pictureScale;
+    const need = this.k * (window.devicePixelRatio || 1) * pictureScale * PREVIEW_OVERSAMPLE;
     return Math.min(16, 2 ** Math.ceil(Math.log2(Math.max(need, 0.5))));
   },
   previewUrl(it, asset) {

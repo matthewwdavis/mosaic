@@ -30,6 +30,8 @@ VECTOR_KINDS = ("pdf", "svg")
 DEFAULT_RASTER_DPI = 300.0   # used when an image file doesn't record its resolution
 DERIVED_DAYS = 30            # days an unused preview or conversion stays in the cache
 SIZE_TOLERANCE = 0.05        # points: siblings must agree on size this closely
+STABLE_TRIES = 5             # copies of a linked file taken while it's still changing, before the last is kept
+STABLE_WAIT = 0.1            # s between them
 
 # SVG length units in points
 # PDFium can't be used from two threads at once (the editor's previews are drawn on the server's
@@ -248,14 +250,28 @@ class AssetCache:
         return os.path.exists(self.path(sha, kind))
 
     def put_file(self, src: str, kind: str | None = None) -> tuple[str, str]:
+        """src copied into the cache, named by the hash of the bytes copied. One read: the copy is made
+        first and then hashed, so a copy's name always matches what's in it. (Hashing src and then
+        copying it read it twice, and a plot re-saved in between, as R does while the app watches it,
+        was kept under the earlier bytes' hash; a document then embedded the new picture under the old
+        name, which a fresh cache couldn't match: found 2026-11-23.)"""
         kind = kind or kind_of(src)
-        sha = sha256_file(src)
-        dst = self.path(sha, kind)
-        if not os.path.exists(dst):
-            os.makedirs(os.path.dirname(dst), exist_ok=True)
-            tmp = dst + f".{uuid.uuid4().hex[:6]}.tmp"
+        incoming = os.path.join(self.root, "incoming")
+        os.makedirs(incoming, exist_ok=True)
+        tmp = os.path.join(incoming, f"{uuid.uuid4().hex}.tmp")
+        try:
             shutil.copyfile(src, tmp)
-            os.replace(tmp, dst)
+            sha = sha256_file(tmp)
+            dst = self.path(sha, kind)
+            if os.path.exists(dst):
+                os.remove(tmp)
+            else:
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                os.replace(tmp, dst)
+        except BaseException:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            raise
         return sha, dst
 
     def put_bytes(self, data: bytes, kind: str) -> tuple[str, str]:
@@ -309,10 +325,21 @@ def get_cache() -> AssetCache:
 
 def make_variant(path: str, cache: AssetCache, link: bool = True) -> dict:
     kind = kind_of(path)
-    sha, _ = cache.put_file(path, kind)
-    st = os.stat(path)
-    var = {"sha256": sha, "kind": kind, "bytes": st.st_size}
-    var.update({k: v for k, v in probe(path, kind).items() if k != "kind"})
+    # Copied while it holds still: its size and time looked at before and after each copy, and copied
+    # again (up to STABLE_TRIES times) while they change, so a plot still being written isn't taken
+    # half-way. If it never holds still, the time from before the last copy is kept, so the next look
+    # (every 2 s in the editor) sees it changed and reads it again
+    for _ in range(STABLE_TRIES):
+        before = os.stat(path)
+        sha, stored = cache.put_file(path, kind)
+        after = os.stat(path)
+        if (after.st_size, after.st_mtime_ns) == (before.st_size, before.st_mtime_ns):
+            break
+        time.sleep(STABLE_WAIT)
+    st = before
+    var = {"sha256": sha, "kind": kind, "bytes": os.path.getsize(stored)}
+    # (sizes read from the copy kept, not the file, which may have changed since)
+    var.update({k: v for k, v in probe(stored, kind).items() if k != "kind"})
     if link:
         var["src"] = os.path.abspath(path)
         var["mtime"] = st.st_mtime
