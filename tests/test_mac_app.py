@@ -32,11 +32,17 @@ def test_the_app_runs_python_from_inside_itself(tmp_path):
     py = folder / "python"
     assert py.is_symlink() and os.path.realpath(py) == os.path.realpath(sys.executable)
     assert '"$(dirname "$0")/python" -m mosaic' in (folder / "mosaic").read_text()
-    out = subprocess.run([str(py), "-c", "import Foundation, sys; b = Foundation.NSBundle.mainBundle(); "
-                          "print(b.infoDictionary()['CFBundleName']); print(b.bundlePath()); print(sys.prefix)"],
-                         check=True, capture_output=True, text=True).stdout.splitlines()
-    assert out[0] == "mosaic" and out[1].endswith("mosaic.app")
-    assert os.path.realpath(out[2]) == os.path.realpath(sys.prefix)   # its own environment, found from there
+    # (python-app, on macOS 26 and later: the same Python marked as made for this macOS, for today's
+    # window buttons and title bar; the launcher runs it while it's a copy of the environment's)
+    marked = folder / "python-app"
+    for exe in [py] + ([marked] if marked.exists() else []):
+        out = subprocess.run([str(exe), "-c", "import Foundation, sys; b = Foundation.NSBundle.mainBundle(); "
+                              "print(b.infoDictionary()['CFBundleName']); print(b.bundlePath()); print(sys.prefix)"],
+                             check=True, capture_output=True, text=True).stdout.splitlines()
+        assert out[0] == "mosaic" and out[1].endswith("mosaic.app"), exe
+        assert os.path.realpath(out[2]) == os.path.realpath(sys.prefix), exe   # its own environment, found from there
+    if int(__import__("platform").mac_ver()[0].split(".")[0]) >= 26:
+        assert marked.is_symlink() and '"$here/python-app" -m mosaic' in (folder / "mosaic").read_text()
 
 
 @mac

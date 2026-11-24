@@ -16,8 +16,10 @@ say what the app is (an AppSpec) and call these.
 from __future__ import annotations
 
 import os
+import platform
 import plistlib
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -107,6 +109,62 @@ def make_icns(spec: AppSpec, dest: str) -> bool:
     return True
 
 
+LC_BUILD_VERSION = 0x32
+
+
+def python_identity(path: str) -> str:
+    """Which file a Python is, as the app's launcher reads it (stat -L -f '%i %z %m'): it changes
+    when an update replaces the environment's Python."""
+    st = os.stat(path)
+    return f"{st.st_ino} {st.st_size} {int(st.st_mtime)}"
+
+
+def app_python(python: str, dest: str | None = None) -> str | None:
+    """A copy of the environment's Python beside it (or at dest), marked as made for the macOS it's
+    running on, then signed again ad hoc as it was. AppKit draws an app in the design of the SDK its
+    program was built with, and conda's Python says macOS 11, so an app run by it had the old flat
+    window buttons, title bar and controls on macOS 26 and later instead of Liquid Glass's. Returns
+    the copy's path, or None where it isn't needed or can't be made: before macOS 26, a Python
+    that already says 26 or later, one that isn't a single 64-bit Mach-O, or codesign refusing."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        major, minor = ([int(x) for x in platform.mac_ver()[0].split(".")] + [0, 0])[:2]
+    except ValueError:
+        return None
+    if major < 26:
+        return None
+    real = os.path.realpath(python)
+    dest = dest or f"{real}-app"
+    with open(real, "rb") as fh:
+        data = bytearray(fh.read())
+    if len(data) < 32 or struct.unpack_from("<I", data, 0)[0] != 0xFEEDFACF:   # (64-bit, this Mac's order)
+        return None
+    at, found = 32, None
+    for _ in range(struct.unpack_from("<I", data, 16)[0]):
+        cmd, size = struct.unpack_from("<II", data, at)
+        if cmd == LC_BUILD_VERSION:
+            found = at
+        at += size
+    if found is None or struct.unpack_from("<I", data, found + 16)[0] >> 16 >= 26:
+        return None
+    struct.pack_into("<I", data, found + 16, (major << 16) | (minor << 8))   # (build_version_command.sdk)
+    tmp = f"{dest}.{os.getpid()}.tmp"
+    try:
+        with open(tmp, "wb") as fh:
+            fh.write(data)
+        os.chmod(tmp, 0o755)
+        if subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", tmp], capture_output=True).returncode:
+            return None
+        os.replace(tmp, dest)
+    except OSError:
+        return None
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+    return dest
+
+
 def mac_app(spec: AppSpec, dest: str, command: list | None = None, do_register: bool = True) -> str:
     """The app in dest: it runs `python -m <module>` with this environment's Python, linked into
     the app so that macOS takes the app's name, icon and version from the bundle (run from its
@@ -123,8 +181,22 @@ def mac_app(spec: AppSpec, dest: str, command: list | None = None, do_register: 
     if command is None:
         os.symlink(sys.executable, os.path.join(macos, "python"))
         body = (f"# Starts {spec.name} from the Python environment it was installed in, linked in beside this\n"
-                f"# file so that macOS sees the app as {spec.name}\n"
-                f'exec "$(dirname "$0")/python" -m {spec.module} "$@"\n')
+                f"# file so that macOS sees the app as {spec.name}\n")
+        marked = app_python(sys.executable)
+        if marked:
+            # (python-app: the same Python marked as made for this macOS, so the app has its window
+            # buttons, title bar and controls; used while the environment's Python is the one it
+            # was copied from, the plain one after an update replaces it)
+            os.symlink(marked, os.path.join(macos, "python-app"))
+            with open(os.path.join(res, "python-app.from"), "w") as fh:
+                fh.write(python_identity(sys.executable) + "\n")
+            body += ("# python-app is that Python marked as made for this macOS (packaging.app_python), so that\n"
+                     "# macOS gives the app the window buttons, title bar and controls of its own design\n"
+                     'here="$(dirname "$0")"\n'
+                     """if [ "$(stat -L -f '%i %z %m' "$here/python" 2>/dev/null)" = "$(cat "$here/../Resources/python-app.from" 2>/dev/null)" ]; then\n"""
+                     f'  exec "$here/python-app" -m {spec.module} "$@"\n'
+                     "fi\n")
+        body += f'exec "$(dirname "$0")/python" -m {spec.module} "$@"\n'
     else:
         body = "exec " + " ".join(f'"{c}"' for c in command) + ' "$@"\n'
     with open(launcher, "w") as fh:

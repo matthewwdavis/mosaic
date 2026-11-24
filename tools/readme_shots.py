@@ -120,6 +120,10 @@ def main() -> int:
         return 0
     from PIL import Image
     failed = 0
+    # (the Python the installed app runs: on macOS 26 and later a copy marked as made for this macOS,
+    # packaging.app_python's, so the picture has today's window buttons and title bar)
+    marked = os.path.realpath(sys.executable) + "-app"
+    python = marked if os.access(marked, os.X_OK) else sys.executable
     with tempfile.TemporaryDirectory(prefix="mosaic-readme-shots-") as tmp:
         examples = os.path.join(tmp, "examples")
         shutil.copytree(os.path.join(ROOT, "examples"), examples)   # (a copy: the scene only reads them)
@@ -128,7 +132,7 @@ def main() -> int:
             os.makedirs(home)
             env = dict(os.environ, MOSAIC_HOME=home, MOSAIC_NO_UPDATES="1",
                        MOSAIC_SMOKE_QUERY=f"docshot=window&examples={examples}&theme={theme}")
-            run = subprocess.run([sys.executable, os.path.abspath(__file__), "--app", theme, raw], env=env,
+            run = subprocess.run([python, os.path.abspath(__file__), "--app", theme, raw], env=env,
                                  capture_output=True, text=True, timeout=300)
             if "SHOT ok" not in run.stdout:
                 print(f"{theme}: no picture\n{run.stderr[-2000:]}")

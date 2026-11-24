@@ -69,10 +69,21 @@ def install(api) -> None:
 
             @objc.typedSelector(b"v@:@@")
             def openDocuments_withReplyEvent_(self, event, reply):
-                try:
-                    opened(_state["api"], paths_of(event))
-                except Exception as exc:   # noqa: BLE001 (an exception here would end the app)
-                    print(f"Opening documents from the Finder failed: {exc!r}", file=sys.stderr, flush=True)
+                paths = paths_of(event)
+
+                def go():
+                    try:
+                        opened(_state["api"], paths)
+                    except Exception as exc:   # noqa: BLE001 (an exception here would end the app)
+                        print(f"Opening documents from the Finder failed: {exc!r}", file=sys.stderr, flush=True)
+                # (the Finder's events come on the main thread; one sent from another thread, as
+                # send_open does, is handled on that thread, and WebKit ends an app built for macOS 26
+                # or later that calls a web view from there: so it's handed to the main thread)
+                if Foundation.NSThread.isMainThread():
+                    go()
+                else:
+                    from PyObjCTools import AppHelper
+                    AppHelper.callAfter(go)
         _state["class"] = LabappOpener
     _state["api"] = api
     opener = _state["class"].alloc().init()
