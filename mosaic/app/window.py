@@ -171,6 +171,14 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         window.events.closed += lambda: api._remove_window(win)
         return window
 
+    if sys.platform == "darwin":
+        # Each window stays on the editor, whatever asks it to go elsewhere: a file it's sent to is put
+        # on the page (macnav.py; a file let go of as it came over the window replaced the editor, 2026-11-24)
+        try:
+            from . import macnav
+            macnav.install(base)
+        except Exception as exc:   # noqa: BLE001 (WebKit's own handling then)
+            print(f"Couldn't keep the windows on the editor: {exc}", file=sys.stderr, flush=True)
     api._new_window = lambda doc, slides: make_window(doc, slides)
     window = make_window(document, first=True)
 
@@ -218,6 +226,15 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         print(f"SMOKE title bar: {got['passed']} of {got['total']} passed"
               + (f"; failed: {json.dumps(got['failed'])}" if got["failed"] else ""), flush=True)
 
+    def drop_smoke():
+        """The window stays on the editor: a quick drop, and being sent to a file or a web address (macnav.py)."""
+        import tempfile
+        from . import macnav
+        with tempfile.TemporaryDirectory() as scratch:
+            got = macnav.smoke(api, scratch)
+        print(f"SMOKE window stays on the editor: {got['passed']} of {got['total']} passed"
+              + (f"; failed: {json.dumps(got['failed'])}" if got["failed"] else ""), flush=True)
+
     def smoke_check():
         """Hidden-window check that the editor starts in this platform's web view."""
         print("SMOKE the window's thread is running; waiting for the editor", flush=True)
@@ -232,6 +249,8 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
             print("SELFTEST " + str(window.evaluate_js("JSON.stringify(window.__selftest || null)")), flush=True)
             if sys.platform == "darwin" and "titlecheck" in extra:   # (also in the full run below)
                 title_smoke(window)
+            if sys.platform == "darwin" and "dropcheck" in extra:   # (also in the full run below)
+                drop_smoke()
         errors = window.evaluate_js("JSON.stringify(window.__faErrors || [])") if ready is not None else "[]"
         print(f"SMOKE {'ready' if ready else 'NOT READY'} errors={errors}", flush=True)
         if ready and "selftest" not in (extra or ""):
@@ -267,6 +286,8 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                     drags = macdrag.smoke(window, data)
                     print(f"SMOKE PowerPoint drags: {drags['passed']} of {drags['total']} passed"
                           + (f"; failed: {json.dumps(drags['failed'])}" if drags["failed"] else ""), flush=True)
+                # A file let go of the moment it comes over the window, and the window sent elsewhere (macnav.py)
+                drop_smoke()
                 # The menu bar: its menus, name and shortcuts, and an item doing its command
                 from . import macmenu
                 menus = macmenu.smoke(window)

@@ -306,6 +306,12 @@ def install(window, api) -> None:
     def performDragOperation_(self, sender):
         tell(self, "onNativeDrag", None)
         if not ppt(sender):
+            # (where, and with which keys: should WebKit then send the window to the file, it's put
+            # there instead, macnav.py)
+            from . import macnav
+            keys = AppKit.NSEvent.modifierFlags()
+            macnav.note_drop(self, where(self, sender), bool(keys & AppKit.NSEventModifierFlagOption),
+                             bool(keys & AppKit.NSEventModifierFlagShift))
             return perform(self, sender)
         payload = drop_payload(sender.draggingPasteboard(), api)
         if not payload:

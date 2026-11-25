@@ -1266,6 +1266,17 @@ async function slidesChecks(app, ppt) {
   "slides dragged out of PowerPoint come from their saved deck (onto a blank page, at the slide's size), asking which deck if two have them",
   `${fromSaved} ${draggedSize} "${savedNote.slice(0, 80)}"; ${question}; ${store.items().length}; ${notFound}`);
 
+  // Files are taken from the moment they come over the window (dragenter), not only once they move
+  // over it: let go of before any dragover, WebKit opened the file in place of the editor (2026-11-24)
+  const quick = new DataTransfer();
+  quick.items.add(new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], "quick.svg", { type: "image/svg+xml" }));
+  const enter = new DragEvent("dragenter", { dataTransfer: quick, clientX: Math.round(px), clientY: Math.round(py), bubbles: true, cancelable: true });
+  document.dispatchEvent(enter);
+  app.showDropSpot(null);
+  check(enter.defaultPrevented && [...quick.types].includes("Files"),
+    "files coming over the window are taken at once (dragenter), not only once they move over it",
+    `taken ${enter.defaultPrevented}; types ${[...quick.types]}`);
+
   // PowerPoint's web data for dragged slides (what a Chromium web view may be handed) comes in too
   store.setDoc(await rpc("new_document"));
   canvas.fit();

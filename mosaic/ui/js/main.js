@@ -3036,14 +3036,20 @@ window.FA = {
 };
 // Browser: files arrive as data (stored in the document, without links). Slides dragged out of
 // PowerPoint arrive as its web data ("ppt/slides", if a Chromium web view is handed it)
-document.addEventListener("dragover", (e) => {
+// Files are taken from the moment they come over the window (dragenter), not just once they move
+// over it (dragover): WebKit tells a page of a drag first with dragenter alone, and a file let go of
+// before any dragover (an SVG from the Finder, 40 ms after it came in, 2026-11-24) went to WebKit's
+// own handling, which opened the file in the window in place of the editor (macnav.py)
+function takeDrag(e) {
   const types = e.dataTransfer.types;
   if (!types.includes("Files") && !types.includes("ppt/slides")) return;
   e.preventDefault();
   if (app.nativeDrag) return;   // shown from the native window's own view of the drag
   const deck = [...e.dataTransfer.items].some((i) => i.type.includes("presentationml"));
   app.showDropSpot({ kind: types.includes("ppt/slides") ? "slides" : deck ? "deck" : "files", x: e.clientX, y: e.clientY });
-});
+}
+document.addEventListener("dragenter", takeDrag);
+document.addEventListener("dragover", takeDrag);
 document.addEventListener("dragleave", (e) => { if (!e.relatedTarget && !app.nativeDrag) app.showDropSpot(null); });
 document.addEventListener("drop", (e) => {
   app.showDropSpot(null);
@@ -3058,8 +3064,9 @@ document.addEventListener("drop", (e) => {
     }
     return;
   }
-  if (!e.dataTransfer.files.length || app.info.native) return;
-  e.preventDefault();
+  if (!e.dataTransfer.files.length) return;
+  e.preventDefault();   // (never WebKit's own handling, which opens the file in place of the editor)
+  if (app.info.native) return;   // (the native window sends the files' full paths: window.py on_drop)
   const files = [...e.dataTransfer.files], decks = files.filter((f) => isDeck(f.name)), figures = files.filter((f) => isFigure(f.name));
   const pictures = files.filter((f) => !isDeck(f.name) && !isFigure(f.name));
   if (pictures.length) app.placeUploads(pictures, placeAt(t));
