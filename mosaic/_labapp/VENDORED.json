@@ -1,7 +1,7 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "aa4781b",
+ "commit": "af83b5c",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "citation.py": "e5baf5a6ca054f9416c95433599034b6f63af225f962c5faa62a5c58a329916a",
@@ -54,6 +54,7 @@
   "mac/finder.py": "e79dbe91eb6a305abc4792982e4b7ccba4b4d793f8bd3ca453cfc402e8ae012d",
   "mac/glass.py": "c10c6b00aa705abe35c54b458dcfec4f54d3e3f9529efd42ecae7b231ef1de31",
   "mac/menu.py": "cb2e26656f088934881fc28d2ed64a99f32b9eb1fcb8b8d1376b55cfac1a13df",
+  "mac/redraw.py": "dea4d3d0f8d1b09660b7a8cd9833806612e508e615e1f95801fd6043c90cd611",
   "mac/title.py": "fd9f752e754747bac194a1c92e166aa78fb4770c22fdd12a8a7ded24d1149602",
   "mac/writinghelp.py": "2680656c36b3a511a44315434ff04c85cdf47750f9c01f335867540c4d8de6d6"
  }

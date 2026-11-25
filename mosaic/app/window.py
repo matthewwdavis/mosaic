@@ -144,6 +144,13 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                         writinghelp.prepare(inst.webview, False)
                 except Exception as exc:   # noqa: BLE001 (the Mac's own then)
                     print(f"Couldn't turn off the Mac's writing help in a window: {exc}", file=sys.stderr, flush=True)
+                try:   # a window back on screen (another space left, uncovered) redraws all of itself, checks
+                    # it did and says so in the log, with its captures in logs/returns (_labapp/mac/redraw.py)
+                    from .. import diagnostics
+                    from .._labapp.mac import redraw
+                    redraw.install(window, os.path.dirname(diagnostics.log_path()))
+                except Exception as exc:   # noqa: BLE001 (it then comes back as WebKit draws it)
+                    print(f"Windows coming back on screen aren't redrawn: {exc}", file=sys.stderr, flush=True)
                 try:   # the file's name in the title bar: double-click to rename, right-click for its menu
                     from . import mactitle
                     mactitle.install(api)
@@ -300,6 +307,14 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
                 print(f"SMOKE glass: {got['passed']} of {got['total']} passed"
                       + (f"; failed: {json.dumps(got['failed'])}" if got["failed"] else ""), flush=True)
                 window.evaluate_js("window.FA.glass.apply()")   # (the page's own tint back on the title bar)
+                # A window back on screen redraws itself and says so in the log (_labapp/mac/redraw.py)
+                import tempfile
+
+                from .._labapp.mac import redraw
+                with tempfile.TemporaryDirectory() as scratch:
+                    back = redraw.smoke(window, scratch)
+                print(f"SMOKE return redraw: {back['passed']} of {back['total']} passed"
+                      + (f"; failed: {json.dumps(back['failed'])}" if back["failed"] else ""), flush=True)
                 # Documents from the Finder and windows: New, Open, menus, closing, dropping a mosaic document
                 import tempfile
 
