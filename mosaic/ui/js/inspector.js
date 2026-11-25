@@ -10,6 +10,7 @@ import { linked, swatchById } from "./swatches.js";
 import { applyToLabel, applyToParagraph, differs, labelDiffers } from "./textstyles.js";
 import { UNIT_CHOICES, anchorFor, convert, convertLength, keepBar as keepScaleBar, measuredText, niceLength, pxPerPt, scaleText, setLabelSide } from "./scalebar.js";
 import { DEFAULT_GAP } from "./gridlayout.js";
+import { measureGaps } from "./gaps.js";
 import { copiesOf, scaleOf, symbolOf } from "./symbols.js";
 import { differs as looksDiffer, takes } from "./objectstyles.js";
 import { CORNER_NAMES, asLabel, pageLabels, restyleLabels } from "./labels.js";
@@ -22,7 +23,7 @@ import { STAR_LABELS, across, bracketStroke, followPValues, keepBar, labelRoom, 
   setQuickP, upgradeItems } from "./brackets.js";
 import {
   UNIT_LABEL, announce, fmt, fromUnit, h, isCurved, isMac, itemLabel, itemsBBox, keepFieldKeys, lengthText, lineSamples, luminance,
-  parseHex, shapeCatalog, shapeName, toUnit,
+  itemBBox, parseHex, shapeCatalog, shapeName, toUnit,
 } from "./util.js";
 
 const DASHES = [["solid", "Solid"], ["sysDot", "Round dot"], ["sysDash", "Short dash"], ["dash", "Dash"],
@@ -1575,9 +1576,9 @@ export const inspector = {
       section("Distribute", [h("div", { class: "button-row icons" },
         b("distributeLeft", "distLeft"), b("distributeCenter", "distCenter"), b("distributeRight", "distRight"),
         b("distributeTop", "distTop"), b("distributeMiddle", "distMiddle"), b("distributeBottom", "distBottom"))]),
-      section("Spacing", [h("div", { class: "row" },
-        h("div", { class: "button-row icons" }, b("distributeH", "spaceH"), b("distributeV", "spaceV")), gapField(this.app)),
-      h("p", { class: "hint" }, "Equal gaps between neighbours; with a gap set, exactly that gap.")]),
+      section("Spacing", [h("div", { class: "button-row icons" }, b("distributeH", "spaceH"), b("distributeV", "spaceV")),
+        h("div", { class: "row" }, gapField(this.app, "h"), gapField(this.app, "v")),
+        h("p", { class: "hint" }, "The buttons space them evenly. The gaps are as they are now; type one for exactly that gap.")]),
       section("Align to", [alignToField(this.app), h("p", { class: "hint" },
         `Key object: the one that stays put. ${isMac ? "Option" : "Alt"}-click one of the selected objects to make it the key; `
         + "it lasts until the selection changes.")])];
@@ -1946,21 +1947,54 @@ function iconButton(app, cmd, iconName) {
   const c = app.commands[cmd];
   return button(`${c.label}${c.keys ? ` (${c.keys})` : ""}`, () => app.run(cmd), icon(iconName), "icon-btn");
 }
-// The gap for spacing objects evenly: blank for "as even as fits", or an exact length
-export function gapField(app) {
-  const u = app.prefs.units || "cm", id = `f${++fieldId}`, gap = app.prefs.spacing_gap;
-  const input = h("input", { id, type: "text", inputmode: "decimal", class: "gap-input", placeholder: "auto",
-    value: gap == null ? "" : fmt(toUnit(gap, u), 3), "data-sync": "spacing_gap", "aria-describedby": `${id}-u` });
+// Gap across and Gap down (Arrange ▸ Spacing): the gap between the selected objects' neighbours as
+// it is now (one length, or the range when they differ, gaps.js), kept up to date as they move; a
+// gap typed in spaces them exactly that far apart at once (app.spaceAt)
+export function gapField(app, axis) {
+  const u = app.prefs.units || "cm", id = `f${++fieldId}`, name = axis === "h" ? "Gap across" : "Gap down";
+  const input = h("input", { id, type: "text", inputmode: "decimal", class: "gap-input", placeholder: "–",
+    "data-gap-axis": axis, "aria-describedby": `${id}-u`,
+    title: `The gap between ${axis === "h" ? "side-by-side" : "stacked"} neighbours in the selection (a range when they `
+      + "differ). Type a gap and press Return to space them exactly that far apart" });
   input.addEventListener("change", () => {
-    const v = parseFloat(input.value);
-    const pt = Number.isFinite(v) && v >= 0 ? fromUnit(v, u) : null;
-    app.rememberUi({ spacing_gap: pt });
-    for (const el of document.querySelectorAll('[data-sync="spacing_gap"]')) el.value = pt == null ? "" : fmt(toUnit(pt, u), 3);
-    announce(pt == null ? "Spacing: as even as fits" : `Spacing: ${lengthText(pt, true)} apart`);
+    const text = input.value.trim();
+    if (text === (input.dataset.shown || "")) return;   // (not changed: tabbed through)
+    const v = parseFloat(text.replace(",", "."));
+    if (!Number.isFinite(v) || v < 0) {
+      refreshGaps(app);
+      return announce(`${name}: type a gap of 0 or more`);
+    }
+    app.spaceAt(axis, fromUnit(v, app.prefs.units || "cm"));
   });
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); keepFieldKeys(e); });
-  return h("div", { class: "field gap" }, label("Gap", id),
+  input.addEventListener("blur", () => refreshGaps(app));   // (left without a change: the gap as it is)
+  const field = h("div", { class: "field gap" }, label(name, id),
     h("div", { class: "with-unit" }, input, h("span", { class: "unit", id: `${id}-u`, "aria-label": unitName(u) }, UNIT_LABEL[u])));
+  showGap(app, input);
+  return field;
+}
+// The selected objects the gaps are between (those Spacing moves: not locked ones), by their boxes
+export function gapBoxes() {
+  return store.selected().filter((it) => !it.locked).map((it) => ({ id: it.id, b: itemBBox(it) }));
+}
+// A gap (or the range of gaps) as the Gap fields show it, in a unit
+export function gapText(g, u) {
+  const a = fmt(toUnit(g.min, u), digits(u)), b = fmt(toUnit(g.max, u), digits(u));
+  return a === b ? a : `${a}–${b}`;
+}
+function showGap(app, input, boxes = gapBoxes()) {
+  const u = app.prefs.units || "cm", unit = input.parentElement?.querySelector(".unit");
+  if (unit) unit.textContent = UNIT_LABEL[u];
+  if (document.activeElement === input) return;   // (being typed in)
+  const g = boxes.length >= 2 ? measureGaps(boxes, input.dataset.gapAxis) : null;
+  input.value = input.dataset.shown = g ? gapText(g, u) : "";
+}
+// Every Gap field shows the selection's gaps as they are now (after any change, during a drag too)
+export function refreshGaps(app) {
+  const fields = document.querySelectorAll("input[data-gap-axis]");
+  if (!fields.length) return;
+  const boxes = gapBoxes();
+  for (const el of fields) showGap(app, el, boxes);
 }
 // What aligning and distributing line up with
 export function alignToField(app) {

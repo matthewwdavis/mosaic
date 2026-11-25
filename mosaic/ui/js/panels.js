@@ -2,7 +2,7 @@
 
 import { rpc } from "./api.js";
 import { canvas, visionMatrix } from "./canvas.js";
-import { alignToField, button, colourVisionField, gapField, inspector, journalGroups, journalOptions, numField, pagePreset, selectField, standardOptions,
+import { alignToField, button, colourVisionField, gapField, inspector, refreshGaps, journalGroups, journalOptions, numField, pagePreset, selectField, standardOptions,
   widestOf } from "./inspector.js";
 import { findItem, store } from "./store.js";
 import { PALETTES, colourHolders } from "./swatches.js";
@@ -195,13 +195,14 @@ export const panels = {
     this.buildLayers();
     this.buildStatus();
     store.on((what, detail) => {
+      if (what === "doc" || what === "selection" || what === "page") refreshGaps(this.app);   // (mid-drag too: the gaps as they are)
       if (what === "doc" && detail?.live) return;   // mid-drag: the lists don't change
       if (["doc", "page", "saved"].includes(what)) { this.renderPages(); this.renderLayers(); this.renderSaveState(); }
       if (what === "pages") this.renderPages();   // (the pages selected changed)
       if (what === "selection") this.renderLayers();
     });
     canvas.onToolChange = (tool) => this.renderTools(tool);
-    document.addEventListener("fa-prefs", () => { this.renderToggles(); this.renderNudge(); });
+    document.addEventListener("fa-prefs", () => { this.renderToggles(); this.renderNudge(); refreshGaps(this.app); });
     document.addEventListener("fa-zoom", (e) => {
       for (const z of document.querySelectorAll(".zoom-label")) z.textContent = `${fmt(e.detail * 100, 0)}%`;
       this.renderNudge();
@@ -704,7 +705,8 @@ export const panels = {
         t("alignTop", "alignTop"), t("alignMiddle", "alignMiddle"), t("alignBottom", "alignBottom")),
       group("Distribute", t("distributeLeft", "distLeft"), t("distributeCenter", "distCenter"), t("distributeRight", "distRight"),
         t("distributeTop", "distTop"), t("distributeMiddle", "distMiddle"), t("distributeBottom", "distBottom")),
-      group("Spacing", t("distributeH", "spaceH"), t("distributeV", "spaceV"), gapField(this.app)),
+      group("Spacing", t("distributeH", "spaceH"), t("distributeV", "spaceV"),
+        h("div", { class: "gap-fields" }, gapField(this.app, "h"), gapField(this.app, "v"))),
       group("Align to", alignToField(this.app)),
       this.turnFlipGroup(group),
       group("Match size", t("sameWidth", "sameWidth"), t("sameHeight", "sameHeight")),

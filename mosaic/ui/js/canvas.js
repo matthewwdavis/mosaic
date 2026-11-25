@@ -2007,8 +2007,12 @@ export const canvas = {
   // Line and arrow ends attach to objects' connection points (corners, side middles, ends,
   // dashes; connect.py) and follow them. A line keeps {item, site} in start_link / end_link.
 
-  // An object's connection points on the page: [{key, at}]
+  // An object's connection points on the page: [{key, at}]. An area fill has none: it takes its
+  // shape from its lines, so an end on it went round in a loop, the fill and its lines creeping
+  // across the page (its corners sit where its lines meet, and a shape's point came before a
+  // line's: 2026-11-25); an end there takes the line instead
   sitesOf(it) {
+    if (it.geom === "region") return [];
     const e = this.els.get(it.id);
     if (it.type === "line") {
       const out = [{ key: "e0", at: it.points[0] }, { key: "e1", at: it.points[it.points.length - 1] },
@@ -2071,7 +2075,8 @@ export const canvas = {
           const link = line[key];
           if (!link) continue;
           const target = findDeep(items, link.item);
-          if (!target || target === line) { delete line[key]; continue; }
+          // (an end on an area fill, from before fills had no points, is let go where it is)
+          if (!target || target === line || target.geom === "region") { delete line[key]; continue; }
           // (until a shape's own points, or a line's dashes, are back from the engine, wait: the
           // stand-in frame points number a shape's corners differently)
           if (!this.sitesKnown(target, link.site)) continue;

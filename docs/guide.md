@@ -830,6 +830,9 @@ the object when it moves, resizes or rotates.
   - a picture's or text box's corners and side middles;
   - a line's ends and middle;
   - on dashed or dotted outlines, both ends and the middle of every dash.
+
+  Area fills have none: a fill takes its shape from its lines, so an end let go where they meet
+  attaches to a line there. (An end attached to a fill in an older figure is let go where it is.)
 - **Which point an end takes:** the corners, side middles, a circle's 8 points and ends come
   first. A dash's points count only where none of those is in reach, so an end dropped near a
   dashed shape's corner takes the corner, not a dash beside it. Where a shape's point and another
@@ -1113,9 +1116,14 @@ objects are selected**).
   with the leftmost, and so on. One object on its own aligns to the page.
 - **Distribute**: spreads three or more objects so their left edges (centres, right edges, tops,
   middles or bottoms) are evenly spaced. The outer two stay put.
-- **Spacing**: equal gaps between neighbours, **Across** or **Down**. Type a **Gap** (in your
-  position unit) for exactly that gap, counted out from the key object (or the leftmost or
-  topmost). Clear it for "as even as fits".
+- **Spacing**: equal gaps between neighbours, **Across** or **Down**, as even as fits between the
+  outer two (with **Align to** **Page**, the outer two go to the page's edges).
+  - **Gap across** and **Gap down** show the gaps between the selected objects as they are now
+    (in your position unit): between those side by side, and between those one above another. When
+    the gaps differ they show the range, such as 0.18–0.35. They follow as you move things.
+  - Type a gap and press Return to space them exactly that far apart, counted out from the key
+    object (or the leftmost or topmost). Rows and columns are kept, so a grid of panels stays a
+    grid.
 - **Align to**:
   - **Selection** (the default): lines up with the selection's edges.
   - **Page**: lines up with the page's edges; distributing moves the outer objects to the edges.

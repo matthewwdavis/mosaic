@@ -18,7 +18,8 @@ import { contextMenu } from "./contextmenu.js";
 import { gridFor } from "./gridlayout.js";
 import { canHold, copiesOf, editGroup, finishEdits, makeSymbol, placedItems, symbolOf } from "./symbols.js";
 import { middle, panelAt } from "./labels.js";
-import { button, inspector, journalOf, journalPreset } from "./inspector.js";
+import { button, inspector, journalOf, journalPreset, refreshGaps } from "./inspector.js";
+import { spacedStarts } from "./gaps.js";
 import { panels } from "./panels.js";
 import { citeDialog } from "./cite.js";
 import { textRibbon } from "./textribbon.js";
@@ -1620,39 +1621,55 @@ const app = {
     }));
     announce(`Distributed ${sel.length} objects by their ${{ left: "left edges", center: "centres", right: "right edges", top: "tops", middle: "middles", bottom: "bottoms" }[edge]}`);
   },
-  // Equal gaps between neighbours across (h) or down (v). With a gap set, exactly that gap,
-  // counted out from the key object (or the leftmost or topmost); aligning to the page, the outer
-  // objects go to the page's edges.
+  // Equal gaps between neighbours across (h) or down (v), as even as fits between the outer two;
+  // aligning to the page, the outer objects go to the page's edges. (An exact gap is typed in the
+  // Gap across or Gap down field: spaceAt.)
   distribute(axisName) {
     const sel = store.selected().filter((it) => !it.locked);
-    const gap = this.prefs.spacing_gap, mode = this.alignMode(sel);
-    if (sel.length < (gap != null || mode === "page" ? 2 : 3)) return announce("Select three or more objects to space evenly (two with a gap set)");
+    const mode = this.alignMode(sel);
+    if (sel.length < (mode === "page" ? 2 : 3)) return announce("Select three or more objects to space evenly");
     const i0 = axisName === "h" ? 0 : 1, i1 = i0 + 2;
     const boxes = sel.map((it) => ({ id: it.id, b: itemBBox(it) })).sort((a, b) => a.b[i0] - b.b[i0]);
     const size = (b) => b[i1] - b[i0];
     const starts = new Map();
-    if (gap != null) {
-      const k = Math.max(0, mode === "key" ? boxes.findIndex((x) => x.id === this.keyObject()?.id) : 0);
-      let pos = boxes[k].b[i1];
-      for (let i = k + 1; i < boxes.length; i++) { starts.set(boxes[i].id, pos + gap); pos += gap + size(boxes[i].b); }
-      pos = boxes[k].b[i0];
-      for (let i = k - 1; i >= 0; i--) { pos -= gap + size(boxes[i].b); starts.set(boxes[i].id, pos); }
-    } else {
-      const page = store.page();
-      const lo = mode === "page" ? 0 : boxes[0].b[i0];
-      const hi = mode === "page" ? (i0 ? page.height : page.width) : boxes[boxes.length - 1].b[i1];
-      const even = (hi - lo - boxes.reduce((n, x) => n + size(x.b), 0)) / (boxes.length - 1);
-      let pos = lo;
-      for (const x of boxes) { starts.set(x.id, pos); pos += size(x.b) + even; }
+    const page = store.page();
+    const lo = mode === "page" ? 0 : boxes[0].b[i0];
+    const hi = mode === "page" ? (i0 ? page.height : page.width) : boxes[boxes.length - 1].b[i1];
+    const even = (hi - lo - boxes.reduce((n, x) => n + size(x.b), 0)) / (boxes.length - 1);
+    let pos = lo;
+    for (const x of boxes) { starts.set(x.id, pos); pos += size(x.b) + even; }
+    this.moveStarts("Distribute", boxes, starts, i0);
+    announce(`Spaced ${sel.length} objects evenly`);
+  },
+  // Gap across (h) or Gap down (v) typed in: the selected objects exactly that far from their
+  // neighbours (gaps.js: rows and columns kept, so a grid of panels stays a grid), those with none
+  // before them staying put, or the key object
+  spaceAt(axisName, gap) {
+    const sel = store.selected().filter((it) => !it.locked);
+    if (sel.length < 2) {
+      refreshGaps(this);
+      return announce("Select two or more objects to set the gap between them");
     }
-    store.update("Distribute", (doc) => {
+    const i0 = axisName === "h" ? 0 : 1, boxes = sel.map((it) => ({ id: it.id, b: itemBBox(it) }));
+    const key = this.alignMode(sel) === "key" ? this.keyObject()?.id : null;
+    const starts = spacedStarts(boxes, axisName, gap, key);
+    if (!starts) {
+      refreshGaps(this);
+      return announce(axisName === "h" ? "None of them are side by side" : "None of them are above one another");
+    }
+    this.moveStarts(axisName === "h" ? "Gap across" : "Gap down", boxes, starts, i0);
+    refreshGaps(this);
+    announce(`Spaced ${sel.length} objects ${lengthText(gap, true)} apart ${axisName === "h" ? "across" : "down"}`);
+  },
+  // Objects moved along one axis so their boxes start at these places (one undo step)
+  moveStarts(label, boxes, starts, i0) {
+    store.update(label, (doc) => {
       detachMoved(boxes.map(({ id }) => findDeep(doc.pages[store.pageIndex].items, id)));
       for (const { id, b } of boxes) {
         const it = findDeep(doc.pages[store.pageIndex].items, id), d = starts.get(id) - b[i0];
-        if (starts.has(id)) shiftItem(it, clone(it), i0 ? 0 : d, i0 ? d : 0);
+        if (starts.has(id) && Math.abs(d) > 1e-9) shiftItem(it, clone(it), i0 ? 0 : d, i0 ? d : 0);
       }
     });
-    announce(gap != null ? `Spaced ${sel.length} objects ${lengthText(gap, true)} apart` : `Spaced ${sel.length} objects evenly`);
   },
   reorder(how) {
     const ids = new Set(store.selection);

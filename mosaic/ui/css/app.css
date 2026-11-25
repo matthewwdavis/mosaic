@@ -276,7 +276,10 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 .row:has(> .turn-flip) { grid-template-columns: minmax(0, 1fr) auto; }
 .row:has(> .turn-flip:only-child) { grid-template-columns: auto; }
 .button-row.turn-flip { flex-wrap: nowrap; }
-.field.gap input[type=text] { width: 4.2rem; flex: none; }
+.field.gap input[type=text] { width: 6.2rem; flex: none; }
+/* Gap across over Gap down in the ribbon, each with its label beside it */
+.gap-fields { display: flex; flex-direction: column; justify-content: center; gap: 0.15rem; }
+.gap-fields .field.gap { flex-direction: row; align-items: center; justify-content: flex-end; gap: 0.35rem; }
 .rgroup .field.gap, .rgroup .field { justify-content: center; }
 .rgroup .field > label { font-size: 0.72rem; }
 .rgroup .field select { min-height: 1.9rem; padding: 0.15rem 0.3rem; }

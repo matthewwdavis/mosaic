@@ -8,7 +8,7 @@ import { panels } from "./panels.js";
 import { rulers } from "./rulers.js";
 import { store } from "./store.js";
 import { convertLength, niceLength, pageScale, parseLength } from "./scalebar.js";
-import { apply, frameMatrix, isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog, toUnit } from "./util.js";
+import { apply, fmt, frameMatrix, isMac, itemBBox, itemsBBox, lengthText, lineMidpoints, luminance, parseHex, shapeCatalog, toUnit } from "./util.js";
 import { restyle } from "./textstyles.js";
 import { sameCommand } from "./selectsame.js";
 import { glass, rgba } from "./glass.js";
@@ -6658,6 +6658,58 @@ export async function run(app, params) {
     await settle();
     check(!store.items().length, "clicking where nothing encloses the spot fills nothing");
     key("Escape");
+    // Line ends take no point on a fill: it takes its shape from its lines, and ends on its corners
+    // (which sit where its lines meet) went round in a loop, the fill and its lines creeping across
+    // the page with every redraw (2026-11-25). A band like that figure's: a bar, slanted lines from
+    // its ends down to a foot line, filled
+    store.update("A band for the test", (doc) => doc.pages[store.pageIndex].items.push(
+      lineItem("bandTop", [150, 300], [350, 300]), lineItem("bandL", [150, 300], [100, 400]),
+      lineItem("bandR", [350, 300], [400, 400]), lineItem("bandFoot", [50, 400], [450, 400])), { select: [] });
+    await settle();
+    key("f");
+    pointer("pointerdown", screenOf(250, 350));
+    pointer("pointerup", screenOf(250, 350), { buttons: 0 });
+    await until(() => store.items().some((i) => i.geom === "region"), 4000);
+    await settle();
+    await until(() => canvas.els.get(area()?.id)?.regionPath, 3000);
+    const band = area(), bandFrame = JSON.stringify(band?.frame), cornerPick = canvas.siteNear([100, 400]);
+    check(band && !canvas.sitesOf(band).length && /^band/.test(cornerPick?.item || ""),
+      "a fill has no connection points: an end let go where its lines meet takes a line there", JSON.stringify(cornerPick));
+    // Ends on the fill's corners, as in a file from before: let go where they are, and nothing moves
+    const ends = () => JSON.stringify(["bandL", "bandR"].map((id) => store.item(id).points));
+    const endsWere = ends();
+    store.update("Ends on the fill, as in a file from before", (doc) => {
+      const its = doc.pages[store.pageIndex].items;
+      its.find((i) => i.id === "bandL").end_link = { item: band.id, site: "c3" };
+      its.find((i) => i.id === "bandR").end_link = { item: band.id, site: "c2" };
+    });
+    for (let i = 0; i < 5; i++) await settle();
+    check(!store.item("bandL").end_link && !store.item("bandR").end_link && ends() === endsWere && JSON.stringify(area().frame) === bandFrame,
+      "ends on a fill from before are let go where they are, and the fill and its lines stay put",
+      `${ends()} was ${endsWere}; ${JSON.stringify(area().frame)} was ${bandFrame}`);
+    // Its lines are still the person's to pick, restyle and reshape, the fill following
+    pointer("pointerdown", screenOf(125, 350));
+    pointer("pointerup", screenOf(125, 350), { buttons: 0 });
+    await settle();
+    const pickedLine = store.selection.join();
+    inspector.render();
+    const bandHex = document.querySelector('#inspector input[aria-label="Line colour hex code"]');
+    if (bandHex) { bandHex.value = "d62728"; bandHex.dispatchEvent(new Event("change")); }
+    await settle();
+    check(pickedLine === "bandL" && store.item("bandL").stroke.color === "#d62728",
+      "a click on one of a fill's lines picks the line, and its colour can be changed", `${pickedLine} ${store.item("bandL").stroke.color}`);
+    pointer("pointerdown", screenOf(100, 400));
+    pointer("pointermove", screenOf(90, 400));
+    pointer("pointermove", screenOf(80, 400));
+    pointer("pointerup", screenOf(80, 400), { buttons: 0 });
+    await settle();
+    await until(() => near(area().frame[0], 80, 0.5), 3000);
+    for (let i = 0; i < 3; i++) await settle();
+    const bandEnd = store.item("bandL").points[1];
+    check(near(bandEnd[0], 80, 0.01) && near(bandEnd[1], 400, 0.01) && store.item("bandL").end_link?.item !== band.id
+      && near(area().frame[0], 80, 0.5), "dragging its end reshapes the line, which stays where it's let go, and the fill follows it",
+      `${JSON.stringify(bandEnd)} ${JSON.stringify(store.item("bandL").end_link)} ${JSON.stringify(area().frame)}`);
+    store.select([]);
     await app.run("deletePage");
     store.setPage(fillPageAt);
     store.select([rect.id]);   // as the checks below expect
@@ -6961,7 +7013,8 @@ export async function run(app, params) {
     const fr = (id) => store.item(id).frame;
     store.update("Spread for test", (doc) => { findItem(doc, "eqB").frame[0] = 400; findItem(doc, "eqD").frame[0] = 600; });
     store.select(["eqA", "eqB", "eqC"]);
-    check(document.querySelector('#rpanel-arrange [data-cmd="distributeCenter"]') && document.querySelector('#rpanel-arrange [data-sync="spacing_gap"]')
+    check(document.querySelector('#rpanel-arrange [data-cmd="distributeCenter"]') && document.querySelector('#rpanel-arrange input[data-gap-axis="h"]')
+      && document.querySelector('#rpanel-arrange input[data-gap-axis="v"]')
       && document.querySelector('#rpanel-arrange [data-sync="align_to"]'), "the Arrange tab has distribute, spacing and align-to controls");
     app.run("distributeCenter");
     check(near(fr("eqB")[0], 390, 1e-6) && near(fr("eqA")[0], 330, 1e-6) && near(fr("eqC")[0], 450, 1e-6),
@@ -6988,15 +7041,26 @@ export async function run(app, params) {
     app.run("alignTop");
     check(near(fr("eqA")[1], 500, 1e-6) && near(fr("eqB")[1], 500, 1e-6) && near(fr("eqC")[1], 500, 1e-6),
       "Align tops lines them up with the key object, which stays put", `${fr("eqA")[1]} ${fr("eqB")[1]} ${fr("eqC")[1]}`);
-    const gapIn = document.querySelector('#rpanel-arrange [data-sync="spacing_gap"]');
-    gapIn.value = "0.5";
-    gapIn.dispatchEvent(new Event("change"));
-    app.run("distributeH");
+    // Gap across and Gap down show the gaps between neighbours as they are; a gap typed in spaces
+    // them that far apart at once, counted out from the key object
+    const gapAcross = document.querySelector('#rpanel-arrange input[data-gap-axis="h"]');
+    const gapDown = document.querySelector('#rpanel-arrange input[data-gap-axis="v"]');
+    const cmText = (pt) => fmt(toUnit(pt, "cm"), 3);
+    check(app.prefs.units === "cm" && gapAcross?.value === cmText(20) && gapDown?.value === "",
+      "Gap across shows the gap between the selected objects as it is; Gap down is empty with none stacked",
+      `${app.prefs.units} across "${gapAcross?.value}" down "${gapDown?.value}"`);
+    gapAcross.value = "0.5";
+    gapAcross.dispatchEvent(new Event("change"));
+    await settle();
     const g05 = (0.5 * 72) / 2.54;
-    check(near(fr("eqC")[0], 450, 1e-6) && near(fr("eqB")[0], 450 - g05 - 40, 1e-6) && near(fr("eqA")[0], 450 - 2 * (g05 + 40), 1e-6),
-      "a set gap spaces them exactly that far apart, counted out from the key object", `${fr("eqA")[0]} ${fr("eqB")[0]} ${fr("eqC")[0]}`);
-    gapIn.value = "";
-    gapIn.dispatchEvent(new Event("change"));
+    check(near(fr("eqC")[0], 450, 1e-6) && near(fr("eqB")[0], 450 - g05 - 40, 1e-6) && near(fr("eqA")[0], 450 - 2 * (g05 + 40), 1e-6)
+      && gapAcross.value === "0.5", "a gap typed in spaces them exactly that far apart at once, counted out from the key object",
+    `${fr("eqA")[0]} ${fr("eqB")[0]} ${fr("eqC")[0]} "${gapAcross.value}"`);
+    store.update("Uneven for test", (doc) => { findItem(doc, "eqA").frame[0] -= 10; });
+    await settle();
+    check(gapAcross.value === `0.5–${cmText(g05 + 10)}`, "uneven gaps show as a range", gapAcross.value);
+    app.run("undo");
+    await settle();
     // The key lasts for that selection only
     const toSel = document.querySelector('#rpanel-arrange [data-sync="align_to"]');
     store.select(["eqA", "eqB"]);
@@ -7006,9 +7070,32 @@ export async function run(app, params) {
     toSel.dispatchEvent(new Event("change"));
     store.select(["eqA", "eqB"]);
     app.run("alignRight");
-    check(near(fr("eqA")[0] + 40, pg().width, 1e-6) && near(fr("eqB")[0] + 40, pg().width, 1e-6) && app.prefs.spacing_gap == null,
+    check(near(fr("eqA")[0] + 40, pg().width, 1e-6) && near(fr("eqB")[0] + 40, pg().width, 1e-6),
       "aligning to the page puts their right edges on the page's edge", `${fr("eqA")[0]} ${fr("eqB")[0]}`);
     app.setAlignTo("selection");
+    // A grid of four: its gaps across within each row and down within each column; a gap typed in
+    // keeps the rows and columns (the top-left box stays put)
+    store.update("Grid for test", (doc) => {
+      for (const [id, x, y] of [["eqA", 300, 300], ["eqB", 350, 300], ["eqC", 300, 360], ["eqD", 356, 360]]) {
+        const it = findItem(doc, id);
+        it.frame[0] = x;
+        it.frame[1] = y;
+      }
+    });
+    store.select(["eqA", "eqB", "eqC", "eqD"]);
+    await settle();
+    check(gapAcross.value === `${cmText(10)}–${cmText(16)}` && gapDown.value === cmText(20),
+      "a grid shows its gaps across (a range: its rows differ) and down", `across "${gapAcross.value}" down "${gapDown.value}"`);
+    gapDown.value = "0.2";
+    gapDown.dispatchEvent(new Event("change"));
+    gapAcross.value = "0.3";
+    gapAcross.dispatchEvent(new Event("change"));
+    await settle();
+    const g2 = (0.2 * 72) / 2.54, g3 = (0.3 * 72) / 2.54;
+    check(near(fr("eqA")[0], 300, 1e-6) && near(fr("eqA")[1], 300, 1e-6) && near(fr("eqB")[0], 340 + g3, 1e-6) && near(fr("eqD")[0], 340 + g3, 1e-6)
+      && near(fr("eqC")[0], 300, 1e-6) && near(fr("eqC")[1], 340 + g2, 1e-6) && near(fr("eqD")[1], 340 + g2, 1e-6) && near(fr("eqB")[1], 300, 1e-6)
+      && gapAcross.value === "0.3" && gapDown.value === "0.2",
+    "typed gaps space a grid's rows and columns, keeping it a grid", ["eqA", "eqB", "eqC", "eqD"].map((id) => fr(id).slice(0, 2).join(",")).join(" "));
 
     // A new page starts with this page's guides; Remove all clears them
     const guidesNow = JSON.stringify(pg().guides);
