@@ -20,6 +20,8 @@ import {
   fmt, pointInPoly, rotate, roundStep, s, shapeCatalog, svgMatrix, translate, uid,
 } from "./util.js";
 
+// The zoom's limits: 5% to 4000% (Matthew raised the top from 3200%, 27 Nov 2026)
+export const ZOOM_MIN = 0.05, ZOOM_MAX = 40;
 const HANDLE = 8;             // handle size, CSS px
 const SNAP_PX = 6;            // snapping distance, CSS px
 const GUIDE_HIT = 4;          // how near (CSS px) the pointer must be to grab a guide
@@ -185,7 +187,7 @@ export const canvas = {
     const p = store.page();
     const r = this.stage.getBoundingClientRect();
     const z = Math.min((r.width - 64) / (p.width * PX_PER_PT), (r.height - 64) / (p.height * PX_PER_PT));
-    this.zoom = clamp(z, 0.05, 32);
+    this.zoom = clamp(z, ZOOM_MIN, ZOOM_MAX);
     this.panX = (r.width - p.width * this.k) / 2;
     this.panY = (r.height - p.height * this.k) / 2;
     this.applyView();
@@ -216,7 +218,7 @@ export const canvas = {
     cx = cx ?? r.width / 2;
     cy = cy ?? r.height / 2;
     const [px, py] = this.toPage(cx, cy);
-    this.zoom = clamp(z, 0.05, 32);
+    this.zoom = clamp(z, ZOOM_MIN, ZOOM_MAX);
     this.panX = cx - px * this.k;
     this.panY = cy - py * this.k;
     this.applyView();

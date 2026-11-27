@@ -46,7 +46,7 @@ Shortcuts are written for a Mac; on Windows use **Ctrl** for **⌘** and **Shift
      symbol, Symbols…), [equations](#equations) and the [figure report](#checking-and-exporting).
    - **Combine**: Pathfinder (Unite, Minus front, Intersect, Exclude) and clipping masks (Make mask,
      Release).
-   - **View**: Zoom, Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
+   - **View**: Zoom (from 5% to 4000%), Fit and Centre page; show or hide the Rulers, Grid and Guides; grid Settings;
      the [page's edge](#the-pages-edge-and-whats-off-it) over objects, dimming off the page, and
      Preview; a colour vision preview, and the page with each one side by side (Check colours).
 2. Each tab's commands, in labelled groups.
@@ -86,6 +86,12 @@ tab while several objects are selected**.
 8. **Status bar:** messages, zoom, how far the arrow keys move a selection (click it to switch
    between following the zoom and a fixed 1 pt), the pointer's position, and whether the
    document is saved.
+
+**Typing a zoom:** click the zoom percentage (in the status bar or on the View tab), type a
+number and press Enter: **250** or **250%** zooms to 250%, about the middle of the window. Tab or
+clicking elsewhere sets it too; Escape puts the zoom back as it was. A number past 5% or 4000%
+goes to that limit. The **▾** beside it lists set zooms from 25% to 4000% and Fit page in window
+(↓ opens it from the keyboard, ↑ ↓ and Enter choose).
 
 **Panel widths:** drag the inner edge of either side panel to make it wider or narrower (or
 focus the edge and use the arrow keys). Double-click the edge to put the panel back. mosaic

@@ -11,7 +11,8 @@ An app subclasses Handler for what else it serves (previews of placed files, pic
 
     srv = server.start_server(api, Handler)  # srv.url is what the window opens
 
-The page's parts both apps share (labapp/web: tips.js and tips.css, a button's callout) are served
+The page's parts both apps share (labapp/web: tips.js and tips.css, a button's callout; zoombox.js
+and zoombox.css, the zoom percentage to click and type into) are served
 as labapp/<file>: from ui/index.html, "../labapp/tips.css"; from ui/js/, "../../labapp/tips.js".
 
 Calls: POST <url>rpc {"method", "args", "kwargs", "win"} -> {"result"} or {"error", "trace"}.

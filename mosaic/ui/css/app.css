@@ -86,8 +86,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   stroke-linecap: round; stroke-linejoin: round; }
 .tool-label { font-size: 0.72rem; line-height: 1; white-space: nowrap; }
 .no-tool-labels .tool-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.zoom-label { align-self: center; min-width: 3.1rem; text-align: center; font-variant-numeric: tabular-nums;
-  color: var(--muted); }
+.zoom-box { align-self: center; color: var(--muted); }
 .tool.active { background: var(--pressed); border-color: var(--sel); }
 /* The Home tab's Text section: two rows of small controls, as in PowerPoint's Font group, no
    taller than the ribbon's other buttons */
@@ -117,7 +116,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
    900 px window, Linux's taller default font included */
 .toolbox .tool { min-height: 0; padding-top: 0.2rem; padding-bottom: 0.2rem; }
 .status-zoom { display: inline-flex; align-items: center; gap: 0.1rem; }
-.status-zoom .zoom-label { min-width: 2.8rem; }
+.status-zoom .zoom-box .labapp-zoombox-field { width: 3.9em; }
 .nudge-step { white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* Dangerous mode (liftedtext.js): the status bar says so, and a plot's texts are outlined under the pointer */
 .danger-badge { white-space: nowrap; background: var(--panel); border: 2px solid var(--danger); color: var(--danger); font-weight: 600; }

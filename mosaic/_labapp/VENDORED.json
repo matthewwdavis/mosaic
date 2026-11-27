@@ -1,7 +1,7 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "33110a9",
+ "commit": "945af43",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "citation.py": "e5baf5a6ca054f9416c95433599034b6f63af225f962c5faa62a5c58a329916a",
@@ -24,7 +24,7 @@
   "packaging.py": "59a40a67000641dfac538682f507d4a20fd8c59f2172f8385e4441898d7a3758",
   "platform.py": "32dde2d6987ce1c2c84c21344ed9da446422b19d083355c157c364c4cf288dec",
   "release.py": "2aa9991695952a6d6ed3a77630f146f484220bde55114ece7e0edd5babf64e01",
-  "server.py": "7db43361c73361d3585a31a0dbc94dceda3e4801db4118845a0abcee08fd0135",
+  "server.py": "16347d9a4cfb0563cb06d523e776a391f20d93810c8ff87453cce357e92bdb0b",
   "updates.py": "317e80cece51bcf037951a1312121cb6244aa784105f0d495d21bf45bd7aef68",
   "winruntime.py": "ba786de490bf30eef0e0f8499fd20a4ff9c48bdb3eb3fdaca536f6b8859918a9",
   "builtin_journals/biorxiv_monroe.json": "04cabe60544e054fd0c409cbc3b448c84c27da218c7406e9dead1393c0e0bfe1",
@@ -59,6 +59,8 @@
   "mac/title.py": "fd9f752e754747bac194a1c92e166aa78fb4770c22fdd12a8a7ded24d1149602",
   "mac/writinghelp.py": "2680656c36b3a511a44315434ff04c85cdf47750f9c01f335867540c4d8de6d6",
   "web/tips.css": "f454497164b7d8ccb5b86245cce3eda078654fc7949e0ac2f7e9a04f651a08da",
-  "web/tips.js": "045131c1653912b6b148d565eb790f612dfe179be48d0864d2b7538198fb9b5c"
+  "web/tips.js": "045131c1653912b6b148d565eb790f612dfe179be48d0864d2b7538198fb9b5c",
+  "web/zoombox.css": "b53c7af11558d0e07e9b5bad24c4f57cb8358a933a03c7878e56090f8ba9046a",
+  "web/zoombox.js": "20f1b2ac73eed363cc928961e2439178f9478e0a8061215382a7f83415ab58d6"
  }
 }

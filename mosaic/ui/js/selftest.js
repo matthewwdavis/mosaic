@@ -5102,6 +5102,85 @@ async function tipsChecks(app) {
   app.prefs.button_tips = was;
 }
 
+// The zoom percentage to click and type into (labapp's web/zoombox.js, shared with prose; 27 Nov
+// 2026): in the status bar and the View tab; Enter, Tab or a click elsewhere sets the zoom typed,
+// past 5%–4000% the limit, Escape puts the old one back, words that aren't a number change nothing;
+// ▾ lists set zooms (the one now ticked) and Fit
+async function zoomBoxChecks(app) {
+  if (!store.doc) { store.setDoc(await rpc("new_document")); await settle(); }
+  const field = document.querySelector("#status .zoom-box input"), arrow = document.querySelector("#status .zoom-box button");
+  const ribbonField = document.querySelector("#ribbon .zoom-box input");
+  check(field && arrow && ribbonField, "Zoom box: in the status bar and the View tab, each with its ▾", "");
+  if (!field || !arrow) return;
+  const press = (key, opts = {}) => field.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...opts }));
+  // (a click on the percentage, the words typed over it, then a key)
+  const type = (text, key = "Enter") => {
+    field.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+    const selected = document.activeElement === field && field.selectionStart === 0 && field.selectionEnd === field.value.length;
+    field.value = text;
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    if (key) press(key);
+    return selected;
+  };
+  const z = () => `${canvas.zoom} ${field.value} ${ribbonField?.value}`;
+  canvas.setZoom(1);
+  const selected = type("250");
+  check(selected && near(canvas.zoom, 2.5, 1e-9) && field.value === "250%" && ribbonField?.value === "250%" && document.activeElement !== field,
+    "Zoom box: a click selects the percentage; 250 and Enter zoom to 250% (both boxes say so) and give the keys back", `${selected} ${z()}`);
+  type("9000");
+  check(near(canvas.zoom, 40, 1e-9) && field.value === "4000%", "Zoom box: past 4000% it goes to 4000%", z());
+  type("1%");
+  check(near(canvas.zoom, 0.05, 1e-9) && field.value === "5%", "Zoom box: under 5% it goes to 5%", z());
+  type(" 33,5 % ");
+  check(near(canvas.zoom, 0.335, 1e-9), "Zoom box: a % sign, spaces and a decimal comma are fine", z());
+  type("150");
+  type("80", "Escape");
+  check(near(canvas.zoom, 1.5, 1e-9) && field.value === "150%" && document.activeElement !== field, "Zoom box: Escape puts the zoom back", z());
+  type("abc");
+  check(near(canvas.zoom, 1.5, 1e-9) && field.value === "150%", "Zoom box: words that aren't a number change nothing", z());
+  type("300", null);
+  check(canvas.zoom === 1.5, "Zoom box: nothing changes while typing", z());
+  field.blur();
+  check(near(canvas.zoom, 3, 1e-9) && field.value === "300%", "Zoom box: a click elsewhere sets the zoom typed", z());
+  const toolWas = canvas.tool;
+  for (const k of ["t", "r", "p"]) type("400", k);   // (tools' keys, typed in the box: they stay in the box)
+  check(canvas.tool === toolWas && document.activeElement === field, "Zoom box: a key typed in it is the box's, not a tool's", `${toolWas} → ${canvas.tool}`);
+  press("Escape");
+  // ▾: the set zooms, the one now ticked, above the status bar; ↓ and Enter choose
+  canvas.setZoom(2);
+  arrow.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+  arrow.click();
+  let list = document.querySelector(".labapp-zoombox-list");
+  const names = list ? [...list.querySelectorAll(".labapp-zoombox-name")].map((n) => n.textContent) : [];
+  const ticked = list?.querySelector('[aria-selected="true"]')?.textContent;
+  check(list && names.join() === "25%,50%,75%,100%,150%,200%,400%,800%,1600%,3200%,4000%,Fit page in window" && ticked === "200%"
+    && list.getBoundingClientRect().bottom <= arrow.getBoundingClientRect().top + 1 && document.activeElement === field,
+  "Zoom box: ▾ lists 25% to 4000% and Fit page in window, 200% ticked, above the status bar", `${names} | ${ticked}`);
+  press("ArrowDown");
+  press("ArrowDown");
+  press("Enter");
+  check(near(canvas.zoom, 0.5, 1e-9) && !document.querySelector(".labapp-zoombox-list") && document.activeElement !== field,
+    "Zoom box: ↓ ↓ Enter in the list chooses 50%", z());
+  canvas.fit();
+  const fitted = canvas.zoom;
+  canvas.setZoom(1);
+  arrow.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+  arrow.click();
+  list = document.querySelector(".labapp-zoombox-list");
+  [...(list?.querySelectorAll(".labapp-zoombox-item") || [])].find((l) => l.textContent.startsWith("Fit page"))?.click();
+  check(near(canvas.zoom, fitted, 1e-9) && !document.querySelector(".labapp-zoombox-list"), "Zoom box: Fit page in window from the list", `${canvas.zoom} vs ${fitted}`);
+  arrow.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+  arrow.click();
+  press("Escape");
+  check(!document.querySelector(".labapp-zoombox-list") && document.activeElement === field && near(canvas.zoom, fitted, 1e-9),
+    "Zoom box: Escape closes the list, the zoom as it was", z());
+  press("Escape");
+  // (a ⌘-scroll or pinch zooms beyond 3200% now too)
+  canvas.setZoom(100);
+  check(canvas.zoom === 40 && field.value === "4000%", "Zoom: up to 4000% (was 3200%)", z());
+  canvas.fit();
+}
+
 async function visionChecks(app) {
   store.setDoc(await rpc("new_document"));
   const box = (id, x, colour) => ({ ...gRectFor(id, x, 60, 70, 70), fill: { color: colour, opacity: 1 } });
@@ -5194,6 +5273,7 @@ export async function run(app, params) {
     if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
     if (params.get("only") === "glass") { await glassChecks(app); throw ONLY; }
     if (params.get("only") === "tips") { await tipsChecks(app); throw ONLY; }
+    if (params.get("only") === "zoombox") { await zoomBoxChecks(app); throw ONLY; }
     if (params.get("only") === "rename") { await renameChecks(app, out); throw ONLY; }
     if (params.get("only") === "keeping") { await keepingChecks(app, out); throw ONLY; }
     if (params.get("only") === "pagedrag") { await pageDragChecks(app); throw ONLY; }
@@ -5234,8 +5314,8 @@ export async function run(app, params) {
     `rows ${tabRows}; tools ${toolbox.scrollHeight}/${toolbox.clientHeight}; width ${document.body.scrollWidth}`);
     check(near(store.page().width, 210 * MMPT) && near(store.page().height, 297 * MMPT), "new pages are A4", pageSize());
     canvas.setZoom(1);
-    check(document.querySelector(".zoom-label")?.textContent === "100%", "zoom readout shows 100% at true size",
-      document.querySelector(".zoom-label")?.textContent);
+    check(document.querySelector("#status .zoom-box input")?.value === "100%", "zoom readout shows 100% at true size",
+      document.querySelector("#status .zoom-box input")?.value);
     canvas.fit();
 
     // Placing files keeps them linked and finds their other copies
@@ -6481,6 +6561,7 @@ export async function run(app, params) {
     await offPageChecks(app);
     await glassChecks(app);
     await tipsChecks(app);
+    await zoomBoxChecks(app);
     if (out) await renameChecks(app, out);
     if (out) await keepingChecks(app, out);
     await pageDragChecks(app);

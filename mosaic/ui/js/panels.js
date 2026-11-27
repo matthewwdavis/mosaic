@@ -1,7 +1,8 @@
 // Toolbar, pages and objects lists, status bar and dialogs.
 
 import { rpc } from "./api.js";
-import { canvas, visionMatrix } from "./canvas.js";
+import { ZOOM_MAX, ZOOM_MIN, canvas, visionMatrix } from "./canvas.js";
+import { makeZoomBox } from "../../labapp/zoombox.js";   // (the zoom percentage to type into, shared with prose: labapp's web/zoombox.js)
 import { alignToField, button, colourVisionField, gapField, inspector, refreshGaps, journalGroups, journalOptions, numField, pagePreset, selectField, standardOptions,
   widestOf } from "./inspector.js";
 import { findItem, store } from "./store.js";
@@ -22,6 +23,8 @@ import { selectionKey, selectionTab } from "./ribbonfollow.js";
 import { describeResult, typeLabels } from "./journalfind.js";
 import { UNIT_LABEL, announce, fmt, h, isMac, itemLabel, keepFieldKeys, pathIcon, s, shapeName, toUnit, uid } from "./util.js";
 
+// The zoom box's set zooms (its ▾), up to the 4000% limit
+const ZOOM_CHOICES = [0.25, 0.5, 0.75, 1, 1.5, 2, 4, 8, 16, 32, 40];
 const PROGRESS_EVERY = 250;        // ms between asking how far a long job has got
 const PROGRESS_SHOW_AFTER = 300;   // ms before a bar shows where nothing else says it's working (Check, Refresh)
 // About how long a job has left, from how far it's got in how long; nothing until it can tell
@@ -204,7 +207,8 @@ export const panels = {
     canvas.onToolChange = (tool) => this.renderTools(tool);
     document.addEventListener("fa-prefs", () => { this.renderToggles(); this.renderNudge(); refreshGaps(this.app); });
     document.addEventListener("fa-zoom", (e) => {
-      for (const z of document.querySelectorAll(".zoom-label")) z.textContent = `${fmt(e.detail * 100, 0)}%`;
+      this.zoomBoxes = (this.zoomBoxes || []).filter((b) => b.el.isConnected);
+      for (const b of this.zoomBoxes) b.show(e.detail);
       this.renderNudge();
     });
     document.addEventListener("fa-cursor", (e) => {
@@ -297,6 +301,24 @@ export const panels = {
       { label: "My Journals…", run: () => this.journalsDialog() });
     const r = btn.getBoundingClientRect();
     contextMenu.show(entries, r.left, r.bottom + 2, btn);
+  },
+  // The zoom as a percentage (the View tab's and the status bar's): a click selects it to type over,
+  // Enter, Tab or a click elsewhere sets the zoom typed (past 5%–4000%: the limit), Escape puts it
+  // back; ▾ lists set zooms and Fit. labapp's zoom box, as prose's (Matthew asked, 27 Nov 2026)
+  zoomBox() {
+    const fit = this.app.commands.zoomFit;
+    const box = makeZoomBox(document, {
+      zoom: () => canvas.zoom, set: (z) => canvas.setZoom(z), min: ZOOM_MIN, max: ZOOM_MAX,
+      entries: [...ZOOM_CHOICES.map((z) => ({ zoom: z })), "-", { label: "Fit page in window", keys: fit.keys, run: () => this.app.run("zoomFit") }],
+      format: (z) => `${fmt(z * 100, 0)}%`,
+      done: () => canvas.stage.focus({ preventScroll: true }),
+      title: "Zoom: click to type a zoom (5% to 4000%); ▾ for set zooms",
+    });
+    box.el.classList.add("zoom-box");
+    box.field.addEventListener("keydown", keepFieldKeys);   // (typing a number never runs a tool's key)
+    box.show(canvas.zoom || 1);
+    (this.zoomBoxes ||= []).push(box);
+    return box.el;
   },
   // Zoom inset (Figure tab): a click drags a rectangle, and ▾ beside it offers every shape
   zoomInsetButton() {
@@ -650,7 +672,7 @@ export const panels = {
         group("Clipping mask", t("makeClipMask", "clip"), t("releaseClipMask", "unclip")),
       ]],
       ["view", "View", [
-        group("Zoom", t("zoomOut", "zoomout"), h("span", { class: "zoom-label", "aria-live": "off" }, "100%"),
+        group("Zoom", t("zoomOut", "zoomout"), this.zoomBox(),
           t("zoomIn", "zoomin"), t("zoomFit", "fit"), t("zoom100", "actual"), t("centrePage", "centre")),
         group("Show", this.toggleButton("toggleRulers", "ruler", "show_rulers"),
           this.toggleButton("toggleGrid", "grid", "show_grid", ". Things snap to it while it shows"),
@@ -1279,7 +1301,7 @@ export const panels = {
     const z = (cmd, ic) => button(`${this.app.commands[cmd].label} (${this.app.commands[cmd].keys})`, () => this.app.run(cmd),
       icon(ic), "icon-btn small");
     const zoom = h("span", { class: "status-zoom", role: "group", "aria-label": "Zoom" }, z("zoomOut", "zoomout"),
-      h("span", { class: "zoom-label", "aria-live": "off" }, "100%"), z("zoomIn", "zoomin"), z("zoomFit", "fit"),
+      this.zoomBox(), z("zoomIn", "zoomin"), z("zoomFit", "fit"),
       z("centrePage", "centre"));
     // How far the arrow keys move the selection now; a click switches between following the zoom and 1 pt
     this.nudge = h("button", { type: "button", class: "btn toggle small nudge-step", "data-pref": "nudge_zoom",
