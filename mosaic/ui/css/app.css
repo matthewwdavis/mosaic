@@ -279,6 +279,7 @@ body.list-dragging, body.list-dragging * { cursor: grabbing !important; user-sel
 /* Gap across over Gap down in the ribbon, each with its label beside it, together no taller than the
    buttons beside them (a taller group made the whole ribbon taller) */
 .gap-fields { display: flex; flex-direction: column; justify-content: center; gap: 0.15rem; }
+.mini-stack { display: flex; flex-direction: column; justify-content: center; gap: 0.1rem; }
 .gap-fields .field.gap { flex-direction: row; align-items: center; justify-content: flex-end; gap: 0.35rem; }
 .gap-fields .field.gap input[type=text] { width: 5.4rem; min-height: 0; height: 1.3rem; padding: 0 0.3rem; font-size: 0.8rem; }
 .rgroup .field.gap, .rgroup .field { justify-content: center; }

@@ -1122,8 +1122,9 @@ objects are selected**).
   with the leftmost, and so on. One object on its own aligns to the page.
 - **Distribute**: spreads three or more objects so their left edges (centres, right edges, tops,
   middles or bottoms) are evenly spaced. The outer two stay put.
-- **Spacing**: equal gaps between neighbours, **Across** or **Down**, as even as fits between the
-  outer two (with **Align to** **Page**, the outer two go to the page's edges).
+- **Spacing**: equal gaps between neighbours, **Space evenly across** or **Space evenly down** (the
+  two small buttons, one above the other; their names show when the pointer rests on them), as even
+  as fits between the outer two (with **Align to** **Page**, the outer two go to the page's edges).
   - **Gap across** and **Gap down** show the gaps between the selected objects as they are now
     (in your position unit): between those side by side, and between those one above another. When
     the gaps differ they show the range, such as 0.18–0.35. They follow as you move things.

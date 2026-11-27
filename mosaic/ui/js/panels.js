@@ -730,7 +730,9 @@ export const panels = {
         t("alignTop", "alignTop"), t("alignMiddle", "alignMiddle"), t("alignBottom", "alignBottom")),
       group("Distribute", t("distributeLeft", "distLeft"), t("distributeCenter", "distCenter"), t("distributeRight", "distRight"),
         t("distributeTop", "distTop"), t("distributeMiddle", "distMiddle"), t("distributeBottom", "distBottom")),
-      group("Spacing", t("distributeH", "spaceH"), t("distributeV", "spaceV"),
+      // (Space evenly across and down: two small buttons, one above the other, beside Gap across and
+      // Gap down, so the tab stays one row at 1440 px: it was two since the Gap fields came, 25 Nov 2026)
+      group("Spacing", h("div", { class: "mini-stack" }, this.miniButton("distributeH", "spaceH"), this.miniButton("distributeV", "spaceV")),
         h("div", { class: "gap-fields" }, gapField(this.app, "h"), gapField(this.app, "v"))),
       group("Align to", alignToField(this.app)),
       this.turnFlipGroup(group),
@@ -740,17 +742,19 @@ export const panels = {
         t("sendToBack", "back")),
     ];
   },
+  // A small button, its icon alone (its name in its tooltip and callout): the Rotate group's, Spacing's
+  miniButton(cmd, iconName) {
+    const c = this.app.commands[cmd];
+    const b = h("button", { type: "button", class: "tool mini", title: `${c.label}${c.keys ? ` (${c.keys})` : ""}`, "aria-label": c.label, "data-cmd": cmd, tabindex: -1,
+      "data-tip-name": c.label, "data-tip-keys": c.keys || "" }, icon(iconName));
+    b.addEventListener("click", () => this.app.run(cmd));
+    return b;
+  },
   // Rotate right or left 90° and flip: four small buttons in two rows (as in the Text section),
   // under PowerPoint's name for them, so the Arrange tab stays one row in the app's window (WebKit's
   // text is wider than Chrome's); their names are in their tooltips
   turnFlipGroup(group) {
-    const mini = (cmd, iconName) => {
-      const c = this.app.commands[cmd];
-      const b = h("button", { type: "button", class: "tool mini", title: c.label, "aria-label": c.label, "data-cmd": cmd, tabindex: -1 },
-        icon(iconName));
-      b.addEventListener("click", () => this.app.run(cmd));
-      return b;
-    };
+    const mini = (cmd, iconName) => this.miniButton(cmd, iconName);
     const g = group("Rotate",
       h("div", { class: "text-row" }, mini("rotateLeft90", "rotateLeft"), mini("rotateRight90", "rotateRight")),
       h("div", { class: "text-row" }, mini("flipHorizontal", "flipH"), mini("flipVertical", "flipV")));
