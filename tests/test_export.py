@@ -180,3 +180,28 @@ def test_autofit_height_follows_powerpoint_model():
     r = Resolver({"assets": {}}).resolve(item)
     line = LINE_FACTOR * 6 * (face.ascent + face.descent + face.line_gap)
     assert r.autofit_frame[3] == pytest.approx(7.2 + 2 * line + AUTOFIT_EXTRA)
+
+
+def test_svg_with_a_photo_over_10_mb_converts_to_pdf(cache, tmp_path):
+    """librsvg refuses any one value over 10 MB unless told --unlimited: a whole camera JPEG inside
+    an SVG (a cropped photo from a PowerPoint export) stopped the export (11-27)."""
+    import base64
+    import io
+
+    buf = io.BytesIO()
+    Image.new("L", (3300, 3300), 90).save(buf, "PNG", compress_level=0)   # ~11 MB, ~14.5 MB as base64
+    data = base64.b64encode(buf.getvalue()).decode()
+    assert len(data) > 10_000_000
+    svg = tmp_path / "photo.svg"
+    svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="30pt" height="30pt" '
+                   f'viewBox="0 0 30 30"><image width="30" height="30" xlink:href="data:image/png;base64,{data}"/></svg>')
+    doc = model.new_document("photo")
+    aid, asset, _ = assets.new_asset(str(svg), cache)
+    doc["assets"][aid] = asset
+    doc["pages"][0]["items"] = [model.picture_item(aid, asset, 10, 10)]
+    # PowerPoint stopped on it; a PDF export left the picture out with only a warning
+    res = export_document(doc, str(tmp_path / "out"), ["pdf", "pptx"], cache=cache)
+    assert res["files"] == [str(tmp_path / "out.pdf"), str(tmp_path / "out.pptx")]
+    assert not [w for w in res["warnings"] if w.startswith("item ")], res["warnings"]
+    with pikepdf.open(tmp_path / "out.pdf") as pdf:
+        assert len(pdf.pages[0].Resources.XObject) == 1

@@ -539,7 +539,9 @@ class SourceResolver:
             exe = tool_path("rsvg-convert")
             if not exe:
                 raise RuntimeError("rsvg-convert (librsvg) is needed to convert SVG to PDF")
-            subprocess.run([exe, "-f", "pdf", "-o", out + ".tmp", svg_path], check=True, capture_output=True)
+            # --unlimited: without it librsvg refuses any one value over 10 MB, such as a whole
+            # camera JPEG embedded in an SVG (a cropped photo from a PowerPoint export)
+            subprocess.run([exe, "--unlimited", "-f", "pdf", "-o", out + ".tmp", svg_path], check=True, capture_output=True)
             os.replace(out + ".tmp", out)
         return out
 

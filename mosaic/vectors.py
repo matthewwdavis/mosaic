@@ -166,7 +166,7 @@ def _ink(path: str, kind: str, page_index: int, size: tuple[float, float]) -> li
             with tempfile.TemporaryDirectory() as tmp:
                 out = os.path.join(tmp, "ink.png")
                 # rsvg-convert's zoom is per CSS pixel, three quarters of a point
-                subprocess.run([exe, "-f", "png", "-z", f"{k * 0.75:.4f}", "-b", "white", "-o", out, path],
+                subprocess.run([exe, "--unlimited", "-f", "png", "-z", f"{k * 0.75:.4f}", "-b", "white", "-o", out, path],
                                check=True, capture_output=True)
                 with Image.open(out) as im:
                     img = im.convert("RGB")
