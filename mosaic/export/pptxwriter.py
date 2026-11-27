@@ -35,6 +35,7 @@ HEAD_SIZES = {"sm", "med", "lg"}   # PowerPoint's; extra small and large (xs, xl
 CAPS = {"round": "rnd", "square": "sq", "flat": "flat"}
 SLIDE_MIN, SLIDE_MAX = 914400, 51206400   # EMU: PowerPoint's smallest and largest slide sides
 FALLBACK_DPI = 300.0
+MIN_PICTURE_PT = 3.0   # pikepdf's smallest page side
 
 
 def e(v: float) -> int:
@@ -402,8 +403,11 @@ class PptxWriter:
         if not r.prims or not r.bbox:
             return None
         x0, y0, x1, y1 = r.bbox
-        w, h = max(x1 - x0, 0.1), max(y1 - y0, 0.1)
-        page = {"id": "pptx", "name": "", "width": w, "height": h, "background": None, "items": []}
+        # A PDF page can't be under 3 pt a side (pikepdf refuses it), so a thin object (an upright
+        # dashed line 1.5 pt across) sits centred in a picture at least that big; the margin is see-through
+        w, h = max(x1 - x0, MIN_PICTURE_PT), max(y1 - y0, MIN_PICTURE_PT)
+        x0, y0 = x0 - (w - (x1 - x0)) / 2, y0 - (h - (y1 - y0)) / 2
+        page ={"id": "pptx", "name": "", "width": w, "height": h, "background": None, "items": []}
         shifted = [Resolved(r.item_id, prims=[DrawGroup(r.prims, 1.0, matrix=Matrix(1.0, 0.0, 0.0, 1.0, -x0, -y0))], bbox=(0, 0, w, h))]
         svg = SvgWriter(self.src).page(page, shifted)
         pdf = PdfWriter(self.src)

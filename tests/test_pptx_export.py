@@ -90,3 +90,18 @@ def test_objects_parked_off_the_page_are_left_out_of_every_export(cache, tmp_pat
     assert "#0072b2" in svg and "#e69f00" in svg and "#cc79a7" not in svg
     slide = zipfile.ZipFile(tmp_path / "fig.pptx").read("ppt/slides/slide1.xml").decode("utf-8").upper()
     assert "0072B2" in slide and "E69F00" in slide and "CC79A7" not in slide
+
+
+def test_thin_objects_go_in_as_pictures_at_least_3_pt_across(cache, tmp_path):
+    """A PDF page can't be under 3 pt a side, so an upright dotted line 1.5 pt across (an exact
+    picture: even dashes) sits centred in a 3 pt picture; it used to stop the export (V6, 11-27)."""
+    doc = model.new_document("thin")
+    page = doc["pages"][0]
+    page["width"], page["height"] = 300.0, 200.0
+    page["items"] = [{"id": "dots", "type": "line", "points": [[100, 20], [100, 120]], "stroke": stroke(dash="sysDot"),
+                      "arrow_start": None, "arrow_end": None}]
+    res = export_document(doc, str(tmp_path / "thin"), ["pptx"], cache=cache)
+    assert any("even dashes went in as exact pictures" in w for w in res["warnings"]), res["warnings"]
+    (pic,) = Presentation(str(tmp_path / "thin.pptx")).slides[0].shapes
+    assert pic.shape_type == MSO_SHAPE_TYPE.PICTURE
+    assert abs(pic.width / 12700 - 3.0) < 1e-3 and abs((pic.left + pic.width / 2) / 12700 - 100.0) < 1e-3
