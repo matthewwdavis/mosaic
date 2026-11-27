@@ -49,6 +49,8 @@ def run_app(document: str | None = None, browser: bool = False, port: int = 0) -
         os.environ["MOSAIC_FAKE_CLIPBOARD"] = "1"
         if "out" not in parse_qs(extra):   # a folder for the files it saves (figures to drop, exports)
             extra += "&out=" + quote(tempfile.mkdtemp(prefix="mosaic-selftest-"))
+        else:   # (one given is made if it isn't there: a part run alone saved into one no part before had made, 27 Nov 2026)
+            os.makedirs(parse_qs(extra)["out"][0], exist_ok=True)
     srv = start_server(api, port)
     base = srv.url + "ui/index.html"
     if browser:

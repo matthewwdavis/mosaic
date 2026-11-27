@@ -3925,12 +3925,13 @@ async function scaleBarDrawChecks(app) {
     && near(mid(b)[0], at(55, 20)[0], 1e-6) && near(mid(b)[1], at(30, 20)[1], 1e-6) && b.anchor?.corner === "tl",
   "a drag draws a level bar a round length (23 µm dragged, 25 µm drawn) from where it starts, kept with the nearest corner",
   JSON.stringify(b));
-  // Leftwards: the bar goes left from where the drag starts
+  // Leftwards: the bar goes left from where the drag starts (in the picture's top half: at its middle,
+  // 60 pt down, top and bottom were as near, and rounding chose the corner, 27 Nov 2026)
   button().click();
-  await drag(at(180, 60), at(140, 58));   // 40 pt: 20 µm
+  await drag(at(180, 50), at(140, 48));   // 40 pt: 20 µm
   b = newest();
-  check(b.length === 20 && near(mid(b)[0], at(160, 60)[0], 1e-6) && b.anchor?.corner === "tr",
-    "dragged leftwards, the bar goes left from where the drag started", JSON.stringify(b));
+  check(b.length === 20 && near(mid(b)[0], at(160, 50)[0], 1e-6) && b.anchor?.corner === "tr",
+    "dragged leftwards, the bar goes left from where the drag started", JSON.stringify({ length: b.length, mid: mid(b), want: at(160, 50), corner: b.anchor?.corner }));
   // Mostly upwards: upright, its length reading upwards
   button().click();
   await drag(at(100, 110), at(108, 18));   // 92 pt up: 46 µm, so 50 µm
