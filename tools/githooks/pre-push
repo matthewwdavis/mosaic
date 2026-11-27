@@ -1,0 +1,6 @@
+#!/bin/bash
+# Before a push: mosaic as an installer leaves it, opened (tools/install_check.py). git push --no-verify skips it.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+py="${MOSAIC_PYTHON:-/opt/anaconda3/envs/figassemble/bin/python}"
+[ -x "$py" ] || py=python3
+exec "$py" tools/install_check.py

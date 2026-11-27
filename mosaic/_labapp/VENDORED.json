@@ -1,7 +1,7 @@
 {
  "note": "A copy of labapp. Don't edit it here: change labapp and run its tools/vendor.py.",
  "version": "0.1.0",
- "commit": "440c408",
+ "commit": "33110a9",
  "files": {
   "__init__.py": "31a5f079dced0670595cd1e2d977994f631cca696ddcd2e3eca56fa2aaf8b09a",
   "citation.py": "e5baf5a6ca054f9416c95433599034b6f63af225f962c5faa62a5c58a329916a",
@@ -14,6 +14,7 @@
   "fakelibrary.py": "3211ae4e659b895b5e03609cb2abf2bb6e933b3aad963a2ae4a737491a76d278",
   "glass.py": "2bb66a44fee7ac5e01143d1d06ead475d83f690f1c97d2e419c23a8904f1fabe",
   "guidelines.py": "e95e4702aa7dab7853910c0328c502676aa12942a42bd93eaf7004706e22ea1d",
+  "installcheck.py": "c4f719d53eba847217a3a567ec457452b2f647a7f394bdb7155b7f68b740e4e2",
   "journal.schema.json": "0ca5b62f0ee8978f35247fd8d1e95ce9177d64939f3e6fbbbfc31851f058f22d",
   "journalfile.py": "e48e80c061006de77149b8ed12f14a9dae93e09b8ae886f4badb9e9cc9de59dc",
   "journallibrary.py": "5447414fde407a04ac7aa98085e1d9099d6ffa328e0759bfb3cd293be7f75036",
