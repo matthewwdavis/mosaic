@@ -37,6 +37,8 @@ PREFS_DEFAULTS = {
     "theme": "system", "theme_day": "light", "theme_night": "dark",
     # Liquid Glass (View > Glass): "off", "subtle", "standard" or "clear"
     "glass": "standard",
+    # A button's callout (its name, shortcut and what it does) when the pointer rests on it: labapp's web/tips.js
+    "button_tips": True,
     "reduced_motion": False, "snap": True, "default_dpi": 600, "default_formats": ["pdf", "png"],
     "transparent": True, "panel_label": {"size": 8.0, "bold": True, "font": "Helvetica", "case": "lower"},
     "text": {"font": "Helvetica", "size": 6.0}, "stroke_width": 1.0, "recent": [],

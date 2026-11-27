@@ -1499,7 +1499,11 @@ The gear button (⌘,):
   page sizes (mm). Font sizes and line widths are always in points.
 - **Interface:** text size, labels under toolbar buttons, the ribbon's tab following what you
   select (the selected object's tab, Home for text, Arrange for several objects: each on unless
-  you turn it off), reduced motion.
+  you turn it off), button callouts, reduced motion. With button callouts on (the default), resting
+  the pointer on a button for ¾ second shows its name, its keyboard shortcut and what it does, as
+  Word's ScreenTips do; move straight on to the next button and its callout shows at once, and a
+  click, a key or scrolling takes it away. Off, the buttons' plain tooltips come back. (prose has
+  the same callouts.)
 - **Rulers, grid, guides and the page edge:** what's shown, snapping, the page's edge over objects
   and dimming off the page, the grid's spacing and how many finer lines each square has.
 - **Unsaved work:** recovery copies kept from earlier sessions, with Delete all.

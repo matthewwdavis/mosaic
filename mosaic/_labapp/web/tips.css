@@ -1,0 +1,14 @@
+/* A button's callout when the pointer rests on it: its name, its shortcut, what it does (tips.js).
+   Shared by prose and mosaic: their own colours where the page has them (--tip-* to set them
+   outright; else prose's menu colours, or mosaic's panel colours), these otherwise. */
+.labapp-tip { position: fixed; z-index: 2000; max-width: 300px; padding: 6px 9px 7px; pointer-events: none;
+  background: var(--tip-bg, var(--menu, var(--panel, #f6f6f8)));
+  border: .5px solid var(--tip-border, var(--menu-border, var(--line, rgba(0, 0, 0, .22)))); border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .18);
+  font: calc(12px * var(--ui-scale, 1))/1.35 var(--tip-font, var(--ui, var(--font, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Arial, sans-serif)));
+  color: var(--tip-ink, var(--ink, var(--text, #1d1d22))); user-select: none; -webkit-user-select: none; }
+.labapp-tip[hidden] { display: none; }
+.labapp-tip .tip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.labapp-tip .tip-name { font-weight: 600; }
+.labapp-tip .tip-keys { color: var(--tip-ink-2, var(--ink-2, var(--muted, #5c5c66))); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: .04em; }
+.labapp-tip .tip-desc { margin-top: 2px; color: var(--tip-ink-2, var(--ink-2, var(--muted, #5c5c66))); }

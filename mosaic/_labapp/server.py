@@ -11,6 +11,9 @@ An app subclasses Handler for what else it serves (previews of placed files, pic
 
     srv = server.start_server(api, Handler)  # srv.url is what the window opens
 
+The page's parts both apps share (labapp/web: tips.js and tips.css, a button's callout) are served
+as labapp/<file>: from ui/index.html, "../labapp/tips.css"; from ui/js/, "../../labapp/tips.js".
+
 Calls: POST <url>rpc {"method", "args", "kwargs", "win"} -> {"result"} or {"error", "trace"}.
 A method is callable when it's public (no leading underscore), not in the handler's `hidden`
 names, and the server's allowed(method) agrees.
@@ -125,6 +128,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if rest.startswith("ui/"):
                 return self._ui(rest[3:])
+            if rest.startswith("labapp/"):   # (the page's parts both apps share: web/, as labapp/<file>)
+                return self._web(rest[7:])
             if self.get(rest, query):
                 return
         except (KeyError, FileNotFoundError, ValueError):
@@ -143,6 +148,16 @@ class Handler(BaseHTTPRequestHandler):
             body = self.ui_body(path, fh.read())
         page = path == os.path.join(root, "index.html")
         self.send(200, body, ctype, headers={"Content-Security-Policy": self.csp} if page and self.csp else None)
+
+    def _web(self, rel: str) -> None:
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+        path = os.path.normpath(os.path.join(root, rel))
+        if not path.startswith(root + os.sep) or not os.path.isfile(path):   # (only files inside the folder)
+            self.send(404, b"not found", "text/plain")
+            return
+        ctype = "text/javascript" if path.endswith((".js", ".mjs")) else (mimetypes.guess_type(path)[0] or "application/octet-stream")
+        with open(path, "rb") as fh:
+            self.send(200, fh.read(), ctype)
 
     # POST: the editor's calls -------------------------------------------------------------------
 

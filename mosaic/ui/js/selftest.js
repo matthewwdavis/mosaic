@@ -15,6 +15,7 @@ import { glass, rgba } from "./glass.js";
 import { ringsOf, toLocal, toPageOf } from "./pen.js";
 import { cropMenu, cropToDrawnShape, cropToRatio, cropToSize, parseRatio, resetCrop } from "./crop.js";
 import { objectTab, selectionTab } from "./ribbonfollow.js";
+import { tipOf } from "../../labapp/tips.js";
 
 const MMPT = 72 / 25.4;
 const gRectFor = (id, x, y, w, hh) => ({ id, type: "shape", geom: "rect", frame: [x, y, w, hh], rot: 0, flip_h: false, flip_v: false,
@@ -5054,6 +5055,53 @@ async function linkChecks(app) {
 // Colour vision side by side: the page five ways at once, each view through its own filter over a
 // copy of the page's objects (not the page's own preview, no ids), and a click keeps one on the
 // page. Command search finds the views by "colour blind", "color blind" or a kind's name
+// A button's callout when the pointer rests on it (labapp's web/tips.js, shared with prose; 27 Nov
+// 2026): its name, shortcut and what it does after ¾ second; the next button's at once; a click
+// takes it away; Preferences ▸ Interface turns it off, the button's own tooltip as it was
+async function tipsChecks(app) {
+  const was = app.prefs.button_tips;
+  app.prefs.button_tips = true;
+  const showing = () => app.tips.showing();
+  const over = (el) => el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  const out = (el, to = document.body) => el.dispatchEvent(new MouseEvent("mouseout", { bubbles: true, relatedTarget: to }));
+  const seen = (b) => b.offsetParent !== null && b.getBoundingClientRect().width > 0;
+  const keyed = [...document.querySelectorAll("button[data-cmd]")].filter((b) => b.dataset.tipKeys && seen(b));
+  check(keyed.length >= 2, "Callouts: the toolbar's buttons carry their names and shortcuts", `${keyed.length} shown`);
+  const [a, b] = keyed;
+  if (!a || !b) { app.prefs.button_tips = was; return; }
+  const want = (el) => { const t = tipOf(el); return t ? `${t.name}${t.keys}${t.desc}` : ""; };
+  const titleA = a.getAttribute("title");
+  over(a);
+  await wait(450);
+  check(showing() === "" && a.getAttribute("title") === "", "Callouts: none yet at 0.45 s; the button's own tooltip held back", showing());
+  await wait(400);
+  check(showing() && showing() === want(a) && showing().includes(a.dataset.tipKeys), "Callouts: its name, shortcut and what it does after 0.75 s",
+    JSON.stringify({ got: showing(), want: want(a) }));
+  const box = document.querySelector(".labapp-tip");
+  check(box && box.getBoundingClientRect().top >= a.getBoundingClientRect().bottom - 1, "Callouts: under the button", "");
+  // (in mosaic's colours and font: its panel, text and interface font, from labapp's tips.css)
+  const like = document.createElement("div");
+  like.style.cssText = "position:fixed;left:-99px;background:var(--panel);color:var(--text);font-family:var(--font)";
+  document.body.append(like);
+  const cs = getComputedStyle(box), ls = getComputedStyle(like);
+  check(cs.backgroundColor === ls.backgroundColor && cs.color === ls.color && cs.fontFamily === ls.fontFamily,
+    "Callouts: in the theme's panel colour, text colour and font", JSON.stringify([cs.backgroundColor, ls.backgroundColor, cs.color, ls.color, cs.fontFamily, ls.fontFamily]));
+  like.remove();
+  out(a, b);
+  over(b);
+  await wait(40);
+  check(showing() === want(b) && a.getAttribute("title") === titleA, "Callouts: the next button's at once; the first's tooltip given back", showing());
+  b.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+  check(showing() === "", "Callouts: a click takes it away", showing());
+  out(b);
+  app.prefs.button_tips = false;
+  over(a);
+  await wait(900);
+  check(showing() === "" && a.getAttribute("title") === titleA, "Callouts: off in Preferences, none; the button's own tooltip as it was", showing());
+  out(a);
+  app.prefs.button_tips = was;
+}
+
 async function visionChecks(app) {
   store.setDoc(await rpc("new_document"));
   const box = (id, x, colour) => ({ ...gRectFor(id, x, 60, 70, 70), fill: { color: colour, opacity: 1 } });
@@ -5145,6 +5193,7 @@ export async function run(app, params) {
     if (params.get("only") === "pasteboard") { await pasteboardChecks(app); throw ONLY; }
     if (params.get("only") === "offpage") { await offPageChecks(app); throw ONLY; }
     if (params.get("only") === "glass") { await glassChecks(app); throw ONLY; }
+    if (params.get("only") === "tips") { await tipsChecks(app); throw ONLY; }
     if (params.get("only") === "rename") { await renameChecks(app, out); throw ONLY; }
     if (params.get("only") === "keeping") { await keepingChecks(app, out); throw ONLY; }
     if (params.get("only") === "pagedrag") { await pageDragChecks(app); throw ONLY; }
@@ -6431,6 +6480,7 @@ export async function run(app, params) {
     await pasteboardChecks(app);
     await offPageChecks(app);
     await glassChecks(app);
+    await tipsChecks(app);
     if (out) await renameChecks(app, out);
     if (out) await keepingChecks(app, out);
     await pageDragChecks(app);

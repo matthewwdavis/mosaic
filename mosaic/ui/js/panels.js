@@ -220,7 +220,9 @@ export const panels = {
     const c = this.app.commands[cmd];
     const shortcut = c.keys ? ` (${c.keys})` : "";
     const b = h("button", { type: "button", class: `tool${primary ? " primary" : ""}`, title: `${c.label}${shortcut}`,
-      "aria-label": c.label, "aria-keyshortcuts": c.aria || undefined, "data-cmd": cmd, tabindex: -1 },
+      "aria-label": c.label, "aria-keyshortcuts": c.aria || undefined, "data-cmd": cmd, tabindex: -1,
+      // (its callout when the pointer rests on it: its name, its shortcut, what it does: labapp's web/tips.js)
+      "data-tip-name": c.short || c.label, "data-tip-keys": c.keys || "", "data-tip-desc": c.short && c.short !== c.label ? c.label : "" },
     icon(iconName), h("span", { class: "tool-label" }, c.short || c.label));
     if (tool) { b.dataset.tool = tool; b.setAttribute("aria-pressed", "false"); }
     b.addEventListener("click", () => {
@@ -239,6 +241,7 @@ export const panels = {
     b.dataset.pref = pref;
     b.setAttribute("aria-label", c.short);
     b.title = `${c.label}${c.keys ? ` (${c.keys})` : ""}${hint}`;
+    b.dataset.tipDesc = `${c.short && c.short !== c.label ? c.label : ""}${hint}`.replace(/^[.;:,]\s*/, "");
     b.setAttribute("aria-pressed", this.app.prefs[pref] ? "true" : "false");
     return b;
   },
@@ -1695,6 +1698,7 @@ export const panels = {
           + "and Home when you click the empty page"),
         chk("text_home_tab", "Show the Home tab while text is selected or typed in"),
         chk("several_arrange_tab", "Show the Arrange tab while several objects are selected"),
+        chk("button_tips", "When the pointer rests on a button for ¾ second, show what it is, its keyboard shortcut and what it does"),
         chk("reduced_motion", "Reduce motion")),
       h("fieldset", {}, h("legend", {}, "Rulers, grid, guides and the page edge"),
         chk("show_rulers", `Show rulers (${keys("toggleRulers")})`),

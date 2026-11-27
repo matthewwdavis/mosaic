@@ -23,6 +23,7 @@ import { spacedStarts } from "./gaps.js";
 import { panels } from "./panels.js";
 import { citeDialog } from "./cite.js";
 import { textRibbon } from "./textribbon.js";
+import { installTips } from "../../labapp/tips.js";   // (a button's callout, shared with prose: labapp's web/tips.js)
 import { updates } from "./updates.js";
 import { rulers } from "./rulers.js";
 import { splitters } from "./splitters.js";
@@ -3193,6 +3194,8 @@ async function start() {
   canvas.onPreview = (on) => app.togglePreview(on);   // (the Stop button on its note)
   rulers.onMenu = (axis, index, x, y) => app.guideMenu(axis, index, x, y);
   panels.init(app);
+  // A button's name, shortcut and what it does when the pointer rests on it for ¾ second (Preferences ▸ Interface)
+  app.tips = installTips(document, { enabled: () => app.prefs?.button_tips !== false });
   updates.init(app, panels);   // the status bar's note when a new version is ready
   splitters.init(app);
   inspector.init(document.getElementById("inspector"), app);
