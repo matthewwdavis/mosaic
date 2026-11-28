@@ -51,3 +51,14 @@ def test_powerpoint_takes_such_a_shape_as_an_exact_picture(cache, tmp_path):
     doc["pages"][0]["items"] = [box(fill_reach="outer")]
     res = export_document(doc, str(tmp_path / "deck"), ["pptx"], cache=cache)
     assert any("a fill to its line's inner or outer edge" in n for n in res.get("notes", []) + res.get("warnings", []))
+
+
+def test_round_corners_and_ends_as_a_new_shape_has():
+    """A new shape's line has round corners and ends: skia traces them as conics, which its
+    simplify refused (UnsupportedVerbError), stopping every export of the figure (11-27)."""
+    for where in ("inner", "outer"):
+        for cap, join in (("round", "round"), ("flat", "round"), ("round", "bevel")):
+            item = {"id": "s", "type": "shape", "geom": "rect", "frame": [10, 10, 60, 40], "rot": 0, "fill_reach": where,
+                    "fill": {"color": "#56b4e9"}, "stroke": {**DASHED, "width": 4, "cap": cap, "join": join}}
+            got = bounds(body(item))
+            assert got == ([12, 12, 68, 48] if where == "inner" else [8, 8, 72, 52]), (where, cap, join, got)

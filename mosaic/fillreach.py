@@ -58,6 +58,9 @@ def _covered(path: Path, width: float, cap: str, join: str, miter_limit: float) 
     """What a line of this width covers, whole (its dashes left out), as an area."""
     out = _raw(path)
     out.stroke(width, _CAPS.get(cap, pathops.LineCap.BUTT_CAP), _JOINS.get(join, pathops.LineJoin.ROUND_JOIN), max(miter_limit, 1.0))
+    # Round joins (a new shape's) and caps come out as conics, which simplify can't take
+    # (UnsupportedVerbError: it stopped every export of such a shape, 11-27): as quadratics
+    out.convertConicsToQuads()
     out.simplify(fix_winding=True)
     return out
 
