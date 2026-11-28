@@ -5,9 +5,10 @@
 Run it from the environment mosaic is installed in (conda activate mosaic); the
 app remembers that environment's Python. Drag the result into Applications.
 
-The environment's Python is linked into the app and runs from there, so macOS takes the app's
-name, icon and version from this bundle, as for any Mac app (run from its own folder, it would
-call the app "python").
+The app's program is labapp's launcher (mosaic/_labapp/mac/launcher.c), which runs the environment's
+Python inside itself, and the app is signed (ad hoc), so macOS takes the app's name, icon and version
+from this bundle, as for any Mac app, and names mosaic in its privacy prompts ("mosaic would like to
+access files in your Desktop folder"; run as the environment's own Python, it would say "python").
 
 The app declares the .mff type as its own, and the older documents' types too (.mosaic, and
 .figasm from when it was called FigAssemble), so double-clicking a mosaic document of any of them

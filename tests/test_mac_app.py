@@ -1,4 +1,4 @@
-"""The Mac app: mosaic.app runs Python from inside itself, so macOS takes the app's name
+"""The Mac app: mosaic.app runs Python inside its own program, so macOS takes the app's name
 from it (packaging/macos/make_app.py), and the menu bar's pieces (mosaic/app/macmenu.py)."""
 import os
 import subprocess
@@ -26,23 +26,28 @@ def test_shortcuts_as_menu_keys():
 
 @mac
 def test_the_app_runs_python_from_inside_itself(tmp_path):
+    """mosaic.app's program is labapp's launcher, running this environment's Python inside itself:
+    macOS sees mosaic (its name in the menu bar and privacy prompts, its icon), not a Python."""
     subprocess.run([sys.executable, os.path.join(ROOT, "packaging", "macos", "make_app.py"), "--dest", str(tmp_path), "--no-register"],
                    check=True, capture_output=True)
-    folder = tmp_path / "mosaic.app" / "Contents" / "MacOS"
-    py = folder / "python"
-    assert py.is_symlink() and os.path.realpath(py) == os.path.realpath(sys.executable)
-    assert '"$(dirname "$0")/python" -m mosaic' in (folder / "mosaic").read_text()
-    # (python-app, on macOS 26 and later: the same Python marked as made for this macOS, for today's
-    # window buttons and title bar; the launcher runs it while it's a copy of the environment's)
-    marked = folder / "python-app"
-    for exe in [py] + ([marked] if marked.exists() else []):
-        out = subprocess.run([str(exe), "-c", "import Foundation, sys; b = Foundation.NSBundle.mainBundle(); "
-                              "print(b.infoDictionary()['CFBundleName']); print(b.bundlePath()); print(sys.prefix)"],
-                             check=True, capture_output=True, text=True).stdout.splitlines()
-        assert out[0] == "mosaic" and out[1].endswith("mosaic.app"), exe
-        assert os.path.realpath(out[2]) == os.path.realpath(sys.prefix), exe   # its own environment, found from there
-    if int(__import__("platform").mac_ver()[0].split(".")[0]) >= 26:
-        assert marked.is_symlink() and '"$here/python-app" -m mosaic' in (folder / "mosaic").read_text()
+    app = tmp_path / "mosaic.app"
+    program = app / "Contents" / "MacOS" / "mosaic"
+    assert os.listdir(program.parent) == ["mosaic"]   # (nothing linked to outside the app)
+    assert "module=mosaic" in (app / "Contents" / "Resources" / "launcher.txt").read_text().splitlines()
+    probe = tmp_path / "probe"
+    probe.mkdir()
+    (probe / "sitecustomize.py").write_text(
+        "import Foundation, sys\nb = Foundation.NSBundle.mainBundle()\n"
+        "print(b.infoDictionary()['CFBundleName']); print(b.bundlePath()); print(sys.prefix); print(sys.executable)\n"
+        "sys.stdout.flush(); import os; os._exit(0)\n")   # (before mosaic itself starts)
+    out = subprocess.run([str(program)], env=dict(os.environ, PYTHONPATH=str(probe)), check=True, capture_output=True,
+                         text=True, timeout=60).stdout.splitlines()
+    assert out[0] == "mosaic" and out[1] == str(app)
+    assert os.path.realpath(out[2]) == os.path.realpath(sys.prefix)   # its own environment, found from there
+    assert out[3] == sys.executable   # (what it runs for exports and other work in the background)
+    signed = subprocess.run(["/usr/bin/codesign", "-dv", str(app)], capture_output=True, text=True).stderr
+    assert "Identifier=io.github.matthewwdavis.mosaic" in signed
+    assert subprocess.run(["/usr/bin/codesign", "--verify", "--strict", str(app)], capture_output=True).returncode == 0
 
 
 @mac

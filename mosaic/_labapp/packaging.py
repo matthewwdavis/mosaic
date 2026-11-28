@@ -16,12 +16,11 @@ say what the app is (an AppSpec) and call these.
 from __future__ import annotations
 
 import os
-import platform
 import plistlib
 import shutil
-import struct
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from dataclasses import dataclass, field
 
@@ -109,67 +108,51 @@ def make_icns(spec: AppSpec, dest: str) -> bool:
     return True
 
 
-LC_BUILD_VERSION = 0x32
+# The program of the Mac apps made here (mac/launcher.c says what it does; tools/make_launcher.py builds it)
+LAUNCHER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mac", "launcher")
 
 
-def python_identity(path: str) -> str:
-    """Which file a Python is, as the app's launcher reads it (stat -L -f '%i %z %m'): it changes
-    when an update replaces the environment's Python."""
-    st = os.stat(path)
-    return f"{st.st_ino} {st.st_size} {int(st.st_mtime)}"
+def libpython() -> str | None:
+    """This Python's shared library, which the app's launcher loads to run Python inside itself:
+    conda's lib/libpython3.12.dylib (its python has it built in, so LDLIBRARY names a .a), or a
+    framework build's Python. None where there's none: the launcher then runs the python program."""
+    var = sysconfig.get_config_var
+    names = [var("LDLIBRARY") or "", f"libpython{var('LDVERSION')}.dylib"]
+    for base in (var("LIBDIR") or "", var("PYTHONFRAMEWORKPREFIX") or ""):
+        for name in names:
+            path = os.path.join(base, name)
+            if base and name and not name.endswith(".a") and os.path.isfile(path):
+                return path
+    return None
 
 
-def app_python(python: str, dest: str | None = None) -> str | None:
-    """A copy of the environment's Python beside it (or at dest), marked as made for the macOS it's
-    running on, then signed again ad hoc as it was. AppKit draws an app in the design of the SDK its
-    program was built with, and conda's Python says macOS 11, so an app run by it had the old flat
-    window buttons, title bar and controls on macOS 26 and later instead of Liquid Glass's. Returns
-    the copy's path, or None where it isn't needed or can't be made: before macOS 26, a Python
-    that already says 26 or later, one that isn't a single 64-bit Mach-O, or codesign refusing."""
-    if sys.platform != "darwin":
-        return None
-    try:
-        major, minor = ([int(x) for x in platform.mac_ver()[0].split(".")] + [0, 0])[:2]
-    except ValueError:
-        return None
-    if major < 26:
-        return None
-    real = os.path.realpath(python)
-    dest = dest or f"{real}-app"
-    with open(real, "rb") as fh:
-        data = bytearray(fh.read())
-    if len(data) < 32 or struct.unpack_from("<I", data, 0)[0] != 0xFEEDFACF:   # (64-bit, this Mac's order)
-        return None
-    at, found = 32, None
-    for _ in range(struct.unpack_from("<I", data, 16)[0]):
-        cmd, size = struct.unpack_from("<II", data, at)
-        if cmd == LC_BUILD_VERSION:
-            found = at
-        at += size
-    if found is None or struct.unpack_from("<I", data, found + 16)[0] >> 16 >= 26:
-        return None
-    struct.pack_into("<I", data, found + 16, (major << 16) | (minor << 8))   # (build_version_command.sdk)
-    tmp = f"{dest}.{os.getpid()}.tmp"
-    try:
-        with open(tmp, "wb") as fh:
-            fh.write(data)
-        os.chmod(tmp, 0o755)
-        if subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", tmp], capture_output=True).returncode:
-            return None
-        os.replace(tmp, dest)
-    except OSError:
-        return None
-    finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-    return dest
+def launcher_python() -> str:
+    """The python an app made now runs: this one, unless it's an app's own (an older app's linked-in
+    python, which goes when the app is made again), then the file it links to."""
+    return os.path.realpath(sys.executable) if ".app/Contents/MacOS/" in sys.executable else sys.executable
+
+
+def sign_mac_app(app: str) -> bool:
+    """Signs the app ad hoc, as Xcode's "Sign to Run Locally" does: its program, Info.plist and
+    resources sealed together under the app's identifier, which is what macOS's privacy prompts and
+    the permissions given there go by. False (with a line on stderr) where codesign refuses; the app
+    still runs."""
+    out = subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", app], capture_output=True, text=True)
+    if out.returncode:
+        print(f"couldn't sign {app}: {out.stderr.strip()}", file=sys.stderr)
+    return out.returncode == 0
 
 
 def mac_app(spec: AppSpec, dest: str, command: list | None = None, do_register: bool = True) -> str:
-    """The app in dest: it runs `python -m <module>` with this environment's Python, linked into
-    the app so that macOS takes the app's name, icon and version from the bundle (run from its
-    own folder it would call the app "python"); or it runs the command given. Made again each
-    time. Returns its path."""
+    """The app in dest: it runs `python -m <module>` with this environment's Python, or the command
+    given. Made again each time. Returns its path.
+
+    On a Mac its program is labapp's launcher (mac/launcher.c), which runs that Python inside itself,
+    and the app is signed (ad hoc), so macOS takes the app's name, icon and version from the bundle,
+    names the app in its privacy prompts ("prose would like to access files in your Desktop folder")
+    and keeps what it's allowed under that name, and draws its windows in the design of the macOS it
+    runs on. A command given, or no launcher, makes the program a shell script instead (the
+    environment's Python linked in beside it, so macOS still takes the name from the bundle)."""
     app = os.path.join(dest, f"{spec.name}.app")
     if os.path.exists(app):
         shutil.rmtree(app)   # (made again each time: the bundle is this function's)
@@ -178,29 +161,21 @@ def mac_app(spec: AppSpec, dest: str, command: list | None = None, do_register: 
     os.makedirs(macos)
     os.makedirs(res)
     launcher = os.path.join(macos, spec.name)
-    if command is None:
-        os.symlink(sys.executable, os.path.join(macos, "python"))
-        body = (f"# Starts {spec.name} from the Python environment it was installed in, linked in beside this\n"
-                f"# file so that macOS sees the app as {spec.name}\n")
-        marked = app_python(sys.executable)
-        if marked:
-            # (python-app: the same Python marked as made for this macOS, so the app has its window
-            # buttons, title bar and controls; used while the environment's Python is the one it
-            # was copied from, the plain one after an update replaces it)
-            os.symlink(marked, os.path.join(macos, "python-app"))
-            with open(os.path.join(res, "python-app.from"), "w") as fh:
-                fh.write(python_identity(sys.executable) + "\n")
-            body += ("# python-app is that Python marked as made for this macOS (packaging.app_python), so that\n"
-                     "# macOS gives the app the window buttons, title bar and controls of its own design\n"
-                     'here="$(dirname "$0")"\n'
-                     """if [ "$(stat -L -f '%i %z %m' "$here/python" 2>/dev/null)" = "$(cat "$here/../Resources/python-app.from" 2>/dev/null)" ]; then\n"""
-                     f'  exec "$here/python-app" -m {spec.module} "$@"\n'
-                     "fi\n")
-        body += f'exec "$(dirname "$0")/python" -m {spec.module} "$@"\n'
+    native = command is None and sys.platform == "darwin" and os.path.isfile(LAUNCHER)
+    if native:
+        shutil.copyfile(LAUNCHER, launcher)
+        with open(os.path.join(res, "launcher.txt"), "w") as fh:
+            fh.write(f"python={launcher_python()}\nlibpython={libpython() or ''}\nmodule={spec.module}\n")
     else:
-        body = "exec " + " ".join(f'"{c}"' for c in command) + ' "$@"\n'
-    with open(launcher, "w") as fh:
-        fh.write("#!/bin/sh\n" + body)
+        if command is None:
+            os.symlink(sys.executable, os.path.join(macos, "python"))
+            body = (f"# Starts {spec.name} from the Python environment it was installed in, linked in beside this\n"
+                    f"# file so that macOS sees the app as {spec.name}\n"
+                    f'exec "$(dirname "$0")/python" -m {spec.module} "$@"\n')
+        else:
+            body = "exec " + " ".join(f'"{c}"' for c in command) + ' "$@"\n'
+        with open(launcher, "w") as fh:
+            fh.write("#!/bin/sh\n" + body)
     os.chmod(launcher, 0o755)
     has_icon = make_icns(spec, os.path.join(res, f"{spec.name}.icns"))
     info = {
@@ -217,6 +192,8 @@ def mac_app(spec: AppSpec, dest: str, command: list | None = None, do_register: 
         info["CFBundleIconName"] = spec.name   # (macOS 26 and later: the icon in Assets.car, light or dark with the system)
     with open(os.path.join(app, "Contents", "Info.plist"), "wb") as fh:
         plistlib.dump(info, fh)
+    if native:
+        sign_mac_app(app)   # (last: it seals what's in the bundle)
     if do_register and sys.platform == "darwin":
         register(app)
     return app

@@ -369,11 +369,30 @@ def _installed_file(name: str) -> str | None:
         return None
 
 
+def _mac_program() -> str:
+    """The running program's path, as macOS has it: the app's launcher where the app runs Python
+    inside itself (packaging.mac_app, whose sys.executable is the environment's python)."""
+    if sys.platform != "darwin":
+        return ""
+    import ctypes
+    try:
+        get = ctypes.CDLL(None)._NSGetExecutablePath
+        size = ctypes.c_uint32(0)
+        get(None, ctypes.byref(size))
+        buf = ctypes.create_string_buffer(size.value)
+        if get(buf, ctypes.byref(size)) != 0:
+            return ""
+        return os.path.abspath(os.fsdecode(buf.value))
+    except (AttributeError, OSError):
+        return ""
+
+
 def mac_app_dir() -> str | None:
     """The folder the .app is in: the running one's, or the one the installer used."""
-    exe, mark = sys.executable, ".app/Contents/MacOS/"
-    if mark in exe:
-        return os.path.dirname(exe[:exe.index(mark) + 4])
+    mark = ".app/Contents/MacOS/"
+    for exe in (_mac_program(), sys.executable):   # (sys.executable: an older app's linked-in python)
+        if mark in exe:
+            return os.path.dirname(exe[:exe.index(mark) + 4])
     return _installed_file("app_dir")
 
 
