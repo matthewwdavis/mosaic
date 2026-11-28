@@ -1142,7 +1142,7 @@ class Api:
         (Refresh All Pictures): every linked file re-read, copies saved since placing taken in,
         and which files couldn't be found ({"changed", "added": {id: [kinds]}, "missing": [ids]}).
         `job`: its progress bar's (Stop: {"cancelled": True}, nothing taken)."""
-        return self._run_job(job, lambda p: self._refresh_assets(assets, doc_path, force, p))
+        return self._run_job(job, lambda p: self._refresh_assets(assets, doc_path, force, p), "Refresh")
 
     def _refresh_assets(self, assets: dict, doc_path: str | None, force: bool, p: Progress) -> dict:
         from ..assets import resolve_link
@@ -1282,7 +1282,9 @@ class Api:
     # far it's got a few times a second (job_progress) and can stop it (cancel_job). A job stopped
     # answers {"cancelled": True}
 
-    def _run_job(self, job: str | None, fn):
+    def _run_job(self, job: str | None, fn, what: str = "A job"):
+        """Run fn(progress). Stopped, it says so; failed, the whole error goes in the log (the
+        editor shows only its last line), with what a program it ran said."""
         p = Progress()
         if job:
             self._jobs[job] = p
@@ -1290,6 +1292,18 @@ class Api:
             return fn(p)
         except Cancelled:
             return {"cancelled": True}
+        except Exception as exc:
+            import traceback
+            said = getattr(exc, "stderr", None) or getattr(exc, "output", None)
+            if isinstance(said, bytes):
+                said = said.decode("utf-8", "replace")
+            text = f"---- {what} failed\n{traceback.format_exc()}" + (f"It said:\n{said.rstrip()}\n" if said else "")
+            try:
+                sys.stderr.write(text)
+                sys.stderr.flush()
+            except Exception:   # noqa: BLE001 (nowhere to write it)
+                pass
+            raise
         finally:
             if job:
                 self._jobs.pop(job, None)
@@ -1313,12 +1327,12 @@ class Api:
             doc, base, options.get("formats", ["pdf"]), pages=options.get("pages"),
             dpi=float(options.get("dpi", 600)), transparent=options.get("transparent", True),
             cmyk=options.get("cmyk", False), cmyk_profile=options.get("icc") or None,
-            doc_dir=doc_dir, embed_fonts=options.get("embed_fonts", True), progress=p))
+            doc_dir=doc_dir, embed_fonts=options.get("embed_fonts", True), progress=p), "Export")
 
     def preflight(self, doc: dict, options: dict | None = None) -> dict:
         from ..export.preflight import preflight
         options = options or {}
-        return self._run_job(options.get("job"), lambda p: preflight(doc, options, p))
+        return self._run_job(options.get("job"), lambda p: preflight(doc, options, p), "Check")
 
     def export_check(self, doc: dict, options: dict) -> list[dict]:
         """The Export window's settings against the exported pages' journals."""
@@ -1336,7 +1350,7 @@ class Api:
         from .. import report
         return self._run_job(options.get("job"), lambda p: {"files": report.write(
             doc, options["base"], options.get("formats", []), options.get("pages"), options.get("units", "cm"),
-            options.get("doc_path"), p)})
+            options.get("doc_path"), p)}, "Figure report")
 
     def shape_to_custom(self, item: dict) -> dict:
         """A ready-made shape as a freeform shape of the same outline (resolve.shape_to_custom)."""
