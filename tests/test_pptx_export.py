@@ -105,3 +105,24 @@ def test_thin_objects_go_in_as_pictures_at_least_3_pt_across(cache, tmp_path):
     (pic,) = Presentation(str(tmp_path / "thin.pptx")).slides[0].shapes
     assert pic.shape_type == MSO_SHAPE_TYPE.PICTURE
     assert abs(pic.width / 12700 - 3.0) < 1e-3 and abs((pic.left + pic.width / 2) / 12700 - 100.0) < 1e-3
+
+
+def test_line_spacing_goes_in_as_a_multiple_or_exact_points(cache, tmp_path):
+    """The model keeps line spacing as {pct} or {pts}; the writer took it for a bare number and
+    stopped the export ("float() argument must be ... not 'dict'", 11-27). Both read back as they were."""
+    doc = model.new_document("spacing")
+    page = doc["pages"][0]
+    page["width"], page["height"] = 300.0, 200.0
+    text = lambda id, y, spacing: {"id": id, "type": "shape", "geom": "rect", "textbox": True, "frame": [20, y, 200, 40],  # noqa: E731
+                                   "stroke": None, "fill": None,
+                                   "text": {"paragraphs": [{"align": "l", "line_spacing": spacing,
+                                                            "runs": [{"t": "one\ntwo", "font": "Helvetica", "size": 6, "bold": False,
+                                                                      "italic": False, "color": "#000000"}]}],
+                                            "insets": [0, 0, 0, 0], "wrap": True, "anchor": "t", "autofit": "none"}}
+    page["items"] = [text("pct", 20, {"pct": 0.9}), text("pts", 80, {"pts": 7.5})]
+    export_document(doc, str(tmp_path / "spacing"), ["pptx"], cache=cache)
+    slide_xml = zipfile.ZipFile(tmp_path / "spacing.pptx").read("ppt/slides/slide1.xml").decode()
+    assert '<a:spcPct val="90000"/>' in slide_xml and '<a:spcPts val="750"/>' in slide_xml
+    back, _ = import_pptx(str(tmp_path / "spacing.pptx"), cache=cache)
+    spacings = [it["text"]["paragraphs"][0].get("line_spacing") for it in back["pages"][0]["items"] if it.get("textbox")]
+    assert spacings == [{"pct": 0.9}, {"pts": 7.5}], spacings

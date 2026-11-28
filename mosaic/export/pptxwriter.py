@@ -118,6 +118,20 @@ def _cust_geom(paths: list[str], w: float, h: float) -> str:
             f'<a:pathLst>{"".join(paths)}</a:pathLst></a:custGeom>')
 
 
+def _line_spacing(spacing) -> str:
+    """A paragraph's a:lnSpc. The model keeps line spacing as {pct} (a multiple of single) or {pts}
+    (exact); a bare number is read as a multiple."""
+    if not spacing:
+        return ""
+    if isinstance(spacing, dict):
+        if spacing.get("pts") is not None:
+            return f'<a:lnSpc><a:spcPts val="{int(round(float(spacing["pts"]) * 100))}"/></a:lnSpc>'
+        if spacing.get("pct") is None:
+            return ""
+        spacing = spacing["pct"]
+    return f'<a:lnSpc><a:spcPct val="{int(round(float(spacing) * 100000))}"/></a:lnSpc>'
+
+
 def _text_body(item: dict) -> str:
     body = item.get("text") or {}
     paras = body.get("paragraphs") or []
@@ -130,8 +144,7 @@ def _text_body(item: dict) -> str:
            f'rIns="{e(r)}" bIns="{e(b)}" anchor="{anchor}" rtlCol="0">{fit}</a:bodyPr><a:lstStyle/>']
     for p in paras:
         ppr = f'<a:pPr algn="{p.get("align", "l") if p.get("align") in ("l", "ctr", "r", "just") else "l"}">'
-        if p.get("line_spacing"):
-            ppr += f'<a:lnSpc><a:spcPct val="{int(round(float(p["line_spacing"]) * 100000))}"/></a:lnSpc>'
+        ppr += _line_spacing(p.get("line_spacing"))
         if p.get("space_before"):
             ppr += f'<a:spcBef><a:spcPts val="{int(round(float(p["space_before"]) * 100))}"/></a:spcBef>'
         if p.get("space_after"):
