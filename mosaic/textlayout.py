@@ -98,10 +98,21 @@ class _Piece:
     gids: list[int]
 
 
+# A vertical tab (Word's and PowerPoint's line break within a paragraph, in pasted text) breaks the
+# line, as the PowerPoint export takes it; other control characters draw nothing (an SVG can't hold
+# them: lxml refused the whole text box, 11-27)
+_CONTROLS = {c: None for c in range(32) if chr(c) not in "\n\t"} | {0x0B: "\n", 0x0D: "\n", 0x7F: None}
+
+
+def clean_text(text) -> str:
+    """A run's letters as they're drawn: line breaks as \\n (\\r\\n, \\r and \\v too), no other control characters."""
+    return str(text or "").replace("\r\n", "\n").translate(_CONTROLS)
+
+
 def _pieces(runs: list[dict], defaults: dict | None, index: FontIndex | None) -> list[_Piece]:
     out: list[_Piece] = []
     for run in runs:
-        text = run.get("t", "")
+        text = clean_text(run.get("t", ""))
         if not text:
             continue
         st = run_style(run, defaults)

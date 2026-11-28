@@ -22,6 +22,7 @@ from .. import presets
 from ..assets import PDFIUM_LOCK, SourceResolver
 from ..geometry import Matrix, Path, dash_pattern, smooth_path
 from ..resolve import DrawGroup, DrawPath, Resolved, Resolver, flat_prims, shape_to_custom
+from ..textlayout import clean_text
 from .run import _on_page
 
 EMU = 12700   # per point
@@ -135,7 +136,7 @@ def _line_spacing(spacing) -> str:
 def _text_body(item: dict) -> str:
     body = item.get("text") or {}
     paras = body.get("paragraphs") or []
-    if not any(r.get("t") for p in paras for r in p.get("runs", [])):
+    if not any(clean_text(r.get("t")) for p in paras for r in p.get("runs", [])):
         return ""
     l, t, r, b = body.get("insets") or [7.2, 3.6, 7.2, 3.6]
     fit = "<a:spAutoFit/>" if body.get("autofit") == "shape" else "<a:noAutofit/>"
@@ -162,7 +163,7 @@ def _text_body(item: dict) -> str:
                    + f' dirty="0"><a:solidFill>{_colour(run.get("color"))}</a:solidFill>'
                    + f'<a:latin typeface={quoteattr(run.get("font") or "Helvetica")}/>'
                    + f'<a:cs typeface={quoteattr(run.get("font") or "Helvetica")}/></a:rPr>')
-            for k, piece in enumerate(str(run.get("t", "")).replace("\v", "\n").split("\n")):
+            for k, piece in enumerate(clean_text(run.get("t", "")).split("\n")):
                 if k:
                     out.append(f"<a:br>{rpr}</a:br>")
                 if piece:
